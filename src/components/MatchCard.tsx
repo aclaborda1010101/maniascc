@@ -73,7 +73,7 @@ export function MatchCard({ match, index, onUpdate }: MatchCardProps) {
         )}
       </CardContent>
       <CardFooter className="flex gap-2">
-        {match.estado === "pendiente" ? (
+        {(match.estado === "pendiente" || match.estado === "sugerido") ? (
           <>
             <Button
               size="sm"
@@ -95,7 +95,8 @@ export function MatchCard({ match, index, onUpdate }: MatchCardProps) {
             </Button>
           </>
         ) : (
-          <Badge variant={match.estado === "aprobado" ? "default" : "secondary"} className={match.estado === "aprobado" ? "bg-chart-2/10 text-chart-2" : ""}>
+          <Badge variant={match.estado === "contactado" || match.estado === "exito" ? "default" : "secondary"}
+            className={match.estado === "contactado" || match.estado === "exito" ? "bg-chart-2/10 text-chart-2" : ""}>
             {match.estado}
           </Badge>
         )}
