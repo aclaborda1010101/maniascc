@@ -154,27 +154,34 @@ export default function LocalDetail() {
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Sparkles className="h-5 w-5 text-accent" /> Matching IA
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <Button
-              asChild
-              className="w-full bg-accent text-accent-foreground hover:bg-accent/90"
-            >
-              <Link to={`/matching/${id}`}>
-                <Sparkles className="mr-2 h-4 w-4" />
-                Generar Matches IA
-              </Link>
-            </Button>
-            <p className="text-xs text-muted-foreground">
-              El algoritmo buscará los operadores más compatibles según superficie, renta y sector.
-            </p>
-          </CardContent>
-        </Card>
+        <div className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Sparkles className="h-5 w-5 text-accent" /> Acciones IA
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <Button asChild className="w-full bg-accent text-accent-foreground hover:bg-accent/90">
+                <Link to={`/matching/${id}`}>
+                  <Sparkles className="mr-2 h-4 w-4" /> Generar Matches IA
+                </Link>
+              </Button>
+              <p className="text-xs text-muted-foreground">
+                El algoritmo buscará los operadores más compatibles según superficie, renta y sector.
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader><CardTitle className="text-sm">Estadísticas</CardTitle></CardHeader>
+            <CardContent className="space-y-3 text-sm">
+              <div className="flex justify-between"><span className="text-muted-foreground">Matches generados</span><span className="font-semibold">{matches.length}</span></div>
+              <div className="flex justify-between"><span className="text-muted-foreground">Mejor score</span><span className="font-semibold">{matches.length > 0 ? `${matches[0].score}%` : "—"}</span></div>
+              <div className="flex justify-between"><span className="text-muted-foreground">Último match</span><span className="font-semibold">{matches.length > 0 ? new Date(matches[0].created_at).toLocaleDateString("es-ES") : "—"}</span></div>
+            </CardContent>
+          </Card>
+        </div>
       </div>
 
       <Card>

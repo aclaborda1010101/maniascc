@@ -74,6 +74,42 @@ export type Database = {
           },
         ]
       }
+      farmacias: {
+        Row: {
+          codigo_postal: string
+          created_at: string
+          created_by: string | null
+          datos_revelados: boolean | null
+          id: string
+          nombre: string
+          riesgo_desabastecimiento: string | null
+          score_riesgo: number | null
+          updated_at: string
+        }
+        Insert: {
+          codigo_postal?: string
+          created_at?: string
+          created_by?: string | null
+          datos_revelados?: boolean | null
+          id?: string
+          nombre: string
+          riesgo_desabastecimiento?: string | null
+          score_riesgo?: number | null
+          updated_at?: string
+        }
+        Update: {
+          codigo_postal?: string
+          created_at?: string
+          created_by?: string | null
+          datos_revelados?: boolean | null
+          id?: string
+          nombre?: string
+          riesgo_desabastecimiento?: string | null
+          score_riesgo?: number | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       locales: {
         Row: {
           caracteristicas: Json | null

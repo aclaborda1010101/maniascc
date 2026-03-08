@@ -1,18 +1,10 @@
-import { LayoutDashboard, MapPin, Users, Sparkles, LogOut } from "lucide-react";
+import { LayoutDashboard, MapPin, Users, Sparkles, LogOut, FileText, Search, Pill } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useLocation } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import {
-  Sidebar,
-  SidebarContent,
-  SidebarGroup,
-  SidebarGroupContent,
-  SidebarGroupLabel,
-  SidebarMenu,
-  SidebarMenuButton,
-  SidebarMenuItem,
-  SidebarFooter,
-  useSidebar,
+  Sidebar, SidebarContent, SidebarGroup, SidebarGroupContent, SidebarGroupLabel,
+  SidebarMenu, SidebarMenuButton, SidebarMenuItem, SidebarFooter, useSidebar,
 } from "@/components/ui/sidebar";
 import { Button } from "@/components/ui/button";
 
@@ -20,6 +12,9 @@ const navItems = [
   { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
   { title: "Locales", url: "/locales", icon: MapPin },
   { title: "Operadores", url: "/operadores", icon: Users },
+  { title: "Documentos", url: "/documentos", icon: FileText },
+  { title: "Búsqueda", url: "/busqueda", icon: Search },
+  { title: "Farmacias", url: "/farmacias", icon: Pill },
 ];
 
 export function AppSidebar() {
