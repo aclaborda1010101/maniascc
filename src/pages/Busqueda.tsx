@@ -71,7 +71,7 @@ export default function Busqueda() {
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Búsqueda Global</h1>
-        <p className="text-sm text-muted-foreground">Busca en locales, operadores, matches y farmacias</p>
+        <p className="text-sm text-muted-foreground">Busca en locales, operadores y matches</p>
       </div>
 
       <div className="flex gap-3">
