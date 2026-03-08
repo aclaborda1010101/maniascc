@@ -185,7 +185,7 @@ export default function Operadores() {
               <SelectContent>
                 <SelectItem value="todos">Todos los sectores</SelectItem>
                 {SECTORES.map((s) => (
-                  <SelectItem key={s} value={s}>{s}</SelectItem>
+                  <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
                 ))}
               </SelectContent>
             </Select>
