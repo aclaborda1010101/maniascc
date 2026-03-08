@@ -18,7 +18,7 @@ const OperadorDetail = lazy(() => import("./pages/OperadorDetail"));
 const Matching = lazy(() => import("./pages/Matching"));
 const Busqueda = lazy(() => import("./pages/Busqueda"));
 const Documentos = lazy(() => import("./pages/Documentos"));
-const Farmacias = lazy(() => import("./pages/Farmacias"));
+
 const LocationAnalysis = lazy(() => import("./pages/LocationAnalysis"));
 const DossierValidation = lazy(() => import("./pages/DossierValidation"));
 const TenantMixOptimizer = lazy(() => import("./pages/TenantMixOptimizer"));
