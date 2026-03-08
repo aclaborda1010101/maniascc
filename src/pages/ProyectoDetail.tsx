@@ -16,7 +16,9 @@ import {
   ArrowLeft, MapPin, Users, FileText, Sparkles, MessageSquare,
   Calendar, Plus, Trash2, UserCircle, Building2, Target, Layers,
   FileSearch, Compass, BookOpen, Send, Loader2, RefreshCw,
+  Upload, Download, File,
 } from "lucide-react";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { queryRAG, ingestDocument } from "@/services/ragService";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 
@@ -61,6 +63,11 @@ export default function ProyectoDetail() {
   const [ragLoading, setRagLoading] = useState(false);
   const [ragDocs, setRagDocs] = useState<any[]>([]);
   const [ragIngesting, setRagIngesting] = useState<string | null>(null);
+  // Documentos state
+  const [docUploading, setDocUploading] = useState(false);
+  const [docDragOver, setDocDragOver] = useState(false);
+  const [docTipo, setDocTipo] = useState("contrato");
+  const [proyDocs, setProyDocs] = useState<any[]>([]);
 
   const fetchAll = async () => {
     if (!id) return;
@@ -91,10 +98,11 @@ export default function ProyectoDetail() {
     if (!id) return;
     const { data } = await supabase
       .from("documentos_proyecto")
-      .select("id, nombre, procesado_ia, created_at, mime_type")
+      .select("id, nombre, procesado_ia, created_at, mime_type, tipo_documento, tamano_bytes, storage_path")
       .eq("proyecto_id", id)
       .order("created_at", { ascending: false });
     setRagDocs(data || []);
+    setProyDocs(data || []);
   };
 
   useEffect(() => { fetchAll(); fetchAvailable(); fetchRagDocs(); }, [id]);
@@ -128,6 +136,63 @@ export default function ProyectoDetail() {
     await supabase.from("proyectos").update({ estado: estado as any }).eq("id", id!);
     setProyecto((p: any) => ({ ...p, estado }));
     toast({ title: `Estado actualizado a ${estadoLabels[estado]}` });
+  };
+
+  // Document upload handler
+  const handleDocUpload = async (fileList: FileList | null, tipo: string) => {
+    if (!fileList || fileList.length === 0 || !id || !user) return;
+    setDocUploading(true);
+    try {
+      for (const file of Array.from(fileList)) {
+        const storagePath = `proyectos/${id}/${Date.now()}_${file.name}`;
+        const { error: uploadErr } = await supabase.storage
+          .from("documentos_contratos")
+          .upload(storagePath, file);
+        if (uploadErr) throw uploadErr;
+
+        const { data: docRow, error: insertErr } = await supabase
+          .from("documentos_proyecto")
+          .insert({
+            proyecto_id: id,
+            nombre: file.name,
+            storage_path: storagePath,
+            mime_type: file.type,
+            tamano_bytes: file.size,
+            tipo_documento: tipo,
+            subido_por: user.id,
+          })
+          .select("id")
+          .single();
+        if (insertErr) throw insertErr;
+
+        // Auto-ingest to RAG
+        if (docRow) {
+          ingestDocument(docRow.id).then((res) => {
+            if (res.success) {
+              toast({ title: `"${file.name}" indexado (${res.chunks_created} fragmentos)` });
+              fetchRagDocs();
+            }
+          });
+        }
+      }
+      toast({ title: `${fileList.length} archivo(s) subido(s)` });
+      fetchRagDocs();
+    } catch (e: any) {
+      toast({ title: "Error al subir", description: e.message, variant: "destructive" });
+    }
+    setDocUploading(false);
+  };
+
+  const handleDocDownload = async (storagePath: string) => {
+    const { data } = await supabase.storage.from("documentos_contratos").createSignedUrl(storagePath, 120);
+    if (data?.signedUrl) window.open(data.signedUrl, "_blank");
+  };
+
+  const handleDocDelete = async (docId: string, storagePath: string) => {
+    await supabase.storage.from("documentos_contratos").remove([storagePath]);
+    await supabase.from("documentos_proyecto").delete().eq("id", docId);
+    toast({ title: "Documento eliminado" });
+    fetchRagDocs();
   };
 
   const addOperador = async (opId: string) => {
@@ -438,11 +503,125 @@ export default function ProyectoDetail() {
 
         {/* ===== DOCUMENTOS ===== */}
         <TabsContent value="documentos" className="space-y-4">
-          <Card><CardContent className="py-12 text-center">
-            <FileText className="mx-auto mb-3 h-10 w-10 text-muted-foreground/30" />
-            <p className="text-muted-foreground">Sube documentos asociados a este proyecto: contratos, dossiers, propuestas, emails.</p>
-            <Button className="mt-3" variant="outline"><Plus className="mr-2 h-4 w-4" /> Subir Documento</Button>
-          </CardContent></Card>
+          {/* Upload zone */}
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base flex items-center gap-2">
+                <Upload className="h-4 w-4" /> Subir documentos
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex items-center gap-3">
+                <Label className="text-sm whitespace-nowrap">Tipo:</Label>
+                <Select value={docTipo} onValueChange={setDocTipo}>
+                  <SelectTrigger className="w-[200px]"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="contrato">Contrato</SelectItem>
+                    <SelectItem value="dossier">Dossier</SelectItem>
+                    <SelectItem value="propuesta">Propuesta</SelectItem>
+                    <SelectItem value="email">Email</SelectItem>
+                    <SelectItem value="informe">Informe</SelectItem>
+                    <SelectItem value="plano">Plano</SelectItem>
+                    <SelectItem value="foto">Foto</SelectItem>
+                    <SelectItem value="otro">Otro</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div
+                className={`flex flex-col items-center justify-center rounded-lg border-2 border-dashed p-8 transition-colors cursor-pointer ${
+                  docDragOver ? "border-accent bg-accent/5" : "border-border"
+                }`}
+                onDragOver={(e) => { e.preventDefault(); setDocDragOver(true); }}
+                onDragLeave={() => setDocDragOver(false)}
+                onDrop={(e) => { e.preventDefault(); setDocDragOver(false); handleDocUpload(e.dataTransfer.files, docTipo); }}
+                onClick={() => document.getElementById("doc-upload-input")?.click()}
+              >
+                <Upload className="mb-2 h-8 w-8 text-muted-foreground" />
+                <p className="text-sm text-muted-foreground">
+                  {docUploading ? "Subiendo..." : "Arrastra archivos aquí o haz clic para seleccionar"}
+                </p>
+                <p className="text-xs text-muted-foreground mt-1">Se indexarán automáticamente en la base de conocimiento</p>
+                <input
+                  type="file"
+                  multiple
+                  className="hidden"
+                  id="doc-upload-input"
+                  onChange={(e) => { handleDocUpload(e.target.files, docTipo); e.target.value = ""; }}
+                />
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Document list */}
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base">{proyDocs.length} documento{proyDocs.length !== 1 ? "s" : ""}</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {proyDocs.length === 0 ? (
+                <div className="py-8 text-center">
+                  <FileText className="mx-auto mb-3 h-10 w-10 text-muted-foreground/30" />
+                  <p className="text-muted-foreground text-sm">No hay documentos aún. Sube el primero.</p>
+                </div>
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Nombre</TableHead>
+                      <TableHead>Tipo</TableHead>
+                      <TableHead>Tamaño</TableHead>
+                      <TableHead>Estado IA</TableHead>
+                      <TableHead>Fecha</TableHead>
+                      <TableHead className="text-right">Acciones</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {proyDocs.map((doc) => (
+                      <TableRow key={doc.id}>
+                        <TableCell className="font-medium">
+                          <div className="flex items-center gap-2">
+                            <File className="h-4 w-4 text-muted-foreground shrink-0" />
+                            <span className="truncate max-w-[200px]">{doc.nombre}</span>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant="outline" className="text-xs capitalize">{doc.tipo_documento || "—"}</Badge>
+                        </TableCell>
+                        <TableCell className="text-xs text-muted-foreground">
+                          {doc.tamano_bytes ? `${(doc.tamano_bytes / 1024).toFixed(0)} KB` : "—"}
+                        </TableCell>
+                        <TableCell>
+                          {doc.procesado_ia ? (
+                            <Badge variant="secondary" className="text-[10px] h-5">Indexado ✓</Badge>
+                          ) : (
+                            <Badge variant="outline" className="text-[10px] h-5">Pendiente</Badge>
+                          )}
+                        </TableCell>
+                        <TableCell className="text-xs text-muted-foreground">
+                          {doc.created_at ? new Date(doc.created_at).toLocaleDateString("es-ES") : "—"}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex justify-end gap-1">
+                            <Button variant="ghost" size="icon" onClick={() => handleDocDownload(doc.storage_path)} title="Descargar">
+                              <Download className="h-4 w-4" />
+                            </Button>
+                            {!doc.procesado_ia && (
+                              <Button variant="ghost" size="icon" onClick={() => handleIngestDoc(doc.id)} disabled={ragIngesting === doc.id} title="Indexar">
+                                {ragIngesting === doc.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+                              </Button>
+                            )}
+                            <Button variant="ghost" size="icon" onClick={() => handleDocDelete(doc.id, doc.storage_path)} className="text-muted-foreground hover:text-destructive" title="Eliminar">
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              )}
+            </CardContent>
+          </Card>
         </TabsContent>
 
         {/* ===== VALIDACIÓN ===== */}
