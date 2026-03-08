@@ -16,7 +16,7 @@ import {
   ArrowLeft, MapPin, Users, FileText, Sparkles, MessageSquare,
   Calendar, Plus, Trash2, UserCircle, Building2, Target, Layers,
   FileSearch, Compass, BookOpen, Send, Loader2, RefreshCw,
-  Upload, Download, File,
+  Upload, Download, File, Hammer, Copy,
 } from "lucide-react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { queryRAG, ingestDocument } from "@/services/ragService";
