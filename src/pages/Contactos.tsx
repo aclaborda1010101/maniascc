@@ -5,29 +5,30 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Plus, Search, Contact, Trash2 } from "lucide-react";
+import { Plus, Search, UserCircle, Trash2 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 
 const estiloLabels: Record<string, string> = {
   colaborativo: "Colaborativo",
   competitivo: "Competitivo",
-  evitativo: "Evitativo",
-  acomodaticio: "Acomodaticio",
-  comprometido: "Comprometido",
+  analitico: "Analítico",
+  expresivo: "Expresivo",
+  evitador: "Evitador",
 };
 
 const estiloColors: Record<string, string> = {
   colaborativo: "bg-chart-2/10 text-chart-2",
   competitivo: "bg-destructive/10 text-destructive",
-  evitativo: "bg-muted text-muted-foreground",
-  acomodaticio: "bg-chart-3/10 text-chart-3",
-  comprometido: "bg-accent/10 text-accent",
+  analitico: "bg-accent/10 text-accent",
+  expresivo: "bg-chart-3/10 text-chart-3",
+  evitador: "bg-muted text-muted-foreground",
 };
 
 export default function Contactos() {
@@ -41,9 +42,9 @@ export default function Contactos() {
 
   const fetchContactos = async () => {
     setLoading(true);
-    let query = supabase.from("perfiles_negociador").select("*").order("creado_en", { ascending: false });
+    let query = supabase.from("contactos").select("*").order("created_at", { ascending: false });
     if (search) {
-      query = query.or(`contacto_nombre.ilike.%${search}%,contacto_empresa.ilike.%${search}%,contacto_cargo.ilike.%${search}%`);
+      query = query.or(`nombre.ilike.%${search}%,empresa.ilike.%${search}%,cargo.ilike.%${search}%`);
     }
     const { data } = await query;
     setContactos(data || []);
@@ -56,12 +57,18 @@ export default function Contactos() {
     e.preventDefault();
     setSubmitting(true);
     const fd = new FormData(e.currentTarget);
-    const { error } = await supabase.from("perfiles_negociador").insert({
-      contacto_nombre: fd.get("contacto_nombre") as string,
-      contacto_empresa: (fd.get("contacto_empresa") as string) || null,
-      contacto_cargo: (fd.get("contacto_cargo") as string) || null,
-      estilo_primario: (fd.get("estilo_primario") as string) || "colaborativo",
-      usuario_id: user?.id,
+    const estilo = fd.get("estilo_negociacion") as string;
+    const { error } = await supabase.from("contactos").insert({
+      nombre: fd.get("nombre") as string,
+      apellidos: (fd.get("apellidos") as string) || null,
+      empresa: (fd.get("empresa") as string) || null,
+      cargo: (fd.get("cargo") as string) || null,
+      email: (fd.get("email") as string) || null,
+      telefono: (fd.get("telefono") as string) || null,
+      linkedin_url: (fd.get("linkedin_url") as string) || null,
+      estilo_negociacion: estilo && estilo !== "none" ? estilo : null,
+      notas_perfil: (fd.get("notas_perfil") as string) || null,
+      creado_por: user?.id,
     });
     setSubmitting(false);
     if (error) {
@@ -74,7 +81,7 @@ export default function Contactos() {
   };
 
   const handleDelete = async (id: string, name: string) => {
-    const { error } = await supabase.from("perfiles_negociador").delete().eq("id", id);
+    const { error } = await supabase.from("contactos").delete().eq("id", id);
     if (error) {
       toast({ title: "Error al eliminar", description: error.message, variant: "destructive" });
     } else {
@@ -88,7 +95,7 @@ export default function Contactos() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Contactos</h1>
-          <p className="text-sm text-muted-foreground">Interlocutores y perfiles de negociación</p>
+          <p className="text-sm text-muted-foreground">Base de datos global de personas externas</p>
         </div>
         <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
           <DialogTrigger asChild>
@@ -101,34 +108,57 @@ export default function Contactos() {
               <DialogTitle>Crear Nuevo Contacto</DialogTitle>
             </DialogHeader>
             <form onSubmit={handleCreate} className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="c-nombre">Nombre completo *</Label>
-                <Input id="c-nombre" name="contacto_nombre" placeholder="Ana García López" required />
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="c-nombre">Nombre *</Label>
+                  <Input id="c-nombre" name="nombre" placeholder="Ana" required />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="c-apellidos">Apellidos</Label>
+                  <Input id="c-apellidos" name="apellidos" placeholder="García López" />
+                </div>
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="c-empresa">Empresa</Label>
-                  <Input id="c-empresa" name="contacto_empresa" placeholder="Grupo Inmobiliario XYZ" />
+                  <Input id="c-empresa" name="empresa" placeholder="Grupo XYZ" />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="c-cargo">Cargo</Label>
-                  <Input id="c-cargo" name="contacto_cargo" placeholder="Directora Comercial" />
+                  <Input id="c-cargo" name="cargo" placeholder="Dir. Comercial" />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="c-email">Email</Label>
+                  <Input id="c-email" name="email" type="email" placeholder="ana@empresa.com" />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="c-tel">Teléfono</Label>
+                  <Input id="c-tel" name="telefono" placeholder="+34 600 000 000" />
                 </div>
               </div>
               <div className="space-y-2">
+                <Label htmlFor="c-linkedin">LinkedIn</Label>
+                <Input id="c-linkedin" name="linkedin_url" placeholder="https://linkedin.com/in/..." />
+              </div>
+              <div className="space-y-2">
                 <Label htmlFor="c-estilo">Estilo de negociación</Label>
-                <Select name="estilo_primario" defaultValue="colaborativo">
-                  <SelectTrigger id="c-estilo">
-                    <SelectValue />
-                  </SelectTrigger>
+                <Select name="estilo_negociacion" defaultValue="none">
+                  <SelectTrigger id="c-estilo"><SelectValue placeholder="Sin definir" /></SelectTrigger>
                   <SelectContent>
+                    <SelectItem value="none">Sin definir</SelectItem>
                     <SelectItem value="colaborativo">Colaborativo</SelectItem>
                     <SelectItem value="competitivo">Competitivo</SelectItem>
-                    <SelectItem value="comprometido">Comprometido</SelectItem>
-                    <SelectItem value="acomodaticio">Acomodaticio</SelectItem>
-                    <SelectItem value="evitativo">Evitativo</SelectItem>
+                    <SelectItem value="analitico">Analítico</SelectItem>
+                    <SelectItem value="expresivo">Expresivo</SelectItem>
+                    <SelectItem value="evitador">Evitador</SelectItem>
                   </SelectContent>
                 </Select>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="c-notas">Notas</Label>
+                <Textarea id="c-notas" name="notas_perfil" placeholder="Observaciones sobre este contacto..." rows={2} />
               </div>
               <Button type="submit" className="w-full bg-accent text-accent-foreground hover:bg-accent/90" disabled={submitting}>
                 {submitting ? "Creando..." : "Crear Contacto"}
@@ -150,7 +180,7 @@ export default function Contactos() {
             <div className="space-y-3">{[1, 2, 3].map((i) => <Skeleton key={i} className="h-14 w-full" />)}</div>
           ) : contactos.length === 0 ? (
             <div className="py-12 text-center">
-              <Contact className="mx-auto mb-3 h-10 w-10 text-muted-foreground/30" />
+              <UserCircle className="mx-auto mb-3 h-10 w-10 text-muted-foreground/30" />
               <p className="text-muted-foreground">{search ? "No se encontraron contactos." : "No hay contactos aún. Crea el primero."}</p>
             </div>
           ) : (
@@ -160,6 +190,7 @@ export default function Contactos() {
                   <TableHead>Nombre</TableHead>
                   <TableHead>Empresa</TableHead>
                   <TableHead>Cargo</TableHead>
+                  <TableHead>Email</TableHead>
                   <TableHead>Estilo</TableHead>
                   <TableHead className="w-12"></TableHead>
                 </TableRow>
@@ -167,13 +198,14 @@ export default function Contactos() {
               <TableBody>
                 {contactos.map((c) => (
                   <TableRow key={c.id}>
-                    <TableCell className="font-medium">{c.contacto_nombre}</TableCell>
-                    <TableCell>{c.contacto_empresa || <span className="text-muted-foreground">—</span>}</TableCell>
-                    <TableCell>{c.contacto_cargo || <span className="text-muted-foreground">—</span>}</TableCell>
+                    <TableCell className="font-medium">{c.nombre} {c.apellidos || ""}</TableCell>
+                    <TableCell>{c.empresa || <span className="text-muted-foreground">—</span>}</TableCell>
+                    <TableCell>{c.cargo || <span className="text-muted-foreground">—</span>}</TableCell>
+                    <TableCell className="text-sm">{c.email || <span className="text-muted-foreground">—</span>}</TableCell>
                     <TableCell>
-                      {c.estilo_primario && (
-                        <Badge variant="secondary" className={`text-xs ${estiloColors[c.estilo_primario] || ""}`}>
-                          {estiloLabels[c.estilo_primario] || c.estilo_primario}
+                      {c.estilo_negociacion && (
+                        <Badge variant="secondary" className={`text-xs ${estiloColors[c.estilo_negociacion] || ""}`}>
+                          {estiloLabels[c.estilo_negociacion] || c.estilo_negociacion}
                         </Badge>
                       )}
                     </TableCell>
@@ -187,11 +219,11 @@ export default function Contactos() {
                         <AlertDialogContent>
                           <AlertDialogHeader>
                             <AlertDialogTitle>¿Eliminar contacto?</AlertDialogTitle>
-                            <AlertDialogDescription>Se eliminará permanentemente a {c.contacto_nombre}.</AlertDialogDescription>
+                            <AlertDialogDescription>Se eliminará permanentemente a {c.nombre}.</AlertDialogDescription>
                           </AlertDialogHeader>
                           <AlertDialogFooter>
                             <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                            <AlertDialogAction onClick={() => handleDelete(c.id, c.contacto_nombre)} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                            <AlertDialogAction onClick={() => handleDelete(c.id, c.nombre)} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
                               Eliminar
                             </AlertDialogAction>
                           </AlertDialogFooter>

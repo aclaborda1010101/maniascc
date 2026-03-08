@@ -1,48 +1,31 @@
 import {
-  LayoutDashboard, MapPin, Users, Sparkles, LogOut, FileText, Search,
-  Compass, FileSearch, Layers, MessageSquare, FolderKanban, Contact,
+  LayoutDashboard, Users, Sparkles, LogOut, FileText, Search,
+  FolderKanban, UserCircle, Shield, Settings,
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useLocation } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import {
   Sidebar, SidebarContent, SidebarGroup, SidebarGroupContent, SidebarGroupLabel,
-  SidebarMenu, SidebarMenuButton, SidebarMenuItem, SidebarFooter, useSidebar,
+  SidebarMenu, SidebarMenuButton, SidebarMenuItem, SidebarFooter, SidebarSeparator,
+  useSidebar,
 } from "@/components/ui/sidebar";
 import { Button } from "@/components/ui/button";
 
-const sections = [
-  {
-    label: "General",
-    items: [
-      { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
-      { title: "Búsqueda", url: "/busqueda", icon: Search },
-    ],
-  },
-  {
-    label: "Proyectos",
-    items: [
-      { title: "Proyectos", url: "/proyectos", icon: FolderKanban },
-    ],
-  },
-  {
-    label: "Directorio",
-    items: [
-      { title: "Locales", url: "/locales", icon: MapPin },
-      { title: "Operadores", url: "/operadores", icon: Users },
-      { title: "Contactos", url: "/contactos", icon: Contact },
-      { title: "Documentos", url: "/documentos", icon: FileText },
-    ],
-  },
-  {
-    label: "Inteligencia IA",
-    items: [
-      { title: "Localización", url: "/localizacion-analisis", icon: Compass },
-      { title: "Validar Dossier", url: "/validacion-dossier", icon: FileSearch },
-      { title: "Tenant Mix", url: "/tenant-mix", icon: Layers },
-      { title: "Negociación", url: "/negociacion-briefing", icon: MessageSquare },
-    ],
-  },
+const mainItems = [
+  { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
+  { title: "Proyectos", url: "/proyectos", icon: FolderKanban },
+];
+
+const directoryItems = [
+  { title: "Operadores", url: "/operadores", icon: Users },
+  { title: "Contactos", url: "/contactos", icon: UserCircle },
+  { title: "Documentos", url: "/documentos", icon: FileText },
+];
+
+const toolsItems = [
+  { title: "Búsqueda IA", url: "/busqueda", icon: Search },
+  { title: "Auditoría IA", url: "/auditoria", icon: Shield },
 ];
 
 export function AppSidebar() {
@@ -53,6 +36,23 @@ export function AppSidebar() {
 
   const isActive = (path: string) =>
     location.pathname === path || location.pathname.startsWith(path + "/");
+
+  const renderItems = (items: typeof mainItems) =>
+    items.map((item) => (
+      <SidebarMenuItem key={item.title}>
+        <SidebarMenuButton asChild isActive={isActive(item.url)}>
+          <NavLink
+            to={item.url}
+            end={item.url === "/dashboard"}
+            className="hover:bg-sidebar-accent/50"
+            activeClassName="bg-sidebar-accent text-sidebar-primary font-medium"
+          >
+            <item.icon className="mr-2 h-4 w-4" />
+            {!collapsed && <span>{item.title}</span>}
+          </NavLink>
+        </SidebarMenuButton>
+      </SidebarMenuItem>
+    ));
 
   return (
     <Sidebar collapsible="icon">
@@ -71,36 +71,35 @@ export function AppSidebar() {
           </SidebarGroupLabel>
         </SidebarGroup>
 
-        {/* Sections */}
-        {sections.map((section) => (
-          <SidebarGroup key={section.label}>
-            {!collapsed && (
-              <SidebarGroupLabel className="text-[10px] uppercase tracking-widest text-sidebar-foreground/40 px-3">
-                {section.label}
-              </SidebarGroupLabel>
-            )}
-            <SidebarGroupContent>
-              <SidebarMenu>
-                {section.items.map((item) => (
-                  <SidebarMenuItem key={item.title}>
-                    <SidebarMenuButton asChild isActive={isActive(item.url)}>
-                      <NavLink
-                        to={item.url}
-                        end={item.url === "/dashboard"}
-                        className="hover:bg-sidebar-accent/50"
-                        activeClassName="bg-sidebar-accent text-sidebar-primary font-medium"
-                      >
-                        <item.icon className="mr-2 h-4 w-4" />
-                        {!collapsed && <span>{item.title}</span>}
-                      </NavLink>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                ))}
-              </SidebarMenu>
-            </SidebarGroupContent>
-          </SidebarGroup>
-        ))}
+        {/* Main */}
+        <SidebarGroup>
+          <SidebarGroupContent>
+            <SidebarMenu>{renderItems(mainItems)}</SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+
+        {/* Directorio */}
+        <SidebarGroup>
+          {!collapsed && (
+            <SidebarGroupLabel className="text-[10px] uppercase tracking-widest text-sidebar-foreground/40 px-3">
+              Directorio
+            </SidebarGroupLabel>
+          )}
+          <SidebarGroupContent>
+            <SidebarMenu>{renderItems(directoryItems)}</SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+
+        <SidebarSeparator />
+
+        {/* Tools */}
+        <SidebarGroup>
+          <SidebarGroupContent>
+            <SidebarMenu>{renderItems(toolsItems)}</SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
       </SidebarContent>
+
       <SidebarFooter>
         {!collapsed && user && (
           <p className="mb-2 truncate px-2 text-xs text-sidebar-foreground/60">

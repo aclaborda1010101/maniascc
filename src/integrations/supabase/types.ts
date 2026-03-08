@@ -14,6 +14,124 @@ export type Database = {
   }
   public: {
     Tables: {
+      actividad_proyecto: {
+        Row: {
+          created_at: string | null
+          descripcion: string
+          id: string
+          metadata: Json | null
+          proyecto_id: string
+          tipo: string
+          usuario_id: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          descripcion: string
+          id?: string
+          metadata?: Json | null
+          proyecto_id: string
+          tipo: string
+          usuario_id?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          descripcion?: string
+          id?: string
+          metadata?: Json | null
+          proyecto_id?: string
+          tipo?: string
+          usuario_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "actividad_proyecto_proyecto_id_fkey"
+            columns: ["proyecto_id"]
+            isOneToOne: false
+            referencedRelation: "proyectos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      activos: {
+        Row: {
+          caracteristicas: Json | null
+          codigo_postal: string | null
+          coordenadas_lat: number | null
+          coordenadas_lon: number | null
+          creado_por: string | null
+          created_at: string | null
+          direccion: string | null
+          estado: string | null
+          fachada_metros: number | null
+          fotos_urls: Json | null
+          gastos_comunidad: number | null
+          id: string
+          metros_cuadrados: number | null
+          nombre: string
+          notas: string | null
+          planta: string | null
+          proyecto_id: string | null
+          renta_actual: number | null
+          renta_esperada: number | null
+          tipo_activo: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          caracteristicas?: Json | null
+          codigo_postal?: string | null
+          coordenadas_lat?: number | null
+          coordenadas_lon?: number | null
+          creado_por?: string | null
+          created_at?: string | null
+          direccion?: string | null
+          estado?: string | null
+          fachada_metros?: number | null
+          fotos_urls?: Json | null
+          gastos_comunidad?: number | null
+          id?: string
+          metros_cuadrados?: number | null
+          nombre: string
+          notas?: string | null
+          planta?: string | null
+          proyecto_id?: string | null
+          renta_actual?: number | null
+          renta_esperada?: number | null
+          tipo_activo?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          caracteristicas?: Json | null
+          codigo_postal?: string | null
+          coordenadas_lat?: number | null
+          coordenadas_lon?: number | null
+          creado_por?: string | null
+          created_at?: string | null
+          direccion?: string | null
+          estado?: string | null
+          fachada_metros?: number | null
+          fotos_urls?: Json | null
+          gastos_comunidad?: number | null
+          id?: string
+          metros_cuadrados?: number | null
+          nombre?: string
+          notas?: string | null
+          planta?: string | null
+          proyecto_id?: string | null
+          renta_actual?: number | null
+          renta_esperada?: number | null
+          tipo_activo?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "activos_proyecto_id_fkey"
+            columns: ["proyecto_id"]
+            isOneToOne: false
+            referencedRelation: "proyectos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       auditoria_ia: {
         Row: {
           coste_estimado: number | null
@@ -121,6 +239,133 @@ export type Database = {
           usuario_id?: string | null
         }
         Relationships: []
+      }
+      contactos: {
+        Row: {
+          apellidos: string | null
+          cargo: string | null
+          creado_por: string | null
+          created_at: string | null
+          datos_consentimiento: Json | null
+          email: string | null
+          empresa: string | null
+          estilo_negociacion: string | null
+          id: string
+          linkedin_url: string | null
+          nombre: string
+          notas_perfil: string | null
+          perfil_ia: Json | null
+          telefono: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          apellidos?: string | null
+          cargo?: string | null
+          creado_por?: string | null
+          created_at?: string | null
+          datos_consentimiento?: Json | null
+          email?: string | null
+          empresa?: string | null
+          estilo_negociacion?: string | null
+          id?: string
+          linkedin_url?: string | null
+          nombre: string
+          notas_perfil?: string | null
+          perfil_ia?: Json | null
+          telefono?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          apellidos?: string | null
+          cargo?: string | null
+          creado_por?: string | null
+          created_at?: string | null
+          datos_consentimiento?: Json | null
+          email?: string | null
+          empresa?: string | null
+          estilo_negociacion?: string | null
+          id?: string
+          linkedin_url?: string | null
+          nombre?: string
+          notas_perfil?: string | null
+          perfil_ia?: Json | null
+          telefono?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      documentos_proyecto: {
+        Row: {
+          contacto_id: string | null
+          created_at: string | null
+          id: string
+          metadata_extraida: Json | null
+          mime_type: string | null
+          nombre: string
+          operador_id: string | null
+          procesado_ia: boolean | null
+          proyecto_id: string | null
+          resumen_ia: string | null
+          storage_path: string
+          subido_por: string | null
+          tamano_bytes: number | null
+          tipo_documento: string | null
+        }
+        Insert: {
+          contacto_id?: string | null
+          created_at?: string | null
+          id?: string
+          metadata_extraida?: Json | null
+          mime_type?: string | null
+          nombre: string
+          operador_id?: string | null
+          procesado_ia?: boolean | null
+          proyecto_id?: string | null
+          resumen_ia?: string | null
+          storage_path: string
+          subido_por?: string | null
+          tamano_bytes?: number | null
+          tipo_documento?: string | null
+        }
+        Update: {
+          contacto_id?: string | null
+          created_at?: string | null
+          id?: string
+          metadata_extraida?: Json | null
+          mime_type?: string | null
+          nombre?: string
+          operador_id?: string | null
+          procesado_ia?: boolean | null
+          proyecto_id?: string | null
+          resumen_ia?: string | null
+          storage_path?: string
+          subido_por?: string | null
+          tamano_bytes?: number | null
+          tipo_documento?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "documentos_proyecto_contacto_id_fkey"
+            columns: ["contacto_id"]
+            isOneToOne: false
+            referencedRelation: "contactos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "documentos_proyecto_operador_id_fkey"
+            columns: ["operador_id"]
+            isOneToOne: false
+            referencedRelation: "operadores"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "documentos_proyecto_proyecto_id_fkey"
+            columns: ["proyecto_id"]
+            isOneToOne: false
+            referencedRelation: "proyectos"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       locales: {
         Row: {
@@ -232,6 +477,104 @@ export type Database = {
             columns: ["operador_id"]
             isOneToOne: false
             referencedRelation: "operadores"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      negociaciones: {
+        Row: {
+          activo_id: string | null
+          briefing_ia: string | null
+          condiciones_actuales: Json | null
+          condiciones_finales: Json | null
+          condiciones_propuestas: Json | null
+          contacto_interlocutor_id: string | null
+          creado_por: string | null
+          created_at: string | null
+          estado: string | null
+          fecha_cierre: string | null
+          fecha_ultimo_contacto: string | null
+          id: string
+          motivo_resultado: string | null
+          negociador_interno_id: string | null
+          notas: string | null
+          operador_id: string | null
+          probabilidad_cierre: number | null
+          proyecto_id: string
+          resultado: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          activo_id?: string | null
+          briefing_ia?: string | null
+          condiciones_actuales?: Json | null
+          condiciones_finales?: Json | null
+          condiciones_propuestas?: Json | null
+          contacto_interlocutor_id?: string | null
+          creado_por?: string | null
+          created_at?: string | null
+          estado?: string | null
+          fecha_cierre?: string | null
+          fecha_ultimo_contacto?: string | null
+          id?: string
+          motivo_resultado?: string | null
+          negociador_interno_id?: string | null
+          notas?: string | null
+          operador_id?: string | null
+          probabilidad_cierre?: number | null
+          proyecto_id: string
+          resultado?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          activo_id?: string | null
+          briefing_ia?: string | null
+          condiciones_actuales?: Json | null
+          condiciones_finales?: Json | null
+          condiciones_propuestas?: Json | null
+          contacto_interlocutor_id?: string | null
+          creado_por?: string | null
+          created_at?: string | null
+          estado?: string | null
+          fecha_cierre?: string | null
+          fecha_ultimo_contacto?: string | null
+          id?: string
+          motivo_resultado?: string | null
+          negociador_interno_id?: string | null
+          notas?: string | null
+          operador_id?: string | null
+          probabilidad_cierre?: number | null
+          proyecto_id?: string
+          resultado?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "negociaciones_activo_id_fkey"
+            columns: ["activo_id"]
+            isOneToOne: false
+            referencedRelation: "activos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "negociaciones_contacto_interlocutor_id_fkey"
+            columns: ["contacto_interlocutor_id"]
+            isOneToOne: false
+            referencedRelation: "contactos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "negociaciones_operador_id_fkey"
+            columns: ["operador_id"]
+            isOneToOne: false
+            referencedRelation: "operadores"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "negociaciones_proyecto_id_fkey"
+            columns: ["proyecto_id"]
+            isOneToOne: false
+            referencedRelation: "proyectos"
             referencedColumns: ["id"]
           },
         ]
@@ -532,6 +875,38 @@ export type Database = {
           },
         ]
       }
+      proyecto_equipo: {
+        Row: {
+          created_at: string | null
+          id: string
+          proyecto_id: string
+          rol_proyecto: string | null
+          usuario_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          proyecto_id: string
+          rol_proyecto?: string | null
+          usuario_id: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          proyecto_id?: string
+          rol_proyecto?: string | null
+          usuario_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "proyecto_equipo_proyecto_id_fkey"
+            columns: ["proyecto_id"]
+            isOneToOne: false
+            referencedRelation: "proyectos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       proyecto_operadores: {
         Row: {
           added_at: string
@@ -573,6 +948,8 @@ export type Database = {
       }
       proyectos: {
         Row: {
+          cliente_contacto_id: string | null
+          codigo_postal: string | null
           created_at: string
           created_by: string | null
           descripcion: string | null
@@ -581,13 +958,18 @@ export type Database = {
           fecha_objetivo: string | null
           id: string
           local_id: string | null
+          metadata: Json | null
           nombre: string
           notas: string | null
+          presupuesto_estimado: number | null
           responsable_id: string | null
           tipo: Database["public"]["Enums"]["tipo_proyecto"]
+          ubicacion: string | null
           updated_at: string
         }
         Insert: {
+          cliente_contacto_id?: string | null
+          codigo_postal?: string | null
           created_at?: string
           created_by?: string | null
           descripcion?: string | null
@@ -596,13 +978,18 @@ export type Database = {
           fecha_objetivo?: string | null
           id?: string
           local_id?: string | null
+          metadata?: Json | null
           nombre: string
           notas?: string | null
+          presupuesto_estimado?: number | null
           responsable_id?: string | null
           tipo?: Database["public"]["Enums"]["tipo_proyecto"]
+          ubicacion?: string | null
           updated_at?: string
         }
         Update: {
+          cliente_contacto_id?: string | null
+          codigo_postal?: string | null
           created_at?: string
           created_by?: string | null
           descripcion?: string | null
@@ -611,13 +998,23 @@ export type Database = {
           fecha_objetivo?: string | null
           id?: string
           local_id?: string | null
+          metadata?: Json | null
           nombre?: string
           notas?: string | null
+          presupuesto_estimado?: number | null
           responsable_id?: string | null
           tipo?: Database["public"]["Enums"]["tipo_proyecto"]
+          ubicacion?: string | null
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "proyectos_cliente_contacto_id_fkey"
+            columns: ["cliente_contacto_id"]
+            isOneToOne: false
+            referencedRelation: "contactos"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "proyectos_local_id_fkey"
             columns: ["local_id"]
@@ -779,11 +1176,17 @@ export type Database = {
         | "en_pausa"
         | "cerrado_exito"
         | "cerrado_sin_exito"
+        | "en_negociacion"
+        | "archivado"
       tipo_proyecto:
         | "comercializacion"
         | "negociacion"
         | "centro_completo"
         | "otro"
+        | "auditoria_estrategica"
+        | "desarrollo_suelo"
+        | "traspaso_adquisicion"
+        | "farmacia"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -927,12 +1330,18 @@ export const Constants = {
         "en_pausa",
         "cerrado_exito",
         "cerrado_sin_exito",
+        "en_negociacion",
+        "archivado",
       ],
       tipo_proyecto: [
         "comercializacion",
         "negociacion",
         "centro_completo",
         "otro",
+        "auditoria_estrategica",
+        "desarrollo_suelo",
+        "traspaso_adquisicion",
+        "farmacia",
       ],
     },
   },
