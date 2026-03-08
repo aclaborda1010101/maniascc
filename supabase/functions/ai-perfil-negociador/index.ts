@@ -134,7 +134,7 @@ Genera recomendaciones tácticas específicas.`;
     }
 
     await supabase.from("auditoria_ia").insert({
-      modelo: "google/gemini-3-flash-preview",
+      modelo: "google/gemini-2.5-pro",
       funcion_ia: "perfil-negociador",
       latencia_ms: latencyMs,
       exito: true,

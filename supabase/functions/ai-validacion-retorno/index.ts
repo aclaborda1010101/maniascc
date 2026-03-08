@@ -114,7 +114,7 @@ Considera desviaciones típicas del sector: rentabilidad (15-30% inflación medi
     }).select().single();
 
     await supabase.from("auditoria_ia").insert({
-      modelo: "google/gemini-3-flash-preview",
+      modelo: "google/gemini-2.5-pro",
       funcion_ia: "validacion-retorno",
       latencia_ms: latencyMs,
       exito: true,
