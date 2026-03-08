@@ -59,6 +59,7 @@ const App = () => (
                 <Route path="/locales" element={<Locales />} />
                 <Route path="/locales/:id" element={<LocalDetail />} />
                 <Route path="/matching/:localId" element={<Matching />} />
+                <Route path="/notificaciones" element={<Notificaciones />} />
               </Route>
               <Route path="*" element={<NotFound />} />
             </Routes>

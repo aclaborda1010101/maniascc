@@ -15,6 +15,7 @@ import { Button } from "@/components/ui/button";
 const mainItems = [
   { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
   { title: "Proyectos", url: "/proyectos", icon: FolderKanban },
+  { title: "Notificaciones", url: "/notificaciones", icon: Bell },
 ];
 
 const directoryItems = [
