@@ -1,4 +1,4 @@
-import { LayoutDashboard, MapPin, Users, Sparkles, LogOut, FileText, Search, Pill } from "lucide-react";
+import { LayoutDashboard, MapPin, Users, Sparkles, LogOut, FileText, Search, Pill, Compass, FileSearch, Layers, MessageSquare } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useLocation } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
@@ -15,6 +15,10 @@ const navItems = [
   { title: "Documentos", url: "/documentos", icon: FileText },
   { title: "Búsqueda", url: "/busqueda", icon: Search },
   { title: "Farmacias", url: "/farmacias", icon: Pill },
+  { title: "Localización IA", url: "/localizacion-analisis", icon: Compass },
+  { title: "Validar Dossier", url: "/validacion-dossier", icon: FileSearch },
+  { title: "Tenant Mix", url: "/tenant-mix", icon: Layers },
+  { title: "Negociación", url: "/negociacion-briefing", icon: MessageSquare },
 ];
 
 export function AppSidebar() {
