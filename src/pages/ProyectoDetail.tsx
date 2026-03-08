@@ -93,12 +93,25 @@ export default function ProyectoDetail() {
   };
 
   const fetchAvailable = async () => {
-    const [opRes, ctRes] = await Promise.all([
+    const [opRes, ctRes, locRes] = await Promise.all([
       supabase.from("operadores").select("id, nombre, sector").eq("activo", true).order("nombre"),
       supabase.from("contactos").select("id, nombre, apellidos, empresa").order("nombre"),
+      supabase.from("locales").select("id, nombre, direccion, ciudad").order("nombre"),
     ]);
     setAllOperadores(opRes.data || []);
     setAllContactos(ctRes.data || []);
+    setAllLocales(locRes.data || []);
+  };
+
+  const handleAssignLocal = async (localId: string) => {
+    const val = localId === "__none" ? null : localId;
+    const { error } = await supabase.from("proyectos").update({ local_id: val }).eq("id", id!);
+    if (error) {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    } else {
+      setProyecto((prev: any) => ({ ...prev, local_id: val }));
+      toast({ title: val ? "Local asignado" : "Local desvinculado" });
+    }
   };
 
   const fetchRagDocs = async () => {
