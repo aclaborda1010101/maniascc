@@ -8,6 +8,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { useState } from "react";
 import { useMatchNotifications } from "@/hooks/useMatchNotifications";
+import { NotificationCenter } from "@/components/NotificationCenter";
 
 export function AppLayout() {
   const navigate = useNavigate();
@@ -42,7 +43,8 @@ export function AppLayout() {
                 onKeyDown={handleSearch}
               />
             </div>
-            <div className="ml-auto">
+            <div className="ml-auto flex items-center gap-2">
+              <NotificationCenter />
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <button className="flex items-center gap-2 rounded-full focus:outline-none focus:ring-2 focus:ring-ring">
