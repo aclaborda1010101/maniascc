@@ -396,6 +396,22 @@ export default function ProyectoDetail() {
                   {proyecto.fecha_objetivo && <div><span className="text-muted-foreground">Objetivo:</span> {new Date(proyecto.fecha_objetivo).toLocaleDateString("es-ES")}</div>}
                 </div>
                 {proyecto.notas && <div className="pt-2 border-t mt-2"><p className="text-muted-foreground text-xs mb-1">Notas</p><p>{proyecto.notas}</p></div>}
+                <div className="pt-2 border-t mt-2">
+                  <p className="text-muted-foreground text-xs mb-2">Local asignado (para Matching IA)</p>
+                  <Select value={proyecto.local_id || "__none"} onValueChange={handleAssignLocal}>
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="Sin local asignado" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__none">— Sin local —</SelectItem>
+                      {allLocales.map((loc: any) => (
+                        <SelectItem key={loc.id} value={loc.id}>
+                          {loc.nombre} — {loc.direccion}, {loc.ciudad}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
               </CardContent>
             </Card>
             <Card>
