@@ -1,0 +1,222 @@
+import { useEffect, useState } from "react";
+import { useParams, useNavigate } from "react-router-dom";
+import { supabase } from "@/integrations/supabase/client";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { ArrowLeft, Sparkles, Save, Trash2 } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/useAuth";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+
+export default function LocalDetail() {
+  const { id } = useParams();
+  const navigate = useNavigate();
+  const { toast } = useToast();
+  const { user } = useAuth();
+  const [local, setLocal] = useState<any>(null);
+  const [matches, setMatches] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [generating, setGenerating] = useState(false);
+
+  useEffect(() => {
+    async function fetch() {
+      const [localRes, matchesRes] = await Promise.all([
+        supabase.from("locales").select("*").eq("id", id).single(),
+        supabase.from("matches").select("*, operadores(nombre)").eq("local_id", id).order("score", { ascending: false }),
+      ]);
+      setLocal(localRes.data);
+      setMatches(matchesRes.data || []);
+      setLoading(false);
+    }
+    if (id) fetch();
+  }, [id]);
+
+  const handleSave = async () => {
+    if (!local) return;
+    setSaving(true);
+    const { error } = await supabase.from("locales").update({
+      nombre: local.nombre,
+      direccion: local.direccion,
+      ciudad: local.ciudad,
+      codigo_postal: local.codigo_postal,
+      superficie_m2: local.superficie_m2,
+      precio_renta: local.precio_renta,
+      estado: local.estado,
+      descripcion: local.descripcion,
+    }).eq("id", id);
+    setSaving(false);
+    if (error) toast({ title: "Error", description: error.message, variant: "destructive" });
+    else toast({ title: "Local actualizado" });
+  };
+
+  const handleDelete = async () => {
+    if (!confirm("¿Eliminar este local?")) return;
+    await supabase.from("locales").delete().eq("id", id);
+    navigate("/locales");
+  };
+
+  const handleGenerateMatches = async () => {
+    setGenerating(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("generate-match", {
+        body: { local_id: id },
+      });
+      if (error) throw error;
+      toast({ title: "Matches generados", description: `${data?.matches?.length || 0} resultados` });
+      // Refetch matches
+      const { data: newMatches } = await supabase.from("matches").select("*, operadores(nombre)").eq("local_id", id).order("score", { ascending: false });
+      setMatches(newMatches || []);
+    } catch (e: any) {
+      toast({ title: "Error", description: e.message, variant: "destructive" });
+    }
+    setGenerating(false);
+  };
+
+  if (loading) return <div className="space-y-4"><Skeleton className="h-8 w-48" /><Skeleton className="h-64 w-full" /></div>;
+  if (!local) return <p className="text-muted-foreground">Local no encontrado.</p>;
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center gap-3">
+        <Button variant="ghost" size="icon" onClick={() => navigate("/locales")}>
+          <ArrowLeft className="h-5 w-5" />
+        </Button>
+        <div className="flex-1">
+          <h1 className="text-2xl font-bold">{local.nombre}</h1>
+          <p className="text-muted-foreground">{local.direccion}, {local.ciudad}</p>
+        </div>
+        <Button variant="destructive" size="icon" onClick={handleDelete}>
+          <Trash2 className="h-4 w-4" />
+        </Button>
+      </div>
+
+      <div className="grid gap-6 lg:grid-cols-3">
+        <Card className="lg:col-span-2">
+          <CardHeader>
+            <CardTitle>Datos del Local</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Nombre</Label>
+                <Input value={local.nombre} onChange={(e) => setLocal({ ...local, nombre: e.target.value })} />
+              </div>
+              <div className="space-y-2">
+                <Label>Ciudad</Label>
+                <Input value={local.ciudad} onChange={(e) => setLocal({ ...local, ciudad: e.target.value })} />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label>Dirección</Label>
+              <Input value={local.direccion} onChange={(e) => setLocal({ ...local, direccion: e.target.value })} />
+            </div>
+            <div className="grid grid-cols-3 gap-4">
+              <div className="space-y-2">
+                <Label>Código Postal</Label>
+                <Input value={local.codigo_postal} onChange={(e) => setLocal({ ...local, codigo_postal: e.target.value })} />
+              </div>
+              <div className="space-y-2">
+                <Label>Superficie (m²)</Label>
+                <Input type="number" value={local.superficie_m2} onChange={(e) => setLocal({ ...local, superficie_m2: Number(e.target.value) })} />
+              </div>
+              <div className="space-y-2">
+                <Label>Renta (€/mes)</Label>
+                <Input type="number" value={local.precio_renta} onChange={(e) => setLocal({ ...local, precio_renta: Number(e.target.value) })} />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Estado</Label>
+                <Select value={local.estado} onValueChange={(v) => setLocal({ ...local, estado: v })}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="disponible">Disponible</SelectItem>
+                    <SelectItem value="en_negociacion">En negociación</SelectItem>
+                    <SelectItem value="ocupado">Ocupado</SelectItem>
+                    <SelectItem value="reforma">En reforma</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>Descripción</Label>
+                <Input value={local.descripcion || ""} onChange={(e) => setLocal({ ...local, descripcion: e.target.value })} />
+              </div>
+            </div>
+            <Button onClick={handleSave} disabled={saving} className="bg-accent text-accent-foreground hover:bg-accent/90">
+              <Save className="mr-2 h-4 w-4" /> {saving ? "Guardando..." : "Guardar cambios"}
+            </Button>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Sparkles className="h-5 w-5 text-accent" /> Matching IA
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <Button
+              onClick={handleGenerateMatches}
+              disabled={generating}
+              className="w-full bg-accent text-accent-foreground hover:bg-accent/90"
+            >
+              <Sparkles className="mr-2 h-4 w-4" />
+              {generating ? "Generando..." : "Generar Matches IA"}
+            </Button>
+            <p className="text-xs text-muted-foreground">
+              El algoritmo buscará los operadores más compatibles según superficie, renta y sector.
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Histórico de Matches</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {matches.length === 0 ? (
+            <p className="py-6 text-center text-muted-foreground">Sin matches para este local.</p>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Operador</TableHead>
+                  <TableHead>Score</TableHead>
+                  <TableHead>Tags</TableHead>
+                  <TableHead>Estado</TableHead>
+                  <TableHead>Explicación</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {matches.map((m) => (
+                  <TableRow key={m.id}>
+                    <TableCell className="font-medium">{(m.operadores as any)?.nombre}</TableCell>
+                    <TableCell>
+                      <span className="rounded-full bg-accent/10 px-2 py-0.5 text-sm font-semibold text-accent">{m.score}%</span>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex gap-1 flex-wrap">
+                        {(m.tags || []).map((t: string) => (
+                          <Badge key={t} variant="secondary" className="text-xs">{t}</Badge>
+                        ))}
+                      </div>
+                    </TableCell>
+                    <TableCell className="capitalize">{m.estado}</TableCell>
+                    <TableCell className="max-w-xs truncate text-xs text-muted-foreground">{m.explicacion}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
