@@ -668,15 +668,38 @@ export default function ProyectoDetail() {
             const exportPDF = () => {
               const w = window.open("", "_blank");
               if (!w) { toast({ title: "Error", description: "Permite ventanas emergentes para exportar PDF.", variant: "destructive" }); return; }
+
+              // Executive summary stats
+              const allMatches = matches as any[];
+              const avgScore = allMatches.length ? (allMatches.reduce((s: number, m: any) => s + Number(m.score), 0) / allMatches.length).toFixed(1) : "0";
+              const estadoDist: Record<string, number> = {};
+              allMatches.forEach((m: any) => { estadoDist[m.estado] = (estadoDist[m.estado] || 0) + 1; });
+              const estadoLabelsMap: Record<string, string> = { pendiente: "Pendiente", sugerido: "Sugerido", aprobado: "Aprobado", contactado: "Contactado", descartado: "Descartado", exito: "Éxito" };
+              const distHtml = Object.entries(estadoDist).map(([k, v]) => `<span style="display:inline-block;margin-right:14px"><strong>${estadoLabelsMap[k] || k}:</strong> ${v}</span>`).join("");
+              const localName = (proyecto as any)?.locales?.nombre || locales.find((l: any) => l.id === proyecto?.local_id)?.nombre || proyecto?.local_id || "Sin asignar";
+
               const tableRows = filtered.map((m: any) =>
                 `<tr><td>${(m.operadores as any)?.nombre || "-"}</td><td style="text-align:center;font-weight:bold">${m.score}%</td><td>${m.estado}</td><td style="font-size:11px">${(m.tags || []).join(", ")}</td><td style="font-size:11px">${m.explicacion || "-"}</td></tr>`
               ).join("");
               w.document.write(`<!DOCTYPE html><html><head><title>Matches - ${proyecto?.nombre || ""}</title>
                 <style>body{font-family:system-ui,sans-serif;padding:24px;color:#1a1a1a}h1{font-size:18px;margin-bottom:4px}
                 table{width:100%;border-collapse:collapse;margin-top:16px}th,td{border:1px solid #ddd;padding:6px 10px;text-align:left;font-size:13px}
-                th{background:#f5f5f5;font-weight:600}.meta{color:#666;font-size:13px;margin-bottom:8px}</style></head>
+                th{background:#f5f5f5;font-weight:600}.meta{color:#666;font-size:13px;margin-bottom:8px}
+                .summary{background:#f8f9fa;border:1px solid #e2e2e2;border-radius:6px;padding:14px 18px;margin:12px 0 18px}
+                .summary h2{font-size:14px;margin:0 0 8px;color:#333}.summary .kpi{font-size:22px;font-weight:700;color:#1a1a1a}
+                .summary .label{font-size:11px;color:#888;text-transform:uppercase;letter-spacing:.5px}
+                .kpi-grid{display:flex;gap:28px;margin-bottom:10px}</style></head>
                 <body><h1>Matches IA — ${proyecto?.nombre || ""}</h1>
-                <p class="meta">Exportado: ${new Date().toLocaleString("es-ES")} · ${filtered.length} matches</p>
+                <p class="meta">Exportado: ${new Date().toLocaleString("es-ES")} · ${filtered.length} de ${allMatches.length} matches (filtrados)</p>
+                <div class="summary">
+                  <h2>Resumen Ejecutivo</h2>
+                  <div class="kpi-grid">
+                    <div><div class="label">Local asignado</div><div class="kpi" style="font-size:16px">${localName}</div></div>
+                    <div><div class="label">Score medio</div><div class="kpi">${avgScore}%</div></div>
+                    <div><div class="label">Total matches</div><div class="kpi">${allMatches.length}</div></div>
+                  </div>
+                  <div style="font-size:12px;color:#555"><strong>Distribución por estado:</strong> ${distHtml}</div>
+                </div>
                 <table><thead><tr><th>Operador</th><th>Score</th><th>Estado</th><th>Tags</th><th>Explicación</th></tr></thead>
                 <tbody>${tableRows}</tbody></table>
                 <script>window.onload=()=>{window.print()}<\/script></body></html>`);
