@@ -944,7 +944,7 @@ export type Database = {
             foreignKeyName: "proyecto_contactos_contacto_id_fkey"
             columns: ["contacto_id"]
             isOneToOne: false
-            referencedRelation: "perfiles_negociador"
+            referencedRelation: "contactos"
             referencedColumns: ["id"]
           },
           {
