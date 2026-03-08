@@ -98,10 +98,11 @@ export default function ProyectoDetail() {
     if (!id) return;
     const { data } = await supabase
       .from("documentos_proyecto")
-      .select("id, nombre, procesado_ia, created_at, mime_type")
+      .select("id, nombre, procesado_ia, created_at, mime_type, tipo_documento, tamano_bytes, storage_path")
       .eq("proyecto_id", id)
       .order("created_at", { ascending: false });
     setRagDocs(data || []);
+    setProyDocs(data || []);
   };
 
   useEffect(() => { fetchAll(); fetchAvailable(); fetchRagDocs(); }, [id]);
