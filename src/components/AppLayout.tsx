@@ -7,11 +7,13 @@ import { useAuth } from "@/hooks/useAuth";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { useState } from "react";
+import { useMatchNotifications } from "@/hooks/useMatchNotifications";
 
 export function AppLayout() {
   const navigate = useNavigate();
   const { user, signOut } = useAuth();
   const [searchQuery, setSearchQuery] = useState("");
+  useMatchNotifications();
 
   const handleSearch = (e: React.KeyboardEvent) => {
     if (e.key === "Enter" && searchQuery.trim()) {
