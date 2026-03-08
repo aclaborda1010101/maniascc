@@ -1124,6 +1124,91 @@ export default function ProyectoDetail() {
             </Card>
           </div>
         </TabsContent>
+
+        {/* ===== FORGE — Fábrica de Documentos ===== */}
+        <TabsContent value="forge" className="space-y-4">
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base flex items-center gap-2">
+                <Hammer className="h-4 w-4" /> FORGE — Fábrica de Documentos IA
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid gap-3 sm:grid-cols-3">
+                {FORGE_MODES.map((m) => (
+                  <button
+                    key={m.value}
+                    onClick={() => setForgeMode(m.value)}
+                    className={`rounded-lg border p-3 text-left transition-colors hover:bg-muted/50 ${forgeMode === m.value ? "border-primary bg-primary/5" : "border-border"}`}
+                  >
+                    <span className="text-lg">{m.icon}</span>
+                    <p className="font-medium text-sm mt-1">{m.label}</p>
+                    <p className="text-xs text-muted-foreground">{m.description}</p>
+                  </button>
+                ))}
+              </div>
+
+              <div className="space-y-2">
+                <Label>Contexto / Instrucciones</Label>
+                <Textarea
+                  placeholder={
+                    forgeMode === "dossier_operador"
+                      ? "Nombre del operador, sector, datos relevantes..."
+                      : forgeMode === "email_comunicacion"
+                      ? "Destinatario, motivo del email, tono deseado..."
+                      : "Describe qué necesitas generar con el mayor contexto posible..."
+                  }
+                  value={forgeContext}
+                  onChange={(e) => setForgeContext(e.target.value)}
+                  rows={4}
+                />
+              </div>
+
+              <div className="flex items-center gap-3">
+                <Button
+                  onClick={handleForgeGenerate}
+                  disabled={forgeLoading || !forgeContext.trim()}
+                  className="bg-accent text-accent-foreground hover:bg-accent/90"
+                >
+                  {forgeLoading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Hammer className="h-4 w-4 mr-2" />}
+                  Generar documento
+                </Button>
+                {forgeMeta && (
+                  <span className="text-xs text-muted-foreground">
+                    Modelo: {forgeMeta.model} · {forgeMeta.latency_ms}ms
+                  </span>
+                )}
+              </div>
+
+              {forgeResult && (
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <Label>Resultado</Label>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        navigator.clipboard.writeText(forgeResult);
+                        toast({ title: "Copiado al portapapeles" });
+                      }}
+                    >
+                      <Copy className="h-3.5 w-3.5 mr-1" /> Copiar
+                    </Button>
+                  </div>
+                  <div className="rounded-lg border bg-muted/30 p-4 max-h-[500px] overflow-y-auto">
+                    <div className="prose prose-sm max-w-none text-sm whitespace-pre-wrap">{forgeResult}</div>
+                  </div>
+                </div>
+              )}
+
+              {!forgeResult && !forgeLoading && (
+                <p className="text-sm text-muted-foreground text-center py-6">
+                  Selecciona un tipo de documento, proporciona contexto y genera. FORGE enriquecerá automáticamente con datos del proyecto.
+                </p>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
       </Tabs>
     </div>
   );
