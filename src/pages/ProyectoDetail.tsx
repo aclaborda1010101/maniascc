@@ -75,6 +75,10 @@ export default function ProyectoDetail() {
   const [generating, setGenerating] = useState(false);
   const [lastMatchResult, setLastMatchResult] = useState<{ latency_ms?: number; modelo?: string; ai_enhanced?: boolean } | null>(null);
   const [allLocales, setAllLocales] = useState<any[]>([]);
+  // Match filters
+  const [matchSortBy, setMatchSortBy] = useState<"score_desc" | "score_asc" | "estado">("score_desc");
+  const [matchFilterEstado, setMatchFilterEstado] = useState<string>("todos");
+  const [matchFilterSector, setMatchFilterSector] = useState<string>("todos");
 
   const fetchAll = async () => {
     if (!id) return;
