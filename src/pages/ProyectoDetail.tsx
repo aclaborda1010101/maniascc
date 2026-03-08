@@ -19,7 +19,7 @@ import {
   Upload, Download, File, Hammer, Copy,
 } from "lucide-react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { queryRAG, ingestDocument } from "@/services/ragService";
+import { queryRAG, ingestDocument, generateForgeDocument, FORGE_MODES, ForgeMode } from "@/services/ragService";
 import { MatchCard } from "@/components/MatchCard";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 
