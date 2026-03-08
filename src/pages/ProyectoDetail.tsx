@@ -16,10 +16,10 @@ import {
   ArrowLeft, MapPin, Users, FileText, Sparkles, MessageSquare,
   Calendar, Plus, Trash2, UserCircle, Building2, Target, Layers,
   FileSearch, Compass, BookOpen, Send, Loader2, RefreshCw,
-  Upload, Download, File,
+  Upload, Download, File, Hammer, Copy,
 } from "lucide-react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { queryRAG, ingestDocument } from "@/services/ragService";
+import { queryRAG, ingestDocument, generateForgeDocument, FORGE_MODES, ForgeMode } from "@/services/ragService";
 import { MatchCard } from "@/components/MatchCard";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 
@@ -79,6 +79,14 @@ export default function ProyectoDetail() {
   const [matchSortBy, setMatchSortBy] = useState<"score_desc" | "score_asc" | "estado">("score_desc");
   const [matchFilterEstado, setMatchFilterEstado] = useState<string>("todos");
   const [matchFilterSector, setMatchFilterSector] = useState<string>("todos");
+  // RAG domain filter
+  const [ragDominio, setRagDominio] = useState<string>("todos");
+  // FORGE state
+  const [forgeMode, setForgeMode] = useState<ForgeMode>("dossier_operador");
+  const [forgeContext, setForgeContext] = useState("");
+  const [forgeResult, setForgeResult] = useState<string>("");
+  const [forgeLoading, setForgeLoading] = useState(false);
+  const [forgeMeta, setForgeMeta] = useState<{ model: string; latency_ms: number } | null>(null);
 
   const fetchAll = async () => {
     if (!id) return;
@@ -168,13 +176,30 @@ export default function ProyectoDetail() {
     if (!ragQuestion.trim()) return;
     setRagLoading(true);
     setRagAnswer(null);
-    const result = await queryRAG(ragQuestion, { proyecto_id: id });
+    const filters: Record<string, unknown> = { proyecto_id: id };
+    if (ragDominio !== "todos") filters.dominio = ragDominio;
+    const result = await queryRAG(ragQuestion, filters);
     if ("error" in result && result.error) {
       toast({ title: "Error RAG", description: (result as any).message, variant: "destructive" });
     } else {
       setRagAnswer(result as any);
     }
     setRagLoading(false);
+  };
+
+  const handleForgeGenerate = async () => {
+    if (!forgeContext.trim()) return;
+    setForgeLoading(true);
+    setForgeResult("");
+    setForgeMeta(null);
+    const result = await generateForgeDocument(forgeMode, forgeContext, id);
+    if (result.error) {
+      toast({ title: "Error FORGE", description: result.error, variant: "destructive" });
+    } else {
+      setForgeResult(result.content);
+      setForgeMeta({ model: result.model, latency_ms: result.latency_ms });
+    }
+    setForgeLoading(false);
   };
 
   const handleIngestDoc = async (docId: string) => {
@@ -381,6 +406,9 @@ export default function ProyectoDetail() {
           </TabsTrigger>
           <TabsTrigger value="conocimiento" className="gap-1">
             <BookOpen className="h-3.5 w-3.5" /> Base Conocimiento
+          </TabsTrigger>
+          <TabsTrigger value="forge" className="gap-1">
+            <Hammer className="h-3.5 w-3.5" /> FORGE
           </TabsTrigger>
         </TabsList>
 
@@ -995,6 +1023,20 @@ export default function ProyectoDetail() {
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
+                <div className="flex gap-2 items-end">
+                  <Select value={ragDominio} onValueChange={setRagDominio}>
+                    <SelectTrigger className="w-[150px]"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="todos">Todos los dominios</SelectItem>
+                      <SelectItem value="contratos">📄 Contratos</SelectItem>
+                      <SelectItem value="operadores">🏪 Operadores</SelectItem>
+                      <SelectItem value="activos">🏢 Activos</SelectItem>
+                      <SelectItem value="mercado">📈 Mercado</SelectItem>
+                      <SelectItem value="personas">👤 Personas</SelectItem>
+                      <SelectItem value="general">📁 General</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
                 <div className="flex gap-2">
                   <Input
                     placeholder="¿Cuáles son las condiciones del contrato...?"
@@ -1081,6 +1123,91 @@ export default function ProyectoDetail() {
               </CardContent>
             </Card>
           </div>
+        </TabsContent>
+
+        {/* ===== FORGE — Fábrica de Documentos ===== */}
+        <TabsContent value="forge" className="space-y-4">
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base flex items-center gap-2">
+                <Hammer className="h-4 w-4" /> FORGE — Fábrica de Documentos IA
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid gap-3 sm:grid-cols-3">
+                {FORGE_MODES.map((m) => (
+                  <button
+                    key={m.value}
+                    onClick={() => setForgeMode(m.value)}
+                    className={`rounded-lg border p-3 text-left transition-colors hover:bg-muted/50 ${forgeMode === m.value ? "border-primary bg-primary/5" : "border-border"}`}
+                  >
+                    <span className="text-lg">{m.icon}</span>
+                    <p className="font-medium text-sm mt-1">{m.label}</p>
+                    <p className="text-xs text-muted-foreground">{m.description}</p>
+                  </button>
+                ))}
+              </div>
+
+              <div className="space-y-2">
+                <Label>Contexto / Instrucciones</Label>
+                <Textarea
+                  placeholder={
+                    forgeMode === "dossier_operador"
+                      ? "Nombre del operador, sector, datos relevantes..."
+                      : forgeMode === "email_comunicacion"
+                      ? "Destinatario, motivo del email, tono deseado..."
+                      : "Describe qué necesitas generar con el mayor contexto posible..."
+                  }
+                  value={forgeContext}
+                  onChange={(e) => setForgeContext(e.target.value)}
+                  rows={4}
+                />
+              </div>
+
+              <div className="flex items-center gap-3">
+                <Button
+                  onClick={handleForgeGenerate}
+                  disabled={forgeLoading || !forgeContext.trim()}
+                  className="bg-accent text-accent-foreground hover:bg-accent/90"
+                >
+                  {forgeLoading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Hammer className="h-4 w-4 mr-2" />}
+                  Generar documento
+                </Button>
+                {forgeMeta && (
+                  <span className="text-xs text-muted-foreground">
+                    Modelo: {forgeMeta.model} · {forgeMeta.latency_ms}ms
+                  </span>
+                )}
+              </div>
+
+              {forgeResult && (
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <Label>Resultado</Label>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        navigator.clipboard.writeText(forgeResult);
+                        toast({ title: "Copiado al portapapeles" });
+                      }}
+                    >
+                      <Copy className="h-3.5 w-3.5 mr-1" /> Copiar
+                    </Button>
+                  </div>
+                  <div className="rounded-lg border bg-muted/30 p-4 max-h-[500px] overflow-y-auto">
+                    <div className="prose prose-sm max-w-none text-sm whitespace-pre-wrap">{forgeResult}</div>
+                  </div>
+                </div>
+              )}
+
+              {!forgeResult && !forgeLoading && (
+                <p className="text-sm text-muted-foreground text-center py-6">
+                  Selecciona un tipo de documento, proporciona contexto y genera. FORGE enriquecerá automáticamente con datos del proyecto.
+                </p>
+              )}
+            </CardContent>
+          </Card>
         </TabsContent>
       </Tabs>
     </div>

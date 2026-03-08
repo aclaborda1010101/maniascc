@@ -3,7 +3,16 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
+};
+
+const DOMAIN_SYSTEM_PROMPTS: Record<string, string> = {
+  contratos: `Eres un experto legal en contratos de arrendamiento inmobiliario comercial. Analiza clausulado, condiciones, precios y plazos con precisión jurídica.`,
+  operadores: `Eres un analista especializado en operadores retail. Conoces perfiles de expansión, criterios de búsqueda, rangos de precio y patrones de negociación.`,
+  activos: `Eres un experto en activos inmobiliarios comerciales. Valoras locales, centros comerciales, analizas métricas de superficie, precio/m² y benchmarks de mercado.`,
+  mercado: `Eres un analista de mercado inmobiliario retail. Interpretas informes sectoriales, tendencias, datos demográficos y señales de mercado.`,
+  personas: `Eres un experto en inteligencia relacional y perfiles de negociación. Analizas estilos comunicativos, preferencias y patrones de decisión.`,
+  general: `Eres un asistente experto en el sector inmobiliario comercial (retail real estate).`,
 };
 
 serve(async (req) => {
@@ -36,32 +45,32 @@ serve(async (req) => {
 
     const admin = createClient(SUPABASE_URL, SERVICE_KEY);
     const proyectoId = filters?.proyecto_id;
+    const dominio = filters?.dominio; // Optional: filter by specific domain
 
     // Full-text search for relevant chunks
-    // We use a raw SQL query via RPC or direct query
     let query = admin
       .from("document_chunks")
-      .select("id, contenido, chunk_index, metadata, documento_id")
+      .select("id, contenido, chunk_index, metadata, documento_id, dominio")
       .textSearch("contenido", question, { type: "websearch", config: "spanish" })
       .limit(10);
 
-    if (proyectoId) {
-      query = query.eq("proyecto_id", proyectoId);
-    }
+    if (proyectoId) query = query.eq("proyecto_id", proyectoId);
+    if (dominio && dominio !== "todos") query = query.eq("dominio", dominio);
 
-    const { data: chunks, error: searchErr } = await query;
+    const { data: chunks } = await query;
 
-    // Fallback: if FTS returns nothing, try ILIKE on key terms
+    // Fallback: ILIKE
     let contextChunks = chunks || [];
     if (contextChunks.length === 0) {
       const words = question.split(/\s+/).filter((w: string) => w.length > 3).slice(0, 3);
       if (words.length > 0) {
         let fallback = admin
           .from("document_chunks")
-          .select("id, contenido, chunk_index, metadata, documento_id")
+          .select("id, contenido, chunk_index, metadata, documento_id, dominio")
           .limit(10);
 
         if (proyectoId) fallback = fallback.eq("proyecto_id", proyectoId);
+        if (dominio && dominio !== "todos") fallback = fallback.eq("dominio", dominio);
         fallback = fallback.ilike("contenido", `%${words[0]}%`);
 
         const { data: fbData } = await fallback;
@@ -74,22 +83,33 @@ serve(async (req) => {
         answer: "No se encontraron documentos relevantes para responder esta pregunta. Asegúrate de haber subido e indexado documentos en el proyecto.",
         citations: [],
         confidence: 0,
+        domains_searched: dominio || "todos",
       }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
-    // Build context for AI
+    // Determine dominant domain for specialized system prompt
+    const domainCounts: Record<string, number> = {};
+    for (const c of contextChunks) {
+      const d = (c as any).dominio || "general";
+      domainCounts[d] = (domainCounts[d] || 0) + 1;
+    }
+    const dominantDomain = Object.entries(domainCounts).sort((a, b) => b[1] - a[1])[0]?.[0] || "general";
+    const domainSystemPrompt = DOMAIN_SYSTEM_PROMPTS[dominantDomain] || DOMAIN_SYSTEM_PROMPTS.general;
+
+    // Build context
     const context = contextChunks.map((c: any, i: number) => {
       const docName = c.metadata?.nombre || "Documento";
-      return `[Fuente ${i + 1}: "${docName}", fragmento ${c.chunk_index}]\n${c.contenido}`;
+      const dom = c.dominio || "general";
+      return `[Fuente ${i + 1}: "${docName}", dominio: ${dom}, fragmento ${c.chunk_index}]\n${c.contenido}`;
     }).join("\n\n---\n\n");
 
-    const systemPrompt = `Eres un asistente experto en el sector inmobiliario comercial (retail real estate). 
+    const systemPrompt = `${domainSystemPrompt}
 Responde SIEMPRE en español. Basa tu respuesta ÚNICAMENTE en los fragmentos de documentos proporcionados.
 Si la información no está en los documentos, dilo claramente.
 Al final de tu respuesta, lista las fuentes que utilizaste en formato: [Fuente X: "nombre_doc", fragmento N].
 Sé conciso, profesional y preciso.`;
 
-    const userPrompt = `CONTEXTO DE DOCUMENTOS DEL PROYECTO:
+    const userPrompt = `CONTEXTO DE DOCUMENTOS (dominio principal: ${dominantDomain}):
 
 ${context}
 
@@ -124,11 +144,11 @@ Responde basándote en los documentos anteriores. Cita las fuentes utilizadas.`;
                 citations: {
                   type: "array",
                   items: { type: "string" },
-                  description: "List of source references used, e.g. 'Documento X, fragmento N'",
+                  description: "List of source references used",
                 },
                 confidence: {
                   type: "number",
-                  description: "Confidence score 0-1 based on how well the documents answer the question",
+                  description: "Confidence score 0-1",
                 },
               },
               required: ["answer", "citations", "confidence"],
@@ -141,7 +161,6 @@ Responde basándote en los documentos anteriores. Cita las fuentes utilizadas.`;
 
     if (!aiResp.ok) {
       const status = aiResp.status;
-      const body = await aiResp.text();
       if (status === 429) {
         return new Response(JSON.stringify({ error: "Límite de peticiones excedido, inténtalo en unos segundos." }), {
           status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -152,6 +171,7 @@ Responde basándote en los documentos anteriores. Cita las fuentes utilizadas.`;
           status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
+      const body = await aiResp.text();
       console.error("AI error:", status, body);
       throw new Error("AI gateway error");
     }
@@ -167,7 +187,6 @@ Responde basándote en los documentos anteriores. Cita las fuentes utilizadas.`;
         : toolCall.function.arguments;
       result = args;
     } else {
-      // Fallback: use message content
       result = {
         answer: aiData.choices?.[0]?.message?.content || "No se pudo generar una respuesta.",
         citations: contextChunks.map((c: any) => c.metadata?.nombre || "Documento").filter(
@@ -179,7 +198,7 @@ Responde basándote en los documentos anteriores. Cita las fuentes utilizadas.`;
 
     // Audit
     await admin.from("auditoria_ia").insert({
-      funcion_ia: "rag-proxy",
+      funcion_ia: `rag-proxy:${dominantDomain}`,
       modelo: "google/gemini-3-flash-preview",
       tokens_entrada: aiData.usage?.prompt_tokens || 0,
       tokens_salida: aiData.usage?.completion_tokens || 0,
@@ -188,7 +207,11 @@ Responde basándote en los documentos anteriores. Cita las fuentes utilizadas.`;
       created_by: claims.user.id,
     });
 
-    return new Response(JSON.stringify(result), {
+    return new Response(JSON.stringify({
+      ...result,
+      domain: dominantDomain,
+      domains_found: Object.keys(domainCounts),
+    }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (e) {
