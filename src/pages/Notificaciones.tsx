@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react";
 import { useNotifications, AppNotification } from "@/contexts/NotificationContext";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -8,9 +8,11 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Calendar } from "@/components/ui/calendar";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
-import { CalendarIcon, Bell, CheckCheck, Trash2, Filter, Inbox } from "lucide-react";
+import { CalendarIcon, CheckCheck, Trash2, Filter, Inbox, ChevronLeft, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Link } from "react-router-dom";
+
+const PAGE_SIZE = 20;
 
 const typeLabels: Record<AppNotification["type"], string> = {
   match_update: "Actualización de match",
