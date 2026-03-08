@@ -300,6 +300,7 @@ export type Database = {
           contenido: string
           created_at: string | null
           documento_id: string | null
+          dominio: string
           id: string
           metadata: Json | null
           proyecto_id: string | null
@@ -309,6 +310,7 @@ export type Database = {
           contenido: string
           created_at?: string | null
           documento_id?: string | null
+          dominio?: string
           id?: string
           metadata?: Json | null
           proyecto_id?: string | null
@@ -318,6 +320,7 @@ export type Database = {
           contenido?: string
           created_at?: string | null
           documento_id?: string | null
+          dominio?: string
           id?: string
           metadata?: Json | null
           proyecto_id?: string | null
