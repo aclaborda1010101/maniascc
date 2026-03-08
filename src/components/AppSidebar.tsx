@@ -1,6 +1,6 @@
 import {
   LayoutDashboard, Users, Sparkles, LogOut, FileText, Search,
-  FolderKanban, UserCircle, Shield, Settings,
+  FolderKanban, UserCircle, Shield, Settings, Bell,
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useLocation } from "react-router-dom";
@@ -15,6 +15,7 @@ import { Button } from "@/components/ui/button";
 const mainItems = [
   { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
   { title: "Proyectos", url: "/proyectos", icon: FolderKanban },
+  { title: "Notificaciones", url: "/notificaciones", icon: Bell },
 ];
 
 const directoryItems = [

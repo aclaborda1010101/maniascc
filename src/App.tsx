@@ -23,6 +23,7 @@ const Documentos = lazy(() => import("./pages/Documentos"));
 const Busqueda = lazy(() => import("./pages/Busqueda"));
 const Auditoria = lazy(() => import("./pages/Auditoria"));
 const Matching = lazy(() => import("./pages/Matching"));
+const Notificaciones = lazy(() => import("./pages/Notificaciones"));
 
 const queryClient = new QueryClient();
 
@@ -58,6 +59,7 @@ const App = () => (
                 <Route path="/locales" element={<Locales />} />
                 <Route path="/locales/:id" element={<LocalDetail />} />
                 <Route path="/matching/:localId" element={<Matching />} />
+                <Route path="/notificaciones" element={<Notificaciones />} />
               </Route>
               <Route path="*" element={<NotFound />} />
             </Routes>
