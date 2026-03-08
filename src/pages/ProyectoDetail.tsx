@@ -75,6 +75,10 @@ export default function ProyectoDetail() {
   const [generating, setGenerating] = useState(false);
   const [lastMatchResult, setLastMatchResult] = useState<{ latency_ms?: number; modelo?: string; ai_enhanced?: boolean } | null>(null);
   const [allLocales, setAllLocales] = useState<any[]>([]);
+  // Match filters
+  const [matchSortBy, setMatchSortBy] = useState<"score_desc" | "score_asc" | "estado">("score_desc");
+  const [matchFilterEstado, setMatchFilterEstado] = useState<string>("todos");
+  const [matchFilterSector, setMatchFilterSector] = useState<string>("todos");
 
   const fetchAll = async () => {
     if (!id) return;
@@ -627,14 +631,68 @@ export default function ProyectoDetail() {
             </div>
           )}
 
-          {/* Match cards */}
-          {!generating && matches.length > 0 && (
-            <div className="grid gap-4 md:grid-cols-2">
-              {matches.map((m: any, i: number) => (
-                <MatchCard key={m.id} match={m} index={i} onUpdate={fetchMatches} />
-              ))}
-            </div>
-          )}
+          {/* Filters */}
+          {!generating && matches.length > 0 && (() => {
+            const sectors = [...new Set(matches.map((m: any) => (m.operadores as any)?.nombre ? (m.tags || []).find((t: string) => t.startsWith("sector_"))?.replace("sector_", "").replace(/_/g, " ") : null).filter(Boolean))];
+            const filtered = matches
+              .filter((m: any) => matchFilterEstado === "todos" || m.estado === matchFilterEstado)
+              .filter((m: any) => {
+                if (matchFilterSector === "todos") return true;
+                return (m.tags || []).some((t: string) => t === `sector_${matchFilterSector.replace(/ /g, "_")}`);
+              })
+              .sort((a: any, b: any) => {
+                if (matchSortBy === "score_desc") return b.score - a.score;
+                if (matchSortBy === "score_asc") return a.score - b.score;
+                return a.estado.localeCompare(b.estado);
+              });
+            return (
+              <>
+                <div className="flex flex-wrap items-center gap-2">
+                  <Select value={matchSortBy} onValueChange={(v: any) => setMatchSortBy(v)}>
+                    <SelectTrigger className="w-[160px] h-8 text-xs"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="score_desc">Score ↓</SelectItem>
+                      <SelectItem value="score_asc">Score ↑</SelectItem>
+                      <SelectItem value="estado">Estado</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <Select value={matchFilterEstado} onValueChange={setMatchFilterEstado}>
+                    <SelectTrigger className="w-[150px] h-8 text-xs"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="todos">Todos los estados</SelectItem>
+                      <SelectItem value="pendiente">Pendiente</SelectItem>
+                      <SelectItem value="sugerido">Sugerido</SelectItem>
+                      <SelectItem value="contactado">Contactado</SelectItem>
+                      <SelectItem value="aprobado">Aprobado</SelectItem>
+                      <SelectItem value="descartado">Descartado</SelectItem>
+                      <SelectItem value="exito">Éxito</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  {sectors.length > 1 && (
+                    <Select value={matchFilterSector} onValueChange={setMatchFilterSector}>
+                      <SelectTrigger className="w-[160px] h-8 text-xs"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="todos">Todos los sectores</SelectItem>
+                        {sectors.map((s: any) => (
+                          <SelectItem key={s} value={s}>{s.charAt(0).toUpperCase() + s.slice(1)}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
+                  <span className="text-xs text-muted-foreground ml-auto">{filtered.length} de {matches.length}</span>
+                </div>
+                {filtered.length > 0 ? (
+                  <div className="grid gap-4 md:grid-cols-2">
+                    {filtered.map((m: any, i: number) => (
+                      <MatchCard key={m.id} match={m} index={i} onUpdate={fetchMatches} />
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-center text-sm text-muted-foreground py-8">Ningún match coincide con los filtros seleccionados.</p>
+                )}
+              </>
+            );
+          })()}
 
           {/* Empty state */}
           {!generating && matches.length === 0 && (
