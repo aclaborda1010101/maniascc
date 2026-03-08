@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -162,12 +162,13 @@ export default function LocalDetail() {
           </CardHeader>
           <CardContent className="space-y-4">
             <Button
-              onClick={handleGenerateMatches}
-              disabled={generating}
+              asChild
               className="w-full bg-accent text-accent-foreground hover:bg-accent/90"
             >
-              <Sparkles className="mr-2 h-4 w-4" />
-              {generating ? "Generando..." : "Generar Matches IA"}
+              <Link to={`/matching/${id}`}>
+                <Sparkles className="mr-2 h-4 w-4" />
+                Generar Matches IA
+              </Link>
             </Button>
             <p className="text-xs text-muted-foreground">
               El algoritmo buscará los operadores más compatibles según superficie, renta y sector.
