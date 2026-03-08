@@ -55,6 +55,12 @@ export default function ProyectoDetail() {
   const [addCtDialog, setAddCtDialog] = useState(false);
   const [addActivoDialog, setAddActivoDialog] = useState(false);
   const [submittingActivo, setSubmittingActivo] = useState(false);
+  // RAG state
+  const [ragQuestion, setRagQuestion] = useState("");
+  const [ragAnswer, setRagAnswer] = useState<{ answer: string; citations: string[]; confidence: number } | null>(null);
+  const [ragLoading, setRagLoading] = useState(false);
+  const [ragDocs, setRagDocs] = useState<any[]>([]);
+  const [ragIngesting, setRagIngesting] = useState<string | null>(null);
 
   const fetchAll = async () => {
     if (!id) return;
