@@ -676,7 +676,7 @@ export default function ProyectoDetail() {
               allMatches.forEach((m: any) => { estadoDist[m.estado] = (estadoDist[m.estado] || 0) + 1; });
               const estadoLabelsMap: Record<string, string> = { pendiente: "Pendiente", sugerido: "Sugerido", aprobado: "Aprobado", contactado: "Contactado", descartado: "Descartado", exito: "Éxito" };
               const distHtml = Object.entries(estadoDist).map(([k, v]) => `<span style="display:inline-block;margin-right:14px"><strong>${estadoLabelsMap[k] || k}:</strong> ${v}</span>`).join("");
-              const localName = (proyecto as any)?.locales?.nombre || locales.find((l: any) => l.id === proyecto?.local_id)?.nombre || proyecto?.local_id || "Sin asignar";
+              const localName = allLocales.find((l: any) => l.id === proyecto?.local_id)?.nombre || proyecto?.local_id || "Sin asignar";
 
               const tableRows = filtered.map((m: any) =>
                 `<tr><td>${(m.operadores as any)?.nombre || "-"}</td><td style="text-align:center;font-weight:bold">${m.score}%</td><td>${m.estado}</td><td style="font-size:11px">${(m.tags || []).join(", ")}</td><td style="font-size:11px">${m.explicacion || "-"}</td></tr>`
