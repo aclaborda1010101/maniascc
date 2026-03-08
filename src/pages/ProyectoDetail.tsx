@@ -257,6 +257,9 @@ export default function ProyectoDetail() {
           <TabsTrigger value="patrones" className="gap-1">
             <Compass className="h-3.5 w-3.5" /> Patrones
           </TabsTrigger>
+          <TabsTrigger value="conocimiento" className="gap-1">
+            <BookOpen className="h-3.5 w-3.5" /> Base Conocimiento
+          </TabsTrigger>
         </TabsList>
 
         {/* ===== RESUMEN ===== */}
