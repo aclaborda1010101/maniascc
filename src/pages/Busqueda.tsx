@@ -65,7 +65,7 @@ export default function Busqueda() {
     setSearchParams({});
   };
 
-  const total = results.locales.length + results.operadores.length + results.matches.length + results.farmacias.length;
+  const total = results.locales.length + results.operadores.length + results.matches.length;
 
   return (
     <div className="space-y-6">
