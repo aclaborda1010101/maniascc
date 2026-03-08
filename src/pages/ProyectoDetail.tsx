@@ -63,6 +63,11 @@ export default function ProyectoDetail() {
   const [ragLoading, setRagLoading] = useState(false);
   const [ragDocs, setRagDocs] = useState<any[]>([]);
   const [ragIngesting, setRagIngesting] = useState<string | null>(null);
+  // Documentos state
+  const [docUploading, setDocUploading] = useState(false);
+  const [docDragOver, setDocDragOver] = useState(false);
+  const [docTipo, setDocTipo] = useState("contrato");
+  const [proyDocs, setProyDocs] = useState<any[]>([]);
 
   const fetchAll = async () => {
     if (!id) return;
