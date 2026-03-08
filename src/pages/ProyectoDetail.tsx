@@ -111,7 +111,40 @@ export default function ProyectoDetail() {
     setProyDocs(data || []);
   };
 
+  const fetchMatches = async () => {
+    if (!proyecto?.local_id) return;
+    setMatchesLoading(true);
+    const { data } = await supabase
+      .from("matches")
+      .select("*, operadores(nombre)")
+      .eq("local_id", proyecto.local_id)
+      .order("score", { ascending: false });
+    setMatches(data || []);
+    setMatchesLoading(false);
+  };
+
+  const handleGenerateMatches = async () => {
+    if (!proyecto?.local_id) {
+      toast({ title: "Error", description: "Este proyecto no tiene un local asignado.", variant: "destructive" });
+      return;
+    }
+    setGenerating(true);
+    setLastMatchResult(null);
+    const { data, error } = await supabase.functions.invoke("generate-match", {
+      body: { local_id: proyecto.local_id },
+    });
+    setGenerating(false);
+    if (error) {
+      toast({ title: "Error al generar matches", description: error.message, variant: "destructive" });
+    } else {
+      setLastMatchResult({ latency_ms: data?.latency_ms, modelo: data?.modelo, ai_enhanced: data?.ai_enhanced });
+      toast({ title: `${data?.matches?.length || 0} matches generados`, description: `Modelo: ${data?.modelo || "rule-based"} · ${data?.latency_ms || 0}ms` });
+      fetchMatches();
+    }
+  };
+
   useEffect(() => { fetchAll(); fetchAvailable(); fetchRagDocs(); }, [id]);
+  useEffect(() => { if (proyecto?.local_id) fetchMatches(); }, [proyecto?.local_id]);
 
   const handleRagQuery = async () => {
     if (!ragQuestion.trim()) return;
