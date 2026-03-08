@@ -528,16 +528,97 @@ export default function ProyectoDetail() {
 
         {/* ===== MATCHES IA ===== */}
         <TabsContent value="matches" className="space-y-4">
-          <Card><CardContent className="py-12 text-center">
-            <Sparkles className="mx-auto mb-3 h-10 w-10 text-muted-foreground/30" />
-            <p className="text-muted-foreground mb-3">Genera matches IA entre los activos y operadores del proyecto.</p>
-            <Button className="bg-accent text-accent-foreground hover:bg-accent/90" disabled={activos.length === 0 || operadores.length === 0}>
-              <Sparkles className="mr-2 h-4 w-4" /> Generar Matches
-            </Button>
-            {(activos.length === 0 || operadores.length === 0) && (
-              <p className="text-xs text-muted-foreground mt-2">Necesitas al menos 1 activo y 1 operador.</p>
-            )}
-          </CardContent></Card>
+          {/* Header with generate button */}
+          <Card>
+            <CardContent className="py-4 flex flex-col sm:flex-row items-center justify-between gap-3">
+              <div className="flex-1">
+                <h3 className="font-semibold flex items-center gap-2">
+                  <Sparkles className="h-4 w-4 text-accent" /> Motor de Matching IA
+                </h3>
+                <p className="text-sm text-muted-foreground mt-1">
+                  {proyecto?.local_id
+                    ? "Genera matches entre el local del proyecto y los operadores activos."
+                    : "Asigna un local al proyecto para poder generar matches."}
+                </p>
+              </div>
+              <div className="flex items-center gap-2">
+                {lastMatchResult && (
+                  <span className="text-xs text-muted-foreground">
+                    {lastMatchResult.modelo} · {lastMatchResult.latency_ms}ms
+                    {lastMatchResult.ai_enhanced && " · ✨ IA"}
+                  </span>
+                )}
+                <Button
+                  onClick={handleGenerateMatches}
+                  disabled={generating || !proyecto?.local_id}
+                  className="bg-accent text-accent-foreground hover:bg-accent/90"
+                >
+                  {generating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
+                  {generating ? "Generando…" : "Generar Matches"}
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Stats */}
+          {matches.length > 0 && (
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              <Card><CardContent className="py-3 text-center">
+                <p className="text-2xl font-bold">{matches.length}</p>
+                <p className="text-xs text-muted-foreground">Total</p>
+              </CardContent></Card>
+              <Card><CardContent className="py-3 text-center">
+                <p className="text-2xl font-bold text-chart-2">{matches.filter((m: any) => m.score >= 70).length}</p>
+                <p className="text-xs text-muted-foreground">Score ≥ 70</p>
+              </CardContent></Card>
+              <Card><CardContent className="py-3 text-center">
+                <p className="text-2xl font-bold text-chart-1">{matches.filter((m: any) => m.estado === "sugerido" || m.estado === "pendiente").length}</p>
+                <p className="text-xs text-muted-foreground">Pendientes</p>
+              </CardContent></Card>
+              <Card><CardContent className="py-3 text-center">
+                <p className="text-2xl font-bold text-accent">{matches.filter((m: any) => m.estado === "contactado" || m.estado === "exito").length}</p>
+                <p className="text-xs text-muted-foreground">Contactados</p>
+              </CardContent></Card>
+            </div>
+          )}
+
+          {/* Generating skeleton */}
+          {generating && (
+            <div className="grid gap-4 md:grid-cols-2">
+              {[1, 2, 3].map((i) => (
+                <Card key={i} className="border-l-4 border-l-muted">
+                  <CardContent className="py-6 space-y-3">
+                    <Skeleton className="h-5 w-2/3" />
+                    <Skeleton className="h-4 w-full" />
+                    <Skeleton className="h-4 w-1/2" />
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
+
+          {/* Match cards */}
+          {!generating && matches.length > 0 && (
+            <div className="grid gap-4 md:grid-cols-2">
+              {matches.map((m: any, i: number) => (
+                <MatchCard key={m.id} match={m} index={i} onUpdate={fetchMatches} />
+              ))}
+            </div>
+          )}
+
+          {/* Empty state */}
+          {!generating && matches.length === 0 && (
+            <Card>
+              <CardContent className="py-12 text-center">
+                <Sparkles className="mx-auto mb-3 h-10 w-10 text-muted-foreground/30" />
+                <p className="text-muted-foreground">
+                  {proyecto?.local_id
+                    ? "No hay matches todavía. Pulsa \"Generar Matches\" para empezar."
+                    : "Asigna un local al proyecto desde la pestaña Resumen para habilitar el matching."}
+                </p>
+              </CardContent>
+            </Card>
+          )}
         </TabsContent>
 
         {/* ===== DOCUMENTOS ===== */}
