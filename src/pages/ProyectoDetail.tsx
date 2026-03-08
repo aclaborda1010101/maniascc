@@ -206,7 +206,7 @@ export default function ProyectoDetail() {
     setRagIngesting(docId);
     const result = await ingestDocument(docId);
     if (result.success) {
-      toast({ title: `Documento indexado: ${result.chunks_created} fragmentos creados` });
+      toast({ title: `Documento indexado: ${result.chunks_created} fragmentos`, description: `Dominio RAG: ${result.dominio || "general"}` });
       fetchRagDocs();
     } else {
       toast({ title: "Error al indexar", description: result.error, variant: "destructive" });
@@ -251,7 +251,7 @@ export default function ProyectoDetail() {
         if (docRow) {
           ingestDocument(docRow.id).then((res) => {
             if (res.success) {
-              toast({ title: `"${file.name}" indexado (${res.chunks_created} fragmentos)` });
+              toast({ title: `"${file.name}" indexado (${res.chunks_created} fragmentos)`, description: `Dominio RAG: ${res.dominio || "general"}` });
               fetchRagDocs();
             }
           });
