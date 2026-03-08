@@ -21,6 +21,7 @@ export type Database = {
           created_by: string | null
           error_mensaje: string | null
           exito: boolean
+          funcion_ia: string | null
           id: string
           latencia_ms: number | null
           local_id: string | null
@@ -35,6 +36,7 @@ export type Database = {
           created_by?: string | null
           error_mensaje?: string | null
           exito?: boolean
+          funcion_ia?: string | null
           id?: string
           latencia_ms?: number | null
           local_id?: string | null
@@ -49,6 +51,7 @@ export type Database = {
           created_by?: string | null
           error_mensaje?: string | null
           exito?: boolean
+          funcion_ia?: string | null
           id?: string
           latencia_ms?: number | null
           local_id?: string | null
@@ -172,6 +175,7 @@ export type Database = {
           created_at: string
           estado: Database["public"]["Enums"]["estado_match"]
           explicacion: string | null
+          feedback_usuario: string | null
           generado_por: string | null
           id: string
           local_id: string
@@ -184,6 +188,7 @@ export type Database = {
           created_at?: string
           estado?: Database["public"]["Enums"]["estado_match"]
           explicacion?: string | null
+          feedback_usuario?: string | null
           generado_por?: string | null
           id?: string
           local_id: string
@@ -196,6 +201,7 @@ export type Database = {
           created_at?: string
           estado?: Database["public"]["Enums"]["estado_match"]
           explicacion?: string | null
+          feedback_usuario?: string | null
           generado_por?: string | null
           id?: string
           local_id?: string
@@ -351,7 +357,13 @@ export type Database = {
     Enums: {
       app_role: "admin" | "gestor" | "inversor"
       estado_local: "disponible" | "en_negociacion" | "ocupado" | "reforma"
-      estado_match: "pendiente" | "aprobado" | "descartado"
+      estado_match:
+        | "pendiente"
+        | "aprobado"
+        | "descartado"
+        | "sugerido"
+        | "contactado"
+        | "exito"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -481,7 +493,14 @@ export const Constants = {
     Enums: {
       app_role: ["admin", "gestor", "inversor"],
       estado_local: ["disponible", "en_negociacion", "ocupado", "reforma"],
-      estado_match: ["pendiente", "aprobado", "descartado"],
+      estado_match: [
+        "pendiente",
+        "aprobado",
+        "descartado",
+        "sugerido",
+        "contactado",
+        "exito",
+      ],
     },
   },
 } as const

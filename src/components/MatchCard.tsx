@@ -35,16 +35,16 @@ export function MatchCard({ match, index, onUpdate }: MatchCardProps) {
 
   const handleFeedback = async (feedback: "positivo" | "negativo") => {
     setLoading(true);
-    const newEstado = feedback === "positivo" ? "aprobado" : "descartado";
+    const newEstado = feedback === "positivo" ? "contactado" : "descartado";
     const { error } = await supabase
       .from("matches")
-      .update({ estado: newEstado } as any)
+      .update({ estado: newEstado, feedback_usuario: feedback } as any)
       .eq("id", match.id);
     setLoading(false);
     if (error) {
       toast({ title: "Error", description: error.message, variant: "destructive" });
     } else {
-      toast({ title: feedback === "positivo" ? "Match aprobado" : "Match descartado" });
+      toast({ title: feedback === "positivo" ? "Match aprobado → Contactado" : "Match descartado" });
       onUpdate?.();
     }
   };
@@ -73,7 +73,7 @@ export function MatchCard({ match, index, onUpdate }: MatchCardProps) {
         )}
       </CardContent>
       <CardFooter className="flex gap-2">
-        {match.estado === "pendiente" ? (
+        {(match.estado === "pendiente" || match.estado === "sugerido") ? (
           <>
             <Button
               size="sm"
@@ -95,7 +95,8 @@ export function MatchCard({ match, index, onUpdate }: MatchCardProps) {
             </Button>
           </>
         ) : (
-          <Badge variant={match.estado === "aprobado" ? "default" : "secondary"} className={match.estado === "aprobado" ? "bg-chart-2/10 text-chart-2" : ""}>
+          <Badge variant={match.estado === "contactado" || match.estado === "exito" ? "default" : "secondary"}
+            className={match.estado === "contactado" || match.estado === "exito" ? "bg-chart-2/10 text-chart-2" : ""}>
             {match.estado}
           </Badge>
         )}
