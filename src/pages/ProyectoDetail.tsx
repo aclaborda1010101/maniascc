@@ -74,6 +74,7 @@ export default function ProyectoDetail() {
   const [matchesLoading, setMatchesLoading] = useState(false);
   const [generating, setGenerating] = useState(false);
   const [lastMatchResult, setLastMatchResult] = useState<{ latency_ms?: number; modelo?: string; ai_enhanced?: boolean } | null>(null);
+  const [allLocales, setAllLocales] = useState<any[]>([]);
 
   const fetchAll = async () => {
     if (!id) return;
