@@ -1,6 +1,10 @@
 import { supabase } from "@/integrations/supabase/client";
 
-export async function queryRAG(question: string, filters?: object) {
+/**
+ * Query the RAG knowledge base via edge function.
+ * Returns an AI-generated answer with citations.
+ */
+export async function queryRAG(question: string, filters?: Record<string, unknown>) {
   try {
     const { data, error } = await supabase.functions.invoke("rag-proxy", {
       body: { question, filters },
