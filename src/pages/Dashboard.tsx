@@ -78,8 +78,18 @@ export default function Dashboard() {
       setLocalEstadoDist(Object.entries(localDist).map(([k, v]) => ({ name: estadoLocalLabels[k] || k, value: v })));
 
       const matchDist: Record<string, number> = {};
-      (matchesAllRes.data || []).forEach((m: any) => { matchDist[m.estado] = (matchDist[m.estado] || 0) + 1; });
+      const scoreBuckets = { "0-30": 0, "31-50": 0, "51-70": 0, "71-85": 0, "86-100": 0 };
+      (matchesAllRes.data || []).forEach((m: any) => {
+        matchDist[m.estado] = (matchDist[m.estado] || 0) + 1;
+        const s = Number(m.score) || 0;
+        if (s <= 30) scoreBuckets["0-30"]++;
+        else if (s <= 50) scoreBuckets["31-50"]++;
+        else if (s <= 70) scoreBuckets["51-70"]++;
+        else if (s <= 85) scoreBuckets["71-85"]++;
+        else scoreBuckets["86-100"]++;
+      });
       setMatchEstadoDist(Object.entries(matchDist).map(([k, v]) => ({ name: estadoMatchLabels[k] || k, value: v })));
+      setMatchScoreDist(Object.entries(scoreBuckets).map(([k, v]) => ({ range: k, count: v })));
 
       setStats({
         proyectosActivos: proyectosRes.count || 0,
