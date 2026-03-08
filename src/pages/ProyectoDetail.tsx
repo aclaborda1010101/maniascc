@@ -176,13 +176,30 @@ export default function ProyectoDetail() {
     if (!ragQuestion.trim()) return;
     setRagLoading(true);
     setRagAnswer(null);
-    const result = await queryRAG(ragQuestion, { proyecto_id: id });
+    const filters: Record<string, unknown> = { proyecto_id: id };
+    if (ragDominio !== "todos") filters.dominio = ragDominio;
+    const result = await queryRAG(ragQuestion, filters);
     if ("error" in result && result.error) {
       toast({ title: "Error RAG", description: (result as any).message, variant: "destructive" });
     } else {
       setRagAnswer(result as any);
     }
     setRagLoading(false);
+  };
+
+  const handleForgeGenerate = async () => {
+    if (!forgeContext.trim()) return;
+    setForgeLoading(true);
+    setForgeResult("");
+    setForgeMeta(null);
+    const result = await generateForgeDocument(forgeMode, forgeContext, id);
+    if (result.error) {
+      toast({ title: "Error FORGE", description: result.error, variant: "destructive" });
+    } else {
+      setForgeResult(result.content);
+      setForgeMeta({ model: result.model, latency_ms: result.latency_ms });
+    }
+    setForgeLoading(false);
   };
 
   const handleIngestDoc = async (docId: string) => {
