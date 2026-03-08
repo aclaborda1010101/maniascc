@@ -47,6 +47,9 @@ export default function Notificaciones() {
   }, [notifications, typeFilter, dateFrom, dateTo]);
 
   const unreadCount = filtered.filter((n) => !n.read).length;
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const safeePage = Math.min(page, totalPages);
+  const paginated = filtered.slice((safeePage - 1) * PAGE_SIZE, safeePage * PAGE_SIZE);
 
   const clearFilters = () => {
     setTypeFilter("all");
