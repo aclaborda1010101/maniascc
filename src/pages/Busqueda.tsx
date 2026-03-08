@@ -20,8 +20,8 @@ export default function Busqueda() {
   const [searchParams, setSearchParams] = useSearchParams();
   const initialQuery = searchParams.get("q") || "";
   const [query, setQuery] = useState(initialQuery);
-  const [results, setResults] = useState<{ locales: any[]; operadores: any[]; matches: any[]; farmacias: any[] }>({
-    locales: [], operadores: [], matches: [], farmacias: [],
+  const [results, setResults] = useState<{ locales: any[]; operadores: any[]; matches: any[] }>({
+    locales: [], operadores: [], matches: [],
   });
   const [loading, setLoading] = useState(false);
   const [searched, setSearched] = useState(false);
