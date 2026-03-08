@@ -138,6 +138,63 @@ export default function ProyectoDetail() {
     toast({ title: `Estado actualizado a ${estadoLabels[estado]}` });
   };
 
+  // Document upload handler
+  const handleDocUpload = async (fileList: FileList | null, tipo: string) => {
+    if (!fileList || fileList.length === 0 || !id || !user) return;
+    setDocUploading(true);
+    try {
+      for (const file of Array.from(fileList)) {
+        const storagePath = `proyectos/${id}/${Date.now()}_${file.name}`;
+        const { error: uploadErr } = await supabase.storage
+          .from("documentos_contratos")
+          .upload(storagePath, file);
+        if (uploadErr) throw uploadErr;
+
+        const { data: docRow, error: insertErr } = await supabase
+          .from("documentos_proyecto")
+          .insert({
+            proyecto_id: id,
+            nombre: file.name,
+            storage_path: storagePath,
+            mime_type: file.type,
+            tamano_bytes: file.size,
+            tipo_documento: tipo,
+            subido_por: user.id,
+          })
+          .select("id")
+          .single();
+        if (insertErr) throw insertErr;
+
+        // Auto-ingest to RAG
+        if (docRow) {
+          ingestDocument(docRow.id).then((res) => {
+            if (res.success) {
+              toast({ title: `"${file.name}" indexado (${res.chunks_created} fragmentos)` });
+              fetchRagDocs();
+            }
+          });
+        }
+      }
+      toast({ title: `${fileList.length} archivo(s) subido(s)` });
+      fetchRagDocs();
+    } catch (e: any) {
+      toast({ title: "Error al subir", description: e.message, variant: "destructive" });
+    }
+    setDocUploading(false);
+  };
+
+  const handleDocDownload = async (storagePath: string) => {
+    const { data } = await supabase.storage.from("documentos_contratos").createSignedUrl(storagePath, 120);
+    if (data?.signedUrl) window.open(data.signedUrl, "_blank");
+  };
+
+  const handleDocDelete = async (docId: string, storagePath: string) => {
+    await supabase.storage.from("documentos_contratos").remove([storagePath]);
+    await supabase.from("documentos_proyecto").delete().eq("id", docId);
+    toast({ title: "Documento eliminado" });
+    fetchRagDocs();
+  };
+
   const addOperador = async (opId: string) => {
     const { error } = await supabase.from("proyecto_operadores").insert({ proyecto_id: id!, operador_id: opId });
     if (!error) { setAddOpDialog(false); fetchAll(); }
