@@ -4,116 +4,109 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { MapPin, Users, Sparkles, Brain, Plus, TrendingUp, Clock, ArrowRight } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import {
+  MapPin, Users, Sparkles, Brain, Plus, TrendingUp, Clock, ArrowRight,
+  FolderOpen, DollarSign, Activity,
+} from "lucide-react";
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell, Legend,
 } from "recharts";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
-const PIE_COLORS_LOCALES = ["hsl(142,71%,45%)", "hsl(38,92%,50%)", "hsl(0,84%,60%)", "hsl(217,91%,60%)"];
-const PIE_COLORS_MATCHES = ["hsl(38,92%,50%)", "hsl(217,91%,60%)", "hsl(142,71%,45%)", "hsl(0,84%,60%)", "hsl(262,83%,58%)", "hsl(180,70%,45%)"];
+const PIE_COLORS = ["hsl(142,71%,45%)", "hsl(38,92%,50%)", "hsl(0,84%,60%)", "hsl(217,91%,60%)", "hsl(262,83%,58%)", "hsl(180,70%,45%)"];
 
 const estadoLocalLabels: Record<string, string> = {
-  disponible: "Disponible",
-  en_negociacion: "Negociación",
-  ocupado: "Ocupado",
-  reforma: "Reforma",
+  disponible: "Disponible", en_negociacion: "Negociación", ocupado: "Ocupado", reforma: "Reforma",
+};
+const estadoMatchLabels: Record<string, string> = {
+  pendiente: "Pendiente", sugerido: "Sugerido", contactado: "Contactado",
+  aprobado: "Aprobado", descartado: "Descartado", exito: "Éxito",
 };
 
-const estadoMatchLabels: Record<string, string> = {
-  pendiente: "Pendiente",
-  sugerido: "Sugerido",
-  contactado: "Contactado",
-  aprobado: "Aprobado",
-  descartado: "Descartado",
-  exito: "Éxito",
-};
+interface Stats {
+  proyectosActivos: number;
+  totalOperadores: number;
+  matchesPendientes: number;
+  costeIAMes: number;
+  totalLocales: number;
+  latenciaMedia: number;
+}
 
 export default function Dashboard() {
-  const [stats, setStats] = useState<{
-    totalLocales: number; operadoresActivos: number; totalMatches: number;
-    matchesExitosos: number; costeIA: number;
-    latenciaMedia: number; totalAudits: number;
-  } | null>(null);
+  const [stats, setStats] = useState<Stats | null>(null);
   const [recentMatches, setRecentMatches] = useState<any[]>([]);
-  const [auditLogs, setAuditLogs] = useState<any[]>([]);
+  const [recentActivity, setRecentActivity] = useState<any[]>([]);
   const [localEstadoDist, setLocalEstadoDist] = useState<any[]>([]);
   const [matchEstadoDist, setMatchEstadoDist] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     async function fetchData() {
+      const startOfMonth = new Date();
+      startOfMonth.setDate(1);
+      startOfMonth.setHours(0, 0, 0, 0);
+
       const [
-        localesCountRes, operadoresCountRes, matchesCountRes, matchesExitoRes,
-        auditoriaRes, recentRes, auditLogsRes, localesAllRes, matchesAllRes,
+        proyectosRes, operadoresRes, matchesPendRes, audMesRes,
+        localesCountRes, audLatRes, recentMatchesRes, actividadRes,
+        localesAllRes, matchesAllRes,
       ] = await Promise.all([
+        supabase.from("proyectos").select("id", { count: "exact", head: true }).in("estado", ["activo", "en_negociacion"]),
+        supabase.from("operadores").select("id", { count: "exact", head: true }),
+        supabase.from("matches").select("id", { count: "exact", head: true }).eq("estado", "pendiente"),
+        supabase.from("auditoria_ia").select("coste_estimado, latencia_ms").gte("created_at", startOfMonth.toISOString()),
         supabase.from("locales").select("id", { count: "exact", head: true }),
-        supabase.from("operadores").select("id", { count: "exact", head: true }).eq("activo", true),
-        supabase.from("matches").select("id", { count: "exact", head: true }),
-        supabase.from("matches").select("id", { count: "exact", head: true }).in("estado", ["aprobado", "contactado", "exito"]),
-        supabase.from("auditoria_ia").select("coste_estimado, latencia_ms"),
+        supabase.from("auditoria_ia").select("latencia_ms").order("created_at", { ascending: false }).limit(50),
         supabase.from("matches").select("*, locales(nombre), operadores(nombre)").order("created_at", { ascending: false }).limit(8),
-        supabase.from("auditoria_ia").select("*").order("created_at", { ascending: false }).limit(8),
+        supabase.from("actividad_proyecto").select("*, proyectos(nombre)").order("created_at", { ascending: false }).limit(10),
         supabase.from("locales").select("estado"),
         supabase.from("matches").select("estado"),
       ]);
 
-      const audits = auditoriaRes.data || [];
-      const costeTotal = audits.reduce((sum, r) => sum + (Number(r.coste_estimado) || 0), 0);
-      const latenciaMedia = audits.length > 0
-        ? Math.round(audits.reduce((sum, r) => sum + (Number(r.latencia_ms) || 0), 0) / audits.length)
-        : 0;
+      const audMes = audMesRes.data || [];
+      const costeIAMes = audMes.reduce((s, r) => s + (Number(r.coste_estimado) || 0), 0);
+      const latRows = audLatRes.data || [];
+      const latenciaMedia = latRows.length > 0
+        ? Math.round(latRows.reduce((s, r) => s + (Number(r.latencia_ms) || 0), 0) / latRows.length) : 0;
 
-      // Local distribution
+      // Distributions
       const localDist: Record<string, number> = {};
-      (localesAllRes.data || []).forEach((l: any) => {
-        localDist[l.estado] = (localDist[l.estado] || 0) + 1;
-      });
-      setLocalEstadoDist(Object.entries(localDist).map(([key, value]) => ({
-        name: estadoLocalLabels[key] || key,
-        value,
-      })));
+      (localesAllRes.data || []).forEach((l: any) => { localDist[l.estado] = (localDist[l.estado] || 0) + 1; });
+      setLocalEstadoDist(Object.entries(localDist).map(([k, v]) => ({ name: estadoLocalLabels[k] || k, value: v })));
 
-      // Match distribution
       const matchDist: Record<string, number> = {};
-      (matchesAllRes.data || []).forEach((m: any) => {
-        matchDist[m.estado] = (matchDist[m.estado] || 0) + 1;
-      });
-      setMatchEstadoDist(Object.entries(matchDist).map(([key, value]) => ({
-        name: estadoMatchLabels[key] || key,
-        value,
-      })));
+      (matchesAllRes.data || []).forEach((m: any) => { matchDist[m.estado] = (matchDist[m.estado] || 0) + 1; });
+      setMatchEstadoDist(Object.entries(matchDist).map(([k, v]) => ({ name: estadoMatchLabels[k] || k, value: v })));
 
       setStats({
+        proyectosActivos: proyectosRes.count || 0,
+        totalOperadores: operadoresRes.count || 0,
+        matchesPendientes: matchesPendRes.count || 0,
+        costeIAMes,
         totalLocales: localesCountRes.count || 0,
-        operadoresActivos: operadoresCountRes.count || 0,
-        totalMatches: matchesCountRes.count || 0,
-        matchesExitosos: matchesExitoRes.count || 0,
-        costeIA: costeTotal,
         latenciaMedia,
-        totalAudits: audits.length,
       });
-      setRecentMatches(recentRes.data || []);
-      setAuditLogs(auditLogsRes.data || []);
+      setRecentMatches(recentMatchesRes.data || []);
+      setRecentActivity(actividadRes.data || []);
       setLoading(false);
     }
     fetchData();
   }, []);
 
   const statCards = [
+    { label: "Proyectos Activos", value: stats?.proyectosActivos, icon: FolderOpen, color: "text-primary", bg: "bg-primary/10" },
+    { label: "Operadores", value: stats?.totalOperadores, icon: Users, color: "text-chart-2", bg: "bg-chart-2/10" },
     { label: "Locales", value: stats?.totalLocales, icon: MapPin, color: "text-chart-1", bg: "bg-chart-1/10" },
-    { label: "Operadores Activos", value: stats?.operadoresActivos, icon: Users, color: "text-chart-2", bg: "bg-chart-2/10" },
-    { label: "Matches Totales", value: stats?.totalMatches, icon: Sparkles, color: "text-accent", bg: "bg-accent/10" },
-    { label: "Matches Exitosos", value: stats?.matchesExitosos, icon: TrendingUp, color: "text-chart-2", bg: "bg-chart-2/10" },
-    { label: "Latencia Media IA", value: stats ? `${stats.latenciaMedia}ms` : undefined, icon: Clock, color: "text-chart-3", bg: "bg-chart-3/10" },
+    { label: "Matches Pendientes", value: stats?.matchesPendientes, icon: Sparkles, color: "text-accent", bg: "bg-accent/10" },
+    { label: "Coste IA (mes)", value: stats ? `${stats.costeIAMes.toFixed(3)}€` : undefined, icon: DollarSign, color: "text-chart-3", bg: "bg-chart-3/10" },
+    { label: "Latencia Media IA", value: stats ? `${stats.latenciaMedia}ms` : undefined, icon: Clock, color: "text-muted-foreground", bg: "bg-muted/50" },
   ];
 
   const barData = recentMatches.map((m) => ({
     name: ((m.operadores as any)?.nombre || "Op").substring(0, 10),
     score: Number(m.score) || 0,
-    local: ((m.locales as any)?.nombre || "").substring(0, 15),
   }));
 
   return (
@@ -125,7 +118,7 @@ export default function Dashboard() {
         </div>
         <div className="flex gap-2">
           <Button asChild size="sm" className="bg-accent text-accent-foreground hover:bg-accent/90">
-            <Link to="/locales"><Plus className="mr-1 h-4 w-4" /> Nuevo Local</Link>
+            <Link to="/proyectos"><Plus className="mr-1 h-4 w-4" /> Nuevo Proyecto</Link>
           </Button>
           <Button asChild size="sm" variant="outline">
             <Link to="/operadores"><Plus className="mr-1 h-4 w-4" /> Nuevo Operador</Link>
@@ -133,7 +126,7 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* Metric cards */}
+      {/* KPI cards */}
       <div className="grid gap-3 grid-cols-2 md:grid-cols-3 lg:grid-cols-6">
         {statCards.map((card) => (
           <Card key={card.label}>
@@ -150,26 +143,18 @@ export default function Dashboard() {
         ))}
       </div>
 
-      {/* Charts row */}
+      {/* Charts */}
       <div className="grid gap-4 lg:grid-cols-2">
         <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-base">Últimos Matches por Score</CardTitle>
-          </CardHeader>
+          <CardHeader className="pb-2"><CardTitle className="text-base">Últimos Matches por Score</CardTitle></CardHeader>
           <CardContent>
-            {loading ? (
-              <Skeleton className="h-[260px] w-full" />
-            ) : barData.length > 0 ? (
+            {loading ? <Skeleton className="h-[260px] w-full" /> : barData.length > 0 ? (
               <ResponsiveContainer width="100%" height={260}>
                 <BarChart data={barData} margin={{ top: 5, right: 5, bottom: 5, left: 0 }}>
                   <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
                   <XAxis dataKey="name" tick={{ fontSize: 11 }} />
                   <YAxis domain={[0, 100]} tick={{ fontSize: 11 }} />
-                  <Tooltip
-                    contentStyle={{ borderRadius: "8px", border: "1px solid hsl(var(--border))", background: "hsl(var(--card))" }}
-                    formatter={(value: number) => [`${value}%`, "Score"]}
-                    labelFormatter={(label) => `Operador: ${label}`}
-                  />
+                  <Tooltip contentStyle={{ borderRadius: "8px", border: "1px solid hsl(var(--border))", background: "hsl(var(--card))" }} formatter={(v: number) => [`${v}%`, "Score"]} />
                   <Bar dataKey="score" fill="hsl(var(--accent))" radius={[4, 4, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
@@ -178,7 +163,7 @@ export default function Dashboard() {
                 <Sparkles className="mx-auto mb-2 h-8 w-8 text-muted-foreground/40" />
                 <p className="text-muted-foreground">Aún no hay matches generados.</p>
                 <Button asChild size="sm" variant="link" className="mt-2">
-                  <Link to="/locales">Ir a Locales para generar matches <ArrowRight className="ml-1 h-3 w-3" /></Link>
+                  <Link to="/proyectos">Ir a Proyectos <ArrowRight className="ml-1 h-3 w-3" /></Link>
                 </Button>
               </div>
             )}
@@ -187,77 +172,52 @@ export default function Dashboard() {
 
         <div className="grid gap-4 grid-rows-2">
           <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-base">Locales por Estado</CardTitle>
-            </CardHeader>
+            <CardHeader className="pb-2"><CardTitle className="text-base">Locales por Estado</CardTitle></CardHeader>
             <CardContent className="flex items-center justify-center">
-              {loading ? (
-                <Skeleton className="h-[100px] w-full" />
-              ) : localEstadoDist.length > 0 ? (
+              {loading ? <Skeleton className="h-[100px] w-full" /> : localEstadoDist.length > 0 ? (
                 <ResponsiveContainer width="100%" height={110}>
                   <PieChart>
                     <Pie data={localEstadoDist} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={45} innerRadius={25}>
-                      {localEstadoDist.map((_, i) => (
-                        <Cell key={i} fill={PIE_COLORS_LOCALES[i % PIE_COLORS_LOCALES.length]} />
-                      ))}
+                      {localEstadoDist.map((_, i) => <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />)}
                     </Pie>
-                    <Tooltip />
-                    <Legend iconSize={8} wrapperStyle={{ fontSize: "11px" }} />
+                    <Tooltip /><Legend iconSize={8} wrapperStyle={{ fontSize: "11px" }} />
                   </PieChart>
                 </ResponsiveContainer>
-              ) : (
-                <p className="text-sm text-muted-foreground">Sin locales</p>
-              )}
+              ) : <p className="text-sm text-muted-foreground">Sin locales</p>}
             </CardContent>
           </Card>
-
           <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-base">Matches por Estado</CardTitle>
-            </CardHeader>
+            <CardHeader className="pb-2"><CardTitle className="text-base">Matches por Estado</CardTitle></CardHeader>
             <CardContent className="flex items-center justify-center">
-              {loading ? (
-                <Skeleton className="h-[100px] w-full" />
-              ) : matchEstadoDist.length > 0 ? (
+              {loading ? <Skeleton className="h-[100px] w-full" /> : matchEstadoDist.length > 0 ? (
                 <ResponsiveContainer width="100%" height={110}>
                   <PieChart>
                     <Pie data={matchEstadoDist} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={45} innerRadius={25}>
-                      {matchEstadoDist.map((_, i) => (
-                        <Cell key={i} fill={PIE_COLORS_MATCHES[i % PIE_COLORS_MATCHES.length]} />
-                      ))}
+                      {matchEstadoDist.map((_, i) => <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />)}
                     </Pie>
-                    <Tooltip />
-                    <Legend iconSize={8} wrapperStyle={{ fontSize: "11px" }} />
+                    <Tooltip /><Legend iconSize={8} wrapperStyle={{ fontSize: "11px" }} />
                   </PieChart>
                 </ResponsiveContainer>
-              ) : (
-                <p className="text-sm text-muted-foreground">Sin matches</p>
-              )}
+              ) : <p className="text-sm text-muted-foreground">Sin matches</p>}
             </CardContent>
           </Card>
         </div>
       </div>
 
-      {/* Recent matches + Audit */}
+      {/* Recent matches + Activity */}
       <div className="grid gap-4 lg:grid-cols-2">
         <Card>
           <CardHeader className="pb-2 flex flex-row items-center justify-between">
             <CardTitle className="text-base">Últimos Matches</CardTitle>
-            <Button asChild size="sm" variant="ghost">
-              <Link to="/locales">Ver todos <ArrowRight className="ml-1 h-3 w-3" /></Link>
-            </Button>
+            <Button asChild size="sm" variant="ghost"><Link to="/locales">Ver todos <ArrowRight className="ml-1 h-3 w-3" /></Link></Button>
           </CardHeader>
           <CardContent>
-            {loading ? (
-              <Skeleton className="h-40 w-full" />
-            ) : recentMatches.length > 0 ? (
+            {loading ? <Skeleton className="h-40 w-full" /> : recentMatches.length > 0 ? (
               <div className="space-y-2">
                 {recentMatches.slice(0, 5).map((m) => (
                   <div key={m.id} className="flex items-center justify-between rounded-md border p-2.5 text-sm">
                     <div className="min-w-0 flex-1">
-                      <p className="font-medium truncate">
-                        {(m.locales as any)?.nombre} ↔ {(m.operadores as any)?.nombre}
-                      </p>
+                      <p className="font-medium truncate">{(m.locales as any)?.nombre} ↔ {(m.operadores as any)?.nombre}</p>
                       <p className="text-xs text-muted-foreground truncate">{m.explicacion?.substring(0, 80)}</p>
                     </div>
                     <div className="flex items-center gap-2 shrink-0 ml-3">
@@ -267,56 +227,36 @@ export default function Dashboard() {
                   </div>
                 ))}
               </div>
-            ) : (
-              <p className="py-6 text-center text-muted-foreground">Sin matches recientes.</p>
-            )}
+            ) : <p className="py-6 text-center text-muted-foreground">Sin matches recientes.</p>}
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-base flex items-center gap-2">
-              <Brain className="h-4 w-4 text-accent" /> Auditoría IA
+              <Activity className="h-4 w-4 text-accent" /> Actividad Reciente
             </CardTitle>
           </CardHeader>
           <CardContent>
-            {loading ? (
-              <Skeleton className="h-40 w-full" />
-            ) : auditLogs.length > 0 ? (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="text-xs">Modelo</TableHead>
-                    <TableHead className="text-xs">Función</TableHead>
-                    <TableHead className="text-xs text-right">Latencia</TableHead>
-                    <TableHead className="text-xs text-center">Estado</TableHead>
-                    <TableHead className="text-xs text-right">Fecha</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {auditLogs.map((a) => (
-                    <TableRow key={a.id}>
-                      <TableCell className="text-xs font-medium">{a.modelo}</TableCell>
-                      <TableCell className="text-xs">{a.funcion_ia || "matching"}</TableCell>
-                      <TableCell className="text-xs text-right">{a.latencia_ms}ms</TableCell>
-                      <TableCell className="text-center">
-                        {a.exito ? (
-                          <Badge variant="secondary" className="bg-chart-2/10 text-chart-2 text-xs">✓</Badge>
-                        ) : (
-                          <Badge variant="secondary" className="bg-destructive/10 text-destructive text-xs">✗</Badge>
-                        )}
-                      </TableCell>
-                      <TableCell className="text-xs text-right text-muted-foreground">
-                        {new Date(a.created_at).toLocaleDateString("es-ES")}
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+            {loading ? <Skeleton className="h-40 w-full" /> : recentActivity.length > 0 ? (
+              <div className="space-y-2">
+                {recentActivity.map((a) => (
+                  <div key={a.id} className="flex items-center justify-between rounded-md border p-2.5 text-sm">
+                    <div className="min-w-0 flex-1">
+                      <p className="font-medium truncate">{a.descripcion}</p>
+                      <p className="text-xs text-muted-foreground">{(a.proyectos as any)?.nombre || "—"}</p>
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0 ml-3">
+                      <Badge variant="outline" className="text-xs">{a.tipo}</Badge>
+                      <span className="text-xs text-muted-foreground">{new Date(a.created_at).toLocaleDateString("es-ES")}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
             ) : (
               <div className="py-6 text-center">
-                <Brain className="mx-auto mb-2 h-8 w-8 text-muted-foreground/40" />
-                <p className="text-muted-foreground">Sin registros de auditoría IA.</p>
+                <Activity className="mx-auto mb-2 h-8 w-8 text-muted-foreground/40" />
+                <p className="text-muted-foreground">Sin actividad reciente.</p>
               </div>
             )}
           </CardContent>
