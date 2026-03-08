@@ -18,7 +18,9 @@ const OperadorDetail = lazy(() => import("./pages/OperadorDetail"));
 const Matching = lazy(() => import("./pages/Matching"));
 const Busqueda = lazy(() => import("./pages/Busqueda"));
 const Documentos = lazy(() => import("./pages/Documentos"));
-
+const Proyectos = lazy(() => import("./pages/Proyectos"));
+const ProyectoDetail = lazy(() => import("./pages/ProyectoDetail"));
+const Contactos = lazy(() => import("./pages/Contactos"));
 const LocationAnalysis = lazy(() => import("./pages/LocationAnalysis"));
 const DossierValidation = lazy(() => import("./pages/DossierValidation"));
 const TenantMixOptimizer = lazy(() => import("./pages/TenantMixOptimizer"));
@@ -47,14 +49,16 @@ const App = () => (
               <Route path="/" element={<Navigate to="/dashboard" replace />} />
               <Route element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
                 <Route path="/dashboard" element={<Dashboard />} />
+                <Route path="/proyectos" element={<Proyectos />} />
+                <Route path="/proyectos/:id" element={<ProyectoDetail />} />
                 <Route path="/locales" element={<Locales />} />
                 <Route path="/locales/:id" element={<LocalDetail />} />
                 <Route path="/operadores" element={<Operadores />} />
                 <Route path="/operadores/:id" element={<OperadorDetail />} />
+                <Route path="/contactos" element={<Contactos />} />
                 <Route path="/matching/:localId" element={<Matching />} />
                 <Route path="/busqueda" element={<Busqueda />} />
                 <Route path="/documentos" element={<Documentos />} />
-                
                 <Route path="/localizacion-analisis" element={<LocationAnalysis />} />
                 <Route path="/validacion-dossier" element={<DossierValidation />} />
                 <Route path="/tenant-mix" element={<TenantMixOptimizer />} />
