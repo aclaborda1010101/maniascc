@@ -15,8 +15,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import {
   ArrowLeft, MapPin, Users, FileText, Sparkles, MessageSquare,
   Calendar, Plus, Trash2, UserCircle, Building2, Target, Layers,
-  FileSearch, Compass,
+  FileSearch, Compass, BookOpen, Send, Loader2, RefreshCw,
 } from "lucide-react";
+import { queryRAG, ingestDocument } from "@/services/ragService";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 
 const estadoLabels: Record<string, string> = {
