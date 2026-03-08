@@ -92,7 +92,6 @@ export default function Dashboard() {
         totalMatches: matchesCountRes.count || 0,
         matchesExitosos: matchesExitoRes.count || 0,
         costeIA: costeTotal,
-        farmaciasRiesgoAlto: farmaciasAltoRes.count || 0,
         latenciaMedia,
         totalAudits: audits.length,
       });
