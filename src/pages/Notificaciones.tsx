@@ -31,6 +31,7 @@ export default function Notificaciones() {
   const [typeFilter, setTypeFilter] = useState<string>("all");
   const [dateFrom, setDateFrom] = useState<Date | undefined>();
   const [dateTo, setDateTo] = useState<Date | undefined>();
+  const [page, setPage] = useState(1);
 
   const filtered = useMemo(() => {
     return notifications.filter((n) => {
