@@ -153,7 +153,7 @@ export default function Notificaciones() {
         </Card>
       ) : (
         <div className="space-y-2">
-          {filtered.map((n) => (
+          {paginated.map((n) => (
             <Card
               key={n.id}
               className={cn("transition-colors cursor-pointer hover:bg-muted/40", !n.read && "border-l-4 border-l-accent bg-accent/5")}
@@ -186,6 +186,45 @@ export default function Notificaciones() {
               </CardContent>
             </Card>
           ))}
+
+          {/* Pagination */}
+          {totalPages > 1 && (
+            <div className="flex items-center justify-between pt-4">
+              <p className="text-sm text-muted-foreground">
+                Mostrando {(safeePage - 1) * PAGE_SIZE + 1}–{Math.min(safeePage * PAGE_SIZE, filtered.length)} de {filtered.length}
+              </p>
+              <div className="flex items-center gap-1">
+                <Button variant="outline" size="icon" disabled={safeePage <= 1} onClick={() => setPage(safeePage - 1)}>
+                  <ChevronLeft className="h-4 w-4" />
+                </Button>
+                {Array.from({ length: totalPages }, (_, i) => i + 1)
+                  .filter((p) => p === 1 || p === totalPages || Math.abs(p - safeePage) <= 1)
+                  .reduce<(number | "ellipsis")[]>((acc, p, idx, arr) => {
+                    if (idx > 0 && p - (arr[idx - 1] as number) > 1) acc.push("ellipsis");
+                    acc.push(p);
+                    return acc;
+                  }, [])
+                  .map((item, idx) =>
+                    item === "ellipsis" ? (
+                      <span key={`e-${idx}`} className="px-2 text-muted-foreground">…</span>
+                    ) : (
+                      <Button
+                        key={item}
+                        variant={item === safeePage ? "default" : "outline"}
+                        size="icon"
+                        className="h-9 w-9"
+                        onClick={() => setPage(item as number)}
+                      >
+                        {item}
+                      </Button>
+                    )
+                  )}
+                <Button variant="outline" size="icon" disabled={safeePage >= totalPages} onClick={() => setPage(safeePage + 1)}>
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>
