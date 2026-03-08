@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { MapPin, Users, Sparkles, Brain, Plus, TrendingUp, Clock, Pill, ArrowRight } from "lucide-react";
+import { MapPin, Users, Sparkles, Brain, Plus, TrendingUp, Clock, ArrowRight } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
