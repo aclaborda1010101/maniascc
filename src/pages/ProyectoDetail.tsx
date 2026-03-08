@@ -645,6 +645,44 @@ export default function ProyectoDetail() {
                 if (matchSortBy === "score_asc") return a.score - b.score;
                 return a.estado.localeCompare(b.estado);
               });
+
+            const exportCSV = () => {
+              const header = "Operador,Score,Estado,Tags,Explicación\n";
+              const rows = filtered.map((m: any) => {
+                const nombre = ((m.operadores as any)?.nombre || "").replace(/"/g, '""');
+                const tags = (m.tags || []).join("; ").replace(/"/g, '""');
+                const explicacion = (m.explicacion || "").replace(/"/g, '""');
+                const estado = m.estado || "";
+                return `"${nombre}",${m.score},"${estado}","${tags}","${explicacion}"`;
+              }).join("\n");
+              const blob = new Blob(["\uFEFF" + header + rows], { type: "text/csv;charset=utf-8;" });
+              const url = URL.createObjectURL(blob);
+              const a = document.createElement("a");
+              a.href = url;
+              a.download = `matches_${proyecto?.nombre?.replace(/\s+/g, "_") || "proyecto"}_${new Date().toISOString().slice(0, 10)}.csv`;
+              a.click();
+              URL.revokeObjectURL(url);
+              toast({ title: `CSV exportado (${filtered.length} matches)` });
+            };
+
+            const exportPDF = () => {
+              const w = window.open("", "_blank");
+              if (!w) { toast({ title: "Error", description: "Permite ventanas emergentes para exportar PDF.", variant: "destructive" }); return; }
+              const tableRows = filtered.map((m: any) =>
+                `<tr><td>${(m.operadores as any)?.nombre || "-"}</td><td style="text-align:center;font-weight:bold">${m.score}%</td><td>${m.estado}</td><td style="font-size:11px">${(m.tags || []).join(", ")}</td><td style="font-size:11px">${m.explicacion || "-"}</td></tr>`
+              ).join("");
+              w.document.write(`<!DOCTYPE html><html><head><title>Matches - ${proyecto?.nombre || ""}</title>
+                <style>body{font-family:system-ui,sans-serif;padding:24px;color:#1a1a1a}h1{font-size:18px;margin-bottom:4px}
+                table{width:100%;border-collapse:collapse;margin-top:16px}th,td{border:1px solid #ddd;padding:6px 10px;text-align:left;font-size:13px}
+                th{background:#f5f5f5;font-weight:600}.meta{color:#666;font-size:13px;margin-bottom:8px}</style></head>
+                <body><h1>Matches IA — ${proyecto?.nombre || ""}</h1>
+                <p class="meta">Exportado: ${new Date().toLocaleString("es-ES")} · ${filtered.length} matches</p>
+                <table><thead><tr><th>Operador</th><th>Score</th><th>Estado</th><th>Tags</th><th>Explicación</th></tr></thead>
+                <tbody>${tableRows}</tbody></table>
+                <script>window.onload=()=>{window.print()}<\/script></body></html>`);
+              w.document.close();
+            };
+
             return (
               <>
                 <div className="flex flex-wrap items-center gap-2">
@@ -679,7 +717,15 @@ export default function ProyectoDetail() {
                       </SelectContent>
                     </Select>
                   )}
-                  <span className="text-xs text-muted-foreground ml-auto">{filtered.length} de {matches.length}</span>
+                  <div className="ml-auto flex items-center gap-2">
+                    <span className="text-xs text-muted-foreground">{filtered.length} de {matches.length}</span>
+                    <Button variant="outline" size="sm" className="h-8 text-xs gap-1" onClick={exportCSV}>
+                      <Download className="h-3.5 w-3.5" /> CSV
+                    </Button>
+                    <Button variant="outline" size="sm" className="h-8 text-xs gap-1" onClick={exportPDF}>
+                      <FileText className="h-3.5 w-3.5" /> PDF
+                    </Button>
+                  </div>
                 </div>
                 {filtered.length > 0 ? (
                   <div className="grid gap-4 md:grid-cols-2">
