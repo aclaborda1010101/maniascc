@@ -63,7 +63,7 @@ export default function Dashboard() {
         supabase.from("matches").select("*, locales(nombre), operadores(nombre)").order("created_at", { ascending: false }).limit(8),
         supabase.from("actividad_proyecto").select("*, proyectos(nombre)").order("created_at", { ascending: false }).limit(10),
         supabase.from("locales").select("estado"),
-        supabase.from("matches").select("estado"),
+        supabase.from("matches").select("estado, score"),
       ]);
 
       const audMes = audMesRes.data || [];
