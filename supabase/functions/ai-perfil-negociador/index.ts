@@ -63,7 +63,7 @@ Genera recomendaciones tácticas específicas.`;
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "google/gemini-3-flash-preview",
+        model: "google/gemini-2.5-pro",
         messages: [
           { role: "system", content: "Eres ATLAS PULSE, agente de inteligencia de negociación. RGPD: solo procesar datos con base legal legítima. Responde SOLO con tool call." },
           { role: "user", content: prompt },
@@ -134,7 +134,7 @@ Genera recomendaciones tácticas específicas.`;
     }
 
     await supabase.from("auditoria_ia").insert({
-      modelo: "google/gemini-3-flash-preview",
+      modelo: "google/gemini-2.5-pro",
       funcion_ia: "perfil-negociador",
       latencia_ms: latencyMs,
       exito: true,

@@ -48,7 +48,7 @@ Para cada plan incluye operadores recomendados, score de sinergia, predicción d
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "google/gemini-3-flash-preview",
+        model: "google/gemini-2.5-pro",
         messages: [
           { role: "system", content: "Eres ATLAS NEXUS avanzado, optimizador de tenant mix. Responde SOLO con el tool call." },
           { role: "user", content: prompt },
@@ -120,7 +120,7 @@ Para cada plan incluye operadores recomendados, score de sinergia, predicción d
     }
 
     await supabase.from("auditoria_ia").insert({
-      modelo: "google/gemini-3-flash-preview",
+      modelo: "google/gemini-2.5-pro",
       funcion_ia: "tenant-mix-avanzado",
       latencia_ms: latencyMs,
       exito: true,
