@@ -40,6 +40,7 @@ export default function Dashboard() {
   const [recentActivity, setRecentActivity] = useState<any[]>([]);
   const [localEstadoDist, setLocalEstadoDist] = useState<any[]>([]);
   const [matchEstadoDist, setMatchEstadoDist] = useState<any[]>([]);
+  const [matchScoreDist, setMatchScoreDist] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
