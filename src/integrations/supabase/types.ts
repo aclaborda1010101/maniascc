@@ -493,6 +493,140 @@ export type Database = {
         }
         Relationships: []
       }
+      proyecto_contactos: {
+        Row: {
+          added_at: string
+          contacto_id: string
+          id: string
+          proyecto_id: string
+          rol: string | null
+        }
+        Insert: {
+          added_at?: string
+          contacto_id: string
+          id?: string
+          proyecto_id: string
+          rol?: string | null
+        }
+        Update: {
+          added_at?: string
+          contacto_id?: string
+          id?: string
+          proyecto_id?: string
+          rol?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "proyecto_contactos_contacto_id_fkey"
+            columns: ["contacto_id"]
+            isOneToOne: false
+            referencedRelation: "perfiles_negociador"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "proyecto_contactos_proyecto_id_fkey"
+            columns: ["proyecto_id"]
+            isOneToOne: false
+            referencedRelation: "proyectos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      proyecto_operadores: {
+        Row: {
+          added_at: string
+          id: string
+          operador_id: string
+          proyecto_id: string
+          rol: string | null
+        }
+        Insert: {
+          added_at?: string
+          id?: string
+          operador_id: string
+          proyecto_id: string
+          rol?: string | null
+        }
+        Update: {
+          added_at?: string
+          id?: string
+          operador_id?: string
+          proyecto_id?: string
+          rol?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "proyecto_operadores_operador_id_fkey"
+            columns: ["operador_id"]
+            isOneToOne: false
+            referencedRelation: "operadores"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "proyecto_operadores_proyecto_id_fkey"
+            columns: ["proyecto_id"]
+            isOneToOne: false
+            referencedRelation: "proyectos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      proyectos: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          descripcion: string | null
+          estado: Database["public"]["Enums"]["estado_proyecto"]
+          fecha_inicio: string | null
+          fecha_objetivo: string | null
+          id: string
+          local_id: string | null
+          nombre: string
+          notas: string | null
+          responsable_id: string | null
+          tipo: Database["public"]["Enums"]["tipo_proyecto"]
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          descripcion?: string | null
+          estado?: Database["public"]["Enums"]["estado_proyecto"]
+          fecha_inicio?: string | null
+          fecha_objetivo?: string | null
+          id?: string
+          local_id?: string | null
+          nombre: string
+          notas?: string | null
+          responsable_id?: string | null
+          tipo?: Database["public"]["Enums"]["tipo_proyecto"]
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          descripcion?: string | null
+          estado?: Database["public"]["Enums"]["estado_proyecto"]
+          fecha_inicio?: string | null
+          fecha_objetivo?: string | null
+          id?: string
+          local_id?: string | null
+          nombre?: string
+          notas?: string | null
+          responsable_id?: string | null
+          tipo?: Database["public"]["Enums"]["tipo_proyecto"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "proyectos_local_id_fkey"
+            columns: ["local_id"]
+            isOneToOne: false
+            referencedRelation: "locales"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       sinergias_operadores: {
         Row: {
           coeficiente_sinergia: number | null
@@ -639,6 +773,17 @@ export type Database = {
         | "sugerido"
         | "contactado"
         | "exito"
+      estado_proyecto:
+        | "borrador"
+        | "activo"
+        | "en_pausa"
+        | "cerrado_exito"
+        | "cerrado_sin_exito"
+      tipo_proyecto:
+        | "comercializacion"
+        | "negociacion"
+        | "centro_completo"
+        | "otro"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -775,6 +920,19 @@ export const Constants = {
         "sugerido",
         "contactado",
         "exito",
+      ],
+      estado_proyecto: [
+        "borrador",
+        "activo",
+        "en_pausa",
+        "cerrado_exito",
+        "cerrado_sin_exito",
+      ],
+      tipo_proyecto: [
+        "comercializacion",
+        "negociacion",
+        "centro_completo",
+        "otro",
       ],
     },
   },
