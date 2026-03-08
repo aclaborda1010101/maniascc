@@ -251,7 +251,7 @@ export default function ProyectoDetail() {
         if (docRow) {
           ingestDocument(docRow.id).then((res) => {
             if (res.success) {
-              toast({ title: `"${file.name}" indexado (${res.chunks_created} fragmentos)` });
+              toast({ title: `"${file.name}" indexado (${res.chunks_created} fragmentos)`, description: `Dominio RAG: ${res.dominio || "general"}` });
               fetchRagDocs();
             }
           });
