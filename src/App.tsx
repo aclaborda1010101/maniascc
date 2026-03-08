@@ -11,20 +11,17 @@ import NotFound from "./pages/NotFound";
 
 const Login = lazy(() => import("./pages/Login"));
 const Dashboard = lazy(() => import("./pages/Dashboard"));
+const Proyectos = lazy(() => import("./pages/Proyectos"));
+const ProyectoDetail = lazy(() => import("./pages/ProyectoDetail"));
 const Locales = lazy(() => import("./pages/Locales"));
 const LocalDetail = lazy(() => import("./pages/LocalDetail"));
 const Operadores = lazy(() => import("./pages/Operadores"));
 const OperadorDetail = lazy(() => import("./pages/OperadorDetail"));
-const Matching = lazy(() => import("./pages/Matching"));
-const Busqueda = lazy(() => import("./pages/Busqueda"));
-const Documentos = lazy(() => import("./pages/Documentos"));
-const Proyectos = lazy(() => import("./pages/Proyectos"));
-const ProyectoDetail = lazy(() => import("./pages/ProyectoDetail"));
 const Contactos = lazy(() => import("./pages/Contactos"));
-const LocationAnalysis = lazy(() => import("./pages/LocationAnalysis"));
-const DossierValidation = lazy(() => import("./pages/DossierValidation"));
-const TenantMixOptimizer = lazy(() => import("./pages/TenantMixOptimizer"));
-const NegotiationBriefing = lazy(() => import("./pages/NegotiationBriefing"));
+const Documentos = lazy(() => import("./pages/Documentos"));
+const Busqueda = lazy(() => import("./pages/Busqueda"));
+const Auditoria = lazy(() => import("./pages/Auditoria"));
+const Matching = lazy(() => import("./pages/Matching"));
 
 const queryClient = new QueryClient();
 
@@ -51,18 +48,15 @@ const App = () => (
                 <Route path="/dashboard" element={<Dashboard />} />
                 <Route path="/proyectos" element={<Proyectos />} />
                 <Route path="/proyectos/:id" element={<ProyectoDetail />} />
-                <Route path="/locales" element={<Locales />} />
-                <Route path="/locales/:id" element={<LocalDetail />} />
                 <Route path="/operadores" element={<Operadores />} />
                 <Route path="/operadores/:id" element={<OperadorDetail />} />
                 <Route path="/contactos" element={<Contactos />} />
-                <Route path="/matching/:localId" element={<Matching />} />
-                <Route path="/busqueda" element={<Busqueda />} />
                 <Route path="/documentos" element={<Documentos />} />
-                <Route path="/localizacion-analisis" element={<LocationAnalysis />} />
-                <Route path="/validacion-dossier" element={<DossierValidation />} />
-                <Route path="/tenant-mix" element={<TenantMixOptimizer />} />
-                <Route path="/negociacion-briefing" element={<NegotiationBriefing />} />
+                <Route path="/busqueda" element={<Busqueda />} />
+                <Route path="/auditoria" element={<Auditoria />} />
+                <Route path="/locales" element={<Locales />} />
+                <Route path="/locales/:id" element={<LocalDetail />} />
+                <Route path="/matching/:localId" element={<Matching />} />
               </Route>
               <Route path="*" element={<NotFound />} />
             </Routes>

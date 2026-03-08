@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, Search, FolderKanban, Calendar, MapPin } from "lucide-react";
+import { Plus, Search, FolderKanban, Calendar, MapPin, Building2, ClipboardCheck, Layers, ArrowLeftRight, Pill } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
@@ -18,29 +18,50 @@ const tipoLabels: Record<string, string> = {
   comercializacion: "Comercialización",
   negociacion: "Negociación",
   centro_completo: "Centro Completo",
+  auditoria_estrategica: "Auditoría Estratégica",
+  desarrollo_suelo: "Desarrollo Suelo",
+  traspaso_adquisicion: "Traspaso/Adquisición",
+  farmacia: "Farmacia",
   otro: "Otro",
+};
+
+const tipoIcons: Record<string, any> = {
+  comercializacion: Building2,
+  centro_completo: Building2,
+  auditoria_estrategica: ClipboardCheck,
+  desarrollo_suelo: Layers,
+  traspaso_adquisicion: ArrowLeftRight,
+  farmacia: Pill,
 };
 
 const estadoLabels: Record<string, string> = {
   borrador: "Borrador",
   activo: "Activo",
   en_pausa: "En pausa",
+  en_negociacion: "En negociación",
   cerrado_exito: "Cerrado ✓",
   cerrado_sin_exito: "Cerrado ✗",
+  archivado: "Archivado",
 };
 
 const estadoColors: Record<string, string> = {
   borrador: "bg-muted text-muted-foreground",
   activo: "bg-chart-2/10 text-chart-2",
   en_pausa: "bg-chart-3/10 text-chart-3",
+  en_negociacion: "bg-chart-3/10 text-chart-3",
   cerrado_exito: "bg-accent/10 text-accent",
   cerrado_sin_exito: "bg-destructive/10 text-destructive",
+  archivado: "bg-muted text-muted-foreground",
 };
 
 const tipoColors: Record<string, string> = {
   comercializacion: "bg-accent/10 text-accent",
   negociacion: "bg-chart-3/10 text-chart-3",
-  centro_completo: "bg-chart-5/10 text-chart-5",
+  centro_completo: "bg-accent/10 text-accent",
+  auditoria_estrategica: "bg-chart-5/10 text-chart-5",
+  desarrollo_suelo: "bg-chart-2/10 text-chart-2",
+  traspaso_adquisicion: "bg-chart-3/10 text-chart-3",
+  farmacia: "bg-destructive/10 text-destructive",
   otro: "bg-muted text-muted-foreground",
 };
 
@@ -49,9 +70,9 @@ export default function Proyectos() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [filtroEstado, setFiltroEstado] = useState("todos");
+  const [filtroTipo, setFiltroTipo] = useState("todos");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
-  const [locales, setLocales] = useState<any[]>([]);
   const { toast } = useToast();
   const { user } = useAuth();
 
@@ -59,33 +80,29 @@ export default function Proyectos() {
     setLoading(true);
     let query = supabase
       .from("proyectos")
-      .select("*, locales(nombre, ciudad)")
+      .select("*")
       .order("created_at", { ascending: false });
     if (filtroEstado !== "todos") query = query.eq("estado", filtroEstado as any);
+    if (filtroTipo !== "todos") query = query.eq("tipo", filtroTipo as any);
     if (search) query = query.or(`nombre.ilike.%${search}%,descripcion.ilike.%${search}%`);
     const { data } = await query;
     setProyectos(data || []);
     setLoading(false);
   };
 
-  const fetchLocales = async () => {
-    const { data } = await supabase.from("locales").select("id, nombre, ciudad").order("nombre");
-    setLocales(data || []);
-  };
-
-  useEffect(() => { fetchProyectos(); }, [filtroEstado, search]);
-  useEffect(() => { fetchLocales(); }, []);
+  useEffect(() => { fetchProyectos(); }, [filtroEstado, filtroTipo, search]);
 
   const handleCreate = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setSubmitting(true);
     const fd = new FormData(e.currentTarget);
-    const localId = fd.get("local_id") as string;
     const { error } = await supabase.from("proyectos").insert({
       nombre: fd.get("nombre") as string,
       descripcion: (fd.get("descripcion") as string) || null,
       tipo: fd.get("tipo") as any,
-      local_id: localId && localId !== "none" ? localId : null,
+      ubicacion: (fd.get("ubicacion") as string) || null,
+      codigo_postal: (fd.get("codigo_postal") as string) || null,
+      presupuesto_estimado: fd.get("presupuesto_estimado") ? Number(fd.get("presupuesto_estimado")) : null,
       fecha_objetivo: (fd.get("fecha_objetivo") as string) || null,
       created_by: user?.id,
       responsable_id: user?.id,
@@ -105,7 +122,7 @@ export default function Proyectos() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Proyectos</h1>
-          <p className="text-sm text-muted-foreground">Gestiona tus proyectos de comercialización, negociación y más</p>
+          <p className="text-sm text-muted-foreground">Gestiona todas las operaciones comerciales</p>
         </div>
         <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
           <DialogTrigger asChild>
@@ -120,20 +137,17 @@ export default function Proyectos() {
             <form onSubmit={handleCreate} className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="p-nombre">Nombre del proyecto *</Label>
-                <Input id="p-nombre" name="nombre" placeholder="Comercialización Local 12-A Parque Sur" required />
+                <Input id="p-nombre" name="nombre" placeholder="CC Vallecas — Comercialización" required />
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="p-tipo">Tipo *</Label>
                   <Select name="tipo" defaultValue="comercializacion">
-                    <SelectTrigger id="p-tipo">
-                      <SelectValue />
-                    </SelectTrigger>
+                    <SelectTrigger id="p-tipo"><SelectValue /></SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="comercializacion">Comercialización</SelectItem>
-                      <SelectItem value="negociacion">Negociación</SelectItem>
-                      <SelectItem value="centro_completo">Centro Completo</SelectItem>
-                      <SelectItem value="otro">Otro</SelectItem>
+                      {Object.entries(tipoLabels).map(([k, v]) => (
+                        <SelectItem key={k} value={k}>{v}</SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                 </div>
@@ -142,19 +156,19 @@ export default function Proyectos() {
                   <Input id="p-fecha" name="fecha_objetivo" type="date" />
                 </div>
               </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="p-ubicacion">Ubicación</Label>
+                  <Input id="p-ubicacion" name="ubicacion" placeholder="Madrid Sur" />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="p-cp">Código Postal</Label>
+                  <Input id="p-cp" name="codigo_postal" placeholder="28001" />
+                </div>
+              </div>
               <div className="space-y-2">
-                <Label htmlFor="p-local">Local vinculado (opcional)</Label>
-                <Select name="local_id" defaultValue="none">
-                  <SelectTrigger id="p-local">
-                    <SelectValue placeholder="Sin local vinculado" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">Sin local vinculado</SelectItem>
-                    {locales.map((l) => (
-                      <SelectItem key={l.id} value={l.id}>{l.nombre} — {l.ciudad}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <Label htmlFor="p-presupuesto">Presupuesto estimado (€)</Label>
+                <Input id="p-presupuesto" name="presupuesto_estimado" type="number" placeholder="500000" />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="p-desc">Descripción</Label>
@@ -174,17 +188,22 @@ export default function Proyectos() {
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input placeholder="Buscar proyectos..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-10" />
         </div>
+        <Select value={filtroTipo} onValueChange={setFiltroTipo}>
+          <SelectTrigger className="w-[180px]"><SelectValue placeholder="Tipo" /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="todos">Todos los tipos</SelectItem>
+            {Object.entries(tipoLabels).map(([k, v]) => (
+              <SelectItem key={k} value={k}>{v}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
         <Select value={filtroEstado} onValueChange={setFiltroEstado}>
-          <SelectTrigger className="w-[180px]">
-            <SelectValue placeholder="Estado" />
-          </SelectTrigger>
+          <SelectTrigger className="w-[180px]"><SelectValue placeholder="Estado" /></SelectTrigger>
           <SelectContent>
             <SelectItem value="todos">Todos los estados</SelectItem>
-            <SelectItem value="borrador">Borrador</SelectItem>
-            <SelectItem value="activo">Activo</SelectItem>
-            <SelectItem value="en_pausa">En pausa</SelectItem>
-            <SelectItem value="cerrado_exito">Cerrado ✓</SelectItem>
-            <SelectItem value="cerrado_sin_exito">Cerrado ✗</SelectItem>
+            {Object.entries(estadoLabels).map(([k, v]) => (
+              <SelectItem key={k} value={k}>{v}</SelectItem>
+            ))}
           </SelectContent>
         </Select>
       </div>
@@ -192,55 +211,62 @@ export default function Proyectos() {
       {/* Project cards */}
       {loading ? (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {[1, 2, 3].map((i) => <Skeleton key={i} className="h-40 w-full rounded-lg" />)}
+          {[1, 2, 3].map((i) => <Skeleton key={i} className="h-44 w-full rounded-lg" />)}
         </div>
       ) : proyectos.length === 0 ? (
         <Card>
           <CardContent className="py-16 text-center">
             <FolderKanban className="mx-auto mb-3 h-12 w-12 text-muted-foreground/30" />
             <p className="text-muted-foreground">
-              {search || filtroEstado !== "todos" ? "No se encontraron proyectos con esos filtros." : "No hay proyectos aún. Crea el primero."}
+              {search || filtroEstado !== "todos" || filtroTipo !== "todos"
+                ? "No se encontraron proyectos con esos filtros."
+                : "No hay proyectos aún. Crea el primero."}
             </p>
           </CardContent>
         </Card>
       ) : (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {proyectos.map((p) => (
-            <Link key={p.id} to={`/proyectos/${p.id}`}>
-              <Card className="hover:border-accent/50 hover:shadow-md transition-all cursor-pointer h-full">
-                <CardHeader className="pb-3">
-                  <div className="flex items-start justify-between gap-2">
-                    <h3 className="font-semibold leading-tight line-clamp-2">{p.nombre}</h3>
-                    <Badge variant="secondary" className={`shrink-0 text-xs ${estadoColors[p.estado] || ""}`}>
-                      {estadoLabels[p.estado] || p.estado}
+          {proyectos.map((p) => {
+            const TipoIcon = tipoIcons[p.tipo] || FolderKanban;
+            return (
+              <Link key={p.id} to={`/proyectos/${p.id}`}>
+                <Card className="hover:border-accent/50 hover:shadow-md transition-all cursor-pointer h-full">
+                  <CardHeader className="pb-3">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex items-start gap-2">
+                        <TipoIcon className="h-4 w-4 mt-0.5 text-muted-foreground shrink-0" />
+                        <h3 className="font-semibold leading-tight line-clamp-2">{p.nombre}</h3>
+                      </div>
+                      <Badge variant="secondary" className={`shrink-0 text-xs ${estadoColors[p.estado] || ""}`}>
+                        {estadoLabels[p.estado] || p.estado}
+                      </Badge>
+                    </div>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    <Badge variant="outline" className={`text-xs ${tipoColors[p.tipo] || ""}`}>
+                      {tipoLabels[p.tipo] || p.tipo}
                     </Badge>
-                  </div>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  <Badge variant="outline" className={`text-xs ${tipoColors[p.tipo] || ""}`}>
-                    {tipoLabels[p.tipo] || p.tipo}
-                  </Badge>
-                  {p.descripcion && (
-                    <p className="text-sm text-muted-foreground line-clamp-2">{p.descripcion}</p>
-                  )}
-                  <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                    {(p.locales as any)?.nombre && (
-                      <span className="flex items-center gap-1">
-                        <MapPin className="h-3 w-3" />
-                        {(p.locales as any).nombre}
-                      </span>
+                    {p.descripcion && (
+                      <p className="text-sm text-muted-foreground line-clamp-2">{p.descripcion}</p>
                     )}
-                    {p.fecha_objetivo && (
-                      <span className="flex items-center gap-1">
-                        <Calendar className="h-3 w-3" />
-                        {new Date(p.fecha_objetivo).toLocaleDateString("es-ES")}
-                      </span>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-            </Link>
-          ))}
+                    <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                      {p.ubicacion && (
+                        <span className="flex items-center gap-1">
+                          <MapPin className="h-3 w-3" /> {p.ubicacion}
+                        </span>
+                      )}
+                      {p.fecha_objetivo && (
+                        <span className="flex items-center gap-1">
+                          <Calendar className="h-3 w-3" />
+                          {new Date(p.fecha_objetivo).toLocaleDateString("es-ES")}
+                        </span>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+              </Link>
+            );
+          })}
         </div>
       )}
       {!loading && proyectos.length > 0 && (
