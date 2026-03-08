@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { MapPin, Users, Sparkles, Brain, Plus, TrendingUp, Clock, Pill, ArrowRight } from "lucide-react";
+import { MapPin, Users, Sparkles, Brain, Plus, TrendingUp, Clock, ArrowRight } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
@@ -34,7 +34,7 @@ const estadoMatchLabels: Record<string, string> = {
 export default function Dashboard() {
   const [stats, setStats] = useState<{
     totalLocales: number; operadoresActivos: number; totalMatches: number;
-    matchesExitosos: number; costeIA: number; farmaciasRiesgoAlto: number;
+    matchesExitosos: number; costeIA: number;
     latenciaMedia: number; totalAudits: number;
   } | null>(null);
   const [recentMatches, setRecentMatches] = useState<any[]>([]);
@@ -48,7 +48,6 @@ export default function Dashboard() {
       const [
         localesCountRes, operadoresCountRes, matchesCountRes, matchesExitoRes,
         auditoriaRes, recentRes, auditLogsRes, localesAllRes, matchesAllRes,
-        farmaciasAltoRes,
       ] = await Promise.all([
         supabase.from("locales").select("id", { count: "exact", head: true }),
         supabase.from("operadores").select("id", { count: "exact", head: true }).eq("activo", true),
@@ -59,7 +58,6 @@ export default function Dashboard() {
         supabase.from("auditoria_ia").select("*").order("created_at", { ascending: false }).limit(8),
         supabase.from("locales").select("estado"),
         supabase.from("matches").select("estado"),
-        supabase.from("farmacias").select("id", { count: "exact", head: true }).eq("riesgo_desabastecimiento", "alto"),
       ]);
 
       const audits = auditoriaRes.data || [];
@@ -94,7 +92,6 @@ export default function Dashboard() {
         totalMatches: matchesCountRes.count || 0,
         matchesExitosos: matchesExitoRes.count || 0,
         costeIA: costeTotal,
-        farmaciasRiesgoAlto: farmaciasAltoRes.count || 0,
         latenciaMedia,
         totalAudits: audits.length,
       });
@@ -111,7 +108,6 @@ export default function Dashboard() {
     { label: "Matches Totales", value: stats?.totalMatches, icon: Sparkles, color: "text-accent", bg: "bg-accent/10" },
     { label: "Matches Exitosos", value: stats?.matchesExitosos, icon: TrendingUp, color: "text-chart-2", bg: "bg-chart-2/10" },
     { label: "Latencia Media IA", value: stats ? `${stats.latenciaMedia}ms` : undefined, icon: Clock, color: "text-chart-3", bg: "bg-chart-3/10" },
-    { label: "Farmacias Riesgo Alto", value: stats?.farmaciasRiesgoAlto, icon: Pill, color: "text-destructive", bg: "bg-destructive/10" },
   ];
 
   const barData = recentMatches.map((m) => ({

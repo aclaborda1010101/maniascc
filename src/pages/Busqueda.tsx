@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Search, MapPin, Users, Sparkles, Pill, X } from "lucide-react";
+import { Search, MapPin, Users, Sparkles, X } from "lucide-react";
 import { Link } from "react-router-dom";
 import { Skeleton } from "@/components/ui/skeleton";
 
@@ -20,8 +20,8 @@ export default function Busqueda() {
   const [searchParams, setSearchParams] = useSearchParams();
   const initialQuery = searchParams.get("q") || "";
   const [query, setQuery] = useState(initialQuery);
-  const [results, setResults] = useState<{ locales: any[]; operadores: any[]; matches: any[]; farmacias: any[] }>({
-    locales: [], operadores: [], matches: [], farmacias: [],
+  const [results, setResults] = useState<{ locales: any[]; operadores: any[]; matches: any[] }>({
+    locales: [], operadores: [], matches: [],
   });
   const [loading, setLoading] = useState(false);
   const [searched, setSearched] = useState(false);
@@ -33,7 +33,7 @@ export default function Busqueda() {
     setSearched(true);
     setSearchParams({ q: searchTerm });
 
-    const [localesRes, operadoresRes, matchesRes, farmaciasRes] = await Promise.all([
+    const [localesRes, operadoresRes, matchesRes] = await Promise.all([
       supabase.from("locales").select("*")
         .or(`nombre.ilike.%${searchTerm}%,direccion.ilike.%${searchTerm}%,codigo_postal.ilike.%${searchTerm}%,ciudad.ilike.%${searchTerm}%`)
         .order("created_at", { ascending: false }).limit(15),
@@ -43,16 +43,12 @@ export default function Busqueda() {
       supabase.from("matches").select("*, locales(nombre), operadores(nombre)")
         .or(`explicacion.ilike.%${searchTerm}%`)
         .order("score", { ascending: false }).limit(10),
-      supabase.from("farmacias").select("*")
-        .or(`nombre.ilike.%${searchTerm}%,codigo_postal.ilike.%${searchTerm}%`)
-        .order("created_at", { ascending: false }).limit(10),
     ]);
 
     setResults({
       locales: localesRes.data || [],
       operadores: operadoresRes.data || [],
       matches: matchesRes.data || [],
-      farmacias: farmaciasRes.data || [],
     });
     setLoading(false);
   };
@@ -65,17 +61,17 @@ export default function Busqueda() {
   const handleClear = () => {
     setQuery("");
     setSearched(false);
-    setResults({ locales: [], operadores: [], matches: [], farmacias: [] });
+    setResults({ locales: [], operadores: [], matches: [] });
     setSearchParams({});
   };
 
-  const total = results.locales.length + results.operadores.length + results.matches.length + results.farmacias.length;
+  const total = results.locales.length + results.operadores.length + results.matches.length;
 
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Búsqueda Global</h1>
-        <p className="text-sm text-muted-foreground">Busca en locales, operadores, matches y farmacias</p>
+        <p className="text-sm text-muted-foreground">Busca en locales, operadores y matches</p>
       </div>
 
       <div className="flex gap-3">
@@ -195,34 +191,6 @@ export default function Busqueda() {
         </Card>
       )}
 
-      {results.farmacias.length > 0 && (
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="flex items-center gap-2 text-lg">
-              <Pill className="h-5 w-5 text-accent" /> Farmacias ({results.farmacias.length})
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-2">
-            {results.farmacias.map((f) => (
-              <div key={f.id} className="flex items-center justify-between rounded-md border p-3">
-                <div>
-                  <p className="font-medium">{f.nombre}</p>
-                  <p className="text-sm text-muted-foreground">CP: {f.codigo_postal}</p>
-                </div>
-                {f.riesgo_desabastecimiento && (
-                  <Badge variant="secondary" className={
-                    f.riesgo_desabastecimiento === "alto" ? "bg-destructive/10 text-destructive" :
-                    f.riesgo_desabastecimiento === "medio" ? "bg-chart-3/10 text-chart-3" :
-                    "bg-chart-2/10 text-chart-2"
-                  }>
-                    Riesgo {f.riesgo_desabastecimiento}
-                  </Badge>
-                )}
-              </div>
-            ))}
-          </CardContent>
-        </Card>
-      )}
     </div>
   );
 }
