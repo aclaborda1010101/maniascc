@@ -87,7 +87,42 @@ export default function ProyectoDetail() {
     setAllContactos(ctRes.data || []);
   };
 
-  useEffect(() => { fetchAll(); fetchAvailable(); }, [id]);
+  const fetchRagDocs = async () => {
+    if (!id) return;
+    const { data } = await supabase
+      .from("documentos_proyecto")
+      .select("id, nombre, procesado_ia, created_at, mime_type")
+      .eq("proyecto_id", id)
+      .order("created_at", { ascending: false });
+    setRagDocs(data || []);
+  };
+
+  useEffect(() => { fetchAll(); fetchAvailable(); fetchRagDocs(); }, [id]);
+
+  const handleRagQuery = async () => {
+    if (!ragQuestion.trim()) return;
+    setRagLoading(true);
+    setRagAnswer(null);
+    const result = await queryRAG(ragQuestion, { proyecto_id: id });
+    if ("error" in result && result.error) {
+      toast({ title: "Error RAG", description: (result as any).message, variant: "destructive" });
+    } else {
+      setRagAnswer(result as any);
+    }
+    setRagLoading(false);
+  };
+
+  const handleIngestDoc = async (docId: string) => {
+    setRagIngesting(docId);
+    const result = await ingestDocument(docId);
+    if (result.success) {
+      toast({ title: `Documento indexado: ${result.chunks_created} fragmentos creados` });
+      fetchRagDocs();
+    } else {
+      toast({ title: "Error al indexar", description: result.error, variant: "destructive" });
+    }
+    setRagIngesting(null);
+  };
 
   const updateEstado = async (estado: string) => {
     await supabase.from("proyectos").update({ estado: estado as any }).eq("id", id!);
