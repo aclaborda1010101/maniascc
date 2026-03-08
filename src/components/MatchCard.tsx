@@ -35,16 +35,16 @@ export function MatchCard({ match, index, onUpdate }: MatchCardProps) {
 
   const handleFeedback = async (feedback: "positivo" | "negativo") => {
     setLoading(true);
-    const newEstado = feedback === "positivo" ? "aprobado" : "descartado";
+    const newEstado = feedback === "positivo" ? "contactado" : "descartado";
     const { error } = await supabase
       .from("matches")
-      .update({ estado: newEstado } as any)
+      .update({ estado: newEstado, feedback_usuario: feedback } as any)
       .eq("id", match.id);
     setLoading(false);
     if (error) {
       toast({ title: "Error", description: error.message, variant: "destructive" });
     } else {
-      toast({ title: feedback === "positivo" ? "Match aprobado" : "Match descartado" });
+      toast({ title: feedback === "positivo" ? "Match aprobado → Contactado" : "Match descartado" });
       onUpdate?.();
     }
   };
