@@ -1,4 +1,4 @@
-import { LayoutDashboard, MapPin, Users, Sparkles, LogOut, FileText, Search, Pill, Compass, FileSearch, Layers, MessageSquare } from "lucide-react";
+import { LayoutDashboard, MapPin, Users, Sparkles, LogOut, FileText, Search, Compass, FileSearch, Layers, MessageSquare } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useLocation } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
