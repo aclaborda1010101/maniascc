@@ -69,6 +69,11 @@ export default function ProyectoDetail() {
   const [docDragOver, setDocDragOver] = useState(false);
   const [docTipo, setDocTipo] = useState("contrato");
   const [proyDocs, setProyDocs] = useState<any[]>([]);
+  // Matches state
+  const [matches, setMatches] = useState<any[]>([]);
+  const [matchesLoading, setMatchesLoading] = useState(false);
+  const [generating, setGenerating] = useState(false);
+  const [lastMatchResult, setLastMatchResult] = useState<{ latency_ms?: number; modelo?: string; ai_enhanced?: boolean } | null>(null);
 
   const fetchAll = async () => {
     if (!id) return;
