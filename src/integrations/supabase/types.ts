@@ -294,6 +294,51 @@ export type Database = {
         }
         Relationships: []
       }
+      document_chunks: {
+        Row: {
+          chunk_index: number
+          contenido: string
+          created_at: string | null
+          documento_id: string | null
+          id: string
+          metadata: Json | null
+          proyecto_id: string | null
+        }
+        Insert: {
+          chunk_index?: number
+          contenido: string
+          created_at?: string | null
+          documento_id?: string | null
+          id?: string
+          metadata?: Json | null
+          proyecto_id?: string | null
+        }
+        Update: {
+          chunk_index?: number
+          contenido?: string
+          created_at?: string | null
+          documento_id?: string | null
+          id?: string
+          metadata?: Json | null
+          proyecto_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "document_chunks_documento_id_fkey"
+            columns: ["documento_id"]
+            isOneToOne: false
+            referencedRelation: "documentos_proyecto"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "document_chunks_proyecto_id_fkey"
+            columns: ["proyecto_id"]
+            isOneToOne: false
+            referencedRelation: "proyectos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       documentos_proyecto: {
         Row: {
           contacto_id: string | null

@@ -14,3 +14,9 @@ verify_jwt = false
 
 [functions.ai-perfil-negociador]
 verify_jwt = false
+
+[functions.rag-ingest]
+verify_jwt = false
+
+[functions.rag-proxy]
+verify_jwt = false

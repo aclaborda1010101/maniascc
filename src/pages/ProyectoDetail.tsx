@@ -15,8 +15,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import {
   ArrowLeft, MapPin, Users, FileText, Sparkles, MessageSquare,
   Calendar, Plus, Trash2, UserCircle, Building2, Target, Layers,
-  FileSearch, Compass,
+  FileSearch, Compass, BookOpen, Send, Loader2, RefreshCw,
 } from "lucide-react";
+import { queryRAG, ingestDocument } from "@/services/ragService";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 
 const estadoLabels: Record<string, string> = {
@@ -54,6 +55,12 @@ export default function ProyectoDetail() {
   const [addCtDialog, setAddCtDialog] = useState(false);
   const [addActivoDialog, setAddActivoDialog] = useState(false);
   const [submittingActivo, setSubmittingActivo] = useState(false);
+  // RAG state
+  const [ragQuestion, setRagQuestion] = useState("");
+  const [ragAnswer, setRagAnswer] = useState<{ answer: string; citations: string[]; confidence: number } | null>(null);
+  const [ragLoading, setRagLoading] = useState(false);
+  const [ragDocs, setRagDocs] = useState<any[]>([]);
+  const [ragIngesting, setRagIngesting] = useState<string | null>(null);
 
   const fetchAll = async () => {
     if (!id) return;
@@ -80,7 +87,42 @@ export default function ProyectoDetail() {
     setAllContactos(ctRes.data || []);
   };
 
-  useEffect(() => { fetchAll(); fetchAvailable(); }, [id]);
+  const fetchRagDocs = async () => {
+    if (!id) return;
+    const { data } = await supabase
+      .from("documentos_proyecto")
+      .select("id, nombre, procesado_ia, created_at, mime_type")
+      .eq("proyecto_id", id)
+      .order("created_at", { ascending: false });
+    setRagDocs(data || []);
+  };
+
+  useEffect(() => { fetchAll(); fetchAvailable(); fetchRagDocs(); }, [id]);
+
+  const handleRagQuery = async () => {
+    if (!ragQuestion.trim()) return;
+    setRagLoading(true);
+    setRagAnswer(null);
+    const result = await queryRAG(ragQuestion, { proyecto_id: id });
+    if ("error" in result && result.error) {
+      toast({ title: "Error RAG", description: (result as any).message, variant: "destructive" });
+    } else {
+      setRagAnswer(result as any);
+    }
+    setRagLoading(false);
+  };
+
+  const handleIngestDoc = async (docId: string) => {
+    setRagIngesting(docId);
+    const result = await ingestDocument(docId);
+    if (result.success) {
+      toast({ title: `Documento indexado: ${result.chunks_created} fragmentos creados` });
+      fetchRagDocs();
+    } else {
+      toast({ title: "Error al indexar", description: result.error, variant: "destructive" });
+    }
+    setRagIngesting(null);
+  };
 
   const updateEstado = async (estado: string) => {
     await supabase.from("proyectos").update({ estado: estado as any }).eq("id", id!);
@@ -214,6 +256,9 @@ export default function ProyectoDetail() {
           </TabsTrigger>
           <TabsTrigger value="patrones" className="gap-1">
             <Compass className="h-3.5 w-3.5" /> Patrones
+          </TabsTrigger>
+          <TabsTrigger value="conocimiento" className="gap-1">
+            <BookOpen className="h-3.5 w-3.5" /> Base Conocimiento
           </TabsTrigger>
         </TabsList>
 
@@ -481,6 +526,105 @@ export default function ProyectoDetail() {
             <p className="text-muted-foreground">Analiza patrones de localización, señales débiles y benchmarks de zona.</p>
             <Button className="mt-3 bg-accent text-accent-foreground hover:bg-accent/90"><Compass className="mr-2 h-4 w-4" /> Analizar Localización</Button>
           </CardContent></Card>
+        </TabsContent>
+
+        {/* ===== BASE DE CONOCIMIENTO (RAG) ===== */}
+        <TabsContent value="conocimiento" className="space-y-4">
+          <div className="grid gap-4 md:grid-cols-3">
+            {/* Q&A Panel */}
+            <Card className="md:col-span-2">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base flex items-center gap-2">
+                  <BookOpen className="h-4 w-4" /> Pregunta a tus documentos
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="flex gap-2">
+                  <Input
+                    placeholder="¿Cuáles son las condiciones del contrato...?"
+                    value={ragQuestion}
+                    onChange={(e) => setRagQuestion(e.target.value)}
+                    onKeyDown={(e) => e.key === "Enter" && handleRagQuery()}
+                    disabled={ragLoading}
+                  />
+                  <Button
+                    onClick={handleRagQuery}
+                    disabled={ragLoading || !ragQuestion.trim()}
+                    className="bg-accent text-accent-foreground hover:bg-accent/90"
+                  >
+                    {ragLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                  </Button>
+                </div>
+
+                {ragAnswer && (
+                  <div className="space-y-3 rounded-lg border bg-muted/30 p-4">
+                    <p className="text-sm whitespace-pre-wrap">{ragAnswer.answer}</p>
+                    {ragAnswer.citations.length > 0 && (
+                      <div className="pt-2 border-t">
+                        <p className="text-xs text-muted-foreground mb-1">Fuentes:</p>
+                        <div className="flex flex-wrap gap-1">
+                          {ragAnswer.citations.map((c, i) => (
+                            <Badge key={i} variant="outline" className="text-xs">{c}</Badge>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                      <span>Confianza: {Math.round(ragAnswer.confidence * 100)}%</span>
+                    </div>
+                  </div>
+                )}
+
+                {!ragAnswer && !ragLoading && (
+                  <p className="text-sm text-muted-foreground text-center py-6">
+                    Haz una pregunta sobre los documentos indexados de este proyecto.
+                  </p>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Indexed Documents Panel */}
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base">Documentos indexados</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-2">
+                {ragDocs.length === 0 ? (
+                  <p className="text-sm text-muted-foreground text-center py-4">
+                    No hay documentos en este proyecto. Sube documentos en la pestaña Documentos.
+                  </p>
+                ) : (
+                  ragDocs.map((doc) => (
+                    <div key={doc.id} className="flex items-center justify-between rounded-md border p-2 text-sm">
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium truncate">{doc.nombre}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {doc.procesado_ia ? (
+                            <Badge variant="secondary" className="text-[10px] h-4">Indexado ✓</Badge>
+                          ) : (
+                            <Badge variant="outline" className="text-[10px] h-4">Sin indexar</Badge>
+                          )}
+                        </p>
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => handleIngestDoc(doc.id)}
+                        disabled={ragIngesting === doc.id}
+                        title={doc.procesado_ia ? "Reindexar" : "Indexar"}
+                      >
+                        {ragIngesting === doc.id ? (
+                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                        ) : (
+                          <RefreshCw className="h-3.5 w-3.5" />
+                        )}
+                      </Button>
+                    </div>
+                  ))
+                )}
+              </CardContent>
+            </Card>
+          </div>
         </TabsContent>
       </Tabs>
     </div>
