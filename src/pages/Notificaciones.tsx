@@ -55,6 +55,7 @@ export default function Notificaciones() {
     setTypeFilter("all");
     setDateFrom(undefined);
     setDateTo(undefined);
+    setPage(1);
   };
 
   const hasFilters = typeFilter !== "all" || dateFrom || dateTo;
