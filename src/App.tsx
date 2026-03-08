@@ -16,6 +16,9 @@ const LocalDetail = lazy(() => import("./pages/LocalDetail"));
 const Operadores = lazy(() => import("./pages/Operadores"));
 const OperadorDetail = lazy(() => import("./pages/OperadorDetail"));
 const Matching = lazy(() => import("./pages/Matching"));
+const Busqueda = lazy(() => import("./pages/Busqueda"));
+const Documentos = lazy(() => import("./pages/Documentos"));
+const Farmacias = lazy(() => import("./pages/Farmacias"));
 
 const queryClient = new QueryClient();
 
@@ -45,6 +48,9 @@ const App = () => (
                 <Route path="/operadores" element={<Operadores />} />
                 <Route path="/operadores/:id" element={<OperadorDetail />} />
                 <Route path="/matching/:localId" element={<Matching />} />
+                <Route path="/busqueda" element={<Busqueda />} />
+                <Route path="/documentos" element={<Documentos />} />
+                <Route path="/farmacias" element={<Farmacias />} />
               </Route>
               <Route path="*" element={<NotFound />} />
             </Routes>
