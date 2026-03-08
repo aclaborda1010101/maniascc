@@ -1023,6 +1023,20 @@ export default function ProyectoDetail() {
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
+                <div className="flex gap-2 items-end">
+                  <Select value={ragDominio} onValueChange={setRagDominio}>
+                    <SelectTrigger className="w-[150px]"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="todos">Todos los dominios</SelectItem>
+                      <SelectItem value="contratos">📄 Contratos</SelectItem>
+                      <SelectItem value="operadores">🏪 Operadores</SelectItem>
+                      <SelectItem value="activos">🏢 Activos</SelectItem>
+                      <SelectItem value="mercado">📈 Mercado</SelectItem>
+                      <SelectItem value="personas">👤 Personas</SelectItem>
+                      <SelectItem value="general">📁 General</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
                 <div className="flex gap-2">
                   <Input
                     placeholder="¿Cuáles son las condiciones del contrato...?"
