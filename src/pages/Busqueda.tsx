@@ -61,7 +61,7 @@ export default function Busqueda() {
   const handleClear = () => {
     setQuery("");
     setSearched(false);
-    setResults({ locales: [], operadores: [], matches: [], farmacias: [] });
+    setResults({ locales: [], operadores: [], matches: [] });
     setSearchParams({});
   };
 
