@@ -1,1 +1,16 @@
 project_id = "chopzlyciwryjmenlikj"
+
+[functions.generate-match]
+verify_jwt = false
+
+[functions.ai-localizacion-patrones]
+verify_jwt = false
+
+[functions.ai-validacion-retorno]
+verify_jwt = false
+
+[functions.ai-tenant-mix-avanzado]
+verify_jwt = false
+
+[functions.ai-perfil-negociador]
+verify_jwt = false

@@ -19,6 +19,10 @@ const Matching = lazy(() => import("./pages/Matching"));
 const Busqueda = lazy(() => import("./pages/Busqueda"));
 const Documentos = lazy(() => import("./pages/Documentos"));
 const Farmacias = lazy(() => import("./pages/Farmacias"));
+const LocationAnalysis = lazy(() => import("./pages/LocationAnalysis"));
+const DossierValidation = lazy(() => import("./pages/DossierValidation"));
+const TenantMixOptimizer = lazy(() => import("./pages/TenantMixOptimizer"));
+const NegotiationBriefing = lazy(() => import("./pages/NegotiationBriefing"));
 
 const queryClient = new QueryClient();
 
@@ -51,6 +55,10 @@ const App = () => (
                 <Route path="/busqueda" element={<Busqueda />} />
                 <Route path="/documentos" element={<Documentos />} />
                 <Route path="/farmacias" element={<Farmacias />} />
+                <Route path="/localizacion-analisis" element={<LocationAnalysis />} />
+                <Route path="/validacion-dossier" element={<DossierValidation />} />
+                <Route path="/tenant-mix" element={<TenantMixOptimizer />} />
+                <Route path="/negociacion-briefing" element={<NegotiationBriefing />} />
               </Route>
               <Route path="*" element={<NotFound />} />
             </Routes>

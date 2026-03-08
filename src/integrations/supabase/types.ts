@@ -77,6 +77,51 @@ export type Database = {
           },
         ]
       }
+      configuraciones_tenant_mix: {
+        Row: {
+          centro_nombre: string
+          centro_ubicacion: string | null
+          creado_en: string | null
+          estado: string | null
+          id: string
+          operadores_recomendados: Json
+          plan: string
+          prediccion_ocupacion: number | null
+          renta_estimada_total: number | null
+          riesgos: Json | null
+          score_sinergia_total: number | null
+          usuario_id: string | null
+        }
+        Insert: {
+          centro_nombre: string
+          centro_ubicacion?: string | null
+          creado_en?: string | null
+          estado?: string | null
+          id?: string
+          operadores_recomendados?: Json
+          plan?: string
+          prediccion_ocupacion?: number | null
+          renta_estimada_total?: number | null
+          riesgos?: Json | null
+          score_sinergia_total?: number | null
+          usuario_id?: string | null
+        }
+        Update: {
+          centro_nombre?: string
+          centro_ubicacion?: string | null
+          creado_en?: string | null
+          estado?: string | null
+          id?: string
+          operadores_recomendados?: Json
+          plan?: string
+          prediccion_ocupacion?: number | null
+          renta_estimada_total?: number | null
+          riesgos?: Json | null
+          score_sinergia_total?: number | null
+          usuario_id?: string | null
+        }
+        Relationships: []
+      }
       farmacias: {
         Row: {
           codigo_postal: string
@@ -227,6 +272,68 @@ export type Database = {
           },
         ]
       }
+      negociaciones_historico: {
+        Row: {
+          activo_ref: string | null
+          concesiones: Json | null
+          condiciones_finales: Json | null
+          condiciones_iniciales: Json | null
+          creado_en: string | null
+          duracion_dias: number | null
+          id: string
+          interlocutor_perfil_id: string | null
+          negociador_interno: string
+          notas: string | null
+          operador_ref: string | null
+          probabilidad_cierre_predicha: number | null
+          probabilidad_cierre_real: number | null
+          resultado: string | null
+          usuario_id: string | null
+        }
+        Insert: {
+          activo_ref?: string | null
+          concesiones?: Json | null
+          condiciones_finales?: Json | null
+          condiciones_iniciales?: Json | null
+          creado_en?: string | null
+          duracion_dias?: number | null
+          id?: string
+          interlocutor_perfil_id?: string | null
+          negociador_interno: string
+          notas?: string | null
+          operador_ref?: string | null
+          probabilidad_cierre_predicha?: number | null
+          probabilidad_cierre_real?: number | null
+          resultado?: string | null
+          usuario_id?: string | null
+        }
+        Update: {
+          activo_ref?: string | null
+          concesiones?: Json | null
+          condiciones_finales?: Json | null
+          condiciones_iniciales?: Json | null
+          creado_en?: string | null
+          duracion_dias?: number | null
+          id?: string
+          interlocutor_perfil_id?: string | null
+          negociador_interno?: string
+          notas?: string | null
+          operador_ref?: string | null
+          probabilidad_cierre_predicha?: number | null
+          probabilidad_cierre_real?: number | null
+          resultado?: string | null
+          usuario_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "negociaciones_historico_interlocutor_perfil_id_fkey"
+            columns: ["interlocutor_perfil_id"]
+            isOneToOne: false
+            referencedRelation: "perfiles_negociador"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       operadores: {
         Row: {
           activo: boolean
@@ -287,6 +394,57 @@ export type Database = {
         }
         Relationships: []
       }
+      patrones_localizacion: {
+        Row: {
+          comparables: Json | null
+          confianza: number | null
+          coordenadas_lat: number
+          coordenadas_lon: number
+          creado_en: string | null
+          desglose_variables: Json | null
+          fuentes_consultadas: Json | null
+          id: string
+          oportunidades: Json | null
+          radio_km: number | null
+          riesgos: Json | null
+          score_viabilidad: number | null
+          tipo_centro: string | null
+          usuario_id: string | null
+        }
+        Insert: {
+          comparables?: Json | null
+          confianza?: number | null
+          coordenadas_lat: number
+          coordenadas_lon: number
+          creado_en?: string | null
+          desglose_variables?: Json | null
+          fuentes_consultadas?: Json | null
+          id?: string
+          oportunidades?: Json | null
+          radio_km?: number | null
+          riesgos?: Json | null
+          score_viabilidad?: number | null
+          tipo_centro?: string | null
+          usuario_id?: string | null
+        }
+        Update: {
+          comparables?: Json | null
+          confianza?: number | null
+          coordenadas_lat?: number
+          coordenadas_lon?: number
+          creado_en?: string | null
+          desglose_variables?: Json | null
+          fuentes_consultadas?: Json | null
+          id?: string
+          oportunidades?: Json | null
+          radio_km?: number | null
+          riesgos?: Json | null
+          score_viabilidad?: number | null
+          tipo_centro?: string | null
+          usuario_id?: string | null
+        }
+        Relationships: []
+      }
       perfiles: {
         Row: {
           apellidos: string
@@ -323,6 +481,102 @@ export type Database = {
         }
         Relationships: []
       }
+      perfiles_negociador: {
+        Row: {
+          actualizado_en: string | null
+          contacto_cargo: string | null
+          contacto_empresa: string | null
+          contacto_nombre: string
+          creado_en: string | null
+          datos_consentimiento: Json | null
+          estilo_primario: string | null
+          estilo_secundario: string | null
+          historico_resumen: string | null
+          id: string
+          preferencias_comunicacion: Json | null
+          puntos_flexion: Json | null
+          usuario_id: string | null
+        }
+        Insert: {
+          actualizado_en?: string | null
+          contacto_cargo?: string | null
+          contacto_empresa?: string | null
+          contacto_nombre: string
+          creado_en?: string | null
+          datos_consentimiento?: Json | null
+          estilo_primario?: string | null
+          estilo_secundario?: string | null
+          historico_resumen?: string | null
+          id?: string
+          preferencias_comunicacion?: Json | null
+          puntos_flexion?: Json | null
+          usuario_id?: string | null
+        }
+        Update: {
+          actualizado_en?: string | null
+          contacto_cargo?: string | null
+          contacto_empresa?: string | null
+          contacto_nombre?: string
+          creado_en?: string | null
+          datos_consentimiento?: Json | null
+          estilo_primario?: string | null
+          estilo_secundario?: string | null
+          historico_resumen?: string | null
+          id?: string
+          preferencias_comunicacion?: Json | null
+          puntos_flexion?: Json | null
+          usuario_id?: string | null
+        }
+        Relationships: []
+      }
+      sinergias_operadores: {
+        Row: {
+          coeficiente_sinergia: number | null
+          fuente: string | null
+          id: string
+          notas: string | null
+          num_observaciones: number | null
+          operador_a_id: string | null
+          operador_b_id: string | null
+          ultima_actualizacion: string | null
+        }
+        Insert: {
+          coeficiente_sinergia?: number | null
+          fuente?: string | null
+          id?: string
+          notas?: string | null
+          num_observaciones?: number | null
+          operador_a_id?: string | null
+          operador_b_id?: string | null
+          ultima_actualizacion?: string | null
+        }
+        Update: {
+          coeficiente_sinergia?: number | null
+          fuente?: string | null
+          id?: string
+          notas?: string | null
+          num_observaciones?: number | null
+          operador_a_id?: string | null
+          operador_b_id?: string | null
+          ultima_actualizacion?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sinergias_operadores_operador_a_id_fkey"
+            columns: ["operador_a_id"]
+            isOneToOne: false
+            referencedRelation: "operadores"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sinergias_operadores_operador_b_id_fkey"
+            columns: ["operador_b_id"]
+            isOneToOne: false
+            referencedRelation: "operadores"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_roles: {
         Row: {
           id: string
@@ -338,6 +592,63 @@ export type Database = {
           id?: string
           role?: Database["public"]["Enums"]["app_role"]
           user_id?: string
+        }
+        Relationships: []
+      }
+      validaciones_retorno: {
+        Row: {
+          benchmarks_usados: Json | null
+          cerrado_en: string | null
+          codigo_postal: string | null
+          confianza_global: number | null
+          creado_en: string | null
+          desviaciones: Json | null
+          dossier_storage_path: string | null
+          estado: string
+          id: string
+          metricas_declaradas: Json
+          metricas_reales: Json | null
+          propietario_ref: string | null
+          semaforos: Json | null
+          tipo_activo: string | null
+          ubicacion: string | null
+          usuario_id: string | null
+        }
+        Insert: {
+          benchmarks_usados?: Json | null
+          cerrado_en?: string | null
+          codigo_postal?: string | null
+          confianza_global?: number | null
+          creado_en?: string | null
+          desviaciones?: Json | null
+          dossier_storage_path?: string | null
+          estado?: string
+          id?: string
+          metricas_declaradas?: Json
+          metricas_reales?: Json | null
+          propietario_ref?: string | null
+          semaforos?: Json | null
+          tipo_activo?: string | null
+          ubicacion?: string | null
+          usuario_id?: string | null
+        }
+        Update: {
+          benchmarks_usados?: Json | null
+          cerrado_en?: string | null
+          codigo_postal?: string | null
+          confianza_global?: number | null
+          creado_en?: string | null
+          desviaciones?: Json | null
+          dossier_storage_path?: string | null
+          estado?: string
+          id?: string
+          metricas_declaradas?: Json
+          metricas_reales?: Json | null
+          propietario_ref?: string | null
+          semaforos?: Json | null
+          tipo_activo?: string | null
+          ubicacion?: string | null
+          usuario_id?: string | null
         }
         Relationships: []
       }
