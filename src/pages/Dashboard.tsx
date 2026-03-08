@@ -108,7 +108,6 @@ export default function Dashboard() {
     { label: "Matches Totales", value: stats?.totalMatches, icon: Sparkles, color: "text-accent", bg: "bg-accent/10" },
     { label: "Matches Exitosos", value: stats?.matchesExitosos, icon: TrendingUp, color: "text-chart-2", bg: "bg-chart-2/10" },
     { label: "Latencia Media IA", value: stats ? `${stats.latenciaMedia}ms` : undefined, icon: Clock, color: "text-chart-3", bg: "bg-chart-3/10" },
-    { label: "Farmacias Riesgo Alto", value: stats?.farmaciasRiesgoAlto, icon: Pill, color: "text-destructive", bg: "bg-destructive/10" },
   ];
 
   const barData = recentMatches.map((m) => ({

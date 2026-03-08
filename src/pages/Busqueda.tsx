@@ -191,34 +191,6 @@ export default function Busqueda() {
         </Card>
       )}
 
-      {results.farmacias.length > 0 && (
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="flex items-center gap-2 text-lg">
-              <Pill className="h-5 w-5 text-accent" /> Farmacias ({results.farmacias.length})
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-2">
-            {results.farmacias.map((f) => (
-              <div key={f.id} className="flex items-center justify-between rounded-md border p-3">
-                <div>
-                  <p className="font-medium">{f.nombre}</p>
-                  <p className="text-sm text-muted-foreground">CP: {f.codigo_postal}</p>
-                </div>
-                {f.riesgo_desabastecimiento && (
-                  <Badge variant="secondary" className={
-                    f.riesgo_desabastecimiento === "alto" ? "bg-destructive/10 text-destructive" :
-                    f.riesgo_desabastecimiento === "medio" ? "bg-chart-3/10 text-chart-3" :
-                    "bg-chart-2/10 text-chart-2"
-                  }>
-                    Riesgo {f.riesgo_desabastecimiento}
-                  </Badge>
-                )}
-              </div>
-            ))}
-          </CardContent>
-        </Card>
-      )}
     </div>
   );
 }

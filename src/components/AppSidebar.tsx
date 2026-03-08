@@ -14,7 +14,7 @@ const navItems = [
   { title: "Operadores", url: "/operadores", icon: Users },
   { title: "Documentos", url: "/documentos", icon: FileText },
   { title: "Búsqueda", url: "/busqueda", icon: Search },
-  { title: "Farmacias", url: "/farmacias", icon: Pill },
+  
   { title: "Localización IA", url: "/localizacion-analisis", icon: Compass },
   { title: "Validar Dossier", url: "/validacion-dossier", icon: FileSearch },
   { title: "Tenant Mix", url: "/tenant-mix", icon: Layers },
