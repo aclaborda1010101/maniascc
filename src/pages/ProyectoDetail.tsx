@@ -79,6 +79,14 @@ export default function ProyectoDetail() {
   const [matchSortBy, setMatchSortBy] = useState<"score_desc" | "score_asc" | "estado">("score_desc");
   const [matchFilterEstado, setMatchFilterEstado] = useState<string>("todos");
   const [matchFilterSector, setMatchFilterSector] = useState<string>("todos");
+  // RAG domain filter
+  const [ragDominio, setRagDominio] = useState<string>("todos");
+  // FORGE state
+  const [forgeMode, setForgeMode] = useState<ForgeMode>("dossier_operador");
+  const [forgeContext, setForgeContext] = useState("");
+  const [forgeResult, setForgeResult] = useState<string>("");
+  const [forgeLoading, setForgeLoading] = useState(false);
+  const [forgeMeta, setForgeMeta] = useState<{ model: string; latency_ms: number } | null>(null);
 
   const fetchAll = async () => {
     if (!id) return;
