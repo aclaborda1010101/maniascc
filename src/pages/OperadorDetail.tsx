@@ -5,13 +5,20 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { ArrowLeft, Save, Trash2, Sparkles, CheckCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { UploadZone } from "@/components/UploadZone";
+
+const SECTORES = [
+  "Alimentación", "Moda", "Restauración", "Hogar", "Electrónica",
+  "Deportes", "Salud", "Servicios", "Ocio", "Financiero", "Otro",
+];
 
 export default function OperadorDetail() {
   const { id } = useParams();
@@ -47,12 +54,12 @@ export default function OperadorDetail() {
     }).eq("id", id);
     setSaving(false);
     if (error) toast({ title: "Error", description: error.message, variant: "destructive" });
-    else toast({ title: "Operador actualizado" });
+    else toast({ title: "Operador actualizado correctamente" });
   };
 
   const handleDelete = async () => {
-    if (!confirm("¿Eliminar este operador?")) return;
     await supabase.from("operadores").delete().eq("id", id);
+    toast({ title: "Operador eliminado" });
     navigate("/operadores");
   };
 
@@ -67,10 +74,28 @@ export default function OperadorDetail() {
         <Button variant="ghost" size="icon" onClick={() => navigate("/operadores")}><ArrowLeft className="h-5 w-5" /></Button>
         <div className="flex-1">
           <h1 className="text-2xl font-bold">{op.nombre}</h1>
-          <p className="text-muted-foreground">{op.sector}</p>
+          <p className="text-sm text-muted-foreground">{op.sector}</p>
         </div>
         <Badge variant={op.perfil_ia ? "default" : "secondary"}>{op.perfil_ia ? "Perfil IA Completo" : "Perfil IA Pendiente"}</Badge>
-        <Button variant="destructive" size="icon" onClick={handleDelete}><Trash2 className="h-4 w-4" /></Button>
+        <AlertDialog>
+          <AlertDialogTrigger asChild>
+            <Button variant="destructive" size="icon"><Trash2 className="h-4 w-4" /></Button>
+          </AlertDialogTrigger>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>¿Eliminar este operador?</AlertDialogTitle>
+              <AlertDialogDescription>
+                Esta acción eliminará permanentemente al operador "{op.nombre}" y todos sus matches asociados.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancelar</AlertDialogCancel>
+              <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                Eliminar
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
 
       <Tabs defaultValue="info">
@@ -86,11 +111,26 @@ export default function OperadorDetail() {
             <CardContent className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2"><Label>Nombre</Label><Input value={op.nombre} onChange={(e) => setOp({ ...op, nombre: e.target.value })} /></div>
-                <div className="space-y-2"><Label>Sector</Label><Input value={op.sector} onChange={(e) => setOp({ ...op, sector: e.target.value })} /></div>
+                <div className="space-y-2">
+                  <Label>Sector</Label>
+                  <select
+                    value={op.sector}
+                    onChange={(e) => setOp({ ...op, sector: e.target.value })}
+                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  >
+                    <option value="">Seleccionar sector</option>
+                    {SECTORES.map((s) => (
+                      <option key={s} value={s}>{s}</option>
+                    ))}
+                    {op.sector && !SECTORES.includes(op.sector) && (
+                      <option value={op.sector}>{op.sector}</option>
+                    )}
+                  </select>
+                </div>
               </div>
               <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2"><Label>Presupuesto Min (€)</Label><Input type="number" value={op.presupuesto_min} onChange={(e) => setOp({ ...op, presupuesto_min: Number(e.target.value) })} /></div>
-                <div className="space-y-2"><Label>Presupuesto Max (€)</Label><Input type="number" value={op.presupuesto_max} onChange={(e) => setOp({ ...op, presupuesto_max: Number(e.target.value) })} /></div>
+                <div className="space-y-2"><Label>Presupuesto Min (€/mes)</Label><Input type="number" value={op.presupuesto_min} onChange={(e) => setOp({ ...op, presupuesto_min: Number(e.target.value) })} /></div>
+                <div className="space-y-2"><Label>Presupuesto Max (€/mes)</Label><Input type="number" value={op.presupuesto_max} onChange={(e) => setOp({ ...op, presupuesto_max: Number(e.target.value) })} /></div>
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2"><Label>Superficie Min (m²)</Label><Input type="number" value={op.superficie_min} onChange={(e) => setOp({ ...op, superficie_min: Number(e.target.value) })} /></div>
@@ -98,10 +138,13 @@ export default function OperadorDetail() {
               </div>
               <div className="grid grid-cols-3 gap-4">
                 <div className="space-y-2"><Label>Contacto</Label><Input value={op.contacto_nombre || ""} onChange={(e) => setOp({ ...op, contacto_nombre: e.target.value })} /></div>
-                <div className="space-y-2"><Label>Email</Label><Input value={op.contacto_email || ""} onChange={(e) => setOp({ ...op, contacto_email: e.target.value })} /></div>
+                <div className="space-y-2"><Label>Email</Label><Input type="email" value={op.contacto_email || ""} onChange={(e) => setOp({ ...op, contacto_email: e.target.value })} /></div>
                 <div className="space-y-2"><Label>Teléfono</Label><Input value={op.contacto_telefono || ""} onChange={(e) => setOp({ ...op, contacto_telefono: e.target.value })} /></div>
               </div>
-              <div className="space-y-2"><Label>Descripción</Label><Input value={op.descripcion || ""} onChange={(e) => setOp({ ...op, descripcion: e.target.value })} /></div>
+              <div className="space-y-2">
+                <Label>Descripción</Label>
+                <Textarea value={op.descripcion || ""} onChange={(e) => setOp({ ...op, descripcion: e.target.value })} rows={3} />
+              </div>
               <div className="flex items-center gap-3">
                 <Switch checked={op.activo} onCheckedChange={(v) => setOp({ ...op, activo: v })} />
                 <Label>Operador activo</Label>

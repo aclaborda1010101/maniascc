@@ -6,12 +6,21 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { ArrowLeft, Sparkles, Save, Trash2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+
+const estadoLabels: Record<string, string> = {
+  disponible: "Disponible",
+  en_negociacion: "En negociación",
+  ocupado: "Ocupado",
+  reforma: "En reforma",
+};
 
 export default function LocalDetail() {
   const { id } = useParams();
@@ -22,7 +31,6 @@ export default function LocalDetail() {
   const [matches, setMatches] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [generating, setGenerating] = useState(false);
 
   useEffect(() => {
     async function fetch() {
@@ -49,33 +57,18 @@ export default function LocalDetail() {
       precio_renta: local.precio_renta,
       estado: local.estado,
       descripcion: local.descripcion,
+      coordenadas_lat: local.coordenadas_lat || null,
+      coordenadas_lng: local.coordenadas_lng || null,
     }).eq("id", id);
     setSaving(false);
     if (error) toast({ title: "Error", description: error.message, variant: "destructive" });
-    else toast({ title: "Local actualizado" });
+    else toast({ title: "Local actualizado correctamente" });
   };
 
   const handleDelete = async () => {
-    if (!confirm("¿Eliminar este local?")) return;
     await supabase.from("locales").delete().eq("id", id);
+    toast({ title: "Local eliminado" });
     navigate("/locales");
-  };
-
-  const handleGenerateMatches = async () => {
-    setGenerating(true);
-    try {
-      const { data, error } = await supabase.functions.invoke("generate-match", {
-        body: { local_id: id },
-      });
-      if (error) throw error;
-      toast({ title: "Matches generados", description: `${data?.matches?.length || 0} resultados` });
-      // Refetch matches
-      const { data: newMatches } = await supabase.from("matches").select("*, operadores(nombre)").eq("local_id", id).order("score", { ascending: false });
-      setMatches(newMatches || []);
-    } catch (e: any) {
-      toast({ title: "Error", description: e.message, variant: "destructive" });
-    }
-    setGenerating(false);
   };
 
   if (loading) return <div className="space-y-4"><Skeleton className="h-8 w-48" /><Skeleton className="h-64 w-full" /></div>;
@@ -89,11 +82,29 @@ export default function LocalDetail() {
         </Button>
         <div className="flex-1">
           <h1 className="text-2xl font-bold">{local.nombre}</h1>
-          <p className="text-muted-foreground">{local.direccion}, {local.ciudad}</p>
+          <p className="text-sm text-muted-foreground">{local.direccion}, {local.ciudad} {local.codigo_postal}</p>
         </div>
-        <Button variant="destructive" size="icon" onClick={handleDelete}>
-          <Trash2 className="h-4 w-4" />
-        </Button>
+        <AlertDialog>
+          <AlertDialogTrigger asChild>
+            <Button variant="destructive" size="icon">
+              <Trash2 className="h-4 w-4" />
+            </Button>
+          </AlertDialogTrigger>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>¿Eliminar este local?</AlertDialogTitle>
+              <AlertDialogDescription>
+                Esta acción eliminará permanentemente el local "{local.nombre}" y todos sus matches asociados.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancelar</AlertDialogCancel>
+              <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                Eliminar
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
 
       <div className="grid gap-6 lg:grid-cols-3">
@@ -130,7 +141,7 @@ export default function LocalDetail() {
                 <Input type="number" value={local.precio_renta} onChange={(e) => setLocal({ ...local, precio_renta: Number(e.target.value) })} />
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-3 gap-4">
               <div className="space-y-2">
                 <Label>Estado</Label>
                 <Select value={local.estado} onValueChange={(v) => setLocal({ ...local, estado: v })}>
@@ -144,9 +155,17 @@ export default function LocalDetail() {
                 </Select>
               </div>
               <div className="space-y-2">
-                <Label>Descripción</Label>
-                <Input value={local.descripcion || ""} onChange={(e) => setLocal({ ...local, descripcion: e.target.value })} />
+                <Label>Latitud</Label>
+                <Input type="number" step="any" value={local.coordenadas_lat || ""} onChange={(e) => setLocal({ ...local, coordenadas_lat: e.target.value ? Number(e.target.value) : null })} />
               </div>
+              <div className="space-y-2">
+                <Label>Longitud</Label>
+                <Input type="number" step="any" value={local.coordenadas_lng || ""} onChange={(e) => setLocal({ ...local, coordenadas_lng: e.target.value ? Number(e.target.value) : null })} />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label>Descripción</Label>
+              <Textarea value={local.descripcion || ""} onChange={(e) => setLocal({ ...local, descripcion: e.target.value })} rows={3} />
             </div>
             <Button onClick={handleSave} disabled={saving} className="bg-accent text-accent-foreground hover:bg-accent/90">
               <Save className="mr-2 h-4 w-4" /> {saving ? "Guardando..." : "Guardar cambios"}
@@ -190,13 +209,13 @@ export default function LocalDetail() {
         </CardHeader>
         <CardContent>
           {matches.length === 0 ? (
-            <p className="py-6 text-center text-muted-foreground">Sin matches para este local.</p>
+            <p className="py-6 text-center text-muted-foreground">Sin matches para este local. Usa "Generar Matches IA" para empezar.</p>
           ) : (
             <Table>
               <TableHeader>
                 <TableRow>
                   <TableHead>Operador</TableHead>
-                  <TableHead>Score</TableHead>
+                  <TableHead className="text-right">Score</TableHead>
                   <TableHead>Tags</TableHead>
                   <TableHead>Estado</TableHead>
                   <TableHead>Explicación</TableHead>
@@ -205,8 +224,12 @@ export default function LocalDetail() {
               <TableBody>
                 {matches.map((m) => (
                   <TableRow key={m.id}>
-                    <TableCell className="font-medium">{(m.operadores as any)?.nombre}</TableCell>
                     <TableCell>
+                      <Link to={`/operadores/${m.operador_id}`} className="font-medium text-accent hover:underline">
+                        {(m.operadores as any)?.nombre}
+                      </Link>
+                    </TableCell>
+                    <TableCell className="text-right">
                       <span className="rounded-full bg-accent/10 px-2 py-0.5 text-sm font-semibold text-accent">{m.score}%</span>
                     </TableCell>
                     <TableCell>
@@ -216,7 +239,9 @@ export default function LocalDetail() {
                         ))}
                       </div>
                     </TableCell>
-                    <TableCell className="capitalize">{m.estado}</TableCell>
+                    <TableCell>
+                      <Badge variant="secondary" className="capitalize">{m.estado?.replace("_", " ")}</Badge>
+                    </TableCell>
                     <TableCell className="max-w-xs truncate text-xs text-muted-foreground">{m.explicacion}</TableCell>
                   </TableRow>
                 ))}
