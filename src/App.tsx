@@ -8,6 +8,7 @@ import { AuthProvider } from "@/hooks/useAuth";
 import { NotificationProvider } from "@/contexts/NotificationContext";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { AppLayout } from "@/components/AppLayout";
+import { ThemeProvider } from "next-themes";
 import NotFound from "./pages/NotFound";
 
 const Login = lazy(() => import("./pages/Login"));
@@ -24,6 +25,10 @@ const Busqueda = lazy(() => import("./pages/Busqueda"));
 const Auditoria = lazy(() => import("./pages/Auditoria"));
 const Matching = lazy(() => import("./pages/Matching"));
 const Notificaciones = lazy(() => import("./pages/Notificaciones"));
+const LocationAnalysis = lazy(() => import("./pages/LocationAnalysis"));
+const DossierValidation = lazy(() => import("./pages/DossierValidation"));
+const TenantMixOptimizer = lazy(() => import("./pages/TenantMixOptimizer"));
+const NegotiationBriefing = lazy(() => import("./pages/NegotiationBriefing"));
 
 const queryClient = new QueryClient();
 
@@ -36,38 +41,44 @@ function PageLoader() {
 }
 
 const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-      <Toaster />
-      <Sonner />
-      <BrowserRouter>
-        <AuthProvider>
-          <Suspense fallback={<PageLoader />}>
-            <Routes>
-              <Route path="/login" element={<Login />} />
-              <Route path="/" element={<Navigate to="/dashboard" replace />} />
-              <Route element={<ProtectedRoute><NotificationProvider><AppLayout /></NotificationProvider></ProtectedRoute>}>
-                <Route path="/dashboard" element={<Dashboard />} />
-                <Route path="/proyectos" element={<Proyectos />} />
-                <Route path="/proyectos/:id" element={<ProyectoDetail />} />
-                <Route path="/operadores" element={<Operadores />} />
-                <Route path="/operadores/:id" element={<OperadorDetail />} />
-                <Route path="/contactos" element={<Contactos />} />
-                <Route path="/documentos" element={<Documentos />} />
-                <Route path="/busqueda" element={<Busqueda />} />
-                <Route path="/auditoria" element={<Auditoria />} />
-                <Route path="/locales" element={<Locales />} />
-                <Route path="/locales/:id" element={<LocalDetail />} />
-                <Route path="/matching/:localId" element={<Matching />} />
-                <Route path="/notificaciones" element={<Notificaciones />} />
-              </Route>
-              <Route path="*" element={<NotFound />} />
-            </Routes>
-          </Suspense>
-        </AuthProvider>
-      </BrowserRouter>
-    </TooltipProvider>
-  </QueryClientProvider>
+  <ThemeProvider attribute="class" defaultTheme="light" enableSystem={false}>
+    <QueryClientProvider client={queryClient}>
+      <TooltipProvider>
+        <Toaster />
+        <Sonner />
+        <BrowserRouter>
+          <AuthProvider>
+            <Suspense fallback={<PageLoader />}>
+              <Routes>
+                <Route path="/login" element={<Login />} />
+                <Route path="/" element={<Navigate to="/dashboard" replace />} />
+                <Route element={<ProtectedRoute><NotificationProvider><AppLayout /></NotificationProvider></ProtectedRoute>}>
+                  <Route path="/dashboard" element={<Dashboard />} />
+                  <Route path="/proyectos" element={<Proyectos />} />
+                  <Route path="/proyectos/:id" element={<ProyectoDetail />} />
+                  <Route path="/operadores" element={<Operadores />} />
+                  <Route path="/operadores/:id" element={<OperadorDetail />} />
+                  <Route path="/contactos" element={<Contactos />} />
+                  <Route path="/documentos" element={<Documentos />} />
+                  <Route path="/busqueda" element={<Busqueda />} />
+                  <Route path="/auditoria" element={<Auditoria />} />
+                  <Route path="/locales" element={<Locales />} />
+                  <Route path="/locales/:id" element={<LocalDetail />} />
+                  <Route path="/matching/:localId" element={<Matching />} />
+                  <Route path="/notificaciones" element={<Notificaciones />} />
+                  <Route path="/localizacion" element={<LocationAnalysis />} />
+                  <Route path="/validacion-dossier" element={<DossierValidation />} />
+                  <Route path="/tenant-mix" element={<TenantMixOptimizer />} />
+                  <Route path="/negociacion-ia" element={<NegotiationBriefing />} />
+                </Route>
+                <Route path="*" element={<NotFound />} />
+              </Routes>
+            </Suspense>
+          </AuthProvider>
+        </BrowserRouter>
+      </TooltipProvider>
+    </QueryClientProvider>
+  </ThemeProvider>
 );
 
 export default App;

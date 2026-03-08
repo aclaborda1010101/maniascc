@@ -1,10 +1,12 @@
 import {
   LayoutDashboard, Users, Sparkles, LogOut, FileText, Search,
-  FolderKanban, UserCircle, Shield, Settings, Bell,
+  FolderKanban, UserCircle, Shield, Bell, MapPin, Brain,
+  Compass, FileSearch, Layers, MessageSquare, Moon, Sun,
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useLocation } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
+import { useTheme } from "next-themes";
 import {
   Sidebar, SidebarContent, SidebarGroup, SidebarGroupContent, SidebarGroupLabel,
   SidebarMenu, SidebarMenuButton, SidebarMenuItem, SidebarFooter, SidebarSeparator,
@@ -19,12 +21,20 @@ const mainItems = [
 ];
 
 const directoryItems = [
+  { title: "Locales", url: "/locales", icon: MapPin },
   { title: "Operadores", url: "/operadores", icon: Users },
   { title: "Contactos", url: "/contactos", icon: UserCircle },
   { title: "Documentos", url: "/documentos", icon: FileText },
 ];
 
-const toolsItems = [
+const aiToolsItems = [
+  { title: "Localización", url: "/localizacion", icon: Compass },
+  { title: "Validación Dossier", url: "/validacion-dossier", icon: FileSearch },
+  { title: "Tenant Mix", url: "/tenant-mix", icon: Layers },
+  { title: "Negociación IA", url: "/negociacion-ia", icon: MessageSquare },
+];
+
+const systemItems = [
   { title: "Búsqueda IA", url: "/busqueda", icon: Search },
   { title: "Auditoría IA", url: "/auditoria", icon: Shield },
 ];
@@ -34,6 +44,7 @@ export function AppSidebar() {
   const collapsed = state === "collapsed";
   const location = useLocation();
   const { signOut, user } = useAuth();
+  const { theme, setTheme } = useTheme();
 
   const isActive = (path: string) =>
     location.pathname === path || location.pathname.startsWith(path + "/");
@@ -93,17 +104,41 @@ export function AppSidebar() {
 
         <SidebarSeparator />
 
-        {/* Tools */}
+        {/* Herramientas IA */}
+        <SidebarGroup>
+          {!collapsed && (
+            <SidebarGroupLabel className="text-[10px] uppercase tracking-widest text-sidebar-foreground/40 px-3">
+              <Brain className="inline h-3 w-3 mr-1" /> Inteligencia
+            </SidebarGroupLabel>
+          )}
+          <SidebarGroupContent>
+            <SidebarMenu>{renderItems(aiToolsItems)}</SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+
+        <SidebarSeparator />
+
+        {/* Sistema */}
         <SidebarGroup>
           <SidebarGroupContent>
-            <SidebarMenu>{renderItems(toolsItems)}</SidebarMenu>
+            <SidebarMenu>{renderItems(systemItems)}</SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
       </SidebarContent>
 
       <SidebarFooter>
+        {/* Theme toggle */}
+        <Button
+          variant="ghost"
+          size={collapsed ? "icon" : "default"}
+          onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+          className="w-full justify-start text-sidebar-foreground/60 hover:text-sidebar-foreground hover:bg-sidebar-accent"
+        >
+          {theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+          {!collapsed && <span className="ml-2">{theme === "dark" ? "Modo claro" : "Modo oscuro"}</span>}
+        </Button>
         {!collapsed && user && (
-          <p className="mb-2 truncate px-2 text-xs text-sidebar-foreground/60">
+          <p className="truncate px-2 text-xs text-sidebar-foreground/60">
             {user.email}
           </p>
         )}
