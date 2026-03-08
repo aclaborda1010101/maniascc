@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react";
 import { useNotifications, AppNotification } from "@/contexts/NotificationContext";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -8,9 +8,11 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Calendar } from "@/components/ui/calendar";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
-import { CalendarIcon, Bell, CheckCheck, Trash2, Filter, Inbox } from "lucide-react";
+import { CalendarIcon, CheckCheck, Trash2, Filter, Inbox, ChevronLeft, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Link } from "react-router-dom";
+
+const PAGE_SIZE = 20;
 
 const typeLabels: Record<AppNotification["type"], string> = {
   match_update: "Actualización de match",
@@ -29,6 +31,7 @@ export default function Notificaciones() {
   const [typeFilter, setTypeFilter] = useState<string>("all");
   const [dateFrom, setDateFrom] = useState<Date | undefined>();
   const [dateTo, setDateTo] = useState<Date | undefined>();
+  const [page, setPage] = useState(1);
 
   const filtered = useMemo(() => {
     return notifications.filter((n) => {
@@ -44,11 +47,15 @@ export default function Notificaciones() {
   }, [notifications, typeFilter, dateFrom, dateTo]);
 
   const unreadCount = filtered.filter((n) => !n.read).length;
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const safeePage = Math.min(page, totalPages);
+  const paginated = filtered.slice((safeePage - 1) * PAGE_SIZE, safeePage * PAGE_SIZE);
 
   const clearFilters = () => {
     setTypeFilter("all");
     setDateFrom(undefined);
     setDateTo(undefined);
+    setPage(1);
   };
 
   const hasFilters = typeFilter !== "all" || dateFrom || dateTo;
@@ -146,7 +153,7 @@ export default function Notificaciones() {
         </Card>
       ) : (
         <div className="space-y-2">
-          {filtered.map((n) => (
+          {paginated.map((n) => (
             <Card
               key={n.id}
               className={cn("transition-colors cursor-pointer hover:bg-muted/40", !n.read && "border-l-4 border-l-accent bg-accent/5")}
@@ -179,6 +186,45 @@ export default function Notificaciones() {
               </CardContent>
             </Card>
           ))}
+
+          {/* Pagination */}
+          {totalPages > 1 && (
+            <div className="flex items-center justify-between pt-4">
+              <p className="text-sm text-muted-foreground">
+                Mostrando {(safeePage - 1) * PAGE_SIZE + 1}–{Math.min(safeePage * PAGE_SIZE, filtered.length)} de {filtered.length}
+              </p>
+              <div className="flex items-center gap-1">
+                <Button variant="outline" size="icon" disabled={safeePage <= 1} onClick={() => setPage(safeePage - 1)}>
+                  <ChevronLeft className="h-4 w-4" />
+                </Button>
+                {Array.from({ length: totalPages }, (_, i) => i + 1)
+                  .filter((p) => p === 1 || p === totalPages || Math.abs(p - safeePage) <= 1)
+                  .reduce<(number | "ellipsis")[]>((acc, p, idx, arr) => {
+                    if (idx > 0 && p - (arr[idx - 1] as number) > 1) acc.push("ellipsis");
+                    acc.push(p);
+                    return acc;
+                  }, [])
+                  .map((item, idx) =>
+                    item === "ellipsis" ? (
+                      <span key={`e-${idx}`} className="px-2 text-muted-foreground">…</span>
+                    ) : (
+                      <Button
+                        key={item}
+                        variant={item === safeePage ? "default" : "outline"}
+                        size="icon"
+                        className="h-9 w-9"
+                        onClick={() => setPage(item as number)}
+                      >
+                        {item}
+                      </Button>
+                    )
+                  )}
+                <Button variant="outline" size="icon" disabled={safeePage >= totalPages} onClick={() => setPage(safeePage + 1)}>
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>
