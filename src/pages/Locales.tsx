@@ -33,7 +33,7 @@ export default function Locales() {
   const fetchLocales = async () => {
     setLoading(true);
     let query = supabase.from("locales").select("*").order("created_at", { ascending: false });
-    if (filtroEstado !== "todos") query = query.eq("estado", filtroEstado);
+    if (filtroEstado !== "todos") query = query.eq("estado", filtroEstado as any);
     if (search) query = query.or(`nombre.ilike.%${search}%,direccion.ilike.%${search}%,codigo_postal.ilike.%${search}%`);
     const { data } = await query;
     setLocales(data || []);
