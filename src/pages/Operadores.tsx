@@ -15,9 +15,19 @@ import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 
-const SECTORES = [
-  "Alimentación", "Moda", "Restauración", "Hogar", "Electrónica",
-  "Deportes", "Salud", "Servicios", "Ocio", "Financiero", "Otro",
+const SECTORES: { value: string; label: string }[] = [
+  { value: "alimentacion", label: "Alimentación" },
+  { value: "moda", label: "Moda" },
+  { value: "restauracion", label: "Restauración" },
+  { value: "hogar", label: "Hogar" },
+  { value: "electronica", label: "Electrónica" },
+  { value: "belleza", label: "Belleza" },
+  { value: "deportes", label: "Deportes" },
+  { value: "salud", label: "Salud" },
+  { value: "servicios", label: "Servicios" },
+  { value: "ocio", label: "Ocio" },
+  { value: "financiero", label: "Financiero" },
+  { value: "otro", label: "Otro" },
 ];
 
 export default function Operadores() {
