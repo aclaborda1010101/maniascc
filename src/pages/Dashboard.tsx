@@ -48,7 +48,6 @@ export default function Dashboard() {
       const [
         localesCountRes, operadoresCountRes, matchesCountRes, matchesExitoRes,
         auditoriaRes, recentRes, auditLogsRes, localesAllRes, matchesAllRes,
-        farmaciasAltoRes,
       ] = await Promise.all([
         supabase.from("locales").select("id", { count: "exact", head: true }),
         supabase.from("operadores").select("id", { count: "exact", head: true }).eq("activo", true),
@@ -59,7 +58,6 @@ export default function Dashboard() {
         supabase.from("auditoria_ia").select("*").order("created_at", { ascending: false }).limit(8),
         supabase.from("locales").select("estado"),
         supabase.from("matches").select("estado"),
-        supabase.from("farmacias").select("id", { count: "exact", head: true }).eq("riesgo_desabastecimiento", "alto"),
       ]);
 
       const audits = auditoriaRes.data || [];
