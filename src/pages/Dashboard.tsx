@@ -34,7 +34,7 @@ const estadoMatchLabels: Record<string, string> = {
 export default function Dashboard() {
   const [stats, setStats] = useState<{
     totalLocales: number; operadoresActivos: number; totalMatches: number;
-    matchesExitosos: number; costeIA: number; farmaciasRiesgoAlto: number;
+    matchesExitosos: number; costeIA: number;
     latenciaMedia: number; totalAudits: number;
   } | null>(null);
   const [recentMatches, setRecentMatches] = useState<any[]>([]);
