@@ -40,6 +40,7 @@ export default function Dashboard() {
   const [recentActivity, setRecentActivity] = useState<any[]>([]);
   const [localEstadoDist, setLocalEstadoDist] = useState<any[]>([]);
   const [matchEstadoDist, setMatchEstadoDist] = useState<any[]>([]);
+  const [matchScoreDist, setMatchScoreDist] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -62,7 +63,7 @@ export default function Dashboard() {
         supabase.from("matches").select("*, locales(nombre), operadores(nombre)").order("created_at", { ascending: false }).limit(8),
         supabase.from("actividad_proyecto").select("*, proyectos(nombre)").order("created_at", { ascending: false }).limit(10),
         supabase.from("locales").select("estado"),
-        supabase.from("matches").select("estado"),
+        supabase.from("matches").select("estado, score"),
       ]);
 
       const audMes = audMesRes.data || [];
@@ -77,8 +78,18 @@ export default function Dashboard() {
       setLocalEstadoDist(Object.entries(localDist).map(([k, v]) => ({ name: estadoLocalLabels[k] || k, value: v })));
 
       const matchDist: Record<string, number> = {};
-      (matchesAllRes.data || []).forEach((m: any) => { matchDist[m.estado] = (matchDist[m.estado] || 0) + 1; });
+      const scoreBuckets = { "0-30": 0, "31-50": 0, "51-70": 0, "71-85": 0, "86-100": 0 };
+      (matchesAllRes.data || []).forEach((m: any) => {
+        matchDist[m.estado] = (matchDist[m.estado] || 0) + 1;
+        const s = Number(m.score) || 0;
+        if (s <= 30) scoreBuckets["0-30"]++;
+        else if (s <= 50) scoreBuckets["31-50"]++;
+        else if (s <= 70) scoreBuckets["51-70"]++;
+        else if (s <= 85) scoreBuckets["71-85"]++;
+        else scoreBuckets["86-100"]++;
+      });
       setMatchEstadoDist(Object.entries(matchDist).map(([k, v]) => ({ name: estadoMatchLabels[k] || k, value: v })));
+      setMatchScoreDist(Object.entries(scoreBuckets).map(([k, v]) => ({ range: k, count: v })));
 
       setStats({
         proyectosActivos: proyectosRes.count || 0,
@@ -170,38 +181,59 @@ export default function Dashboard() {
           </CardContent>
         </Card>
 
-        <div className="grid gap-4 grid-rows-2">
-          <Card>
-            <CardHeader className="pb-2"><CardTitle className="text-base">Locales por Estado</CardTitle></CardHeader>
-            <CardContent className="flex items-center justify-center">
-              {loading ? <Skeleton className="h-[100px] w-full" /> : localEstadoDist.length > 0 ? (
-                <ResponsiveContainer width="100%" height={110}>
-                  <PieChart>
-                    <Pie data={localEstadoDist} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={45} innerRadius={25}>
-                      {localEstadoDist.map((_, i) => <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />)}
-                    </Pie>
-                    <Tooltip /><Legend iconSize={8} wrapperStyle={{ fontSize: "11px" }} />
-                  </PieChart>
-                </ResponsiveContainer>
-              ) : <p className="text-sm text-muted-foreground">Sin locales</p>}
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="pb-2"><CardTitle className="text-base">Matches por Estado</CardTitle></CardHeader>
-            <CardContent className="flex items-center justify-center">
-              {loading ? <Skeleton className="h-[100px] w-full" /> : matchEstadoDist.length > 0 ? (
-                <ResponsiveContainer width="100%" height={110}>
-                  <PieChart>
-                    <Pie data={matchEstadoDist} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={45} innerRadius={25}>
-                      {matchEstadoDist.map((_, i) => <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />)}
-                    </Pie>
-                    <Tooltip /><Legend iconSize={8} wrapperStyle={{ fontSize: "11px" }} />
-                  </PieChart>
-                </ResponsiveContainer>
-              ) : <p className="text-sm text-muted-foreground">Sin matches</p>}
-            </CardContent>
-          </Card>
-        </div>
+        <Card>
+          <CardHeader className="pb-2"><CardTitle className="text-base">Distribución de Scores</CardTitle></CardHeader>
+          <CardContent>
+            {loading ? <Skeleton className="h-[260px] w-full" /> : matchScoreDist.some(d => d.count > 0) ? (
+              <ResponsiveContainer width="100%" height={260}>
+                <BarChart data={matchScoreDist} margin={{ top: 5, right: 5, bottom: 5, left: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
+                  <XAxis dataKey="range" tick={{ fontSize: 11 }} />
+                  <YAxis allowDecimals={false} tick={{ fontSize: 11 }} />
+                  <Tooltip contentStyle={{ borderRadius: "8px", border: "1px solid hsl(var(--border))", background: "hsl(var(--card))" }} formatter={(v: number) => [v, "Matches"]} />
+                  <Bar dataKey="count" radius={[4, 4, 0, 0]}>
+                    {matchScoreDist.map((_, i) => (
+                      <Cell key={i} fill={["hsl(0,84%,60%)", "hsl(38,92%,50%)", "hsl(48,96%,53%)", "hsl(142,71%,45%)", "hsl(217,91%,60%)"][i]} />
+                    ))}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            ) : <p className="py-12 text-center text-muted-foreground">Sin matches</p>}
+          </CardContent>
+        </Card>
+      </div>
+
+      <div className="grid gap-4 lg:grid-cols-2">
+        <Card>
+          <CardHeader className="pb-2"><CardTitle className="text-base">Locales por Estado</CardTitle></CardHeader>
+          <CardContent className="flex items-center justify-center">
+            {loading ? <Skeleton className="h-[140px] w-full" /> : localEstadoDist.length > 0 ? (
+              <ResponsiveContainer width="100%" height={140}>
+                <PieChart>
+                  <Pie data={localEstadoDist} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={50} innerRadius={28}>
+                    {localEstadoDist.map((_, i) => <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />)}
+                  </Pie>
+                  <Tooltip /><Legend iconSize={8} wrapperStyle={{ fontSize: "11px" }} />
+                </PieChart>
+              </ResponsiveContainer>
+            ) : <p className="text-sm text-muted-foreground">Sin locales</p>}
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2"><CardTitle className="text-base">Matches por Estado</CardTitle></CardHeader>
+          <CardContent className="flex items-center justify-center">
+            {loading ? <Skeleton className="h-[140px] w-full" /> : matchEstadoDist.length > 0 ? (
+              <ResponsiveContainer width="100%" height={140}>
+                <PieChart>
+                  <Pie data={matchEstadoDist} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={50} innerRadius={28}>
+                    {matchEstadoDist.map((_, i) => <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />)}
+                  </Pie>
+                  <Tooltip /><Legend iconSize={8} wrapperStyle={{ fontSize: "11px" }} />
+                </PieChart>
+              </ResponsiveContainer>
+            ) : <p className="text-sm text-muted-foreground">Sin matches</p>}
+          </CardContent>
+        </Card>
       </div>
 
       {/* Recent matches + Activity */}
