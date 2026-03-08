@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -8,7 +8,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import {
   MapPin, Users, Sparkles, Brain, Plus, TrendingUp, Clock, ArrowRight,
-  FolderOpen, DollarSign, Activity,
+  FolderOpen, DollarSign, Activity, Eye, Zap, CheckCircle, XCircle,
 } from "lucide-react";
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
@@ -25,6 +25,28 @@ const estadoMatchLabels: Record<string, string> = {
   aprobado: "Aprobado", descartado: "Descartado", exito: "Éxito",
 };
 
+const AGENT_LABELS: Record<string, { label: string; icon: string }> = {
+  "matching": { label: "NEXUS — Matching", icon: "🔗" },
+  "generate-match": { label: "NEXUS — Matching", icon: "🔗" },
+  "tenant-mix-avanzado": { label: "NEXUS — Tenant Mix", icon: "🧩" },
+  "validacion-retorno": { label: "RADAR — Validación", icon: "📡" },
+  "localizacion-patrones": { label: "ATLAS — Localización", icon: "🗺️" },
+  "perfil-negociador": { label: "PULSE — Negociación", icon: "🤝" },
+  "rag-proxy": { label: "RAG — Consultas", icon: "📚" },
+  "rag-proxy:contratos": { label: "RAG — Contratos", icon: "📄" },
+  "rag-proxy:operadores": { label: "RAG — Operadores", icon: "🏪" },
+  "rag-proxy:activos": { label: "RAG — Activos", icon: "🏢" },
+  "rag-proxy:mercado": { label: "RAG — Mercado", icon: "📈" },
+  "rag-proxy:personas": { label: "RAG — Personas", icon: "👤" },
+  "rag-proxy:general": { label: "RAG — General", icon: "📁" },
+  "forge:dossier_operador": { label: "FORGE — Dossier", icon: "📋" },
+  "forge:presentacion_comercial": { label: "FORGE — Presentación", icon: "📊" },
+  "forge:borrador_contrato": { label: "FORGE — Contrato", icon: "📝" },
+  "forge:plan_estrategico": { label: "FORGE — Plan", icon: "🎯" },
+  "forge:informe_war_room": { label: "FORGE — War Room", icon: "⚡" },
+  "forge:email_comunicacion": { label: "FORGE — Email", icon: "✉️" },
+};
+
 interface Stats {
   proyectosActivos: number;
   totalOperadores: number;
@@ -34,6 +56,32 @@ interface Stats {
   latenciaMedia: number;
 }
 
+interface AuditRow {
+  funcion_ia: string | null;
+  modelo: string;
+  latencia_ms: number | null;
+  coste_estimado: number | null;
+  exito: boolean;
+  tokens_entrada: number | null;
+  tokens_salida: number | null;
+  created_at: string;
+}
+
+interface AgentStats {
+  funcion: string;
+  label: string;
+  icon: string;
+  modelo: string;
+  calls: number;
+  exitos: number;
+  fallos: number;
+  tasaExito: number;
+  latenciaMedia: number;
+  costeTotal: number;
+  tokensIn: number;
+  tokensOut: number;
+}
+
 export default function Dashboard() {
   const [stats, setStats] = useState<Stats | null>(null);
   const [recentMatches, setRecentMatches] = useState<any[]>([]);
@@ -41,6 +89,7 @@ export default function Dashboard() {
   const [localEstadoDist, setLocalEstadoDist] = useState<any[]>([]);
   const [matchEstadoDist, setMatchEstadoDist] = useState<any[]>([]);
   const [matchScoreDist, setMatchScoreDist] = useState<any[]>([]);
+  const [auditRows, setAuditRows] = useState<AuditRow[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -52,7 +101,7 @@ export default function Dashboard() {
       const [
         proyectosRes, operadoresRes, matchesPendRes, audMesRes,
         localesCountRes, audLatRes, recentMatchesRes, actividadRes,
-        localesAllRes, matchesAllRes,
+        localesAllRes, matchesAllRes, audFullRes,
       ] = await Promise.all([
         supabase.from("proyectos").select("id", { count: "exact", head: true }).in("estado", ["activo", "en_negociacion"]),
         supabase.from("operadores").select("id", { count: "exact", head: true }),
@@ -64,6 +113,7 @@ export default function Dashboard() {
         supabase.from("actividad_proyecto").select("*, proyectos(nombre)").order("created_at", { ascending: false }).limit(10),
         supabase.from("locales").select("estado"),
         supabase.from("matches").select("estado, score"),
+        supabase.from("auditoria_ia").select("funcion_ia, modelo, latencia_ms, coste_estimado, exito, tokens_entrada, tokens_salida, created_at").gte("created_at", startOfMonth.toISOString()).order("created_at", { ascending: false }).limit(500),
       ]);
 
       const audMes = audMesRes.data || [];
@@ -91,6 +141,8 @@ export default function Dashboard() {
       setMatchEstadoDist(Object.entries(matchDist).map(([k, v]) => ({ name: estadoMatchLabels[k] || k, value: v })));
       setMatchScoreDist(Object.entries(scoreBuckets).map(([k, v]) => ({ range: k, count: v })));
 
+      setAuditRows((audFullRes.data || []) as AuditRow[]);
+
       setStats({
         proyectosActivos: proyectosRes.count || 0,
         totalOperadores: operadoresRes.count || 0,
@@ -105,6 +157,54 @@ export default function Dashboard() {
     }
     fetchData();
   }, []);
+
+  // Compute agent stats from audit rows
+  const agentStats = useMemo<AgentStats[]>(() => {
+    const map = new Map<string, { modelo: string; calls: number; exitos: number; fallos: number; latSum: number; costeSum: number; tokensIn: number; tokensOut: number }>();
+    for (const r of auditRows) {
+      const fn = r.funcion_ia || "unknown";
+      let entry = map.get(fn);
+      if (!entry) {
+        entry = { modelo: r.modelo, calls: 0, exitos: 0, fallos: 0, latSum: 0, costeSum: 0, tokensIn: 0, tokensOut: 0 };
+        map.set(fn, entry);
+      }
+      entry.calls++;
+      if (r.exito) entry.exitos++; else entry.fallos++;
+      entry.latSum += Number(r.latencia_ms) || 0;
+      entry.costeSum += Number(r.coste_estimado) || 0;
+      entry.tokensIn += Number(r.tokens_entrada) || 0;
+      entry.tokensOut += Number(r.tokens_salida) || 0;
+      entry.modelo = r.modelo; // latest model
+    }
+    return Array.from(map.entries())
+      .map(([fn, e]) => {
+        const info = AGENT_LABELS[fn] || { label: fn, icon: "🤖" };
+        return {
+          funcion: fn,
+          label: info.label,
+          icon: info.icon,
+          modelo: e.modelo,
+          calls: e.calls,
+          exitos: e.exitos,
+          fallos: e.fallos,
+          tasaExito: e.calls > 0 ? Math.round((e.exitos / e.calls) * 100) : 0,
+          latenciaMedia: e.calls > 0 ? Math.round(e.latSum / e.calls) : 0,
+          costeTotal: e.costeSum,
+          tokensIn: e.tokensIn,
+          tokensOut: e.tokensOut,
+        };
+      })
+      .sort((a, b) => b.calls - a.calls);
+  }, [auditRows]);
+
+  const modelDistribution = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const r of auditRows) {
+      const m = r.modelo || "unknown";
+      map.set(m, (map.get(m) || 0) + 1);
+    }
+    return Array.from(map.entries()).map(([name, value]) => ({ name: name.replace("google/", ""), value }));
+  }, [auditRows]);
 
   const statCards = [
     { label: "Proyectos Activos", value: stats?.proyectosActivos, icon: FolderOpen, color: "text-primary", bg: "bg-primary/10" },
@@ -153,6 +253,115 @@ export default function Dashboard() {
           </Card>
         ))}
       </div>
+
+      {/* ===== OBSERVABILIDAD IA ===== */}
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base flex items-center gap-2">
+            <Eye className="h-4 w-4 text-primary" /> Observabilidad IA — Rendimiento por Agente (mes actual)
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {loading ? <Skeleton className="h-40 w-full" /> : agentStats.length === 0 ? (
+            <p className="py-8 text-center text-muted-foreground">Sin llamadas IA este mes.</p>
+          ) : (
+            <div className="space-y-4">
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Agente</TableHead>
+                      <TableHead>Modelo</TableHead>
+                      <TableHead className="text-center">Llamadas</TableHead>
+                      <TableHead className="text-center">Tasa Éxito</TableHead>
+                      <TableHead className="text-center">Latencia Media</TableHead>
+                      <TableHead className="text-center">Tokens (In/Out)</TableHead>
+                      <TableHead className="text-right">Coste</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {agentStats.map((a) => (
+                      <TableRow key={a.funcion}>
+                        <TableCell>
+                          <div className="flex items-center gap-2">
+                            <span>{a.icon}</span>
+                            <span className="font-medium text-sm">{a.label}</span>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant="outline" className="text-[10px] font-mono">
+                            {a.modelo.replace("google/", "")}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-center font-medium">{a.calls}</TableCell>
+                        <TableCell className="text-center">
+                          <div className="flex items-center justify-center gap-1">
+                            {a.tasaExito >= 90 ? (
+                              <CheckCircle className="h-3.5 w-3.5 text-chart-2" />
+                            ) : a.tasaExito >= 70 ? (
+                              <Zap className="h-3.5 w-3.5 text-chart-3" />
+                            ) : (
+                              <XCircle className="h-3.5 w-3.5 text-destructive" />
+                            )}
+                            <span className={a.tasaExito >= 90 ? "text-chart-2" : a.tasaExito >= 70 ? "text-chart-3" : "text-destructive"}>
+                              {a.tasaExito}%
+                            </span>
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-center">
+                          <span className={a.latenciaMedia > 5000 ? "text-destructive" : a.latenciaMedia > 2000 ? "text-chart-3" : "text-chart-2"}>
+                            {a.latenciaMedia.toLocaleString()}ms
+                          </span>
+                        </TableCell>
+                        <TableCell className="text-center text-xs text-muted-foreground">
+                          {a.tokensIn.toLocaleString()} / {a.tokensOut.toLocaleString()}
+                        </TableCell>
+                        <TableCell className="text-right font-medium">{a.costeTotal.toFixed(3)}€</TableCell>
+                      </TableRow>
+                    ))}
+                    {/* Totals */}
+                    <TableRow className="bg-muted/30 font-medium">
+                      <TableCell colSpan={2}>Total</TableCell>
+                      <TableCell className="text-center">{agentStats.reduce((s, a) => s + a.calls, 0)}</TableCell>
+                      <TableCell className="text-center">
+                        {agentStats.length > 0
+                          ? Math.round(agentStats.reduce((s, a) => s + a.exitos, 0) / agentStats.reduce((s, a) => s + a.calls, 0) * 100)
+                          : 0}%
+                      </TableCell>
+                      <TableCell className="text-center">
+                        {agentStats.length > 0
+                          ? Math.round(agentStats.reduce((s, a) => s + a.latenciaMedia * a.calls, 0) / agentStats.reduce((s, a) => s + a.calls, 0))
+                          : 0}ms
+                      </TableCell>
+                      <TableCell className="text-center text-xs">
+                        {agentStats.reduce((s, a) => s + a.tokensIn, 0).toLocaleString()} / {agentStats.reduce((s, a) => s + a.tokensOut, 0).toLocaleString()}
+                      </TableCell>
+                      <TableCell className="text-right">{agentStats.reduce((s, a) => s + a.costeTotal, 0).toFixed(3)}€</TableCell>
+                    </TableRow>
+                  </TableBody>
+                </Table>
+              </div>
+
+              {/* Model distribution pie */}
+              {modelDistribution.length > 1 && (
+                <div className="flex items-center justify-center">
+                  <div className="w-full max-w-xs">
+                    <p className="text-xs font-medium text-muted-foreground text-center mb-2">Distribución de modelos</p>
+                    <ResponsiveContainer width="100%" height={140}>
+                      <PieChart>
+                        <Pie data={modelDistribution} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={50} innerRadius={28}>
+                          {modelDistribution.map((_, i) => <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />)}
+                        </Pie>
+                        <Tooltip /><Legend iconSize={8} wrapperStyle={{ fontSize: "11px" }} />
+                      </PieChart>
+                    </ResponsiveContainer>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       {/* Charts */}
       <div className="grid gap-4 lg:grid-cols-2">
