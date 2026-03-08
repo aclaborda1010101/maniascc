@@ -33,7 +33,7 @@ export default function Busqueda() {
     setSearched(true);
     setSearchParams({ q: searchTerm });
 
-    const [localesRes, operadoresRes, matchesRes, farmaciasRes] = await Promise.all([
+    const [localesRes, operadoresRes, matchesRes] = await Promise.all([
       supabase.from("locales").select("*")
         .or(`nombre.ilike.%${searchTerm}%,direccion.ilike.%${searchTerm}%,codigo_postal.ilike.%${searchTerm}%,ciudad.ilike.%${searchTerm}%`)
         .order("created_at", { ascending: false }).limit(15),
@@ -43,16 +43,12 @@ export default function Busqueda() {
       supabase.from("matches").select("*, locales(nombre), operadores(nombre)")
         .or(`explicacion.ilike.%${searchTerm}%`)
         .order("score", { ascending: false }).limit(10),
-      supabase.from("farmacias").select("*")
-        .or(`nombre.ilike.%${searchTerm}%,codigo_postal.ilike.%${searchTerm}%`)
-        .order("created_at", { ascending: false }).limit(10),
     ]);
 
     setResults({
       locales: localesRes.data || [],
       operadores: operadoresRes.data || [],
       matches: matchesRes.data || [],
-      farmacias: farmaciasRes.data || [],
     });
     setLoading(false);
   };
