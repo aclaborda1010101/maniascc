@@ -79,6 +79,7 @@ export function ProyectoRAG({ proyectoId, docs, onRefreshDocs }: Props) {
                 </div>
               )}
               <span className="text-xs text-muted-foreground">Confianza: {Math.round(answer.confidence * 100)}%</span>
+              <FeedbackWidget entidadTipo="rag_response" entidadId={answer.answer.slice(0, 50)} />
             </div>
           )}
           {!answer && !loading && <p className="text-sm text-muted-foreground text-center py-6">Haz una pregunta sobre los documentos indexados de este proyecto.</p>}
