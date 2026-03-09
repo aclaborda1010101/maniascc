@@ -5,7 +5,9 @@ import { ThumbsUp, ThumbsDown, ExternalLink, MessageSquare } from "lucide-react"
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { Link } from "react-router-dom";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { recordMatchSelection, recordMatchRejection, recordImplicitFeedback } from "@/services/feedbackService";
+import { FeedbackWidget } from "@/components/FeedbackWidget";
 
 interface MatchCardProps {
   match: {
