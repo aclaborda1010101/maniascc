@@ -70,6 +70,16 @@ export function MatchCard({ match, index, onUpdate }: MatchCardProps) {
   const colors = scoreColor(match.score);
   const canAct = match.estado === "pendiente" || match.estado === "sugerido";
 
+  // Track implicit view
+  useEffect(() => {
+    recordImplicitFeedback({
+      entidadTipo: 'match',
+      entidadId: match.id,
+      accion: 'viewed',
+      posicionEnLista: index,
+    });
+  }, [match.id, index]);
+
   const handleFeedback = async (feedback: "positivo" | "negativo") => {
     setLoading(true);
     const newEstado = feedback === "positivo" ? "contactado" : "descartado";
@@ -81,6 +91,12 @@ export function MatchCard({ match, index, onUpdate }: MatchCardProps) {
     if (error) {
       toast({ title: "Error", description: error.message, variant: "destructive" });
     } else {
+      // Record feedback for learning
+      if (feedback === "positivo") {
+        recordMatchSelection(match.id, "", match.operador_id, index);
+      } else {
+        recordMatchRejection(match.id);
+      }
       toast({ title: feedback === "positivo" ? "Match aprobado → Contactado" : "Match descartado" });
       onUpdate?.();
     }
