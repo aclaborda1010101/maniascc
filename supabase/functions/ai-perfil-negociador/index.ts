@@ -45,7 +45,7 @@ serve(async (req) => {
       historico = data || [];
     }
 
-    const prompt = `Eres ATLAS PULSE, experto en psicología de negociación inmobiliaria. Genera un briefing pre-reunión para negociar con:
+    const prompt = `Eres AVA TURING PULSE, experto en psicología de negociación inmobiliaria. Genera un briefing pre-reunión para negociar con:
 
 Contacto: ${contacto_nombre}${contacto_empresa ? ` de ${contacto_empresa}` : ""}${contacto_cargo ? ` (${contacto_cargo})` : ""}
 ${contexto_deal ? `Contexto del deal: ${contexto_deal}` : ""}
