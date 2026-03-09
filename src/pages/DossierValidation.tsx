@@ -48,7 +48,7 @@ export default function DossierValidation() {
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Validación de Dossier</h1>
-        <p className="text-sm text-muted-foreground">Capa 2 ATLAS RADAR — Detecta métricas infladas en dossiers de propietarios</p>
+        <p className="text-sm text-muted-foreground">Capa 2 AVA TURING RADAR — Detecta métricas infladas en dossiers de propietarios</p>
       </div>
 
       <Card>

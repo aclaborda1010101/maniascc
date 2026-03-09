@@ -32,7 +32,7 @@ export function AppLayout() {
         <div className="flex-1 flex flex-col">
           <header className="h-14 flex items-center border-b bg-card px-4 gap-4">
             <SidebarTrigger className="mr-2" />
-            <h2 className="hidden md:block text-sm font-semibold tracking-tight text-foreground">ATLAS</h2>
+            <h2 className="hidden md:block text-sm font-semibold tracking-tight text-foreground">AVA TURING</h2>
             <div className="flex-1 mx-4 max-w-md relative">
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input

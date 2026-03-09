@@ -30,7 +30,7 @@ const AGENT_LABELS: Record<string, { label: string; icon: string }> = {
   "generate-match": { label: "NEXUS — Matching", icon: "🔗" },
   "tenant-mix-avanzado": { label: "NEXUS — Tenant Mix", icon: "🧩" },
   "validacion-retorno": { label: "RADAR — Validación", icon: "📡" },
-  "localizacion-patrones": { label: "ATLAS — Localización", icon: "🗺️" },
+  "localizacion-patrones": { label: "AVA — Localización", icon: "🗺️" },
   "perfil-negociador": { label: "PULSE — Negociación", icon: "🤝" },
   "rag-proxy": { label: "RAG — Consultas", icon: "📚" },
   "rag-proxy:contratos": { label: "RAG — Contratos", icon: "📄" },
@@ -225,7 +225,7 @@ export default function Dashboard() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Torre de Control</h1>
-          <p className="text-sm text-muted-foreground">Visión general de la plataforma ATLAS</p>
+          <p className="text-sm text-muted-foreground">Visión general de la plataforma AVA TURING</p>
         </div>
         <div className="flex gap-2">
           <Button asChild size="sm" className="bg-accent text-accent-foreground hover:bg-accent/90">

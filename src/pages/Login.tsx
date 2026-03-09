@@ -29,7 +29,7 @@ export default function Login() {
           options: { data: { nombre } },
         });
         if (error) throw error;
-        toast({ title: "Cuenta creada", description: "Bienvenido a ATLAS." });
+        toast({ title: "Cuenta creada", description: "Bienvenido a AVA TURING." });
         navigate("/dashboard");
       } else {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
@@ -54,7 +54,7 @@ export default function Login() {
           <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-xl bg-primary">
             <Sparkles className="h-7 w-7 text-primary-foreground" />
           </div>
-          <CardTitle className="text-2xl font-bold">ATLAS</CardTitle>
+          <CardTitle className="text-2xl font-bold">AVA TURINGURING</CardTitle>
           <CardDescription>
             {isSignUp ? "Crear cuenta nueva" : "Inicia sesión en tu cuenta"}
           </CardDescription>

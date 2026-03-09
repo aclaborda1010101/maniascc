@@ -51,7 +51,7 @@ export default function NegotiationBriefing() {
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Briefing de Negociación</h1>
-        <p className="text-sm text-muted-foreground">Capa 4 ATLAS PULSE — Perfiles psicológicos y recomendaciones tácticas pre-reunión</p>
+        <p className="text-sm text-muted-foreground">Capa 4 AVA TURING PULSE — Perfiles psicológicos y recomendaciones tácticas pre-reunión</p>
       </div>
 
       <Card>

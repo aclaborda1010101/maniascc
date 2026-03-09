@@ -52,7 +52,7 @@ export default function LocationAnalysis() {
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Inteligencia de Localización</h1>
-        <p className="text-sm text-muted-foreground">Capa 1 ATLAS — Análisis de viabilidad con IA para ubicaciones de centros comerciales</p>
+        <p className="text-sm text-muted-foreground">Capa 1 AVA TURING — Análisis de viabilidad con IA para ubicaciones de centros comerciales</p>
       </div>
 
       <Card>
@@ -161,7 +161,7 @@ export default function LocationAnalysis() {
           {/* Recommendation */}
           {result.recomendacion && (
             <Card>
-              <CardHeader><CardTitle>💡 Recomendación ATLAS</CardTitle></CardHeader>
+              <CardHeader><CardTitle>💡 Recomendación AVA TURING</CardTitle></CardHeader>
               <CardContent><p className="text-sm leading-relaxed">{result.recomendacion}</p></CardContent>
             </Card>
           )}
