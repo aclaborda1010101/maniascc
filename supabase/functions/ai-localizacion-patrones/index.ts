@@ -122,7 +122,7 @@ Genera un análisis completo con score de viabilidad 0-100 evaluando estas 5 dim
       riesgos: analysis.riesgos,
       oportunidades: analysis.oportunidades,
       confianza: analysis.confianza,
-      fuentes_consultadas: [{ tipo: "datos_internos", detalle: "Locales y operadores en cartera ATVA TURING }],
+      fuentes_consultadas: [{ tipo: "datos_internos", detalle: "Locales y operadores en cartera AVA TURING" }],
       usuario_id: user.id,
     }).select().single();
 
