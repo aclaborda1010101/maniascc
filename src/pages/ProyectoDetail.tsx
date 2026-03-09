@@ -177,6 +177,7 @@ export default function ProyectoDetail() {
           <TabsTrigger value="documentos" className="gap-1"><FileText className="h-3.5 w-3.5" /> Documentos</TabsTrigger>
           <TabsTrigger value="conocimiento" className="gap-1"><BookOpen className="h-3.5 w-3.5" /> Conocimiento</TabsTrigger>
           <TabsTrigger value="forge" className="gap-1"><Hammer className="h-3.5 w-3.5" /> FORGE</TabsTrigger>
+          <TabsTrigger value="insights" className="gap-1"><Brain className="h-3.5 w-3.5" /> Insights IA</TabsTrigger>
           <TabsTrigger value="negociacion" className="gap-1"><MessageSquare className="h-3.5 w-3.5" /> Negociación</TabsTrigger>
         </TabsList>
 
