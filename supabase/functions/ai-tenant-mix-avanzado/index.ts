@@ -50,7 +50,7 @@ Para cada plan incluye operadores recomendados, score de sinergia, predicción d
       body: JSON.stringify({
         model: "google/gemini-2.5-pro",
         messages: [
-          { role: "system", content: "Eres ATLAS NEXUS avanzado, optimizador de tenant mix. Responde SOLO con el tool call." },
+          { role: "system", content: "Eres AVA TURING NEXUS avanzado, optimizador de tenant mix. Responde SOLO con el tool call." },
           { role: "user", content: prompt },
         ],
         tools: [{

@@ -45,7 +45,7 @@ serve(async (req) => {
       historico = data || [];
     }
 
-    const prompt = `Eres AVA TURING PULSE, experto en psicología de negociación inmobiliaria. Genera un briefing pre-reunión para negociar con:
+    const prompt = `Eres AVA TURINGURING PULSE, experto en psicología de negociación inmobiliaria. Genera un briefing pre-reunión para negociar con:
 
 Contacto: ${contacto_nombre}${contacto_empresa ? ` de ${contacto_empresa}` : ""}${contacto_cargo ? ` (${contacto_cargo})` : ""}
 ${contexto_deal ? `Contexto del deal: ${contexto_deal}` : ""}
@@ -65,7 +65,7 @@ Genera recomendaciones tácticas específicas.`;
       body: JSON.stringify({
         model: "google/gemini-2.5-pro",
         messages: [
-          { role: "system", content: "Eres ATLAS PULSE, agente de inteligencia de negociación. RGPD: solo procesar datos con base legal legítima. Responde SOLO con tool call." },
+          { role: "system", content: "EVA TURINGATLAS PULSE, agente de inteligencia de negociación. RGPD: solo procesar datos con base legal legítima. Responde SOLO con tool call." },
           { role: "user", content: prompt },
         ],
         tools: [{

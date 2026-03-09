@@ -161,7 +161,7 @@ export default function LocationAnalysis() {
           {/* Recommendation */}
           {result.recomendacion && (
             <Card>
-              <CardHeader><CardTitle>💡 Recomendación ATLAS</CardTitle></CardHeader>
+              <CardHeader><CardTitle>💡 Recomendación AVA TURING</CardTitle></CardHeader>
               <CardContent><p className="text-sm leading-relaxed">{result.recomendacion}</p></CardContent>
             </Card>
           )}

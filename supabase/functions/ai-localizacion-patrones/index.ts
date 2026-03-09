@@ -59,7 +59,7 @@ Genera un análisis completo con score de viabilidad 0-100 evaluando estas 5 dim
       body: JSON.stringify({
         model: "google/gemini-3-flash-preview",
         messages: [
-          { role: "system", content: "Eres AVA TURING, el agente de inteligencia de localización. Responde SOLO con el tool call solicitado." },
+          { role: "system", content: "Eres AVA TURING el agente de inteligencia de localización. Responde SOLO con el tool call solicitado." },
           { role: "user", content: prompt },
         ],
         tools: [{
@@ -122,7 +122,7 @@ Genera un análisis completo con score de viabilidad 0-100 evaluando estas 5 dim
       riesgos: analysis.riesgos,
       oportunidades: analysis.oportunidades,
       confianza: analysis.confianza,
-      fuentes_consultadas: [{ tipo: "datos_internos", detalle: "Locales y operadores en cartera ATLAS" }],
+      fuentes_consultadas: [{ tipo: "datos_internos", detalle: "Locales y operadores en cartera ATVA TURING }],
       usuario_id: user.id,
     }).select().single();
 

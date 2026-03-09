@@ -46,7 +46,7 @@ Considera desviaciones típicas del sector: rentabilidad (15-30% inflación medi
       body: JSON.stringify({
         model: "google/gemini-2.5-pro",
         messages: [
-          { role: "system", content: "Eres ATLAS RADAR, el agente de validación de retornos. Responde SOLO con el tool call." },
+          { role: "system", content: "Eres AVA TURING RADAR, el agente de validación de retornos. Responde SOLO con el tool call." },
           { role: "user", content: prompt },
         ],
         tools: [{
