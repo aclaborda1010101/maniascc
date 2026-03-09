@@ -31,7 +31,7 @@ export async function recordExplicitFeedback(feedback: ExplicitFeedback): Promis
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return { success: false, error: 'Not authenticated' };
 
-  const { error } = await supabase.from('ai_feedback').insert({
+  const { error } = await supabase.from('ai_feedback' as any).insert({
     entidad_tipo: feedback.entidadTipo,
     entidad_id: feedback.entidadId,
     usuario_id: user.id,
@@ -40,7 +40,7 @@ export async function recordExplicitFeedback(feedback: ExplicitFeedback): Promis
     comentario: feedback.comentario,
     correccion_sugerida: feedback.correccionSugerida,
     contexto: feedback.contexto || {},
-  });
+  } as any);
 
   if (error) return { success: false, error: error.message };
 
