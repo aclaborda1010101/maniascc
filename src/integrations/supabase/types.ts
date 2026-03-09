@@ -132,6 +132,240 @@ export type Database = {
           },
         ]
       }
+      ai_agent_tasks: {
+        Row: {
+          agente_tipo: string
+          completado_en: string | null
+          coste_estimado: number | null
+          creado_por: string | null
+          created_at: string | null
+          entidad_id: string | null
+          entidad_tipo: string | null
+          error_mensaje: string | null
+          estado: string | null
+          id: string
+          iniciado_en: string | null
+          insights_generados: Json | null
+          intentos: number | null
+          max_intentos: number | null
+          modelo_usado: string | null
+          parametros: Json | null
+          prioridad: number | null
+          resultado: Json | null
+          sugerencias: Json | null
+          tokens_consumidos: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          agente_tipo: string
+          completado_en?: string | null
+          coste_estimado?: number | null
+          creado_por?: string | null
+          created_at?: string | null
+          entidad_id?: string | null
+          entidad_tipo?: string | null
+          error_mensaje?: string | null
+          estado?: string | null
+          id?: string
+          iniciado_en?: string | null
+          insights_generados?: Json | null
+          intentos?: number | null
+          max_intentos?: number | null
+          modelo_usado?: string | null
+          parametros?: Json | null
+          prioridad?: number | null
+          resultado?: Json | null
+          sugerencias?: Json | null
+          tokens_consumidos?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          agente_tipo?: string
+          completado_en?: string | null
+          coste_estimado?: number | null
+          creado_por?: string | null
+          created_at?: string | null
+          entidad_id?: string | null
+          entidad_tipo?: string | null
+          error_mensaje?: string | null
+          estado?: string | null
+          id?: string
+          iniciado_en?: string | null
+          insights_generados?: Json | null
+          intentos?: number | null
+          max_intentos?: number | null
+          modelo_usado?: string | null
+          parametros?: Json | null
+          prioridad?: number | null
+          resultado?: Json | null
+          sugerencias?: Json | null
+          tokens_consumidos?: number | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      ai_feedback: {
+        Row: {
+          accion: string | null
+          comentario: string | null
+          contexto: Json | null
+          correccion_sugerida: string | null
+          created_at: string | null
+          entidad_id: string
+          entidad_tipo: string
+          feedback_tipo: string | null
+          id: string
+          metadata: Json | null
+          posicion_en_lista: number | null
+          rating: number | null
+          seleccionado: boolean | null
+          tiempo_visualizacion_ms: number | null
+          usuario_id: string | null
+        }
+        Insert: {
+          accion?: string | null
+          comentario?: string | null
+          contexto?: Json | null
+          correccion_sugerida?: string | null
+          created_at?: string | null
+          entidad_id: string
+          entidad_tipo: string
+          feedback_tipo?: string | null
+          id?: string
+          metadata?: Json | null
+          posicion_en_lista?: number | null
+          rating?: number | null
+          seleccionado?: boolean | null
+          tiempo_visualizacion_ms?: number | null
+          usuario_id?: string | null
+        }
+        Update: {
+          accion?: string | null
+          comentario?: string | null
+          contexto?: Json | null
+          correccion_sugerida?: string | null
+          created_at?: string | null
+          entidad_id?: string
+          entidad_tipo?: string
+          feedback_tipo?: string | null
+          id?: string
+          metadata?: Json | null
+          posicion_en_lista?: number | null
+          rating?: number | null
+          seleccionado?: boolean | null
+          tiempo_visualizacion_ms?: number | null
+          usuario_id?: string | null
+        }
+        Relationships: []
+      }
+      ai_insights: {
+        Row: {
+          accion_tomada: string | null
+          acciones_sugeridas: Json | null
+          confianza: number | null
+          created_at: string | null
+          descripcion: string
+          entidades_relacionadas: Json | null
+          estado: string | null
+          feedback_usuario: string | null
+          generado_por_tarea_id: string | null
+          id: string
+          impacto_estimado: string | null
+          modelo_usado: string | null
+          proyecto_id: string | null
+          severidad: string | null
+          tipo: string
+          titulo: string
+          visto_en: string | null
+        }
+        Insert: {
+          accion_tomada?: string | null
+          acciones_sugeridas?: Json | null
+          confianza?: number | null
+          created_at?: string | null
+          descripcion: string
+          entidades_relacionadas?: Json | null
+          estado?: string | null
+          feedback_usuario?: string | null
+          generado_por_tarea_id?: string | null
+          id?: string
+          impacto_estimado?: string | null
+          modelo_usado?: string | null
+          proyecto_id?: string | null
+          severidad?: string | null
+          tipo: string
+          titulo: string
+          visto_en?: string | null
+        }
+        Update: {
+          accion_tomada?: string | null
+          acciones_sugeridas?: Json | null
+          confianza?: number | null
+          created_at?: string | null
+          descripcion?: string
+          entidades_relacionadas?: Json | null
+          estado?: string | null
+          feedback_usuario?: string | null
+          generado_por_tarea_id?: string | null
+          id?: string
+          impacto_estimado?: string | null
+          modelo_usado?: string | null
+          proyecto_id?: string | null
+          severidad?: string | null
+          tipo?: string
+          titulo?: string
+          visto_en?: string | null
+        }
+        Relationships: []
+      }
+      ai_learned_patterns: {
+        Row: {
+          activo: boolean | null
+          confianza: number | null
+          created_at: string | null
+          datos_agregados: Json | null
+          ejemplos_recientes: Json | null
+          id: string
+          num_observaciones: number | null
+          patron_descripcion: string | null
+          patron_key: string
+          patron_tipo: string
+          score_ajuste: number | null
+          tasa_exito: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          activo?: boolean | null
+          confianza?: number | null
+          created_at?: string | null
+          datos_agregados?: Json | null
+          ejemplos_recientes?: Json | null
+          id?: string
+          num_observaciones?: number | null
+          patron_descripcion?: string | null
+          patron_key: string
+          patron_tipo: string
+          score_ajuste?: number | null
+          tasa_exito?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          activo?: boolean | null
+          confianza?: number | null
+          created_at?: string | null
+          datos_agregados?: Json | null
+          ejemplos_recientes?: Json | null
+          id?: string
+          num_observaciones?: number | null
+          patron_descripcion?: string | null
+          patron_key?: string
+          patron_tipo?: string
+          score_ajuste?: number | null
+          tasa_exito?: number | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       auditoria_ia: {
         Row: {
           coste_estimado: number | null
@@ -342,6 +576,51 @@ export type Database = {
           },
         ]
       }
+      document_embeddings: {
+        Row: {
+          chunk_id: string | null
+          contenido_normalizado: string | null
+          created_at: string | null
+          documento_id: string | null
+          dominio: string | null
+          embedding_json: Json | null
+          entidades_detectadas: Json | null
+          id: string
+          keywords: string[] | null
+          modelo_embedding: string | null
+          proyecto_id: string | null
+          relevancia_calculada: number | null
+        }
+        Insert: {
+          chunk_id?: string | null
+          contenido_normalizado?: string | null
+          created_at?: string | null
+          documento_id?: string | null
+          dominio?: string | null
+          embedding_json?: Json | null
+          entidades_detectadas?: Json | null
+          id?: string
+          keywords?: string[] | null
+          modelo_embedding?: string | null
+          proyecto_id?: string | null
+          relevancia_calculada?: number | null
+        }
+        Update: {
+          chunk_id?: string | null
+          contenido_normalizado?: string | null
+          created_at?: string | null
+          documento_id?: string | null
+          dominio?: string | null
+          embedding_json?: Json | null
+          entidades_detectadas?: Json | null
+          id?: string
+          keywords?: string[] | null
+          modelo_embedding?: string | null
+          proyecto_id?: string | null
+          relevancia_calculada?: number | null
+        }
+        Relationships: []
+      }
       documentos_proyecto: {
         Row: {
           contacto_id: string | null
@@ -469,6 +748,66 @@ export type Database = {
           precio_renta?: number
           superficie_m2?: number
           updated_at?: string
+        }
+        Relationships: []
+      }
+      match_predictions: {
+        Row: {
+          ajuste_feedback: number | null
+          ajuste_historico: number | null
+          ajuste_sector: number | null
+          ajuste_zona: number | null
+          comparables_usados: Json | null
+          created_at: string | null
+          factores_negativos: Json | null
+          factores_positivos: Json | null
+          id: string
+          local_id: string | null
+          operador_id: string | null
+          probabilidad_exito: number | null
+          score_ajustado: number | null
+          score_base: number | null
+          score_final: number | null
+          score_predictivo: number | null
+          tiempo_estimado_cierre: number | null
+        }
+        Insert: {
+          ajuste_feedback?: number | null
+          ajuste_historico?: number | null
+          ajuste_sector?: number | null
+          ajuste_zona?: number | null
+          comparables_usados?: Json | null
+          created_at?: string | null
+          factores_negativos?: Json | null
+          factores_positivos?: Json | null
+          id?: string
+          local_id?: string | null
+          operador_id?: string | null
+          probabilidad_exito?: number | null
+          score_ajustado?: number | null
+          score_base?: number | null
+          score_final?: number | null
+          score_predictivo?: number | null
+          tiempo_estimado_cierre?: number | null
+        }
+        Update: {
+          ajuste_feedback?: number | null
+          ajuste_historico?: number | null
+          ajuste_sector?: number | null
+          ajuste_zona?: number | null
+          comparables_usados?: Json | null
+          created_at?: string | null
+          factores_negativos?: Json | null
+          factores_positivos?: Json | null
+          id?: string
+          local_id?: string | null
+          operador_id?: string | null
+          probabilidad_exito?: number | null
+          score_ajustado?: number | null
+          score_base?: number | null
+          score_final?: number | null
+          score_predictivo?: number | null
+          tiempo_estimado_cierre?: number | null
         }
         Relationships: []
       }
