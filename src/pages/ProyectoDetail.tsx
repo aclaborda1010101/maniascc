@@ -23,6 +23,7 @@ import { ProyectoMatches } from "@/components/proyecto/ProyectoMatches";
 import { ProyectoDocumentos } from "@/components/proyecto/ProyectoDocumentos";
 import { ProyectoRAG } from "@/components/proyecto/ProyectoRAG";
 import { ProyectoForge } from "@/components/proyecto/ProyectoForge";
+import { ProyectoInsights } from "@/components/proyecto/ProyectoInsights";
 
 const estadoLabels: Record<string, string> = {
   borrador: "Borrador", activo: "Activo", en_pausa: "En pausa",
