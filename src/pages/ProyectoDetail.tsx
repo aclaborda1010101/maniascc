@@ -209,6 +209,10 @@ export default function ProyectoDetail() {
           <ProyectoForge proyectoId={id!} />
         </TabsContent>
 
+        <TabsContent value="insights">
+          <ProyectoInsights proyectoId={id!} />
+        </TabsContent>
+
         <TabsContent value="negociacion" className="space-y-4">
           <div className="flex items-center justify-between">
             <p className="text-sm text-muted-foreground">Deals y negociaciones activas del proyecto</p>
