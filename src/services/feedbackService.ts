@@ -139,7 +139,7 @@ export async function recordRAGFeedback(responseId: string, rating: number, corr
 async function triggerPatternLearning(entidadTipo: string, entidadId: string, source: 'explicit' | 'implicit') {
   try {
     // Create a background task for the learning aggregator
-    await supabase.from('ai_agent_tasks').insert({
+    await supabase.from('ai_agent_tasks' as any).insert({
       agente_tipo: 'learning_aggregator',
       estado: 'pending',
       prioridad: source === 'explicit' ? 7 : 3, // Explicit feedback is higher priority
