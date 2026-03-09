@@ -162,19 +162,20 @@ export async function getFeedbackStats(entidadTipo: EntityType, entidadId: strin
     .eq('entidad_tipo', entidadTipo)
     .eq('entidad_id', entidadId);
 
-  if (!data || data.length === 0) {
-    return { totalFeedback: 0, avgRating: null, thumbsUp: 0, thumbsDown: 0, selections: 0 };
+  const rows = (data || []) as any[];
+  if (rows.length === 0) {
+    return { totalFeedback: 0, avgRating: null, thumbsUp: 0, thumbsDown: 0, selections: 0, views: 0 };
   }
 
-  const ratings = data.filter(f => f.rating != null).map(f => f.rating as number);
+  const ratings = rows.filter((f: any) => f.rating != null).map((f: any) => f.rating as number);
   const avgRating = ratings.length > 0 ? ratings.reduce((a, b) => a + b, 0) / ratings.length : null;
 
   return {
-    totalFeedback: data.length,
+    totalFeedback: rows.length,
     avgRating,
-    thumbsUp: data.filter(f => f.feedback_tipo === 'thumbs_up').length,
-    thumbsDown: data.filter(f => f.feedback_tipo === 'thumbs_down').length,
-    selections: data.filter(f => f.seleccionado).length,
-    views: data.filter(f => f.accion === 'viewed').length,
+    thumbsUp: rows.filter((f: any) => f.feedback_tipo === 'thumbs_up').length,
+    thumbsDown: rows.filter((f: any) => f.feedback_tipo === 'thumbs_down').length,
+    selections: rows.filter((f: any) => f.seleccionado).length,
+    views: rows.filter((f: any) => f.accion === 'viewed').length,
   };
 }
