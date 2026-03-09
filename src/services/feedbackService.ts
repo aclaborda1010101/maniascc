@@ -157,7 +157,7 @@ async function triggerPatternLearning(entidadTipo: string, entidadId: string, so
  */
 export async function getFeedbackStats(entidadTipo: EntityType, entidadId: string) {
   const { data } = await supabase
-    .from('ai_feedback')
+    .from('ai_feedback' as any)
     .select('rating, feedback_tipo, accion, seleccionado')
     .eq('entidad_tipo', entidadTipo)
     .eq('entidad_id', entidadId);
