@@ -167,11 +167,14 @@ export function MatchCard({ match, index, onUpdate }: MatchCardProps) {
             {estadoLabels[match.estado] || match.estado}
           </Badge>
         )}
-        <Button size="sm" variant="ghost" asChild className="ml-auto">
-          <Link to={`/operadores/${match.operador_id}`}>
-            <ExternalLink className="mr-1 h-4 w-4" /> Ver Operador
-          </Link>
-        </Button>
+        <div className="ml-auto flex items-center gap-1">
+          <FeedbackWidget entidadTipo="match" entidadId={match.id} compact />
+          <Button size="sm" variant="ghost" asChild>
+            <Link to={`/operadores/${match.operador_id}`}>
+              <ExternalLink className="mr-1 h-4 w-4" /> Ver Operador
+            </Link>
+          </Button>
+        </div>
       </CardFooter>
     </Card>
   );
