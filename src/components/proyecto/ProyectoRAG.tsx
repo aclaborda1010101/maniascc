@@ -7,6 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { BookOpen, Send, Loader2, RefreshCw } from "lucide-react";
 import { queryRAG, ingestDocument } from "@/services/ragService";
 import { useToast } from "@/hooks/use-toast";
+import { FeedbackWidget } from "@/components/FeedbackWidget";
 
 interface Props {
   proyectoId: string;
