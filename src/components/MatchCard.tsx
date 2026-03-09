@@ -5,7 +5,9 @@ import { ThumbsUp, ThumbsDown, ExternalLink, MessageSquare } from "lucide-react"
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { Link } from "react-router-dom";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { recordMatchSelection, recordMatchRejection, recordImplicitFeedback } from "@/services/feedbackService";
+import { FeedbackWidget } from "@/components/FeedbackWidget";
 
 interface MatchCardProps {
   match: {
@@ -68,6 +70,16 @@ export function MatchCard({ match, index, onUpdate }: MatchCardProps) {
   const colors = scoreColor(match.score);
   const canAct = match.estado === "pendiente" || match.estado === "sugerido";
 
+  // Track implicit view
+  useEffect(() => {
+    recordImplicitFeedback({
+      entidadTipo: 'match',
+      entidadId: match.id,
+      accion: 'viewed',
+      posicionEnLista: index,
+    });
+  }, [match.id, index]);
+
   const handleFeedback = async (feedback: "positivo" | "negativo") => {
     setLoading(true);
     const newEstado = feedback === "positivo" ? "contactado" : "descartado";
@@ -79,6 +91,12 @@ export function MatchCard({ match, index, onUpdate }: MatchCardProps) {
     if (error) {
       toast({ title: "Error", description: error.message, variant: "destructive" });
     } else {
+      // Record feedback for learning
+      if (feedback === "positivo") {
+        recordMatchSelection(match.id, "", match.operador_id, index);
+      } else {
+        recordMatchRejection(match.id);
+      }
       toast({ title: feedback === "positivo" ? "Match aprobado → Contactado" : "Match descartado" });
       onUpdate?.();
     }
@@ -149,11 +167,14 @@ export function MatchCard({ match, index, onUpdate }: MatchCardProps) {
             {estadoLabels[match.estado] || match.estado}
           </Badge>
         )}
-        <Button size="sm" variant="ghost" asChild className="ml-auto">
-          <Link to={`/operadores/${match.operador_id}`}>
-            <ExternalLink className="mr-1 h-4 w-4" /> Ver Operador
-          </Link>
-        </Button>
+        <div className="ml-auto flex items-center gap-1">
+          <FeedbackWidget entidadTipo="match" entidadId={match.id} compact />
+          <Button size="sm" variant="ghost" asChild>
+            <Link to={`/operadores/${match.operador_id}`}>
+              <ExternalLink className="mr-1 h-4 w-4" /> Ver Operador
+            </Link>
+          </Button>
+        </div>
       </CardFooter>
     </Card>
   );

@@ -23,3 +23,15 @@ verify_jwt = false
 
 [functions.ai-forge]
 verify_jwt = false
+
+[functions.generate-match-v4]
+verify_jwt = false
+
+[functions.rag-proxy-v4]
+verify_jwt = false
+
+[functions.ai-background-agent]
+verify_jwt = false
+
+[functions.ai-learning-aggregator]
+verify_jwt = false
