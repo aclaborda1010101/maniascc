@@ -57,7 +57,7 @@ export async function recordImplicitFeedback(feedback: ImplicitFeedback): Promis
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return { success: false };
 
-  const { error } = await supabase.from('ai_feedback').insert({
+  const { error } = await supabase.from('ai_feedback' as any).insert({
     entidad_tipo: feedback.entidadTipo,
     entidad_id: feedback.entidadId,
     usuario_id: user.id,
@@ -66,7 +66,7 @@ export async function recordImplicitFeedback(feedback: ImplicitFeedback): Promis
     posicion_en_lista: feedback.posicionEnLista,
     seleccionado: feedback.seleccionado,
     contexto: feedback.contexto || {},
-  });
+  } as any);
 
   if (!error) {
     triggerPatternLearning(feedback.entidadTipo, feedback.entidadId, 'implicit');
