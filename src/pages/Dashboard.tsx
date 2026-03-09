@@ -225,7 +225,7 @@ export default function Dashboard() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Torre de Control</h1>
-          <p className="text-sm text-muted-foreground">Visión general de la plataforma ATLAS</p>
+          <p className="text-sm text-muted-foreground">Visión general de la plataforma AVA TURING</p>
         </div>
         <div className="flex gap-2">
           <Button asChild size="sm" className="bg-accent text-accent-foreground hover:bg-accent/90">
