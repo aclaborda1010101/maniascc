@@ -75,7 +75,7 @@ export function AppSidebar() {
             {!collapsed ? (
               <span className="flex items-center gap-2 text-lg font-bold tracking-tight">
                 <Sparkles className="h-5 w-5 text-sidebar-primary" />
-                ATLAS
+                AVA TURING
               </span>
             ) : (
               <Sparkles className="h-5 w-5 text-sidebar-primary" />

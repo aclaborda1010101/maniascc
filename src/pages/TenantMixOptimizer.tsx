@@ -44,7 +44,7 @@ export default function TenantMixOptimizer() {
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Optimización de Tenant Mix</h1>
-        <p className="text-sm text-muted-foreground">Capa 3 ATLAS NEXUS — Genera planes A/B/C con sinergias entre operadores</p>
+        <p className="text-sm text-muted-foreground">Capa 3 AVA TURING NEXUS — Genera planes A/B/C con sinergias entre operadores</p>
       </div>
 
       <Card>

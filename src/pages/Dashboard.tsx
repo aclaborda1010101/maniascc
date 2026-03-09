@@ -30,7 +30,7 @@ const AGENT_LABELS: Record<string, { label: string; icon: string }> = {
   "generate-match": { label: "NEXUS — Matching", icon: "🔗" },
   "tenant-mix-avanzado": { label: "NEXUS — Tenant Mix", icon: "🧩" },
   "validacion-retorno": { label: "RADAR — Validación", icon: "📡" },
-  "localizacion-patrones": { label: "ATLAS — Localización", icon: "🗺️" },
+  "localizacion-patrones": { label: "AVA — Localización", icon: "🗺️" },
   "perfil-negociador": { label: "PULSE — Negociación", icon: "🤝" },
   "rag-proxy": { label: "RAG — Consultas", icon: "📚" },
   "rag-proxy:contratos": { label: "RAG — Contratos", icon: "📄" },
