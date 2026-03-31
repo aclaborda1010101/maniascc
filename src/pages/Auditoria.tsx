@@ -4,7 +4,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Shield } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { Shield, Sparkles, Loader2 } from "lucide-react";
+import { queryExpertForge, EXPERT_SPECIALISTS } from "@/services/expertForge";
 
 export default function Auditoria() {
   const [logs, setLogs] = useState<any[]>([]);

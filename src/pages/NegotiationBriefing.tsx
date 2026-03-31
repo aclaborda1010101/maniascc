@@ -199,6 +199,46 @@ export default function NegotiationBriefing() {
           </CardContent>
         </Card>
       )}
+
+      {/* Expert Forge MoE+RAG */}
+      <Card className="border-accent/30">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Sparkles className="h-5 w-5 text-accent" /> Expert Forge — Especialista Negociación
+          </CardTitle>
+          <p className="text-xs text-muted-foreground">Sistema MoE+RAG externo · Specialist {EXPERT_SPECIALISTS.NEGOCIACION}</p>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <div className="flex gap-2">
+            <Input
+              placeholder="Pregunta al experto en negociación..."
+              value={efQuestion}
+              onChange={(e) => setEfQuestion(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && handleExpertForge()}
+            />
+            <Button onClick={handleExpertForge} disabled={efLoading} size="sm">
+              {efLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Consultar"}
+            </Button>
+          </div>
+          {efLoading && <Skeleton className="h-24 w-full" />}
+          {efAnswer && !efAnswer.error && (
+            <div className="space-y-2 rounded-lg border p-4 bg-muted/30">
+              <p className="text-sm whitespace-pre-wrap">{efAnswer.answer}</p>
+              {efAnswer.confidence != null && (
+                <Badge variant="outline" className="text-xs">Confianza: {Math.round(efAnswer.confidence * 100)}%</Badge>
+              )}
+              {efAnswer.sources && efAnswer.sources.length > 0 && (
+                <div className="flex flex-wrap gap-1 mt-1">
+                  {efAnswer.sources.map((s: any, i: number) => (
+                    <Badge key={i} variant="secondary" className="text-xs">{s.title || s}</Badge>
+                  ))}
+                </div>
+              )}
+              {efAnswer.latency_ms && <p className="text-xs text-muted-foreground">⏱ {efAnswer.latency_ms}ms</p>}
+            </div>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }
