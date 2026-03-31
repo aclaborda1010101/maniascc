@@ -12,6 +12,18 @@ import { queryExpertForge, EXPERT_SPECIALISTS } from "@/services/expertForge";
 export default function Auditoria() {
   const [logs, setLogs] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [efQuestion, setEfQuestion] = useState("");
+  const [efAnswer, setEfAnswer] = useState<any>(null);
+  const [efLoading, setEfLoading] = useState(false);
+
+  const handleExpertForge = async () => {
+    if (!efQuestion.trim()) return;
+    setEfLoading(true);
+    setEfAnswer(null);
+    const res = await queryExpertForge(efQuestion, EXPERT_SPECIALISTS.AUDITORIA);
+    setEfAnswer(res);
+    setEfLoading(false);
+  };
 
   useEffect(() => {
     const fetch = async () => {
