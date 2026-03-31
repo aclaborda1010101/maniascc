@@ -9,8 +9,9 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { NegotiatorCard } from "@/components/NegotiatorCard";
-import { UserCircle, Clock, History, MessageSquare, Shield, XCircle, CheckCircle } from "lucide-react";
+import { UserCircle, Clock, History, MessageSquare, Shield, XCircle, CheckCircle, Sparkles, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { queryExpertForge, EXPERT_SPECIALISTS } from "@/services/expertForge";
 
 export default function NegotiationBriefing() {
   const [nombre, setNombre] = useState("");
