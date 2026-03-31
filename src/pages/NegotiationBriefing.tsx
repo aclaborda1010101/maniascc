@@ -9,8 +9,9 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { NegotiatorCard } from "@/components/NegotiatorCard";
-import { UserCircle, Clock, History, MessageSquare, Shield, XCircle, CheckCircle } from "lucide-react";
+import { UserCircle, Clock, History, MessageSquare, Shield, XCircle, CheckCircle, Sparkles, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { queryExpertForge, EXPERT_SPECIALISTS } from "@/services/expertForge";
 
 export default function NegotiationBriefing() {
   const [nombre, setNombre] = useState("");
@@ -22,6 +23,11 @@ export default function NegotiationBriefing() {
   const [result, setResult] = useState<any>(null);
   const [historico, setHistorico] = useState<any[]>([]);
   const { toast } = useToast();
+
+  // Expert Forge MoE state
+  const [efQuestion, setEfQuestion] = useState("");
+  const [efAnswer, setEfAnswer] = useState<any>(null);
+  const [efLoading, setEfLoading] = useState(false);
 
   useEffect(() => {
     supabase.from("negociaciones_historico").select("*").order("creado_en", { ascending: false }).limit(20)
@@ -45,6 +51,17 @@ export default function NegotiationBriefing() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleExpertForge = async () => {
+    if (!efQuestion.trim()) return;
+    setEfLoading(true);
+    setEfAnswer(null);
+    const ctx = [nombre, empresa, cargo, contexto].filter(Boolean).join(". ");
+    const res = await queryExpertForge(efQuestion, EXPERT_SPECIALISTS.NEGOCIACION, ctx || undefined);
+    setEfAnswer(res);
+    setEfLoading(false);
+    if (res.error) toast({ title: "Error Expert Forge", description: res.error, variant: "destructive" });
   };
 
   return (
@@ -182,6 +199,46 @@ export default function NegotiationBriefing() {
           </CardContent>
         </Card>
       )}
+
+      {/* Expert Forge MoE+RAG */}
+      <Card className="border-accent/30">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Sparkles className="h-5 w-5 text-accent" /> Expert Forge — Especialista Negociación
+          </CardTitle>
+          <p className="text-xs text-muted-foreground">Sistema MoE+RAG externo · Specialist {EXPERT_SPECIALISTS.NEGOCIACION}</p>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <div className="flex gap-2">
+            <Input
+              placeholder="Pregunta al experto en negociación..."
+              value={efQuestion}
+              onChange={(e) => setEfQuestion(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && handleExpertForge()}
+            />
+            <Button onClick={handleExpertForge} disabled={efLoading} size="sm">
+              {efLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Consultar"}
+            </Button>
+          </div>
+          {efLoading && <Skeleton className="h-24 w-full" />}
+          {efAnswer && !efAnswer.error && (
+            <div className="space-y-2 rounded-lg border p-4 bg-muted/30">
+              <p className="text-sm whitespace-pre-wrap">{efAnswer.answer}</p>
+              {efAnswer.confidence != null && (
+                <Badge variant="outline" className="text-xs">Confianza: {Math.round(efAnswer.confidence * 100)}%</Badge>
+              )}
+              {efAnswer.sources && efAnswer.sources.length > 0 && (
+                <div className="flex flex-wrap gap-1 mt-1">
+                  {efAnswer.sources.map((s: any, i: number) => (
+                    <Badge key={i} variant="secondary" className="text-xs">{s.title || s}</Badge>
+                  ))}
+                </div>
+              )}
+              {efAnswer.latency_ms && <p className="text-xs text-muted-foreground">⏱ {efAnswer.latency_ms}ms</p>}
+            </div>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }

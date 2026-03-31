@@ -4,11 +4,26 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Shield } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { Shield, Sparkles, Loader2 } from "lucide-react";
+import { queryExpertForge, EXPERT_SPECIALISTS } from "@/services/expertForge";
 
 export default function Auditoria() {
   const [logs, setLogs] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [efQuestion, setEfQuestion] = useState("");
+  const [efAnswer, setEfAnswer] = useState<any>(null);
+  const [efLoading, setEfLoading] = useState(false);
+
+  const handleExpertForge = async () => {
+    if (!efQuestion.trim()) return;
+    setEfLoading(true);
+    setEfAnswer(null);
+    const res = await queryExpertForge(efQuestion, EXPERT_SPECIALISTS.AUDITORIA);
+    setEfAnswer(res);
+    setEfLoading(false);
+  };
 
   useEffect(() => {
     const fetch = async () => {
@@ -103,6 +118,47 @@ export default function Auditoria() {
               </TableBody>
             </Table>
           )}
+        </CardContent>
+      </Card>
+
+      {/* Expert Forge MoE+RAG */}
+      <Card className="border-accent/30">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Sparkles className="h-5 w-5 text-accent" /> Expert Forge — Especialista Auditoría
+          </CardTitle>
+          <p className="text-xs text-muted-foreground">Sistema MoE+RAG externo · Specialist {EXPERT_SPECIALISTS.AUDITORIA}</p>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <div className="flex gap-2">
+            <Input
+              placeholder="Pregunta al experto en auditoría IA..."
+              value={efQuestion}
+              onChange={(e) => setEfQuestion(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && handleExpertForge()}
+            />
+            <Button onClick={handleExpertForge} disabled={efLoading} size="sm">
+              {efLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Consultar"}
+            </Button>
+          </div>
+          {efLoading && <Skeleton className="h-24 w-full" />}
+          {efAnswer && !efAnswer.error && (
+            <div className="space-y-2 rounded-lg border p-4 bg-muted/30">
+              <p className="text-sm whitespace-pre-wrap">{efAnswer.answer}</p>
+              {efAnswer.confidence != null && (
+                <Badge variant="outline" className="text-xs">Confianza: {Math.round(efAnswer.confidence * 100)}%</Badge>
+              )}
+              {efAnswer.sources && efAnswer.sources.length > 0 && (
+                <div className="flex flex-wrap gap-1 mt-1">
+                  {efAnswer.sources.map((s: any, i: number) => (
+                    <Badge key={i} variant="secondary" className="text-xs">{s.title || s}</Badge>
+                  ))}
+                </div>
+              )}
+              {efAnswer.latency_ms && <p className="text-xs text-muted-foreground">⏱ {efAnswer.latency_ms}ms</p>}
+            </div>
+          )}
+          {efAnswer?.error && <p className="text-sm text-destructive">{efAnswer.error}</p>}
         </CardContent>
       </Card>
     </div>
