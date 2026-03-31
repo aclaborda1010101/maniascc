@@ -53,6 +53,17 @@ export default function NegotiationBriefing() {
     }
   };
 
+  const handleExpertForge = async () => {
+    if (!efQuestion.trim()) return;
+    setEfLoading(true);
+    setEfAnswer(null);
+    const ctx = [nombre, empresa, cargo, contexto].filter(Boolean).join(". ");
+    const res = await queryExpertForge(efQuestion, EXPERT_SPECIALISTS.NEGOCIACION, ctx || undefined);
+    setEfAnswer(res);
+    setEfLoading(false);
+    if (res.error) toast({ title: "Error Expert Forge", description: res.error, variant: "destructive" });
+  };
+
   return (
     <div className="space-y-6">
       <div>
