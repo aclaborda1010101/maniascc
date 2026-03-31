@@ -24,6 +24,11 @@ export default function NegotiationBriefing() {
   const [historico, setHistorico] = useState<any[]>([]);
   const { toast } = useToast();
 
+  // Expert Forge MoE state
+  const [efQuestion, setEfQuestion] = useState("");
+  const [efAnswer, setEfAnswer] = useState<any>(null);
+  const [efLoading, setEfLoading] = useState(false);
+
   useEffect(() => {
     supabase.from("negociaciones_historico").select("*").order("creado_en", { ascending: false }).limit(20)
       .then(({ data }) => setHistorico(data || []));
