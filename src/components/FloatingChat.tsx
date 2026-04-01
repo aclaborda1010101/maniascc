@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Send, X, Trash2, Sparkles } from "lucide-react";
+import { Send, X, Trash2, Sparkles, Plus, ChevronDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -9,20 +9,34 @@ import ReactMarkdown from "react-markdown";
 
 export function FloatingChat() {
   const [open, setOpen] = useState(false);
-  const { messages, input, setInput, loading, sendMessage, clearChat, scrollRef } = useChatMessages();
+  const [showConvList, setShowConvList] = useState(false);
+  const {
+    conversations, activeConversationId, messages, input, setInput,
+    loading, sendMessage, clearChat, scrollRef,
+    createConversation, switchConversation,
+  } = useChatMessages();
+
+  const activeConv = conversations.find(c => c.id === activeConversationId);
+  const sortedConvs = [...conversations].sort((a, b) => b.updatedAt - a.updatedAt);
 
   return (
     <div className="fixed bottom-6 right-6 z-50 flex flex-col items-end gap-3">
-      {/* Chat panel */}
       {open && (
         <div className="w-96 h-[500px] bg-card border border-border rounded-2xl shadow-2xl flex flex-col animate-in fade-in slide-in-from-bottom-4 duration-200">
           {/* Header */}
-          <div className="flex items-center justify-between px-4 py-3 border-b">
-            <div className="flex items-center gap-2">
-              <Sparkles className="h-5 w-5 text-accent" />
-              <span className="font-semibold text-sm">AVA</span>
-            </div>
+          <div className="flex items-center justify-between px-4 py-3 border-b relative">
+            <button
+              className="flex items-center gap-1.5 hover:bg-muted/50 rounded px-1.5 py-0.5 transition-colors"
+              onClick={() => setShowConvList(v => !v)}
+            >
+              <Sparkles className="h-4 w-4 text-accent" />
+              <span className="font-semibold text-xs truncate max-w-[180px]">{activeConv?.title || "AVA"}</span>
+              <ChevronDown className="h-3 w-3 text-muted-foreground" />
+            </button>
             <div className="flex items-center gap-1">
+              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => { createConversation(); setShowConvList(false); }}>
+                <Plus className="h-3.5 w-3.5 text-muted-foreground" />
+              </Button>
               {messages.length > 0 && (
                 <Button variant="ghost" size="icon" className="h-7 w-7" onClick={clearChat}>
                   <Trash2 className="h-3.5 w-3.5 text-muted-foreground" />
@@ -32,6 +46,21 @@ export function FloatingChat() {
                 <X className="h-4 w-4" />
               </Button>
             </div>
+
+            {/* Conversation dropdown */}
+            {showConvList && (
+              <div className="absolute top-full left-0 right-0 bg-card border border-border rounded-b-xl shadow-lg max-h-48 overflow-y-auto z-10">
+                {sortedConvs.map(conv => (
+                  <button
+                    key={conv.id}
+                    className={`w-full text-left px-4 py-2 text-xs hover:bg-muted/60 transition-colors ${conv.id === activeConversationId ? "bg-muted font-medium" : ""}`}
+                    onClick={() => { switchConversation(conv.id); setShowConvList(false); }}
+                  >
+                    {conv.title}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
 
           {/* Messages */}
@@ -64,9 +93,7 @@ export function FloatingChat() {
                     <div className="mt-1 flex flex-wrap gap-1">
                       {msg.meta.tools_used.map((t, i) => {
                         const tl = toolLabel(t);
-                        return (
-                          <Badge key={i} variant="outline" className="text-[9px] px-1 py-0">{tl.emoji} {tl.label}</Badge>
-                        );
+                        return <Badge key={i} variant="outline" className="text-[9px] px-1 py-0">{tl.emoji} {tl.label}</Badge>;
                       })}
                     </div>
                   )}
