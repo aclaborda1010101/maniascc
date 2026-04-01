@@ -13,6 +13,7 @@ import { FloatingChat } from "@/components/FloatingChat";
 
 export function AppLayout() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { user, signOut } = useAuth();
   const [searchQuery, setSearchQuery] = useState("");
   useMatchNotifications();
