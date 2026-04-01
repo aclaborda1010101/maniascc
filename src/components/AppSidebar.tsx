@@ -112,8 +112,6 @@ export function AppSidebar() {
               <Brain className="inline h-3 w-3 mr-1" /> Motor Predictivo
             </SidebarGroupLabel>
           )}
-            </SidebarGroupLabel>
-          )}
           <SidebarGroupContent>
             <SidebarMenu>{renderItems(aiToolsItems)}</SidebarMenu>
           </SidebarGroupContent>
