@@ -32,10 +32,8 @@ const directoryItems = [
 const aiToolsItems = [
   { title: "Localización", url: "/localizacion", icon: Compass },
   { title: "Validación Dossier", url: "/validacion-dossier", icon: FileSearch },
-  { title: "Tenant Mix", url: "/tenant-mix", icon: Layers },
+  { title: "Optimización de Ocupación", url: "/tenant-mix", icon: Layers },
   { title: "Negociación IA", url: "/negociacion-ia", icon: MessageSquare },
-  { title: "Patrones", url: "/patrones", icon: Network },
-  { title: "AVA", url: "/asistente", icon: Sparkles },
 ];
 
 const adminItems = [
