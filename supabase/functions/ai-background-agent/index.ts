@@ -103,7 +103,7 @@ ${(patterns || []).slice(0, 20).map((p: any) => `- ${p.patron_descripcion}: ajus
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "google/gemini-2.0-flash-001",
+        model: "google/gemini-3.1-flash-preview",
         messages: [
           {
             role: "system",
@@ -202,7 +202,7 @@ ${(patterns || []).slice(0, 20).map((p: any) => `- ${p.patron_descripcion}: ajus
       confianza: insight.confianza,
       impacto_estimado: insight.impacto_estimado,
       generado_por_tarea_id: taskRecord?.id,
-      modelo_usado: "gemini-2.0-flash-001",
+      modelo_usado: "gemini-3.1-flash",
     }));
 
     if (insightInserts.length > 0) {
@@ -220,7 +220,7 @@ ${(patterns || []).slice(0, 20).map((p: any) => `- ${p.patron_descripcion}: ajus
         completado_en: new Date().toISOString(),
         resultado: { insights_count: insights.length },
         insights_generados: insights,
-        modelo_usado: "gemini-2.0-flash-001",
+        modelo_usado: "gemini-3.1-flash",
         tokens_consumidos: tokensIn + tokensOut,
         coste_estimado: tokensIn * 0.00001 + tokensOut * 0.00004,
       }).eq("id", taskRecord.id);
@@ -228,7 +228,7 @@ ${(patterns || []).slice(0, 20).map((p: any) => `- ${p.patron_descripcion}: ajus
 
     // Audit log
     await admin.from("auditoria_ia").insert({
-      modelo: "gemini-2.0-flash-001",
+      modelo: "gemini-3.1-flash",
       funcion_ia: "background_agent_" + agent_type,
       tokens_entrada: tokensIn,
       tokens_salida: tokensOut,

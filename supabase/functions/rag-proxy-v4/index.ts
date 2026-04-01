@@ -145,7 +145,7 @@ IMPORTANTE: Aprende del feedback implícito — los fragmentos mejor posicionado
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "google/gemini-2.0-flash-001",
+        model: "google/gemini-3.1-flash-preview",
         messages: [
           { role: "system", content: systemPrompt },
           { role: "user", content: userPrompt },
@@ -210,7 +210,7 @@ IMPORTANTE: Aprende del feedback implícito — los fragmentos mejor posicionado
 
     // Audit
     await admin.from("auditoria_ia").insert({
-      modelo: "gemini-2.0-flash-001",
+      modelo: "gemini-3.1-flash",
       funcion_ia: "rag_v4",
       tokens_entrada: tokensIn,
       tokens_salida: tokensOut,

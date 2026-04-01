@@ -332,7 +332,7 @@ export default function Admin() {
                 </div>
                 <div>
                   <Label className="text-xs text-muted-foreground">Modelo Orquestador</Label>
-                  <p className="text-sm font-mono mt-1">gemini-2.0-flash-001</p>
+                  <p className="text-sm font-mono mt-1">gemini-3.1-flash</p>
                 </div>
               </div>
             </CardContent>
