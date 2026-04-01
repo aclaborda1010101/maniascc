@@ -12,6 +12,24 @@ export interface ExpertForgeResponse {
 }
 
 /**
+ * Health check del gateway Expert Forge (no requiere question ni router_id).
+ */
+export async function healthCheckExpertForge(): Promise<{
+  status: "ok" | "error";
+  latency_ms: number;
+  error?: string;
+}> {
+  const start = Date.now();
+  const { data, error } = await supabase.functions.invoke("expert-forge-proxy", {
+    body: { action: "health_check" },
+  });
+  const latency = Date.now() - start;
+  if (error) return { status: "error", latency_ms: latency, error: error.message };
+  if (data?.status === "error") return { status: "error", latency_ms: data.latency_ms || latency, error: data.error };
+  return { status: "ok", latency_ms: data?.latency_ms || latency };
+}
+
+/**
  * Consulta al sistema Expert Forge MoE+RAG a través del edge function proxy.
  * @param question Pregunta en lenguaje natural
  * @param specialistId UUID del especialista MoE (opcional)

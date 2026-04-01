@@ -70,6 +70,7 @@ const App = () => (
                   <Route path="/tenant-mix" element={<TenantMixOptimizer />} />
                   <Route path="/negociacion-ia" element={<NegotiationBriefing />} />
                   <Route path="/asistente" element={<AsistenteIA />} />
+                  <Route path="/patrones" element={<Patrones />} />
                   <Route path="/admin" element={<Admin />} />
                   {/* Retrocompatibilidad */}
                   <Route path="/busqueda" element={<Navigate to="/asistente" replace />} />

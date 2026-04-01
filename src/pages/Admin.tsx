@@ -46,16 +46,14 @@ export default function Admin() {
 
   const testConnection = async () => {
     setConnectionStatus("testing");
-    const start = Date.now();
-    const res = await queryExpertForge("test connection");
-    const latency = Date.now() - start;
-    setPingLatency(latency);
-    if (res.error) {
+    const res = await healthCheckExpertForge();
+    setPingLatency(res.latency_ms);
+    if (res.status === "error") {
       setConnectionStatus("error");
-      toast({ title: "Conexión fallida", description: res.error, variant: "destructive" });
+      toast({ title: "Conexión fallida", description: res.error || "Error desconocido", variant: "destructive" });
     } else {
-      setConnectionStatus(latency < 5000 ? "ok" : "ok");
-      toast({ title: "Conexión activa", description: `Latencia: ${latency}ms` });
+      setConnectionStatus("ok");
+      toast({ title: "Conexión activa", description: `Latencia: ${res.latency_ms}ms` });
     }
   };
 
