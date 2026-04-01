@@ -189,7 +189,7 @@ Para cada match, genera una explicación breve (máximo 2 frases) en español qu
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
-            model: "google/gemini-3.1-flash-preview",
+            model: "google/gemini-3-flash-preview",
             messages: [
               { role: "system", content: "Eres un asistente de retail inmobiliario. Responde SOLO con un JSON array donde cada elemento tiene 'operador_nombre' y 'explicacion'. Sin markdown, sin texto extra." },
               { role: "user", content: prompt },

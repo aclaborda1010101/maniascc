@@ -305,7 +305,7 @@ Para cada match, genera una explicación CONCISA (2 frases máximo) que destaque
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
-            model: "google/gemini-3.1-flash-preview",
+            model: "google/gemini-3-flash-preview",
             messages: [
               { role: "system", content: "Eres un asistente de retail inmobiliario. Responde SOLO con JSON array: [{operador_nombre, explicacion}]. Sin markdown." },
               { role: "user", content: prompt },

@@ -57,7 +57,7 @@ Genera un análisis completo con score de viabilidad 0-100 evaluando estas 5 dim
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "google/gemini-3.1-flash-preview",
+        model: "google/gemini-3-flash-preview",
         messages: [
           { role: "system", content: "Eres AVA TURING el agente de inteligencia de localización. Responde SOLO con el tool call solicitado." },
           { role: "user", content: prompt },
@@ -128,7 +128,7 @@ Genera un análisis completo con score de viabilidad 0-100 evaluando estas 5 dim
 
     // Audit
     await supabase.from("auditoria_ia").insert({
-      modelo: "google/gemini-3.1-flash-preview",
+      modelo: "google/gemini-3-flash-preview",
       funcion_ia: "localizacion-patrones",
       latencia_ms: latencyMs,
       exito: true,
