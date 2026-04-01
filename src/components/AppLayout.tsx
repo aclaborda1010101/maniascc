@@ -65,6 +65,7 @@ export function AppLayout() {
           <main className="flex-1 overflow-auto p-6">
             <Outlet />
           </main>
+          {location.pathname !== "/asistente" && <FloatingChat />}
         </div>
       </div>
     </SidebarProvider>
