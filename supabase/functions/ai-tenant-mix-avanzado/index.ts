@@ -119,7 +119,7 @@ Para cada plan incluye operadores recomendados, score de sinergia, predicción d
     }
 
     await supabase.from("auditoria_ia").insert({
-      modelo: "google/gemini-2.5-pro",
+      modelo: "google/gemini-2.0-flash-001",
       funcion_ia: "tenant-mix-avanzado",
       latencia_ms: latencyMs,
       exito: true,
