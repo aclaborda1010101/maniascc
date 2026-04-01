@@ -64,6 +64,41 @@ export default function Playground() {
   const [hasResults, setHasResults] = useState(false);
   const abortRef = useRef(false);
 
+  interface PastEval {
+    prompt: string;
+    created_at: string;
+    variante_index: number;
+    variante_config: Record<string, unknown>;
+    evaluacion: string | null;
+  }
+  const [pastEvals, setPastEvals] = useState<PastEval[]>([]);
+
+  const fetchPastEvals = useCallback(async () => {
+    if (!user) return;
+    const { data } = await supabase
+      .from("playground_evaluations" as never)
+      .select("prompt, created_at, variante_index, variante_config, evaluacion" as never)
+      .eq("usuario_id" as never, user.id as never)
+      .order("created_at" as never, { ascending: false } as never)
+      .limit(40 as never) as { data: PastEval[] | null };
+    if (data) {
+      // Group by prompt+timestamp, find winner per group
+      const grouped = new Map<string, { prompt: string; created_at: string; winner: string | null }>();
+      for (const row of data) {
+        const key = `${row.prompt}::${row.created_at.slice(0, 16)}`;
+        if (!grouped.has(key)) {
+          grouped.set(key, { prompt: row.prompt, created_at: row.created_at, winner: null });
+        }
+        if (row.evaluacion === "mejor") {
+          const variantLabel = VARIANTS[row.variante_index]?.label || `Variante ${row.variante_index}`;
+          grouped.get(key)!.winner = variantLabel;
+        }
+      }
+      setPastEvals(Array.from(grouped.values()).slice(0, 10) as unknown as PastEval[]);
+    }
+  }, [user]);
+
+  useEffect(() => { fetchPastEvals(); }, [fetchPastEvals]);
   const runEvaluation = async () => {
     if (!prompt.trim() || loading) return;
     setLoading(true);
