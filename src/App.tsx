@@ -30,6 +30,7 @@ const NegotiationBriefing = lazy(() => import("./pages/NegotiationBriefing"));
 const AsistenteIA = lazy(() => import("./pages/AsistenteIA"));
 const Patrones = lazy(() => import("./pages/Patrones"));
 const Admin = lazy(() => import("./pages/Admin"));
+const Playground = lazy(() => import("./pages/Playground"));
 
 const queryClient = new QueryClient();
 
