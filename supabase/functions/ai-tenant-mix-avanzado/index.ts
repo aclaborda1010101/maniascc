@@ -48,7 +48,7 @@ Para cada plan incluye operadores recomendados, score de sinergia, predicción d
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "google/gemini-3.1-flash-preview",
+        model: "google/gemini-3-flash-preview",
         messages: [
           { role: "system", content: "Eres AVA TURING NEXUS avanzado, optimizador de tenant mix. Responde SOLO con el tool call." },
           { role: "user", content: prompt },
@@ -119,7 +119,7 @@ Para cada plan incluye operadores recomendados, score de sinergia, predicción d
     }
 
     await supabase.from("auditoria_ia").insert({
-      modelo: "google/gemini-3.1-flash-preview",
+      modelo: "google/gemini-3-flash-preview",
       funcion_ia: "tenant-mix-avanzado",
       latencia_ms: latencyMs,
       exito: true,

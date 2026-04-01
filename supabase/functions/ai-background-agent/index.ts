@@ -103,7 +103,7 @@ ${(patterns || []).slice(0, 20).map((p: any) => `- ${p.patron_descripcion}: ajus
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "google/gemini-3.1-flash-preview",
+        model: "google/gemini-3-flash-preview",
         messages: [
           {
             role: "system",
