@@ -78,7 +78,7 @@ serve(async (req) => {
     const prompt = `Eres un experto en comercialización de centros comerciales en España. Genera 3 planes de tenant mix optimizado para "${centro_nombre}"${centro_ubicacion ? ` en ${centro_ubicacion}` : ""}.
 
 Locales disponibles: ${JSON.stringify(locales_disponibles || "No especificados")}
-Operadores activos en cartera: ${JSON.stringify((operadores || []).map(o => ({ nombre: o.nombre, sector: o.sector, presupuesto: \`\${o.presupuesto_min}-\${o.presupuesto_max}€\`, superficie: \`\${o.superficie_min}-\${o.superficie_max}m²\` })))}
+Operadores activos en cartera: ${JSON.stringify((operadores || []).map(o => ({ nombre: o.nombre, sector: o.sector, presupuesto: o.presupuesto_min + "-" + o.presupuesto_max + "€", superficie: o.superficie_min + "-" + o.superficie_max + "m²" })))}
 Sinergias conocidas: ${JSON.stringify((sinergias || []).slice(0, 20))}${jarvisContext}
 
 Plan A: Máximo valor (operadores premium, renta alta)
