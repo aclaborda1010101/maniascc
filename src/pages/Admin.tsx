@@ -9,12 +9,12 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Settings, Shield, Wifi, WifiOff, Loader2, Sparkles, CheckCircle, XCircle } from "lucide-react";
+import { Settings, Shield, Wifi, WifiOff, Loader2, Sparkles, CheckCircle, XCircle, Radar } from "lucide-react";
 import { queryExpertForge, EXPERT_SPECIALISTS } from "@/services/expertForge";
+import { getAvailableRuns, type PatternRun } from "@/services/patternService";
 import { useToast } from "@/hooks/use-toast";
 
 export default function Admin() {
-  // Connection test
   const [connectionStatus, setConnectionStatus] = useState<"idle" | "testing" | "ok" | "error">("idle");
   const [pingLatency, setPingLatency] = useState<number | null>(null);
   const { toast } = useToast();
@@ -26,14 +26,17 @@ export default function Admin() {
   const [filterDateFrom, setFilterDateFrom] = useState("");
   const [filterDateTo, setFilterDateTo] = useState("");
 
-  useEffect(() => {
-    fetchLogs();
-  }, []);
+  // JARVIS
+  const [jarvisStatus, setJarvisStatus] = useState<"idle" | "testing" | "ok" | "error">("idle");
+  const [jarvisLatency, setJarvisLatency] = useState<number | null>(null);
+  const [jarvisRuns, setJarvisRuns] = useState<PatternRun[]>([]);
+  const [jarvisRunsLoading, setJarvisRunsLoading] = useState(false);
+
+  useEffect(() => { fetchLogs(); }, []);
 
   const fetchLogs = async () => {
     setLogsLoading(true);
-    let query = supabase.from("auditoria_ia").select("*").order("created_at", { ascending: false }).limit(200);
-    const { data } = await query;
+    const { data } = await supabase.from("auditoria_ia").select("*").order("created_at", { ascending: false }).limit(200);
     setLogs(data || []);
     setLogsLoading(false);
   };
@@ -63,6 +66,30 @@ export default function Admin() {
     }
   };
 
+  const testJarvis = async () => {
+    setJarvisStatus("testing");
+    setJarvisRunsLoading(true);
+    const start = Date.now();
+    try {
+      const runs = await getAvailableRuns();
+      const latency = Date.now() - start;
+      setJarvisLatency(latency);
+      setJarvisRuns(runs);
+      if (runs.length >= 0) {
+        setJarvisStatus("ok");
+        toast({ title: "JARVIS conectado", description: `${runs.length} análisis disponibles (${latency}ms)` });
+      }
+    } catch {
+      setJarvisStatus("error");
+      setJarvisLatency(Date.now() - start);
+      toast({ title: "Error JARVIS", description: "No se pudo conectar", variant: "destructive" });
+    }
+    setJarvisRunsLoading(false);
+  };
+
+  // Count JARVIS-related audit entries
+  const jarvisLogs = logs.filter(l => l.funcion_ia === "pattern-proxy");
+
   return (
     <div className="space-y-6">
       <div>
@@ -74,7 +101,8 @@ export default function Admin() {
 
       <Tabs defaultValue="conexion">
         <TabsList>
-          <TabsTrigger value="conexion" className="gap-1"><Sparkles className="h-3 w-3" /> Conexión Expert Forge</TabsTrigger>
+          <TabsTrigger value="conexion" className="gap-1"><Sparkles className="h-3 w-3" /> Expert Forge</TabsTrigger>
+          <TabsTrigger value="jarvis" className="gap-1"><Radar className="h-3 w-3" /> Patrones JARVIS</TabsTrigger>
           <TabsTrigger value="auditoria" className="gap-1"><Shield className="h-3 w-3" /> Auditoría IA</TabsTrigger>
           <TabsTrigger value="config" className="gap-1"><Settings className="h-3 w-3" /> Configuración</TabsTrigger>
         </TabsList>
@@ -130,12 +158,137 @@ export default function Admin() {
                 {Object.entries(EXPERT_SPECIALISTS).map(([name, id]) => (
                   <div key={name} className="rounded-lg border p-3">
                     <p className="text-sm font-medium">{name}</p>
-                    <p className="text-xs text-muted-foreground font-mono">{id}</p>
+                    <p className="text-xs text-muted-foreground font-mono truncate">{id}</p>
                   </div>
                 ))}
               </div>
             </CardContent>
           </Card>
+        </TabsContent>
+
+        {/* Tab: Patrones JARVIS */}
+        <TabsContent value="jarvis" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                {jarvisStatus === "ok" ? <Wifi className="h-5 w-5 text-chart-2" /> :
+                 jarvisStatus === "error" ? <WifiOff className="h-5 w-5 text-destructive" /> :
+                 <Radar className="h-5 w-5 text-muted-foreground" />}
+                Conexión JARVIS Patterns API
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid gap-4 sm:grid-cols-3">
+                <div>
+                  <Label className="text-xs text-muted-foreground">Estado</Label>
+                  <div className="flex items-center gap-2 mt-1">
+                    <div className={`w-3 h-3 rounded-full ${
+                      jarvisStatus === "ok" ? "bg-chart-2" :
+                      jarvisStatus === "error" ? "bg-destructive" :
+                      jarvisStatus === "testing" ? "bg-yellow-500 animate-pulse" : "bg-muted-foreground/30"
+                    }`} />
+                    <span className="text-sm font-medium">
+                      {jarvisStatus === "ok" ? "Conectado" :
+                       jarvisStatus === "error" ? "Error" :
+                       jarvisStatus === "testing" ? "Probando..." : "Sin probar"}
+                    </span>
+                  </div>
+                </div>
+                <div>
+                  <Label className="text-xs text-muted-foreground">Latencia</Label>
+                  <p className="text-sm font-medium mt-1">{jarvisLatency ? `${jarvisLatency}ms` : "—"}</p>
+                </div>
+                <div>
+                  <Label className="text-xs text-muted-foreground">Operaciones registradas</Label>
+                  <p className="text-sm font-medium mt-1">{jarvisLogs.length}</p>
+                </div>
+              </div>
+              <Button onClick={testJarvis} disabled={jarvisStatus === "testing"} variant="outline" className="gap-1">
+                {jarvisStatus === "testing" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Radar className="h-4 w-4" />}
+                Test de conexión
+              </Button>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader><CardTitle>Análisis Disponibles (Runs)</CardTitle></CardHeader>
+            <CardContent>
+              {jarvisRunsLoading ? (
+                <div className="space-y-3">{[1, 2, 3].map(i => <Skeleton key={i} className="h-12 w-full" />)}</div>
+              ) : jarvisRuns.length === 0 ? (
+                <div className="py-12 text-center">
+                  <Radar className="mx-auto mb-3 h-10 w-10 text-muted-foreground/30" />
+                  <p className="text-muted-foreground">
+                    {jarvisStatus === "idle" ? "Haz clic en \"Test de conexión\" para cargar análisis" : "No hay análisis disponibles"}
+                  </p>
+                </div>
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Run ID</TableHead>
+                      <TableHead>Sector</TableHead>
+                      <TableHead>Geografía</TableHead>
+                      <TableHead>Veredicto</TableHead>
+                      <TableHead>Señales</TableHead>
+                      <TableHead>Estado</TableHead>
+                      <TableHead>Fecha</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {jarvisRuns.map(run => (
+                      <TableRow key={run.run_id}>
+                        <TableCell className="font-mono text-xs">{run.run_id?.substring(0, 8)}...</TableCell>
+                        <TableCell>{run.sector}</TableCell>
+                        <TableCell>{run.geography}</TableCell>
+                        <TableCell className="text-xs">{run.model_verdict || "—"}</TableCell>
+                        <TableCell>{run.signals_count}</TableCell>
+                        <TableCell>
+                          <Badge variant="secondary" className={run.status === "completed" ? "bg-chart-2/10 text-chart-2" : "bg-yellow-500/10 text-yellow-500"}>
+                            {run.status}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-xs text-muted-foreground">{run.completed_at ? new Date(run.completed_at).toLocaleString("es-ES") : "—"}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Last JARVIS-related audit entries */}
+          {jarvisLogs.length > 0 && (
+            <Card>
+              <CardHeader><CardTitle className="text-base">Último feedback enviado</CardTitle></CardHeader>
+              <CardContent>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Función</TableHead>
+                      <TableHead>Latencia</TableHead>
+                      <TableHead>Estado</TableHead>
+                      <TableHead>Fecha</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {jarvisLogs.slice(0, 10).map(l => (
+                      <TableRow key={l.id}>
+                        <TableCell className="font-medium">{l.funcion_ia}</TableCell>
+                        <TableCell>{l.latencia_ms ? `${l.latencia_ms}ms` : "—"}</TableCell>
+                        <TableCell>
+                          <Badge variant="secondary" className={l.exito ? "bg-chart-2/10 text-chart-2" : "bg-destructive/10 text-destructive"}>
+                            {l.exito ? "OK" : "Error"}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-xs text-muted-foreground">{new Date(l.created_at).toLocaleString("es-ES")}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </CardContent>
+            </Card>
+          )}
         </TabsContent>
 
         {/* Tab: Auditoría IA */}
@@ -163,7 +316,6 @@ export default function Admin() {
             </Card>
           </div>
 
-          {/* Filters */}
           <div className="flex flex-wrap gap-3 items-end">
             <div className="space-y-1">
               <Label className="text-xs">Función</Label>
@@ -267,6 +419,40 @@ export default function Admin() {
                       ))}
                     </TableBody>
                   </Table>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader><CardTitle>Integración JARVIS Patterns</CardTitle></CardHeader>
+            <CardContent className="space-y-3">
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div>
+                  <Label className="text-xs text-muted-foreground">Proxy Edge Function</Label>
+                  <p className="text-sm font-mono mt-1">pattern-proxy</p>
+                </div>
+                <div>
+                  <Label className="text-xs text-muted-foreground">Pipeline</Label>
+                  <p className="text-sm font-mono mt-1">pattern-detector-pipeline</p>
+                </div>
+              </div>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div>
+                  <Label className="text-xs text-muted-foreground">Funciones enriquecidas</Label>
+                  <div className="mt-1 flex flex-wrap gap-1">
+                    {["Localización", "Tenant Mix", "Validación", "Negociación"].map(f => (
+                      <Badge key={f} variant="secondary" className="text-xs">{f}</Badge>
+                    ))}
+                  </div>
+                </div>
+                <div>
+                  <Label className="text-xs text-muted-foreground">Query Types disponibles</Label>
+                  <div className="mt-1 flex flex-wrap gap-1">
+                    {["signals_by_zone", "success_patterns", "risk_signals", "benchmarks", "full_intelligence"].map(q => (
+                      <Badge key={q} variant="outline" className="text-xs font-mono">{q}</Badge>
+                    ))}
+                  </div>
                 </div>
               </div>
             </CardContent>

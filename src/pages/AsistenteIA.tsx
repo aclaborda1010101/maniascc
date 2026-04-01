@@ -63,6 +63,9 @@ export default function AsistenteIA() {
                   {msg.meta.confidence != null && (
                     <Badge variant="outline" className="text-[10px]">🎯 {Math.round(msg.meta.confidence * 100)}%</Badge>
                   )}
+                  {msg.meta.jarvis_enriched && (
+                    <Badge variant="outline" className="text-[10px]">📡 JARVIS</Badge>
+                  )}
                   {msg.meta.latency_ms && (
                     <Badge variant="outline" className="text-[10px]">⏱ {msg.meta.latency_ms}ms</Badge>
                   )}

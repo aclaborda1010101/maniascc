@@ -47,11 +47,11 @@ export async function queryExpertForge(
 
 /** IDs de especialistas preconfigurados */
 export const EXPERT_SPECIALISTS = {
-  NEGOCIACION: "442a4ad6",
-  AUDITORIA: "6ace2754",
-  MATCHING: "6a2cfd5e",
-  ATLAS: "442a4ad6",
-  FORGE7: "0de742b5",
-  SCRAPING: "24d75154",
-  COORDINADOR: "59d5e344",
+  ATLAS: "442a4ad6-c740-49d1-bd96-42a37a6b09ec",
+  FORGE7: "0de742b5-1048-455a-8fbd-a710fa300b45",
+  MATCHING: "6a2cfd5e-e81a-4486-bb96-1d52e7bd0dd0",
+  AUDITORIA: "6ace2754-f6e2-4e95-bd58-f476096cd74b",
+  SCRAPING: "24d75154-48fd-4203-8d82-8ba8ad2a1540",
+  COORDINADOR: "59d5e344-f6f8-42b8-93ba-c8c7dbe204b5",
+  NEGOCIACION: "442a4ad6-c740-49d1-bd96-42a37a6b09ec",
 } as const;

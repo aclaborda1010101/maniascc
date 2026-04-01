@@ -6,6 +6,21 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+async function queryJarvisPatterns(queryType: string, filters: Record<string, unknown>): Promise<any> {
+  try {
+    const url = Deno.env.get("JARVIS_PATTERNS_URL");
+    const key = Deno.env.get("JARVIS_PATTERNS_API_KEY");
+    if (!url || !key) return null;
+    const resp = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "public_query_v2", api_key: key, query_type: queryType, filters }),
+    });
+    if (!resp.ok) return null;
+    return await resp.json();
+  } catch { return null; }
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
@@ -26,9 +41,26 @@ serve(async (req) => {
 
     const startTime = Date.now();
 
+    // JARVIS: risk_signals + benchmarks (fail-safe, parallel)
+    const [jarvisRisks, jarvisBenchmarks] = await Promise.all([
+      queryJarvisPatterns("risk_signals", { sector: "centros_comerciales", geography: ubicacion || codigo_postal || "" }),
+      queryJarvisPatterns("benchmarks", { sector: "centros_comerciales" }),
+    ]);
+
+    let jarvisContext = "";
+    if (jarvisRisks && !jarvisRisks.error) {
+      const risks = jarvisRisks.risk_signals || jarvisRisks.signals || [];
+      if (risks.length > 0) {
+        jarvisContext += `\n\n🚨 SEÑALES DE RIESGO JARVIS (zona):\n${JSON.stringify(risks.slice(0, 10), null, 2)}`;
+      }
+    }
+    if (jarvisBenchmarks && !jarvisBenchmarks.error && jarvisBenchmarks.reference_benchmarks) {
+      jarvisContext += `\n\n📊 BENCHMARKS KPI JARVIS (centros exitosos):\n${JSON.stringify(jarvisBenchmarks.reference_benchmarks)}`;
+    }
+
     const prompt = `Eres un analista senior de inversión inmobiliaria retail en España con 25 años de experiencia. Un propietario presenta un dossier con las siguientes métricas para un ${tipo_activo.replace(/_/g, " ")}${ubicacion ? ` en ${ubicacion}` : ""}${codigo_postal ? ` (CP: ${codigo_postal})` : ""}:
 
-Métricas declaradas: ${JSON.stringify(metricas_declaradas)}
+Métricas declaradas: ${JSON.stringify(metricas_declaradas)}${jarvisContext}
 
 Analiza cada métrica y determina si parece realista o inflada, comparando con benchmarks del mercado español. Para cada métrica asigna un semáforo:
 - verde: dentro de rangos normales del mercado
@@ -124,7 +156,7 @@ Considera desviaciones típicas del sector: rentabilidad (15-30% inflación medi
       created_by: user.id,
     });
 
-    return new Response(JSON.stringify({ ...validation, id: saved?.id, latencia_ms: latencyMs }), {
+    return new Response(JSON.stringify({ ...validation, id: saved?.id, latencia_ms: latencyMs, jarvis_enriched: !!(jarvisRisks || jarvisBenchmarks) }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (e) {
