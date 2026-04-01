@@ -49,4 +49,9 @@ export async function queryExpertForge(
 export const EXPERT_SPECIALISTS = {
   NEGOCIACION: "442a4ad6",
   AUDITORIA: "6ace2754",
+  MATCHING: "6a2cfd5e",
+  ATLAS: "442a4ad6",
+  FORGE7: "0de742b5",
+  SCRAPING: "24d75154",
+  COORDINADOR: "59d5e344",
 } as const;

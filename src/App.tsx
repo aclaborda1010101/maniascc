@@ -21,14 +21,14 @@ const Operadores = lazy(() => import("./pages/Operadores"));
 const OperadorDetail = lazy(() => import("./pages/OperadorDetail"));
 const Contactos = lazy(() => import("./pages/Contactos"));
 const Documentos = lazy(() => import("./pages/Documentos"));
-const Busqueda = lazy(() => import("./pages/Busqueda"));
-const Auditoria = lazy(() => import("./pages/Auditoria"));
 const Matching = lazy(() => import("./pages/Matching"));
 const Notificaciones = lazy(() => import("./pages/Notificaciones"));
 const LocationAnalysis = lazy(() => import("./pages/LocationAnalysis"));
 const DossierValidation = lazy(() => import("./pages/DossierValidation"));
 const TenantMixOptimizer = lazy(() => import("./pages/TenantMixOptimizer"));
 const NegotiationBriefing = lazy(() => import("./pages/NegotiationBriefing"));
+const AsistenteIA = lazy(() => import("./pages/AsistenteIA"));
+const Admin = lazy(() => import("./pages/Admin"));
 
 const queryClient = new QueryClient();
 
@@ -60,8 +60,6 @@ const App = () => (
                   <Route path="/operadores/:id" element={<OperadorDetail />} />
                   <Route path="/contactos" element={<Contactos />} />
                   <Route path="/documentos" element={<Documentos />} />
-                  <Route path="/busqueda" element={<Busqueda />} />
-                  <Route path="/auditoria" element={<Auditoria />} />
                   <Route path="/locales" element={<Locales />} />
                   <Route path="/locales/:id" element={<LocalDetail />} />
                   <Route path="/matching/:localId" element={<Matching />} />
@@ -70,6 +68,11 @@ const App = () => (
                   <Route path="/validacion-dossier" element={<DossierValidation />} />
                   <Route path="/tenant-mix" element={<TenantMixOptimizer />} />
                   <Route path="/negociacion-ia" element={<NegotiationBriefing />} />
+                  <Route path="/asistente" element={<AsistenteIA />} />
+                  <Route path="/admin" element={<Admin />} />
+                  {/* Retrocompatibilidad */}
+                  <Route path="/busqueda" element={<Navigate to="/asistente" replace />} />
+                  <Route path="/auditoria" element={<Navigate to="/admin" replace />} />
                 </Route>
                 <Route path="*" element={<NotFound />} />
               </Routes>
