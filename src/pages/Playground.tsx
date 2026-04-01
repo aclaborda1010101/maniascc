@@ -200,6 +200,7 @@ export default function Playground() {
       });
 
       toast({ title: "Evaluación guardada", description: `Variante "${VARIANTS[idx].label}" → ${evaluacion}` });
+      fetchPastEvals();
     } catch {
       toast({ title: "Error", description: "No se pudo guardar la evaluación", variant: "destructive" });
     }
