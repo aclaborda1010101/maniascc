@@ -210,7 +210,7 @@ IMPORTANTE: Aprende del feedback implícito — los fragmentos mejor posicionado
 
     // Audit
     await admin.from("auditoria_ia").insert({
-      modelo: "gemini-3-flash-preview",
+      modelo: "gemini-2.0-flash-001",
       funcion_ia: "rag_v4",
       tokens_entrada: tokensIn,
       tokens_salida: tokensOut,

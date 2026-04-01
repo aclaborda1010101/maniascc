@@ -228,7 +228,7 @@ ${(patterns || []).slice(0, 20).map((p: any) => `- ${p.patron_descripcion}: ajus
 
     // Audit log
     await admin.from("auditoria_ia").insert({
-      modelo: "gemini-2.5-pro",
+      modelo: "gemini-2.0-flash-001",
       funcion_ia: "background_agent_" + agent_type,
       tokens_entrada: tokensIn,
       tokens_salida: tokensOut,

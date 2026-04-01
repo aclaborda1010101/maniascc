@@ -228,7 +228,7 @@ Para cada match, genera una explicación breve (máximo 2 frases) en español qu
 
         if (aiResponse.ok) {
           const aiData = await aiResponse.json();
-          modelo = "gemini-2.5-pro";
+          modelo = "gemini-2.0-flash-001";
           tokensIn = aiData.usage?.prompt_tokens || 0;
           tokensOut = aiData.usage?.completion_tokens || 0;
           aiCost = (tokensIn * 0.00001 + tokensOut * 0.00004); // approximate

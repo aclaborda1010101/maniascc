@@ -128,7 +128,7 @@ Genera un análisis completo con score de viabilidad 0-100 evaluando estas 5 dim
 
     // Audit
     await supabase.from("auditoria_ia").insert({
-      modelo: "google/gemini-3-flash-preview",
+      modelo: "google/gemini-2.0-flash-001",
       funcion_ia: "localizacion-patrones",
       latencia_ms: latencyMs,
       exito: true,

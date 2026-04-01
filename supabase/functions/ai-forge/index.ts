@@ -143,10 +143,7 @@ serve(async (req) => {
     }
 
     // Select model based on mode complexity
-    let model = "google/gemini-3-flash-preview";
-    if (["borrador_contrato", "plan_estrategico"].includes(mode)) {
-      model = "google/gemini-2.5-pro"; // More complex reasoning
-    }
+    let model = "google/gemini-2.0-flash-001";
 
     const startMs = Date.now();
     const aiResp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
