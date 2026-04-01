@@ -105,11 +105,13 @@ export function AppSidebar() {
 
         <SidebarSeparator />
 
-        {/* Herramientas IA */}
+        {/* Motor Predictivo */}
         <SidebarGroup>
           {!collapsed && (
             <SidebarGroupLabel className="text-[10px] uppercase tracking-widest text-sidebar-foreground/40 px-3">
-              <Brain className="inline h-3 w-3 mr-1" /> Inteligencia
+              <Brain className="inline h-3 w-3 mr-1" /> Motor Predictivo
+            </SidebarGroupLabel>
+          )}
             </SidebarGroupLabel>
           )}
           <SidebarGroupContent>
