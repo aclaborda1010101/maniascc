@@ -297,7 +297,6 @@ export default function Admin() {
                         <TableCell className="text-xs">{l.modelo}</TableCell>
                         <TableCell>{l.latencia_ms ? `${l.latencia_ms}ms` : "—"}</TableCell>
                         <TableCell className="text-xs">{l.tokens_entrada || 0} → {l.tokens_salida || 0}</TableCell>
-                        <TableCell className="text-xs">{Number(l.coste_estimado || 0).toFixed(4)} €</TableCell>
                         <TableCell>
                           <Badge variant="secondary" className={l.exito ? "bg-chart-2/10 text-chart-2" : "bg-destructive/10 text-destructive"}>
                             {l.exito ? "OK" : "Error"}
