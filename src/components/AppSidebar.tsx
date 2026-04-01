@@ -16,6 +16,8 @@ import { Button } from "@/components/ui/button";
 
 const mainItems = [
   { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
+  { title: "AVA", url: "/asistente", icon: Sparkles },
+  { title: "Patrones", url: "/patrones", icon: Network },
   { title: "Proyectos", url: "/proyectos", icon: FolderKanban },
   { title: "Notificaciones", url: "/notificaciones", icon: Bell },
 ];
@@ -30,10 +32,8 @@ const directoryItems = [
 const aiToolsItems = [
   { title: "Localización", url: "/localizacion", icon: Compass },
   { title: "Validación Dossier", url: "/validacion-dossier", icon: FileSearch },
-  { title: "Tenant Mix", url: "/tenant-mix", icon: Layers },
+  { title: "Optimización de Ocupación", url: "/tenant-mix", icon: Layers },
   { title: "Negociación IA", url: "/negociacion-ia", icon: MessageSquare },
-  { title: "Patrones", url: "/patrones", icon: Network },
-  { title: "AVA", url: "/asistente", icon: Sparkles },
 ];
 
 const adminItems = [
@@ -105,11 +105,11 @@ export function AppSidebar() {
 
         <SidebarSeparator />
 
-        {/* Herramientas IA */}
+        {/* Motor Predictivo */}
         <SidebarGroup>
           {!collapsed && (
             <SidebarGroupLabel className="text-[10px] uppercase tracking-widest text-sidebar-foreground/40 px-3">
-              <Brain className="inline h-3 w-3 mr-1" /> Inteligencia
+              <Brain className="inline h-3 w-3 mr-1" /> Motor Predictivo
             </SidebarGroupLabel>
           )}
           <SidebarGroupContent>
