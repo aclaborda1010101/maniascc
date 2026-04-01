@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -8,10 +8,19 @@ import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { NegotiatorCard } from "@/components/NegotiatorCard";
-import { UserCircle, Clock, History, MessageSquare, Shield, XCircle, CheckCircle, Sparkles, Loader2 } from "lucide-react";
+import { UserCircle, Clock, History, MessageSquare, Shield, XCircle, CheckCircle, ChevronsUpDown, Plus } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { queryExpertForge, EXPERT_SPECIALISTS } from "@/services/expertForge";
+
+interface Contacto {
+  id: string;
+  nombre: string;
+  apellidos?: string | null;
+  empresa?: string | null;
+  cargo?: string | null;
+}
 
 export default function NegotiationBriefing() {
   const [nombre, setNombre] = useState("");
@@ -24,18 +33,48 @@ export default function NegotiationBriefing() {
   const [historico, setHistorico] = useState<any[]>([]);
   const { toast } = useToast();
 
-  // Expert Forge MoE state
-  const [efQuestion, setEfQuestion] = useState("");
-  const [efAnswer, setEfAnswer] = useState<any>(null);
-  const [efLoading, setEfLoading] = useState(false);
+  // Contacts combobox
+  const [contactos, setContactos] = useState<Contacto[]>([]);
+  const [contactSearch, setContactSearch] = useState("");
+  const [comboOpen, setComboOpen] = useState(false);
+  const [selectedContactId, setSelectedContactId] = useState<string | null>(null);
+  const [isNewContact, setIsNewContact] = useState(false);
 
   useEffect(() => {
+    supabase.from("contactos").select("id, nombre, apellidos, empresa, cargo").limit(200)
+      .then(({ data }) => setContactos(data || []));
     supabase.from("negociaciones_historico").select("*").order("creado_en", { ascending: false }).limit(20)
       .then(({ data }) => setHistorico(data || []));
   }, []);
 
+  const filteredContacts = useMemo(() => {
+    if (!contactSearch) return contactos;
+    const q = contactSearch.toLowerCase();
+    return contactos.filter(c =>
+      `${c.nombre} ${c.apellidos || ""} ${c.empresa || ""}`.toLowerCase().includes(q)
+    );
+  }, [contactos, contactSearch]);
+
+  const selectContact = (c: Contacto) => {
+    setSelectedContactId(c.id);
+    setNombre(`${c.nombre}${c.apellidos ? ` ${c.apellidos}` : ""}`);
+    setEmpresa(c.empresa || "");
+    setCargo(c.cargo || "");
+    setIsNewContact(false);
+    setComboOpen(false);
+  };
+
+  const startNewContact = () => {
+    setSelectedContactId(null);
+    setIsNewContact(true);
+    setNombre(contactSearch);
+    setEmpresa("");
+    setCargo("");
+    setComboOpen(false);
+  };
+
   const handleGenerate = async () => {
-    if (!nombre) { toast({ title: "Introduce el nombre del contacto", variant: "destructive" }); return; }
+    if (!nombre) { toast({ title: "Selecciona o introduce un interlocutor", variant: "destructive" }); return; }
     setLoading(true);
     setResult(null);
     try {
@@ -53,41 +92,91 @@ export default function NegotiationBriefing() {
     }
   };
 
-  const handleExpertForge = async () => {
-    if (!efQuestion.trim()) return;
-    setEfLoading(true);
-    setEfAnswer(null);
-    const ctx = [nombre, empresa, cargo, contexto].filter(Boolean).join(". ");
-    const res = await queryExpertForge(efQuestion, EXPERT_SPECIALISTS.NEGOCIACION, ctx || undefined);
-    setEfAnswer(res);
-    setEfLoading(false);
-    if (res.error) toast({ title: "Error Expert Forge", description: res.error, variant: "destructive" });
-  };
-
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Briefing de Negociación</h1>
-        <p className="text-sm text-muted-foreground">Capa 4 AVA TURING PULSE — Perfiles psicológicos y recomendaciones tácticas pre-reunión</p>
+        <p className="text-sm text-muted-foreground">Perfiles psicológicos y recomendaciones tácticas pre-reunión</p>
       </div>
 
       <Card>
-        <CardHeader><CardTitle className="flex items-center gap-2"><UserCircle className="h-5 w-5 text-accent" /> Datos del Interlocutor</CardTitle></CardHeader>
+        <CardHeader><CardTitle className="flex items-center gap-2"><UserCircle className="h-5 w-5 text-accent" /> Interlocutor</CardTitle></CardHeader>
         <CardContent className="space-y-4">
-          <div className="grid gap-4 sm:grid-cols-3">
-            <div className="space-y-1.5">
-              <Label>Nombre *</Label>
-              <Input value={nombre} onChange={e => setNombre(e.target.value)} placeholder="Juan García" />
-            </div>
-            <div className="space-y-1.5">
-              <Label>Empresa</Label>
-              <Input value={empresa} onChange={e => setEmpresa(e.target.value)} placeholder="Inmobiliaria XYZ" />
-            </div>
-            <div className="space-y-1.5">
-              <Label>Cargo</Label>
-              <Input value={cargo} onChange={e => setCargo(e.target.value)} placeholder="Director Comercial" />
-            </div>
+          {/* Contact combobox */}
+          <div className="space-y-1.5">
+            <Label>Buscar contacto existente</Label>
+            <Popover open={comboOpen} onOpenChange={setComboOpen}>
+              <PopoverTrigger asChild>
+                <Button variant="outline" className="w-full justify-between font-normal">
+                  {selectedContactId
+                    ? nombre
+                    : isNewContact
+                      ? `Nuevo: ${nombre}`
+                      : "Seleccionar contacto..."}
+                  <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-[400px] p-0" align="start">
+                <Command>
+                  <CommandInput
+                    placeholder="Buscar por nombre o empresa..."
+                    value={contactSearch}
+                    onValueChange={setContactSearch}
+                  />
+                  <CommandList>
+                    <CommandEmpty>
+                      <div className="p-2 text-center">
+                        <p className="text-sm text-muted-foreground mb-2">No se encontraron contactos</p>
+                        <Button variant="outline" size="sm" onClick={startNewContact} className="gap-1">
+                          <Plus className="h-3 w-3" /> Crear nuevo contacto
+                        </Button>
+                      </div>
+                    </CommandEmpty>
+                    <CommandGroup>
+                      {filteredContacts.map(c => (
+                        <CommandItem
+                          key={c.id}
+                          value={`${c.nombre} ${c.apellidos || ""} ${c.empresa || ""}`}
+                          onSelect={() => selectContact(c)}
+                        >
+                          <div>
+                            <p className="font-medium">{c.nombre} {c.apellidos || ""}</p>
+                            <p className="text-xs text-muted-foreground">{c.empresa || "Sin empresa"} · {c.cargo || "Sin cargo"}</p>
+                          </div>
+                        </CommandItem>
+                      ))}
+                    </CommandGroup>
+                    {contactSearch && filteredContacts.length > 0 && (
+                      <CommandGroup>
+                        <CommandItem onSelect={startNewContact} className="justify-center text-accent">
+                          <Plus className="h-3 w-3 mr-1" /> Crear "{contactSearch}" como nuevo
+                        </CommandItem>
+                      </CommandGroup>
+                    )}
+                  </CommandList>
+                </Command>
+              </PopoverContent>
+            </Popover>
           </div>
+
+          {/* Editable fields */}
+          {(selectedContactId || isNewContact) && (
+            <div className="grid gap-4 sm:grid-cols-3">
+              <div className="space-y-1.5">
+                <Label>Nombre</Label>
+                <Input value={nombre} onChange={e => setNombre(e.target.value)} />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Empresa</Label>
+                <Input value={empresa} onChange={e => setEmpresa(e.target.value)} placeholder="Empresa" />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Cargo</Label>
+                <Input value={cargo} onChange={e => setCargo(e.target.value)} placeholder="Cargo" />
+              </div>
+            </div>
+          )}
+
           <div className="space-y-1.5">
             <Label>Contexto del deal</Label>
             <Textarea rows={3} value={contexto} onChange={e => setContexto(e.target.value)} placeholder="Local de 500m² en centro comercial X, renta pedida 25€/m²..." />
@@ -165,7 +254,6 @@ export default function NegotiationBriefing() {
         </>
       )}
 
-      {/* Historical negotiations */}
       {historico.length > 0 && (
         <Card>
           <CardHeader><CardTitle className="flex items-center gap-2"><History className="h-4 w-4" /> Historial de Negociaciones</CardTitle></CardHeader>
@@ -199,46 +287,6 @@ export default function NegotiationBriefing() {
           </CardContent>
         </Card>
       )}
-
-      {/* Expert Forge MoE+RAG */}
-      <Card className="border-accent/30">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Sparkles className="h-5 w-5 text-accent" /> Expert Forge — Especialista Negociación
-          </CardTitle>
-          <p className="text-xs text-muted-foreground">Sistema MoE+RAG externo · Specialist {EXPERT_SPECIALISTS.NEGOCIACION}</p>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          <div className="flex gap-2">
-            <Input
-              placeholder="Pregunta al experto en negociación..."
-              value={efQuestion}
-              onChange={(e) => setEfQuestion(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && handleExpertForge()}
-            />
-            <Button onClick={handleExpertForge} disabled={efLoading} size="sm">
-              {efLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Consultar"}
-            </Button>
-          </div>
-          {efLoading && <Skeleton className="h-24 w-full" />}
-          {efAnswer && !efAnswer.error && (
-            <div className="space-y-2 rounded-lg border p-4 bg-muted/30">
-              <p className="text-sm whitespace-pre-wrap">{efAnswer.answer}</p>
-              {efAnswer.confidence != null && (
-                <Badge variant="outline" className="text-xs">Confianza: {Math.round(efAnswer.confidence * 100)}%</Badge>
-              )}
-              {efAnswer.sources && efAnswer.sources.length > 0 && (
-                <div className="flex flex-wrap gap-1 mt-1">
-                  {efAnswer.sources.map((s: any, i: number) => (
-                    <Badge key={i} variant="secondary" className="text-xs">{s.title || s}</Badge>
-                  ))}
-                </div>
-              )}
-              {efAnswer.latency_ms && <p className="text-xs text-muted-foreground">⏱ {efAnswer.latency_ms}ms</p>}
-            </div>
-          )}
-        </CardContent>
-      </Card>
     </div>
   );
 }

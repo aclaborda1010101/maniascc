@@ -1,7 +1,7 @@
 import {
-  LayoutDashboard, Users, Sparkles, LogOut, FileText, Search,
-  FolderKanban, UserCircle, Shield, Bell, MapPin, Brain,
-  Compass, FileSearch, Layers, MessageSquare, Moon, Sun,
+  LayoutDashboard, Users, Sparkles, LogOut, FileText, Bot,
+  FolderKanban, UserCircle, Bell, MapPin, Brain,
+  Compass, FileSearch, Layers, MessageSquare, Moon, Sun, Settings,
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useLocation } from "react-router-dom";
@@ -32,11 +32,11 @@ const aiToolsItems = [
   { title: "Validación Dossier", url: "/validacion-dossier", icon: FileSearch },
   { title: "Tenant Mix", url: "/tenant-mix", icon: Layers },
   { title: "Negociación IA", url: "/negociacion-ia", icon: MessageSquare },
+  { title: "Asistente IA", url: "/asistente", icon: Bot },
 ];
 
-const systemItems = [
-  { title: "Búsqueda IA", url: "/busqueda", icon: Search },
-  { title: "Auditoría IA", url: "/auditoria", icon: Shield },
+const adminItems = [
+  { title: "Administración", url: "/admin", icon: Settings },
 ];
 
 export function AppSidebar() {
@@ -118,10 +118,15 @@ export function AppSidebar() {
 
         <SidebarSeparator />
 
-        {/* Sistema */}
+        {/* Admin */}
         <SidebarGroup>
+          {!collapsed && (
+            <SidebarGroupLabel className="text-[10px] uppercase tracking-widest text-sidebar-foreground/40 px-3">
+              Admin
+            </SidebarGroupLabel>
+          )}
           <SidebarGroupContent>
-            <SidebarMenu>{renderItems(systemItems)}</SidebarMenu>
+            <SidebarMenu>{renderItems(adminItems)}</SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
       </SidebarContent>

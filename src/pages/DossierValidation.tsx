@@ -4,29 +4,62 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { ScoreGauge } from "@/components/ScoreGauge";
 import { TrafficLight } from "@/components/TrafficLight";
-import { FileSearch, Clock, BookOpen } from "lucide-react";
+import { FileSearch, Clock, BookOpen, Plus, X } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+
+interface ExtraMetric {
+  key: string;
+  value: string;
+}
 
 export default function DossierValidation() {
   const [tipoActivo, setTipoActivo] = useState("centro_comercial");
   const [ubicacion, setUbicacion] = useState("");
   const [cp, setCp] = useState("");
   const [propietario, setPropietario] = useState("");
-  const [metricasRaw, setMetricasRaw] = useState('{\n  "rentabilidad_declarada": 8.5,\n  "tasa_ocupacion": 95,\n  "precio_m2_renta": 22,\n  "estimacion_trafico_diario": 15000,\n  "capex_estimado_m2": 800\n}');
+  // Individual metric fields
+  const [rentabilidad, setRentabilidad] = useState("");
+  const [tasaOcupacion, setTasaOcupacion] = useState("");
+  const [precioM2, setPrecioM2] = useState("");
+  const [traficoDiario, setTraficoDiario] = useState("");
+  const [capexM2, setCapexM2] = useState("");
+  const [extraMetrics, setExtraMetrics] = useState<ExtraMetric[]>([]);
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<any>(null);
   const { toast } = useToast();
 
-  const handleValidate = async () => {
-    let metricas;
-    try { metricas = JSON.parse(metricasRaw); } catch { toast({ title: "JSON inválido en métricas", variant: "destructive" }); return; }
+  const addExtraMetric = () => setExtraMetrics([...extraMetrics, { key: "", value: "" }]);
+  const removeExtraMetric = (i: number) => setExtraMetrics(extraMetrics.filter((_, idx) => idx !== i));
+  const updateExtraMetric = (i: number, field: "key" | "value", val: string) => {
+    const updated = [...extraMetrics];
+    updated[i][field] = val;
+    setExtraMetrics(updated);
+  };
 
+  const buildMetricas = () => {
+    const m: Record<string, number> = {};
+    if (rentabilidad) m.rentabilidad_declarada = parseFloat(rentabilidad);
+    if (tasaOcupacion) m.tasa_ocupacion = parseFloat(tasaOcupacion);
+    if (precioM2) m.precio_m2_renta = parseFloat(precioM2);
+    if (traficoDiario) m.estimacion_trafico_diario = parseFloat(traficoDiario);
+    if (capexM2) m.capex_estimado_m2 = parseFloat(capexM2);
+    extraMetrics.forEach(em => {
+      if (em.key && em.value) m[em.key] = parseFloat(em.value) || 0;
+    });
+    return m;
+  };
+
+  const handleValidate = async () => {
+    const metricas = buildMetricas();
+    if (Object.keys(metricas).length === 0) {
+      toast({ title: "Introduce al menos una métrica", variant: "destructive" });
+      return;
+    }
     setLoading(true);
     setResult(null);
     try {
@@ -48,7 +81,7 @@ export default function DossierValidation() {
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Validación de Dossier</h1>
-        <p className="text-sm text-muted-foreground">Capa 2 AVA TURING RADAR — Detecta métricas infladas en dossiers de propietarios</p>
+        <p className="text-sm text-muted-foreground">Detecta métricas infladas en dossiers de propietarios</p>
       </div>
 
       <Card>
@@ -81,10 +114,51 @@ export default function DossierValidation() {
             </div>
           </div>
 
-          <div className="space-y-1.5">
-            <Label>Métricas declaradas (JSON)</Label>
-            <Textarea rows={7} value={metricasRaw} onChange={e => setMetricasRaw(e.target.value)} className="font-mono text-sm" />
-            <p className="text-xs text-muted-foreground">Introduce las métricas del dossier en formato JSON.</p>
+          {/* Metrics - Individual inputs */}
+          <div className="space-y-3">
+            <Label className="text-sm font-semibold">Métricas declaradas</Label>
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+              <div className="space-y-1.5">
+                <Label className="text-xs text-muted-foreground">Rentabilidad (%)</Label>
+                <Input type="number" step="0.1" placeholder="8.5" value={rentabilidad} onChange={e => setRentabilidad(e.target.value)} />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs text-muted-foreground">Tasa de ocupación (%)</Label>
+                <Input type="number" step="0.1" placeholder="95" value={tasaOcupacion} onChange={e => setTasaOcupacion(e.target.value)} />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs text-muted-foreground">Precio renta m² (€/m²)</Label>
+                <Input type="number" step="0.1" placeholder="22" value={precioM2} onChange={e => setPrecioM2(e.target.value)} />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs text-muted-foreground">Tráfico diario</Label>
+                <Input type="number" placeholder="15000" value={traficoDiario} onChange={e => setTraficoDiario(e.target.value)} />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs text-muted-foreground">CAPEX est. m² (€)</Label>
+                <Input type="number" placeholder="800" value={capexM2} onChange={e => setCapexM2(e.target.value)} />
+              </div>
+            </div>
+
+            {/* Extra dynamic metrics */}
+            {extraMetrics.map((em, i) => (
+              <div key={i} className="flex gap-2 items-end">
+                <div className="flex-1 space-y-1">
+                  <Label className="text-xs text-muted-foreground">Nombre métrica</Label>
+                  <Input placeholder="Ej: ingresos_anuales" value={em.key} onChange={e => updateExtraMetric(i, "key", e.target.value)} />
+                </div>
+                <div className="flex-1 space-y-1">
+                  <Label className="text-xs text-muted-foreground">Valor</Label>
+                  <Input type="number" placeholder="0" value={em.value} onChange={e => updateExtraMetric(i, "value", e.target.value)} />
+                </div>
+                <Button variant="ghost" size="icon" onClick={() => removeExtraMetric(i)} className="shrink-0">
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
+            ))}
+            <Button variant="outline" size="sm" onClick={addExtraMetric} className="gap-1">
+              <Plus className="h-3 w-3" /> Añadir más métricas
+            </Button>
           </div>
 
           <Button onClick={handleValidate} disabled={loading} className="bg-accent text-accent-foreground hover:bg-accent/90">
@@ -104,7 +178,6 @@ export default function DossierValidation() {
                 {result.latencia_ms && <p className="text-xs text-muted-foreground mt-2">⏱ {result.latencia_ms}ms</p>}
               </CardContent>
             </Card>
-
             <Card className="md:col-span-3">
               <CardHeader><CardTitle>🚦 Semáforos por Métrica</CardTitle></CardHeader>
               <CardContent className="space-y-2">
@@ -140,7 +213,6 @@ export default function DossierValidation() {
                 </CardContent>
               </Card>
             )}
-
             {result.benchmarks_usados && result.benchmarks_usados.length > 0 && (
               <Card>
                 <CardHeader><CardTitle className="flex items-center gap-2"><BookOpen className="h-4 w-4" /> Benchmarks Usados</CardTitle></CardHeader>
