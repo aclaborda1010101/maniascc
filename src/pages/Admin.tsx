@@ -41,7 +41,7 @@ export default function Admin() {
     return true;
   });
 
-  const totalCoste = filteredLogs.reduce((sum, l) => sum + (Number(l.coste_estimado) || 0), 0);
+  const avgLatency = filteredLogs.length > 0 ? Math.round(filteredLogs.reduce((sum, l) => sum + (Number(l.latencia_ms) || 0), 0) / filteredLogs.length) : 0;
   const funciones = [...new Set(logs.map(l => l.funcion_ia).filter(Boolean))];
 
   const testConnection = async () => {
