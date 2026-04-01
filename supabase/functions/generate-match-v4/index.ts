@@ -305,7 +305,7 @@ Para cada match, genera una explicación CONCISA (2 frases máximo) que destaque
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
-            model: "google/gemini-2.0-flash-001",
+            model: "google/gemini-3.1-flash-preview",
             messages: [
               { role: "system", content: "Eres un asistente de retail inmobiliario. Responde SOLO con JSON array: [{operador_nombre, explicacion}]. Sin markdown." },
               { role: "user", content: prompt },
@@ -340,7 +340,7 @@ Para cada match, genera una explicación CONCISA (2 frases máximo) que destaque
 
         if (aiResponse.ok) {
           const aiData = await aiResponse.json();
-          modelo = "predictive-v4+gemini-2.0-flash-001";
+          modelo = "predictive-v4+gemini-3.1-flash";
           tokensIn = aiData.usage?.prompt_tokens || 0;
           tokensOut = aiData.usage?.completion_tokens || 0;
           aiCost = (tokensIn * 0.000001 + tokensOut * 0.000004);

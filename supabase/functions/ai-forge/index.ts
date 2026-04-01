@@ -143,7 +143,7 @@ serve(async (req) => {
     }
 
     // Select model based on mode complexity
-    let model = "google/gemini-2.0-flash-001";
+    let model = "google/gemini-3.1-flash-preview";
 
     const startMs = Date.now();
     const aiResp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {

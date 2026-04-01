@@ -189,7 +189,7 @@ Para cada match, genera una explicación breve (máximo 2 frases) en español qu
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
-            model: "google/gemini-2.0-flash-001",
+            model: "google/gemini-3.1-flash-preview",
             messages: [
               { role: "system", content: "Eres un asistente de retail inmobiliario. Responde SOLO con un JSON array donde cada elemento tiene 'operador_nombre' y 'explicacion'. Sin markdown, sin texto extra." },
               { role: "user", content: prompt },
@@ -228,7 +228,7 @@ Para cada match, genera una explicación breve (máximo 2 frases) en español qu
 
         if (aiResponse.ok) {
           const aiData = await aiResponse.json();
-          modelo = "gemini-2.0-flash-001";
+          modelo = "gemini-3.1-flash";
           tokensIn = aiData.usage?.prompt_tokens || 0;
           tokensOut = aiData.usage?.completion_tokens || 0;
           aiCost = (tokensIn * 0.00001 + tokensOut * 0.00004); // approximate
