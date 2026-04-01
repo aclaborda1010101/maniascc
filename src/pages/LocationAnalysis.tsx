@@ -232,7 +232,7 @@ export default function LocationAnalysis() {
 
           {result.recomendacion && (
             <Card>
-              <CardHeader><CardTitle>💡 Recomendación AVA TURING</CardTitle></CardHeader>
+              <CardHeader><CardTitle>💡 Recomendación AVA</CardTitle></CardHeader>
               <CardContent><p className="text-sm leading-relaxed">{result.recomendacion}</p></CardContent>
             </Card>
           )}
