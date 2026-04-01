@@ -220,7 +220,7 @@ ${(patterns || []).slice(0, 20).map((p: any) => `- ${p.patron_descripcion}: ajus
         completado_en: new Date().toISOString(),
         resultado: { insights_count: insights.length },
         insights_generados: insights,
-        modelo_usado: "gemini-2.5-pro",
+        modelo_usado: "gemini-2.0-flash-001",
         tokens_consumidos: tokensIn + tokensOut,
         coste_estimado: tokensIn * 0.00001 + tokensOut * 0.00004,
       }).eq("id", taskRecord.id);
