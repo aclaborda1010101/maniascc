@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { FlaskConical, Play, Star, ThumbsUp, ThumbsDown, HelpCircle, Loader2, Clock, BookOpen, Wrench } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
