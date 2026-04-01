@@ -36,5 +36,5 @@ verify_jwt = false
 [functions.ai-learning-aggregator]
 verify_jwt = false
 
-[functions.pattern-proxy]
+[functions.ava-orchestrator]
 verify_jwt = false

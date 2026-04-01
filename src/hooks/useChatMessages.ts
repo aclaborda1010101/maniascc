@@ -1,6 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from "react";
-import { queryExpertForge, type ExpertForgeResponse } from "@/services/expertForge";
-import { queryPatterns } from "@/services/patternService";
+import { supabase } from "@/integrations/supabase/client";
 
 export interface ChatMessage {
   id: string;
@@ -8,29 +7,12 @@ export interface ChatMessage {
   content: string;
   timestamp: number;
   meta?: {
-    sources?: ExpertForgeResponse["sources"];
-    specialist_used?: string;
-    confidence?: number;
+    tools_used?: string[];
     latency_ms?: number;
-    model?: string;
-    jarvis_enriched?: boolean;
   };
 }
 
 const STORAGE_KEY = "ava-asistente-messages";
-
-const PATTERN_KEYWORDS = [
-  "localización", "localizacion", "ubicación", "ubicacion", "zona", "demograf",
-  "tenant mix", "mix comercial", "operador", "inquilino",
-  "validación", "validacion", "dossier", "métricas", "metricas", "retorno",
-  "negociación", "negociacion", "briefing", "reunión", "reunion",
-  "patrón", "patron", "señal", "signal", "benchmark", "riesgo",
-];
-
-function shouldQueryPatterns(question: string): boolean {
-  const q = question.toLowerCase();
-  return PATTERN_KEYWORDS.some(kw => q.includes(kw));
-}
 
 function loadMessages(): ChatMessage[] {
   try {
@@ -44,6 +26,17 @@ function loadMessages(): ChatMessage[] {
 function saveMessages(msgs: ChatMessage[]) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(msgs));
 }
+
+function toolLabel(tool: string): { emoji: string; label: string } {
+  if (tool.startsWith("db_query")) return { emoji: "🔍", label: "Consultando datos" };
+  if (tool.startsWith("db_mutate")) return { emoji: "✏️", label: "Modificando datos" };
+  if (tool === "expert_forge") return { emoji: "🧠", label: "Preguntando a especialista" };
+  if (tool.startsWith("run_intelligence")) return { emoji: "📊", label: "Ejecutando análisis" };
+  if (tool === "search_data") return { emoji: "🔎", label: "Buscando datos" };
+  return { emoji: "⚙️", label: tool };
+}
+
+export { toolLabel };
 
 export function useChatMessages() {
   const [messages, setMessages] = useState<ChatMessage[]>(loadMessages);
@@ -68,45 +61,46 @@ export function useChatMessages() {
     setInput("");
     setLoading(true);
 
-    // Optionally enrich with JARVIS patterns
-    let jarvisContext = "";
-    let jarvisEnriched = false;
-    if (shouldQueryPatterns(q)) {
-      try {
-        const patterns = await queryPatterns("full_intelligence", { sector: "centros_comerciales" });
-        if (patterns && !patterns.error) {
-          const parts: string[] = [];
-          if (patterns.success_signals?.length) parts.push(`Señales éxito: ${patterns.success_signals.slice(0, 3).map(s => s.name).join(", ")}`);
-          if (patterns.risk_signals?.length) parts.push(`Riesgos: ${patterns.risk_signals.slice(0, 3).map(s => s.name).join(", ")}`);
-          if (patterns.model_verdict) parts.push(`Veredicto: ${patterns.model_verdict}`);
-          if (parts.length > 0) {
-            jarvisContext = `\n\n[Contexto JARVIS Patterns: ${parts.join(" | ")}]`;
-            jarvisEnriched = true;
-          }
-        }
-      } catch { /* fail-safe */ }
+    try {
+      // Build history from last 10 messages for context
+      const recentMessages = [...messages, userMsg].slice(-10).map(m => ({
+        role: m.role,
+        content: m.content,
+      }));
+
+      const { data, error } = await supabase.functions.invoke("ava-orchestrator", {
+        body: {
+          message: q,
+          history: recentMessages.slice(0, -1), // exclude current message, it's sent as `message`
+        },
+      });
+
+      const assistantMsg: ChatMessage = {
+        id: crypto.randomUUID(),
+        role: "assistant",
+        content: error
+          ? `❌ Error: ${error.message}`
+          : data?.error
+            ? `❌ Error: ${data.error}`
+            : data?.answer || "Sin respuesta",
+        timestamp: Date.now(),
+        meta: (!error && !data?.error) ? {
+          tools_used: data?.tools_used,
+          latency_ms: data?.latency_ms,
+        } : undefined,
+      };
+      setMessages(prev => [...prev, assistantMsg]);
+    } catch (e) {
+      const errMsg: ChatMessage = {
+        id: crypto.randomUUID(),
+        role: "assistant",
+        content: `❌ Error de conexión: ${e instanceof Error ? e.message : "Error desconocido"}`,
+        timestamp: Date.now(),
+      };
+      setMessages(prev => [...prev, errMsg]);
     }
-
-    const enrichedQuestion = jarvisContext ? `${q}${jarvisContext}` : q;
-    const res = await queryExpertForge(enrichedQuestion);
-
-    const assistantMsg: ChatMessage = {
-      id: crypto.randomUUID(),
-      role: "assistant",
-      content: res.error ? `❌ Error: ${res.error}` : res.answer,
-      timestamp: Date.now(),
-      meta: res.error ? undefined : {
-        sources: res.sources,
-        specialist_used: res.specialist_used,
-        confidence: res.confidence,
-        latency_ms: res.latency_ms,
-        model: res.model,
-        jarvis_enriched: jarvisEnriched,
-      },
-    };
-    setMessages(prev => [...prev, assistantMsg]);
     setLoading(false);
-  }, [input, loading]);
+  }, [input, loading, messages]);
 
   const clearChat = () => {
     setMessages([]);

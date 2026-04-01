@@ -1,5 +1,5 @@
 import {
-  LayoutDashboard, Users, Sparkles, LogOut, FileText, Bot,
+  LayoutDashboard, Users, Sparkles, LogOut, FileText,
   FolderKanban, UserCircle, Bell, MapPin, Brain,
   Compass, FileSearch, Layers, MessageSquare, Moon, Sun, Settings,
 } from "lucide-react";
@@ -32,7 +32,7 @@ const aiToolsItems = [
   { title: "Validación Dossier", url: "/validacion-dossier", icon: FileSearch },
   { title: "Tenant Mix", url: "/tenant-mix", icon: Layers },
   { title: "Negociación IA", url: "/negociacion-ia", icon: MessageSquare },
-  { title: "Asistente IA", url: "/asistente", icon: Bot },
+  { title: "AVA", url: "/asistente", icon: Sparkles },
 ];
 
 const adminItems = [

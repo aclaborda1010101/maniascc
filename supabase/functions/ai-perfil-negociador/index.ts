@@ -6,21 +6,6 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-async function queryJarvisPatterns(queryType: string, filters: Record<string, unknown>): Promise<any> {
-  try {
-    const url = Deno.env.get("JARVIS_PATTERNS_URL");
-    const key = Deno.env.get("JARVIS_PATTERNS_API_KEY");
-    if (!url || !key) return null;
-    const resp = await fetch(url, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action: "public_query_v2", api_key: key, query_type: queryType, filters }),
-    });
-    if (!resp.ok) return null;
-    return await resp.json();
-  } catch { return null; }
-}
-
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
@@ -58,31 +43,13 @@ serve(async (req) => {
       historico = data || [];
     }
 
-    // JARVIS: full_intelligence for the negotiation zone (fail-safe)
-    const jarvisIntel = await queryJarvisPatterns("full_intelligence", {
-      sector: "centros_comerciales",
-      geography: contacto_empresa || "",
-    });
-
-    let jarvisContext = "";
-    if (jarvisIntel && !jarvisIntel.error) {
-      const parts: string[] = [];
-      if (jarvisIntel.success_signals?.length) parts.push(`Señales de éxito: ${JSON.stringify(jarvisIntel.success_signals.slice(0, 5))}`);
-      if (jarvisIntel.risk_signals?.length) parts.push(`Señales de riesgo: ${JSON.stringify(jarvisIntel.risk_signals.slice(0, 5))}`);
-      if (jarvisIntel.reference_benchmarks) parts.push(`Benchmarks: ${JSON.stringify(jarvisIntel.reference_benchmarks)}`);
-      if (jarvisIntel.model_verdict) parts.push(`Veredicto JARVIS: ${jarvisIntel.model_verdict}`);
-      if (parts.length > 0) {
-        jarvisContext = `\n\n📡 INTELIGENCIA DE PATRONES JARVIS (contexto para la negociación):\n${parts.join("\n")}`;
-      }
-    }
-
     const prompt = `Eres AVA TURING PULSE, experto en psicología de negociación inmobiliaria. Genera un briefing pre-reunión para negociar con:
 
 Contacto: ${contacto_nombre}${contacto_empresa ? ` de ${contacto_empresa}` : ""}${contacto_cargo ? ` (${contacto_cargo})` : ""}
 ${contexto_deal ? `Contexto del deal: ${contexto_deal}` : ""}
 ${notas_previas ? `Notas previas: ${notas_previas}` : ""}
 ${existingProfile ? `Perfil existente: estilo ${existingProfile.estilo_primario}, ${existingProfile.historico_resumen || "sin historial previo"}` : "Sin perfil previo"}
-${historico.length > 0 ? `Historial: ${JSON.stringify(historico.map(h => ({ resultado: h.resultado, duracion: h.duracion_dias, notas: h.notas })))}` : "Sin historial de negociaciones"}${jarvisContext}
+${historico.length > 0 ? `Historial: ${JSON.stringify(historico.map(h => ({ resultado: h.resultado, duracion: h.duracion_dias, notas: h.notas })))}` : "Sin historial de negociaciones"}
 
 Clasifica al negociador según: competitivo, colaborativo, analítico, expresivo, evitador.
 Genera recomendaciones tácticas específicas.`;
@@ -174,7 +141,7 @@ Genera recomendaciones tácticas específicas.`;
       created_by: user.id,
     });
 
-    return new Response(JSON.stringify({ ...profile, latencia_ms: latencyMs, jarvis_enriched: !!jarvisIntel }), {
+    return new Response(JSON.stringify({ ...profile, latencia_ms: latencyMs }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (e) {
