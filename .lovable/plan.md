@@ -1,33 +1,56 @@
 
 
-# Plan: Fix Asistente IA layout + Floating chat widget
+# Plan: Sistema multi-conversación para AVA (estilo ChatGPT)
 
-## Problem
-The `AsistenteIA` page uses `h-[calc(100vh-4rem)]` but sits inside `<main class="flex-1 overflow-auto p-6">`, causing double scroll. The `main` padding (1.5rem x2 = 3rem) plus header (3.5rem) aren't accounted for.
+## Resumen
+Añadir soporte para múltiples conversaciones con nombres editables, lista de conversaciones en sidebar, y capacidad de crear/cambiar/renombrar/eliminar chats. Todo persiste en localStorage. El historial completo se envía al orchestrator independientemente de la conversación activa.
 
-## Changes
+## Modelo de datos (localStorage)
 
-### 1. Extract shared chat hook (`src/hooks/useChatMessages.ts`)
-- Move message state, localStorage persistence, and `sendMessage` logic out of `AsistenteIA.tsx` into a reusable hook.
-- Returns `{ messages, input, setInput, loading, sendMessage, clearChat }`.
-- Same `STORAGE_KEY = "ava-asistente-messages"` so both page and widget share history.
+```text
+ava-conversations: [
+  { id: "uuid", title: "Nueva conversación", createdAt: timestamp, updatedAt: timestamp },
+  ...
+]
+ava-conv-{id}: ChatMessage[]   // mensajes por conversación
+ava-active-conv: "uuid"        // conversación activa
+```
 
-### 2. Fix AsistenteIA layout (`src/pages/AsistenteIA.tsx`)
-- Change container to `h-[calc(100vh-6.5rem)]` (header 3.5rem + padding 3rem).
-- Use the shared `useChatMessages` hook instead of inline state.
+## Cambios por archivo
 
-### 3. Create FloatingChat widget (`src/components/FloatingChat.tsx`)
-- Fixed button bottom-right (`fixed bottom-6 right-6 z-50`) with `Bot` icon.
-- Click opens a panel (w-96, h-[500px]) with the same chat UI (messages, input, markdown).
-- Uses `useChatMessages` hook -- same conversation as full page.
-- Close/minimize button. Unread dot indicator.
-- Smooth open/close animation with scale transition.
+### 1. `src/hooks/useChatMessages.ts` — Refactor completo
+- Nuevo tipo `Conversation = { id, title, createdAt, updatedAt }`
+- Estado: `conversations[]`, `activeConversationId`, `messages` (de la conversación activa)
+- Funciones nuevas:
+  - `createConversation()` — crea nueva conv, la activa, auto-titula con primer mensaje
+  - `switchConversation(id)` — cambia a otra conversación
+  - `renameConversation(id, title)` — edita título
+  - `deleteConversation(id)` — elimina conv y sus mensajes
+- `sendMessage` — envía historial completo de TODAS las conversaciones (concatenado, ultimos 10 mensajes globales) al orchestrator
+- Auto-título: al enviar el primer mensaje, el título se pone con las primeras ~40 chars del mensaje del usuario
+- Exporta todo: `{ conversations, activeConversationId, messages, input, setInput, loading, sendMessage, createConversation, switchConversation, renameConversation, deleteConversation, scrollRef }`
 
-### 4. Mount in AppLayout (`src/components/AppLayout.tsx`)
-- Add `<FloatingChat />` after `<main>`.
-- Use `useLocation()` to hide widget when on `/asistente` (avoid duplication).
+### 2. `src/pages/AsistenteIA.tsx` — Layout con sidebar de conversaciones
+- Layout 2 columnas: sidebar izquierdo (w-64) con lista de conversaciones + area de chat
+- Sidebar muestra:
+  - Botón "Nueva conversación" arriba
+  - Lista de conversaciones ordenadas por `updatedAt` desc
+  - Cada item: título (editable con doble-click), fecha, botón eliminar
+  - Conversación activa resaltada
+- Area de chat: igual que ahora pero sin el botón "Nueva conversación" del header
 
-### Files
-- **Create**: `src/hooks/useChatMessages.ts`, `src/components/FloatingChat.tsx`
-- **Edit**: `src/pages/AsistenteIA.tsx`, `src/components/AppLayout.tsx`
+### 3. `src/components/FloatingChat.tsx` — Selector de conversación
+- Header: añadir dropdown o indicador de conversación activa
+- Botón "+" para nueva conversación
+- Al abrir, muestra la conversación activa (misma que la página)
+- Mantener compacto: no sidebar completo, solo un select/dropdown con las conversaciones
+
+## Detalles técnicos
+- Sin cambios en base de datos ni edge functions
+- Persistencia 100% en localStorage (consistente con implementación actual)
+- El historial compartido entre conversaciones se logra enviando al orchestrator los últimos N mensajes de TODAS las conversaciones combinadas, ordenados por timestamp
+- La migración de datos existentes: si existe `ava-asistente-messages` con mensajes, se crea una conversación "Conversación anterior" y se migran ahí
+
+## Archivos afectados
+- **Editar**: `src/hooks/useChatMessages.ts`, `src/pages/AsistenteIA.tsx`, `src/components/FloatingChat.tsx`
 
