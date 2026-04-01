@@ -44,7 +44,7 @@ Considera desviaciones típicas del sector: rentabilidad (15-30% inflación medi
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "google/gemini-2.5-pro",
+        model: "google/gemini-2.0-flash-001",
         messages: [
           { role: "system", content: "Eres AVA TURING RADAR, el agente de validación de retornos. Responde SOLO con el tool call." },
           { role: "user", content: prompt },
@@ -114,7 +114,7 @@ Considera desviaciones típicas del sector: rentabilidad (15-30% inflación medi
     }).select().single();
 
     await supabase.from("auditoria_ia").insert({
-      modelo: "google/gemini-2.5-pro",
+      modelo: "google/gemini-2.0-flash-001",
       funcion_ia: "validacion-retorno",
       latencia_ms: latencyMs,
       exito: true,

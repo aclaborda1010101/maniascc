@@ -41,7 +41,7 @@ export default function Admin() {
     return true;
   });
 
-  const totalCoste = filteredLogs.reduce((sum, l) => sum + (Number(l.coste_estimado) || 0), 0);
+  const avgLatency = filteredLogs.length > 0 ? Math.round(filteredLogs.reduce((sum, l) => sum + (Number(l.latencia_ms) || 0), 0) / filteredLogs.length) : 0;
   const funciones = [...new Set(logs.map(l => l.funcion_ia).filter(Boolean))];
 
   const testConnection = async () => {
@@ -241,8 +241,8 @@ export default function Admin() {
             </Card>
             <Card>
               <CardContent className="pt-6">
-                <p className="text-sm text-muted-foreground">Coste estimado</p>
-                <p className="text-2xl font-bold">{totalCoste.toFixed(4)} €</p>
+                <p className="text-sm text-muted-foreground">Latencia media</p>
+                <p className="text-2xl font-bold">{avgLatency}ms</p>
               </CardContent>
             </Card>
           </div>
@@ -286,7 +286,6 @@ export default function Admin() {
                       <TableHead>Modelo</TableHead>
                       <TableHead>Latencia</TableHead>
                       <TableHead>Tokens</TableHead>
-                      <TableHead>Coste</TableHead>
                       <TableHead>Estado</TableHead>
                       <TableHead>Fecha</TableHead>
                     </TableRow>
@@ -298,7 +297,6 @@ export default function Admin() {
                         <TableCell className="text-xs">{l.modelo}</TableCell>
                         <TableCell>{l.latencia_ms ? `${l.latencia_ms}ms` : "—"}</TableCell>
                         <TableCell className="text-xs">{l.tokens_entrada || 0} → {l.tokens_salida || 0}</TableCell>
-                        <TableCell className="text-xs">{Number(l.coste_estimado || 0).toFixed(4)} €</TableCell>
                         <TableCell>
                           <Badge variant="secondary" className={l.exito ? "bg-chart-2/10 text-chart-2" : "bg-destructive/10 text-destructive"}>
                             {l.exito ? "OK" : "Error"}
@@ -334,7 +332,7 @@ export default function Admin() {
                 </div>
                 <div>
                   <Label className="text-xs text-muted-foreground">Modelo Orquestador</Label>
-                  <p className="text-sm font-mono mt-1">gemini-3-flash-preview</p>
+                  <p className="text-sm font-mono mt-1">gemini-2.0-flash-001</p>
                 </div>
               </div>
             </CardContent>

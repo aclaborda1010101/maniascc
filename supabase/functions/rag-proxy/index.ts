@@ -127,7 +127,7 @@ Responde basándote en los documentos anteriores. Cita las fuentes utilizadas.`;
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "google/gemini-3-flash-preview",
+        model: "google/gemini-2.0-flash-001",
         messages: [
           { role: "system", content: systemPrompt },
           { role: "user", content: userPrompt },
@@ -199,7 +199,7 @@ Responde basándote en los documentos anteriores. Cita las fuentes utilizadas.`;
     // Audit
     await admin.from("auditoria_ia").insert({
       funcion_ia: `rag-proxy:${dominantDomain}`,
-      modelo: "google/gemini-3-flash-preview",
+      modelo: "google/gemini-2.0-flash-001",
       tokens_entrada: aiData.usage?.prompt_tokens || 0,
       tokens_salida: aiData.usage?.completion_tokens || 0,
       latencia_ms: latency,
