@@ -1,6 +1,6 @@
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/AppSidebar";
-import { Outlet, useNavigate } from "react-router-dom";
+import { Outlet, useNavigate, useLocation } from "react-router-dom";
 import { Input } from "@/components/ui/input";
 import { Search } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
@@ -9,6 +9,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { useState } from "react";
 import { useMatchNotifications } from "@/hooks/useMatchNotifications";
 import { NotificationCenter } from "@/components/NotificationCenter";
+import { FloatingChat } from "@/components/FloatingChat";
 
 export function AppLayout() {
   const navigate = useNavigate();
