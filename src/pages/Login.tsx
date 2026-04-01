@@ -29,7 +29,7 @@ export default function Login() {
           options: { data: { nombre } },
         });
         if (error) throw error;
-        toast({ title: "Cuenta creada", description: "Bienvenido a AVA TURING." });
+        toast({ title: "Cuenta creada", description: "Bienvenido a AVA." });
         navigate("/dashboard");
       } else {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
