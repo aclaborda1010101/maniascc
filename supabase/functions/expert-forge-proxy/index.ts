@@ -58,6 +58,7 @@ serve(async (req) => {
       action: "query",
       router_id: EXPERT_FORGE_PROJECT_ID,
       project_id: EXPERT_FORGE_PROJECT_ID,
+      api_key: apiKey,
       question,
     };
     if (specialist_id) body.specialist_id = specialist_id;
