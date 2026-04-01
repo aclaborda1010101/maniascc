@@ -10,7 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Settings, Shield, Wifi, WifiOff, Loader2, Sparkles, CheckCircle } from "lucide-react";
-import { queryExpertForge, EXPERT_SPECIALISTS } from "@/services/expertForge";
+import { queryExpertForge, healthCheckExpertForge, EXPERT_SPECIALISTS } from "@/services/expertForge";
 import { useToast } from "@/hooks/use-toast";
 
 export default function Admin() {
