@@ -241,8 +241,8 @@ export default function Admin() {
             </Card>
             <Card>
               <CardContent className="pt-6">
-                <p className="text-sm text-muted-foreground">Coste estimado</p>
-                <p className="text-2xl font-bold">{totalCoste.toFixed(4)} €</p>
+                <p className="text-sm text-muted-foreground">Latencia media</p>
+                <p className="text-2xl font-bold">{avgLatency}ms</p>
               </CardContent>
             </Card>
           </div>
