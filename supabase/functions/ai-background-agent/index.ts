@@ -202,7 +202,7 @@ ${(patterns || []).slice(0, 20).map((p: any) => `- ${p.patron_descripcion}: ajus
       confianza: insight.confianza,
       impacto_estimado: insight.impacto_estimado,
       generado_por_tarea_id: taskRecord?.id,
-      modelo_usado: "gemini-2.5-pro",
+      modelo_usado: "gemini-2.0-flash-001",
     }));
 
     if (insightInserts.length > 0) {
