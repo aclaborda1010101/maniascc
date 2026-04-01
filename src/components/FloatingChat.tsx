@@ -1,10 +1,10 @@
 import { useState } from "react";
-import { Bot, Send, X, Trash2 } from "lucide-react";
+import { Send, X, Trash2, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useChatMessages } from "@/hooks/useChatMessages";
+import { useChatMessages, toolLabel } from "@/hooks/useChatMessages";
 import ReactMarkdown from "react-markdown";
 
 export function FloatingChat() {
@@ -19,8 +19,8 @@ export function FloatingChat() {
           {/* Header */}
           <div className="flex items-center justify-between px-4 py-3 border-b">
             <div className="flex items-center gap-2">
-              <Bot className="h-5 w-5 text-accent" />
-              <span className="font-semibold text-sm">AVA Turing</span>
+              <Sparkles className="h-5 w-5 text-accent" />
+              <span className="font-semibold text-sm">AVA</span>
             </div>
             <div className="flex items-center gap-1">
               {messages.length > 0 && (
@@ -38,7 +38,7 @@ export function FloatingChat() {
           <div ref={scrollRef} className="flex-1 overflow-y-auto p-3 space-y-3">
             {messages.length === 0 && !loading && (
               <div className="flex flex-col items-center justify-center h-full text-center">
-                <Bot className="h-10 w-10 text-muted-foreground/20 mb-2" />
+                <Sparkles className="h-10 w-10 text-muted-foreground/20 mb-2" />
                 <p className="text-xs text-muted-foreground">¿En qué puedo ayudarte?</p>
               </div>
             )}
@@ -47,7 +47,7 @@ export function FloatingChat() {
               <div key={msg.id} className={`flex gap-2 ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
                 {msg.role === "assistant" && (
                   <div className="shrink-0 w-6 h-6 rounded-full bg-accent/10 flex items-center justify-center">
-                    <Bot className="h-3 w-3 text-accent" />
+                    <Sparkles className="h-3 w-3 text-accent" />
                   </div>
                 )}
                 <div className={`max-w-[80%] rounded-xl px-3 py-2 ${
@@ -60,14 +60,14 @@ export function FloatingChat() {
                   ) : (
                     <p className="text-xs">{msg.content}</p>
                   )}
-                  {msg.meta && (
+                  {msg.meta?.tools_used && msg.meta.tools_used.length > 0 && (
                     <div className="mt-1 flex flex-wrap gap-1">
-                      {msg.meta.specialist_used && (
-                        <Badge variant="outline" className="text-[9px] px-1 py-0">🧠 {msg.meta.specialist_used}</Badge>
-                      )}
-                      {msg.meta.confidence != null && (
-                        <Badge variant="outline" className="text-[9px] px-1 py-0">🎯 {Math.round(msg.meta.confidence * 100)}%</Badge>
-                      )}
+                      {msg.meta.tools_used.map((t, i) => {
+                        const tl = toolLabel(t);
+                        return (
+                          <Badge key={i} variant="outline" className="text-[9px] px-1 py-0">{tl.emoji} {tl.label}</Badge>
+                        );
+                      })}
                     </div>
                   )}
                 </div>
@@ -77,7 +77,7 @@ export function FloatingChat() {
             {loading && (
               <div className="flex gap-2">
                 <div className="shrink-0 w-6 h-6 rounded-full bg-accent/10 flex items-center justify-center">
-                  <Bot className="h-3 w-3 text-accent animate-pulse" />
+                  <Sparkles className="h-3 w-3 text-accent animate-pulse" />
                 </div>
                 <Skeleton className="h-10 w-48 rounded-xl" />
               </div>
@@ -88,7 +88,7 @@ export function FloatingChat() {
           <div className="border-t p-3">
             <div className="flex gap-2">
               <Input
-                placeholder="Escribe tu pregunta..."
+                placeholder="Pregúntame lo que necesites..."
                 value={input}
                 onChange={e => setInput(e.target.value)}
                 onKeyDown={e => e.key === "Enter" && !e.shiftKey && sendMessage()}
@@ -108,7 +108,7 @@ export function FloatingChat() {
         onClick={() => setOpen(o => !o)}
         className="h-14 w-14 rounded-full bg-accent text-accent-foreground shadow-lg flex items-center justify-center hover:bg-accent/90 transition-transform hover:scale-105"
       >
-        {open ? <X className="h-6 w-6" /> : <Bot className="h-6 w-6" />}
+        {open ? <X className="h-6 w-6" /> : <Sparkles className="h-6 w-6" />}
       </button>
     </div>
   );

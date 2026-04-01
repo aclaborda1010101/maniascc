@@ -1,9 +1,9 @@
-import { Bot, Send, Trash2, User } from "lucide-react";
+import { Bot, Send, Trash2, User, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useChatMessages } from "@/hooks/useChatMessages";
+import { useChatMessages, toolLabel } from "@/hooks/useChatMessages";
 import ReactMarkdown from "react-markdown";
 
 export default function AsistenteIA() {
@@ -15,9 +15,9 @@ export default function AsistenteIA() {
       <div className="flex items-center justify-between pb-4 shrink-0">
         <div>
           <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2">
-            <Bot className="h-6 w-6 text-accent" /> Asistente IA
+            <Sparkles className="h-6 w-6 text-accent" /> AVA
           </h1>
-          <p className="text-sm text-muted-foreground">Pregunta cualquier cosa — el sistema MoE selecciona el especialista adecuado</p>
+          <p className="text-sm text-muted-foreground">Tu asistente inteligente — consulta datos, analiza, modifica registros y más</p>
         </div>
         {messages.length > 0 && (
           <Button variant="ghost" size="sm" onClick={clearChat} className="gap-1 text-muted-foreground">
@@ -30,10 +30,10 @@ export default function AsistenteIA() {
       <div ref={scrollRef} className="flex-1 overflow-y-auto space-y-4 pb-4 pr-1 min-h-0">
         {messages.length === 0 && !loading && (
           <div className="flex flex-col items-center justify-center h-full text-center">
-            <Bot className="h-16 w-16 text-muted-foreground/20 mb-4" />
+            <Sparkles className="h-16 w-16 text-muted-foreground/20 mb-4" />
             <h2 className="text-lg font-semibold text-muted-foreground">¿En qué puedo ayudarte?</h2>
             <p className="text-sm text-muted-foreground/60 max-w-md mt-1">
-              Pregunta sobre localización, tenant mix, negociación, auditoría o cualquier tema de retail inmobiliario.
+              Puedo consultar datos de locales, operadores y proyectos, ejecutar análisis de localización o tenant mix, modificar registros y mucho más.
             </p>
           </div>
         )}
@@ -42,7 +42,7 @@ export default function AsistenteIA() {
           <div key={msg.id} className={`flex gap-3 ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
             {msg.role === "assistant" && (
               <div className="shrink-0 w-8 h-8 rounded-full bg-accent/10 flex items-center justify-center">
-                <Bot className="h-4 w-4 text-accent" />
+                <Sparkles className="h-4 w-4 text-accent" />
               </div>
             )}
             <div className={`max-w-[75%] rounded-xl px-4 py-3 ${
@@ -57,21 +57,15 @@ export default function AsistenteIA() {
               )}
               {msg.meta && (
                 <div className="mt-2 flex flex-wrap gap-1.5">
-                  {msg.meta.specialist_used && (
-                    <Badge variant="outline" className="text-[10px]">🧠 {msg.meta.specialist_used}</Badge>
-                  )}
-                  {msg.meta.confidence != null && (
-                    <Badge variant="outline" className="text-[10px]">🎯 {Math.round(msg.meta.confidence * 100)}%</Badge>
-                  )}
-                  {msg.meta.jarvis_enriched && (
-                    <Badge variant="outline" className="text-[10px]">📡 JARVIS</Badge>
-                  )}
+                  {msg.meta.tools_used?.map((t, i) => {
+                    const tl = toolLabel(t);
+                    return (
+                      <Badge key={i} variant="outline" className="text-[10px]">{tl.emoji} {tl.label}</Badge>
+                    );
+                  })}
                   {msg.meta.latency_ms && (
                     <Badge variant="outline" className="text-[10px]">⏱ {msg.meta.latency_ms}ms</Badge>
                   )}
-                  {msg.meta.sources && msg.meta.sources.length > 0 && msg.meta.sources.map((s, i) => (
-                    <Badge key={i} variant="secondary" className="text-[10px]">📄 {s.title || String(s)}</Badge>
-                  ))}
                 </div>
               )}
             </div>
@@ -86,7 +80,7 @@ export default function AsistenteIA() {
         {loading && (
           <div className="flex gap-3">
             <div className="shrink-0 w-8 h-8 rounded-full bg-accent/10 flex items-center justify-center">
-              <Bot className="h-4 w-4 text-accent animate-pulse" />
+              <Sparkles className="h-4 w-4 text-accent animate-pulse" />
             </div>
             <Skeleton className="h-16 w-64 rounded-xl" />
           </div>
@@ -97,7 +91,7 @@ export default function AsistenteIA() {
       <div className="border-t pt-4 shrink-0">
         <div className="flex gap-2">
           <Input
-            placeholder="Escribe tu pregunta..."
+            placeholder="Pregúntame lo que necesites... puedo consultar datos, analizar, modificar registros..."
             value={input}
             onChange={e => setInput(e.target.value)}
             onKeyDown={e => e.key === "Enter" && !e.shiftKey && sendMessage()}
