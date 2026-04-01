@@ -30,6 +30,7 @@ const NegotiationBriefing = lazy(() => import("./pages/NegotiationBriefing"));
 const AsistenteIA = lazy(() => import("./pages/AsistenteIA"));
 const Patrones = lazy(() => import("./pages/Patrones"));
 const Admin = lazy(() => import("./pages/Admin"));
+const Playground = lazy(() => import("./pages/Playground"));
 
 const queryClient = new QueryClient();
 
@@ -72,6 +73,7 @@ const App = () => (
                   <Route path="/asistente" element={<AsistenteIA />} />
                   <Route path="/patrones" element={<Patrones />} />
                   <Route path="/admin" element={<Admin />} />
+                  <Route path="/playground" element={<Playground />} />
                   {/* Retrocompatibilidad */}
                   <Route path="/busqueda" element={<Navigate to="/asistente" replace />} />
                   <Route path="/auditoria" element={<Navigate to="/admin" replace />} />

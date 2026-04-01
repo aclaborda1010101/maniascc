@@ -1,7 +1,7 @@
 import {
   LayoutDashboard, Users, Sparkles, LogOut, FileText,
   FolderKanban, UserCircle, Bell, MapPin, Brain,
-  Compass, FileSearch, Layers, MessageSquare, Moon, Sun, Settings, Network,
+  Compass, FileSearch, Layers, MessageSquare, Moon, Sun, Settings, Network, FlaskConical,
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useLocation } from "react-router-dom";
@@ -18,6 +18,7 @@ const mainItems = [
   { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
   { title: "AVA", url: "/asistente", icon: Sparkles },
   { title: "Patrones", url: "/patrones", icon: Network },
+  { title: "Playground", url: "/playground", icon: FlaskConical },
   { title: "Proyectos", url: "/proyectos", icon: FolderKanban },
   { title: "Notificaciones", url: "/notificaciones", icon: Bell },
 ];
