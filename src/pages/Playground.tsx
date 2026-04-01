@@ -366,6 +366,49 @@ export default function Playground() {
           })}
         </div>
       )}
+
+      {/* Past evaluations */}
+      {pastEvals.length > 0 && (
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm flex items-center gap-2">
+              <History className="h-4 w-4" />
+              Evaluaciones anteriores
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Prompt</TableHead>
+                  <TableHead className="w-40">Fecha</TableHead>
+                  <TableHead className="w-32">Ganadora</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {pastEvals.map((ev, i) => (
+                  <TableRow key={i}>
+                    <TableCell className="text-sm truncate max-w-md">{(ev as unknown as { prompt: string }).prompt}</TableCell>
+                    <TableCell className="text-xs text-muted-foreground">
+                      {new Date((ev as unknown as { created_at: string }).created_at).toLocaleDateString("es-ES", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })}
+                    </TableCell>
+                    <TableCell>
+                      {(ev as unknown as { winner: string | null }).winner ? (
+                        <Badge variant="outline" className="text-xs">
+                          <Star className="h-3 w-3 mr-1 text-amber-400 fill-amber-400" />
+                          {(ev as unknown as { winner: string }).winner}
+                        </Badge>
+                      ) : (
+                        <span className="text-xs text-muted-foreground">—</span>
+                      )}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }
