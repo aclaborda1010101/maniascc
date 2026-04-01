@@ -1,7 +1,7 @@
 import {
   LayoutDashboard, Users, Sparkles, LogOut, FileText,
   FolderKanban, UserCircle, Bell, MapPin, Brain,
-  Compass, FileSearch, Layers, MessageSquare, Moon, Sun, Settings,
+  Compass, FileSearch, Layers, MessageSquare, Moon, Sun, Settings, Network,
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useLocation } from "react-router-dom";
