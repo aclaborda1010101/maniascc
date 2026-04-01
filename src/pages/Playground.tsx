@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from "react";
-import { FlaskConical, Play, Star, ThumbsUp, ThumbsDown, HelpCircle, Loader2, Clock, BookOpen, Wrench } from "lucide-react";
+import { FlaskConical, Play, Star, ThumbsUp, ThumbsDown, HelpCircle, Loader2, Clock, BookOpen, Wrench, History } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
