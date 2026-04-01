@@ -7,7 +7,7 @@ const corsHeaders = {
 };
 
 const EXPERT_FORGE_URL = "https://nhfocnjtgwuamelovncq.supabase.co/functions/v1/api-gateway";
-const EXPERT_FORGE_PROJECT_ID = "5123d6ea";
+const EXPERT_FORGE_PROJECT_ID = "5123d6ea-14aa-4f73-a547-07393d583e89";
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -36,18 +36,64 @@ serve(async (req) => {
       });
     }
 
-    const { question, specialist_id, context } = await req.json();
-    if (!question) {
-      return new Response(JSON.stringify({ error: "question es obligatorio" }), {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
+    const reqBody = await req.json();
+    const { action, question, specialist_id, context } = reqBody;
 
     const apiKey = Deno.env.get("EXPERT_FORGE_API_KEY");
     if (!apiKey) {
       return new Response(JSON.stringify({ error: "EXPERT_FORGE_API_KEY no configurada" }), {
         status: 500,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // Health check: verify gateway is reachable without needing router_id/question
+    if (action === "health_check") {
+      const startMs = Date.now();
+      try {
+        const hcResp = await fetch(EXPERT_FORGE_URL, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "x-api-key": apiKey,
+          },
+          body: JSON.stringify({ action: "list_projects" }),
+        });
+        const latencyMs = Date.now() - startMs;
+        const hcData = await hcResp.json();
+        if (hcResp.ok) {
+          return new Response(JSON.stringify({
+            status: "ok",
+            latency_ms: latencyMs,
+            projects_count: hcData.projects?.length || 0,
+          }), {
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+        return new Response(JSON.stringify({
+          status: "error",
+          latency_ms: latencyMs,
+          error: hcData.error || `HTTP ${hcResp.status}`,
+        }), {
+          status: 200,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      } catch (e) {
+        return new Response(JSON.stringify({
+          status: "error",
+          latency_ms: Date.now() - startMs,
+          error: e.message,
+        }), {
+          status: 200,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+    }
+
+    // Normal query flow
+    if (!question) {
+      return new Response(JSON.stringify({ error: "question es obligatorio" }), {
+        status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
@@ -68,7 +114,6 @@ serve(async (req) => {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "Authorization": authHeader,
         "x-api-key": apiKey,
       },
       body: JSON.stringify(body),

@@ -1,7 +1,7 @@
 import {
   LayoutDashboard, Users, Sparkles, LogOut, FileText,
   FolderKanban, UserCircle, Bell, MapPin, Brain,
-  Compass, FileSearch, Layers, MessageSquare, Moon, Sun, Settings,
+  Compass, FileSearch, Layers, MessageSquare, Moon, Sun, Settings, Network,
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useLocation } from "react-router-dom";
@@ -32,6 +32,7 @@ const aiToolsItems = [
   { title: "Validación Dossier", url: "/validacion-dossier", icon: FileSearch },
   { title: "Tenant Mix", url: "/tenant-mix", icon: Layers },
   { title: "Negociación IA", url: "/negociacion-ia", icon: MessageSquare },
+  { title: "Patrones", url: "/patrones", icon: Network },
   { title: "AVA", url: "/asistente", icon: Sparkles },
 ];
 
