@@ -1256,6 +1256,48 @@ export type Database = {
         }
         Relationships: []
       }
+      playground_evaluations: {
+        Row: {
+          created_at: string
+          evaluacion: string | null
+          fuentes_consultadas: number | null
+          id: string
+          latencia_ms: number | null
+          prompt: string
+          respuesta: string
+          tools_used: Json | null
+          usuario_id: string
+          variante_config: Json
+          variante_index: number
+        }
+        Insert: {
+          created_at?: string
+          evaluacion?: string | null
+          fuentes_consultadas?: number | null
+          id?: string
+          latencia_ms?: number | null
+          prompt: string
+          respuesta: string
+          tools_used?: Json | null
+          usuario_id: string
+          variante_config?: Json
+          variante_index: number
+        }
+        Update: {
+          created_at?: string
+          evaluacion?: string | null
+          fuentes_consultadas?: number | null
+          id?: string
+          latencia_ms?: number | null
+          prompt?: string
+          respuesta?: string
+          tools_used?: Json | null
+          usuario_id?: string
+          variante_config?: Json
+          variante_index?: number
+        }
+        Relationships: []
+      }
       proyecto_contactos: {
         Row: {
           added_at: string
