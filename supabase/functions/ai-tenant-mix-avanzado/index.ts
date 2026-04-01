@@ -6,34 +6,6 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-async function queryJarvisPatterns(queryType: string, filters: Record<string, unknown>): Promise<any> {
-  try {
-    const url = Deno.env.get("JARVIS_PATTERNS_URL");
-    const key = Deno.env.get("JARVIS_PATTERNS_API_KEY");
-    if (!url || !key) return null;
-    const resp = await fetch(url, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action: "public_query_v2", api_key: key, query_type: queryType, filters }),
-    });
-    if (!resp.ok) return null;
-    return await resp.json();
-  } catch { return null; }
-}
-
-async function sendJarvisFeedback(feedbackType: string, data: Record<string, unknown>): Promise<void> {
-  try {
-    const url = Deno.env.get("JARVIS_PATTERNS_URL");
-    const key = Deno.env.get("JARVIS_PATTERNS_API_KEY");
-    if (!url || !key) return;
-    await fetch(url, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action: "feedback_ingest", api_key: key, feedback_type: feedbackType, data }),
-    });
-  } catch { /* fail-safe */ }
-}
-
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
@@ -57,29 +29,11 @@ serve(async (req) => {
     const { data: operadores } = await supabase.from("operadores").select("*").eq("activo", true).limit(30);
     const { data: sinergias } = await supabase.from("sinergias_operadores").select("*").limit(100);
 
-    // JARVIS: success_patterns + benchmarks (fail-safe, parallel)
-    const [jarvisSuccess, jarvisBenchmarks] = await Promise.all([
-      queryJarvisPatterns("success_patterns", { sector: "centros_comerciales", geography: centro_ubicacion || "" }),
-      queryJarvisPatterns("benchmarks", { sector: "centros_comerciales" }),
-    ]);
-
-    let jarvisContext = "";
-    if (jarvisSuccess && !jarvisSuccess.error) {
-      const signals = jarvisSuccess.success_signals || jarvisSuccess.signals || [];
-      if (signals.length > 0) {
-        jarvisContext += `\n\n📡 PATRONES DE ÉXITO JARVIS:\n${JSON.stringify(signals.slice(0, 10), null, 2)}`;
-        if (jarvisSuccess.success_blueprint) jarvisContext += `\nBlueprint de éxito: ${JSON.stringify(jarvisSuccess.success_blueprint)}`;
-      }
-    }
-    if (jarvisBenchmarks && !jarvisBenchmarks.error && jarvisBenchmarks.reference_benchmarks) {
-      jarvisContext += `\n\n📊 BENCHMARKS DE REFERENCIA JARVIS:\n${JSON.stringify(jarvisBenchmarks.reference_benchmarks)}`;
-    }
-
     const prompt = `Eres un experto en comercialización de centros comerciales en España. Genera 3 planes de tenant mix optimizado para "${centro_nombre}"${centro_ubicacion ? ` en ${centro_ubicacion}` : ""}.
 
 Locales disponibles: ${JSON.stringify(locales_disponibles || "No especificados")}
 Operadores activos en cartera: ${JSON.stringify((operadores || []).map(o => ({ nombre: o.nombre, sector: o.sector, presupuesto: o.presupuesto_min + "-" + o.presupuesto_max + "€", superficie: o.superficie_min + "-" + o.superficie_max + "m²" })))}
-Sinergias conocidas: ${JSON.stringify((sinergias || []).slice(0, 20))}${jarvisContext}
+Sinergias conocidas: ${JSON.stringify((sinergias || []).slice(0, 20))}
 
 Plan A: Máximo valor (operadores premium, renta alta)
 Plan B: Equilibrado (alta probabilidad de cierre)
@@ -175,15 +129,7 @@ Para cada plan incluye operadores recomendados, score de sinergia, predicción d
       created_by: user.id,
     });
 
-    // JARVIS feedback (fail-safe)
-    sendJarvisFeedback("tenant_mix_result", {
-      geography: centro_ubicacion || centro_nombre,
-      sector: "centros_comerciales",
-      outcome: "generated",
-      metrics: { planes_count: (result.planes || []).length, sinergias: (result.sinergias_detectadas || []).length },
-    });
-
-    return new Response(JSON.stringify({ ...result, latencia_ms: latencyMs, jarvis_enriched: !!(jarvisSuccess || jarvisBenchmarks) }), {
+    return new Response(JSON.stringify({ ...result, latencia_ms: latencyMs }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (e) {

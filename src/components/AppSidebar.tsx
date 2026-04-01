@@ -1,5 +1,5 @@
 import {
-  LayoutDashboard, Users, Sparkles, LogOut, FileText, Bot,
+  LayoutDashboard, Users, Sparkles, LogOut, FileText,
   FolderKanban, UserCircle, Bell, MapPin, Brain,
   Compass, FileSearch, Layers, MessageSquare, Moon, Sun, Settings,
 } from "lucide-react";
