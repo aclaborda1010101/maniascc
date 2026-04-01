@@ -179,7 +179,7 @@ serve(async (req) => {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "google/gemini-3.1-flash-preview",
+        model: "google/gemini-3-flash-preview",
         messages,
         tools: TOOLS,
       }),
@@ -208,7 +208,7 @@ serve(async (req) => {
     if (!choice?.tool_calls || choice.tool_calls.length === 0) {
       const latencyMs = Date.now() - startTime;
       await admin.from("auditoria_ia").insert({
-        modelo: "google/gemini-3.1-flash-preview",
+        modelo: "google/gemini-3-flash-preview",
         funcion_ia: "ava-orchestrator",
         latencia_ms: latencyMs,
         exito: true,
@@ -370,7 +370,7 @@ serve(async (req) => {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "google/gemini-3.1-flash-preview",
+        model: "google/gemini-3-flash-preview",
         messages: synthesisMessages,
       }),
     });
@@ -390,7 +390,7 @@ serve(async (req) => {
 
     // Audit
     await admin.from("auditoria_ia").insert({
-      modelo: "google/gemini-3.1-flash-preview",
+      modelo: "google/gemini-3-flash-preview",
       funcion_ia: "ava-orchestrator",
       latencia_ms: latencyMs,
       exito: true,
