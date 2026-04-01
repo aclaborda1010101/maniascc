@@ -286,7 +286,6 @@ export default function Admin() {
                       <TableHead>Modelo</TableHead>
                       <TableHead>Latencia</TableHead>
                       <TableHead>Tokens</TableHead>
-                      <TableHead>Coste</TableHead>
                       <TableHead>Estado</TableHead>
                       <TableHead>Fecha</TableHead>
                     </TableRow>
