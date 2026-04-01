@@ -61,7 +61,7 @@ Genera recomendaciones tácticas específicas.`;
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "google/gemini-2.5-pro",
+        model: "google/gemini-2.0-flash-001",
         messages: [
           { role: "system", content: "Eres AVA TURING PULSE, agente de inteligencia de negociación. RGPD: solo procesar datos con base legal legítima. Responde SOLO con tool call." },
           { role: "user", content: prompt },
