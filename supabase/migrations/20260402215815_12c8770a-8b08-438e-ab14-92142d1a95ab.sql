@@ -1,0 +1,1 @@
+ALTER TABLE public.usage_logs ADD COLUMN IF NOT EXISTS model text DEFAULT NULL;

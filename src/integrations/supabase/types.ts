@@ -1609,6 +1609,7 @@ export type Database = {
           id: string
           latency_ms: number | null
           metadata: Json | null
+          model: string | null
           rag_filter: string | null
           tokens_input: number | null
           tokens_output: number | null
@@ -1623,6 +1624,7 @@ export type Database = {
           id?: string
           latency_ms?: number | null
           metadata?: Json | null
+          model?: string | null
           rag_filter?: string | null
           tokens_input?: number | null
           tokens_output?: number | null
@@ -1637,6 +1639,7 @@ export type Database = {
           id?: string
           latency_ms?: number | null
           metadata?: Json | null
+          model?: string | null
           rag_filter?: string | null
           tokens_input?: number | null
           tokens_output?: number | null
