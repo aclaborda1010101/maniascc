@@ -125,12 +125,14 @@ serve(async (req) => {
 
     const tokensIn = result.tokens?.input || 0;
     const tokensOut = result.tokens?.output || 0;
-    const costEur = result.cost || (tokensIn * 2.5 / 1_000_000 * 0.92 + tokensOut * 10 / 1_000_000 * 0.92);
+    const modelUsed = result.model || result.specialist_used || "expert-forge-moe";
+    // Expert Forge uses its own MoE routing — use reported cost or estimate based on Gemini pricing
+    const costEur = result.cost || (tokensIn * 0.10 / 1_000_000 * 0.92 + tokensOut * 0.40 / 1_000_000 * 0.92);
 
     // Audit log
     await supabase.from("auditoria_ia").insert({
       funcion_ia: "expert-forge-proxy",
-      modelo: result.model || result.specialist_used || "expert-forge-moe",
+      modelo: modelUsed,
       exito: resp.ok,
       latencia_ms: latencyMs,
       tokens_entrada: tokensIn || null,
@@ -150,6 +152,7 @@ serve(async (req) => {
       action_type: "expert-forge",
       agent_id: specialist_id || null,
       agent_label: result.specialist_used || specialist_id || "MoE Router",
+      model: modelUsed,
       rag_filter: context?.rag_filter || null,
       tokens_input: tokensIn,
       tokens_output: tokensOut,
