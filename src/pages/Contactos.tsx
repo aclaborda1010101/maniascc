@@ -37,6 +37,7 @@ export default function Contactos() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [importOpen, setImportOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const { toast } = useToast();
   const { user } = useAuth();
