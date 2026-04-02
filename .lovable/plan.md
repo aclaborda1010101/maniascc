@@ -1,56 +1,52 @@
 
 
-# Plan: Sistema multi-conversación para AVA (estilo ChatGPT)
+## Plan: Página de Conexiones (/ajustes)
 
-## Resumen
-Añadir soporte para múltiples conversaciones con nombres editables, lista de conversaciones en sidebar, y capacidad de crear/cambiar/renombrar/eliminar chats. Todo persiste en localStorage. El historial completo se envía al orchestrator independientemente de la conversación activa.
+### Resumen
+Nueva página `/ajustes` con dos secciones: conexión WhatsApp vía Evolution API (con QR code) y conexión Email vía IMAP. Se añade al sidebar y se crea una edge function para gestionar la instancia de Evolution.
 
-## Modelo de datos (localStorage)
+### Cambios
 
-```text
-ava-conversations: [
-  { id: "uuid", title: "Nueva conversación", createdAt: timestamp, updatedAt: timestamp },
-  ...
-]
-ava-conv-{id}: ChatMessage[]   // mensajes por conversación
-ava-active-conv: "uuid"        // conversación activa
-```
+#### 1. Base de datos (migración)
+- Añadir columnas a `perfiles`: `imap_host`, `imap_port`, `imap_user`, `imap_password_encrypted`, `imap_connected` (boolean), `evolution_instance_name`, `evolution_connected` (boolean)
+- Las columnas `evolution_instance_url` y `evolution_api_key` ya existen en `perfiles`
 
-## Cambios por archivo
+#### 2. Edge function `evolution-manage` (`supabase/functions/evolution-manage/index.ts`)
+- Acción `create_instance`: POST a `{evolution_url}/instance/create` con instance name. Devuelve QR code base64
+- Acción `check_status`: GET a `{evolution_url}/instance/connectionState/{instance}`. Devuelve si está conectado
+- Acción `get_qr`: GET a `{evolution_url}/instance/connect/{instance}`. Devuelve QR actualizado
+- Lee `evolution_instance_url` y `evolution_api_key` del perfil del usuario autenticado
+- CORS headers incluidos
 
-### 1. `src/hooks/useChatMessages.ts` — Refactor completo
-- Nuevo tipo `Conversation = { id, title, createdAt, updatedAt }`
-- Estado: `conversations[]`, `activeConversationId`, `messages` (de la conversación activa)
-- Funciones nuevas:
-  - `createConversation()` — crea nueva conv, la activa, auto-titula con primer mensaje
-  - `switchConversation(id)` — cambia a otra conversación
-  - `renameConversation(id, title)` — edita título
-  - `deleteConversation(id)` — elimina conv y sus mensajes
-- `sendMessage` — envía historial completo de TODAS las conversaciones (concatenado, ultimos 10 mensajes globales) al orchestrator
-- Auto-título: al enviar el primer mensaje, el título se pone con las primeras ~40 chars del mensaje del usuario
-- Exporta todo: `{ conversations, activeConversationId, messages, input, setInput, loading, sendMessage, createConversation, switchConversation, renameConversation, deleteConversation, scrollRef }`
+#### 3. Nueva página `src/pages/Ajustes.tsx`
+**Sección WhatsApp:**
+- Campo "Evolution API URL" (prellenado de perfil)
+- Campo "Instance Name"
+- Botón "Conectar" que:
+  1. Guarda URL + instance name en `perfiles`
+  2. Llama a edge function `evolution-manage` con acción `create_instance`
+  3. Muestra QR code como `<img src="data:image/png;base64,...">`
+  4. Polling cada 3s llamando `check_status` hasta estado "open"
+  5. Al conectar: muestra badge verde "Conectado", actualiza `evolution_connected = true`
 
-### 2. `src/pages/AsistenteIA.tsx` — Layout con sidebar de conversaciones
-- Layout 2 columnas: sidebar izquierdo (w-64) con lista de conversaciones + area de chat
-- Sidebar muestra:
-  - Botón "Nueva conversación" arriba
-  - Lista de conversaciones ordenadas por `updatedAt` desc
-  - Cada item: título (editable con doble-click), fecha, botón eliminar
-  - Conversación activa resaltada
-- Area de chat: igual que ahora pero sin el botón "Nueva conversación" del header
+**Sección Email (IMAP):**
+- Campos: Servidor IMAP, Puerto (default 993), Usuario, Contraseña
+- Botón "Conectar email" que guarda en `perfiles` (contraseña cifrada via edge function)
+- Badge de estado conexión
 
-### 3. `src/components/FloatingChat.tsx` — Selector de conversación
-- Header: añadir dropdown o indicador de conversación activa
-- Botón "+" para nueva conversación
-- Al abrir, muestra la conversación activa (misma que la página)
-- Mantener compacto: no sidebar completo, solo un select/dropdown con las conversaciones
+#### 4. Sidebar (`src/components/AppSidebar.tsx`)
+- Añadir ítem `{ title: "Ajustes", url: "/ajustes", icon: Settings }` en `adminItems`
 
-## Detalles técnicos
-- Sin cambios en base de datos ni edge functions
-- Persistencia 100% en localStorage (consistente con implementación actual)
-- El historial compartido entre conversaciones se logra enviando al orchestrator los últimos N mensajes de TODAS las conversaciones combinadas, ordenados por timestamp
-- La migración de datos existentes: si existe `ava-asistente-messages` con mensajes, se crea una conversación "Conversación anterior" y se migran ahí
+#### 5. Router (`src/App.tsx`)
+- Lazy import de `Ajustes`
+- Ruta `/ajustes` dentro del layout protegido
 
-## Archivos afectados
-- **Editar**: `src/hooks/useChatMessages.ts`, `src/pages/AsistenteIA.tsx`, `src/components/FloatingChat.tsx`
+### Archivos
+| Archivo | Acción |
+|---|---|
+| `supabase/migrations/...` | Nuevas columnas en perfiles |
+| `supabase/functions/evolution-manage/index.ts` | Nueva edge function |
+| `src/pages/Ajustes.tsx` | Nueva página |
+| `src/components/AppSidebar.tsx` | Añadir ítem Ajustes |
+| `src/App.tsx` | Añadir ruta /ajustes |
 
