@@ -209,7 +209,7 @@ export default function Playground() {
         tools_used: result.toolsUsed,
         evaluacion: "mejor",
       } as never);
-      toast({ title: "⭐ Mejor respuesta guardada", description: `${src.label} + ${ag.label}` });
+      toast({ title: "⭐ Mejor respuesta guardada", description: `${ctx.label} + ${ag.label}` });
       fetchPastEvals();
     } catch {
       toast({ title: "Error", description: "No se pudo guardar", variant: "destructive" });
