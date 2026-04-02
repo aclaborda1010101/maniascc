@@ -180,20 +180,27 @@ export default function Contactos() {
           </div>
 
           {/* Filters */}
-          <div className="flex gap-1 flex-wrap">
-            {TIPOS.map((t) => (
-              <button key={t.value} onClick={() => setTipoFilter(t.value)}
-                className={`rounded-full px-2.5 py-0.5 text-[10px] font-medium transition-colors ${tipoFilter === t.value ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground hover:bg-muted/80"}`}>
-                {t.label}
-              </button>
-            ))}
-            <span className="w-px bg-border mx-1" />
-            {CATEGORIAS.map((c) => (
-              <button key={c.value} onClick={() => setCatFilter(c.value)}
-                className={`rounded-full px-2.5 py-0.5 text-[10px] font-medium transition-colors ${catFilter === c.value ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground hover:bg-muted/80"}`}>
-                {c.label}
-              </button>
-            ))}
+          <div className="flex gap-2">
+            <Select value={tipoFilter} onValueChange={setTipoFilter}>
+              <SelectTrigger className="h-8 text-xs flex-1">
+                <SelectValue placeholder="Tipo" />
+              </SelectTrigger>
+              <SelectContent>
+                {TIPOS.map((t) => (
+                  <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Select value={catFilter} onValueChange={setCatFilter}>
+              <SelectTrigger className="h-8 text-xs flex-1">
+                <SelectValue placeholder="Categoría" />
+              </SelectTrigger>
+              <SelectContent>
+                {CATEGORIAS.map((c) => (
+                  <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
         </div>
 
