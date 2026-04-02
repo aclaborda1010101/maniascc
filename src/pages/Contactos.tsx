@@ -19,13 +19,11 @@ const TIPOS = [
   { value: "todos", label: "Todos" },
   { value: "operador", label: "Operador" },
   { value: "propietario", label: "Propietario" },
-  { value: "agente", label: "Agente" },
 ];
 
 const CATEGORIAS = [
   { value: "todos", label: "Todos" },
   { value: "profesional", label: "Profesional" },
-  { value: "personal", label: "Personal" },
 ];
 
 export default function Contactos() {
