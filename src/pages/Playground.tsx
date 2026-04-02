@@ -141,7 +141,7 @@ export default function Playground() {
     // Init all cells as loading
     const init: Record<string, CellResult> = {};
     cells.forEach(c => {
-      init[`${c.sourceKey}::${c.agentKey}`] = { response: "", latencyMs: 0, toolsUsed: [], sourcesCount: 0, loading: true, error: false };
+      init[`${c.contextKey}::${c.agentKey}`] = { response: "", latencyMs: 0, toolsUsed: [], sourcesCount: 0, loading: true, error: false };
     });
     setResults(init);
 
