@@ -31,6 +31,7 @@ const AsistenteIA = lazy(() => import("./pages/AsistenteIA"));
 const Patrones = lazy(() => import("./pages/Patrones"));
 const Admin = lazy(() => import("./pages/Admin"));
 const Playground = lazy(() => import("./pages/Playground"));
+const Consumo = lazy(() => import("./pages/Consumo"));
 
 const queryClient = new QueryClient();
 
