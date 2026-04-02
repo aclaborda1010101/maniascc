@@ -103,7 +103,7 @@ serve(async (req) => {
 
     const body: Record<string, unknown> = {
       action: "query",
-      router_id: EXPERT_FORGE_PROJECT_ID,
+      router_id: EXPERT_FORGE_ROUTER_ID,
       project_id: EXPERT_FORGE_PROJECT_ID,
       api_key: apiKey,
       question,
