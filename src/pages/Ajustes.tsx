@@ -4,16 +4,26 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Separator } from "@/components/ui/separator";
-import { MessageSquare, Mail, CheckCircle2, Loader2, QrCode } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Skeleton } from "@/components/ui/skeleton";
+import {
+  MessageSquare, Mail, CheckCircle2, Loader2, QrCode, Settings,
+  Shield, Wifi, WifiOff, Sparkles, CheckCircle, Link2,
+} from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
+import { queryExpertForge, healthCheckExpertForge, EXPERT_SPECIALISTS } from "@/services/expertForge";
+import { useToast } from "@/hooks/use-toast";
 
-export default function Ajustes() {
+/* ═══════════════════════════════════════════════════
+   TAB: Conexiones (WhatsApp + Email)
+   ═══════════════════════════════════════════════════ */
+function TabConexiones() {
   const { user } = useAuth();
 
-  // WhatsApp state
   const [evoUrl, setEvoUrl] = useState("");
   const [evoKey, setEvoKey] = useState("");
   const [instanceName, setInstanceName] = useState("");
@@ -22,7 +32,6 @@ export default function Ajustes() {
   const [waLoading, setWaLoading] = useState(false);
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  // IMAP state
   const [imapHost, setImapHost] = useState("");
   const [imapPort, setImapPort] = useState("993");
   const [imapUser, setImapUser] = useState("");
@@ -30,15 +39,10 @@ export default function Ajustes() {
   const [imapConnected, setImapConnected] = useState(false);
   const [imapLoading, setImapLoading] = useState(false);
 
-  // Load profile
   useEffect(() => {
     if (!user) return;
     (async () => {
-      const { data } = await supabase
-        .from("perfiles")
-        .select("*")
-        .eq("user_id", user.id)
-        .single();
+      const { data } = await supabase.from("perfiles").select("*").eq("user_id", user.id).single();
       if (data) {
         setEvoUrl((data as any).evolution_instance_url || "");
         setEvoKey((data as any).evolution_api_key || "");
@@ -52,12 +56,7 @@ export default function Ajustes() {
     })();
   }, [user]);
 
-  // Cleanup polling
-  useEffect(() => {
-    return () => {
-      if (pollingRef.current) clearInterval(pollingRef.current);
-    };
-  }, []);
+  useEffect(() => { return () => { if (pollingRef.current) clearInterval(pollingRef.current); }; }, []);
 
   const checkStatus = useCallback(async () => {
     try {
@@ -69,249 +68,363 @@ export default function Ajustes() {
       if (state === "open") {
         setWaConnected(true);
         setQrCode(null);
-        if (pollingRef.current) {
-          clearInterval(pollingRef.current);
-          pollingRef.current = null;
-        }
-        await supabase
-          .from("perfiles")
-          .update({ evolution_connected: true } as any)
-          .eq("user_id", user!.id);
+        if (pollingRef.current) { clearInterval(pollingRef.current); pollingRef.current = null; }
+        await supabase.from("perfiles").update({ evolution_connected: true } as any).eq("user_id", user!.id);
         toast.success("WhatsApp conectado correctamente");
       }
     } catch {}
   }, [instanceName, user]);
 
   const handleConnectWhatsApp = async () => {
-    if (!evoUrl || !evoKey || !instanceName) {
-      toast.error("Completa todos los campos de WhatsApp");
-      return;
-    }
+    if (!evoUrl || !evoKey || !instanceName) { toast.error("Completa todos los campos de WhatsApp"); return; }
     setWaLoading(true);
     try {
-      // Save credentials
-      await supabase
-        .from("perfiles")
-        .update({
-          evolution_instance_url: evoUrl,
-          evolution_api_key: evoKey,
-          evolution_instance_name: instanceName,
-        } as any)
-        .eq("user_id", user!.id);
+      await supabase.from("perfiles").update({
+        evolution_instance_url: evoUrl, evolution_api_key: evoKey, evolution_instance_name: instanceName,
+      } as any).eq("user_id", user!.id);
 
-      // Create instance
       const { data, error } = await supabase.functions.invoke("evolution-manage", {
-        body: {
-          action: "create_instance",
-          instance_name: instanceName,
-          evolution_url: evoUrl,
-          evolution_api_key: evoKey,
-        },
+        body: { action: "create_instance", instance_name: instanceName, evolution_url: evoUrl, evolution_api_key: evoKey },
       });
-
       if (error) throw error;
 
       const qr = data?.qrcode?.base64 || data?.base64 || data?.qr;
       if (qr) {
-        const src = qr.startsWith("data:") ? qr : `data:image/png;base64,${qr}`;
-        setQrCode(src);
+        setQrCode(qr.startsWith("data:") ? qr : `data:image/png;base64,${qr}`);
       } else {
-        // Try get_qr
         const { data: qrData } = await supabase.functions.invoke("evolution-manage", {
           body: { action: "get_qr", instance_name: instanceName },
         });
         const qr2 = qrData?.base64 || qrData?.qrcode?.base64;
-        if (qr2) {
-          const src = qr2.startsWith("data:") ? qr2 : `data:image/png;base64,${qr2}`;
-          setQrCode(src);
-        }
+        if (qr2) setQrCode(qr2.startsWith("data:") ? qr2 : `data:image/png;base64,${qr2}`);
       }
 
-      // Start polling
       if (pollingRef.current) clearInterval(pollingRef.current);
       pollingRef.current = setInterval(checkStatus, 3000);
       toast.info("Escanea el código QR con WhatsApp");
     } catch (err: any) {
       toast.error(err.message || "Error al conectar WhatsApp");
-    } finally {
-      setWaLoading(false);
-    }
+    } finally { setWaLoading(false); }
   };
 
   const handleConnectEmail = async () => {
-    if (!imapHost || !imapUser || !imapPass) {
-      toast.error("Completa todos los campos de email");
-      return;
-    }
+    if (!imapHost || !imapUser || !imapPass) { toast.error("Completa todos los campos de email"); return; }
     setImapLoading(true);
     try {
-      await supabase
-        .from("perfiles")
-        .update({
-          imap_host: imapHost,
-          imap_port: parseInt(imapPort) || 993,
-          imap_user: imapUser,
-          imap_password_encrypted: imapPass,
-          imap_connected: true,
-        } as any)
-        .eq("user_id", user!.id);
+      await supabase.from("perfiles").update({
+        imap_host: imapHost, imap_port: parseInt(imapPort) || 993,
+        imap_user: imapUser, imap_password_encrypted: imapPass, imap_connected: true,
+      } as any).eq("user_id", user!.id);
       setImapConnected(true);
       toast.success("Configuración de email guardada");
-    } catch (err: any) {
-      toast.error(err.message || "Error al guardar email");
-    } finally {
-      setImapLoading(false);
-    }
+    } catch (err: any) { toast.error(err.message || "Error al guardar email"); }
+    finally { setImapLoading(false); }
   };
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">Ajustes</h1>
-        <p className="text-muted-foreground">Configura tus conexiones externas</p>
-      </div>
-
       {/* WhatsApp */}
       <Card>
         <CardHeader>
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <MessageSquare className="h-5 w-5 text-green-600" />
+              <MessageSquare className="h-5 w-5 text-chart-2" />
               <CardTitle>WhatsApp (Evolution API)</CardTitle>
             </div>
-            {waConnected && (
-              <Badge className="bg-green-600 text-white">
-                <CheckCircle2 className="mr-1 h-3 w-3" /> Conectado
-              </Badge>
-            )}
+            {waConnected && <Badge variant="secondary" className="bg-chart-2/10 text-chart-2"><CheckCircle2 className="mr-1 h-3 w-3" /> Conectado</Badge>}
           </div>
-          <CardDescription>
-            Conecta tu número de WhatsApp vía Evolution API para gestionar conversaciones.
-          </CardDescription>
+          <CardDescription>Conecta tu número de WhatsApp vía Evolution API.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="grid gap-4 sm:grid-cols-2">
-            <div className="space-y-2">
-              <Label>Evolution API URL</Label>
-              <Input
-                placeholder="https://evolution.ejemplo.com"
-                value={evoUrl}
-                onChange={(e) => setEvoUrl(e.target.value)}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>API Key</Label>
-              <Input
-                type="password"
-                placeholder="Tu API key"
-                value={evoKey}
-                onChange={(e) => setEvoKey(e.target.value)}
-              />
-            </div>
+            <div className="space-y-2"><Label>Evolution API URL</Label><Input placeholder="https://evolution.ejemplo.com" value={evoUrl} onChange={(e) => setEvoUrl(e.target.value)} /></div>
+            <div className="space-y-2"><Label>API Key</Label><Input type="password" placeholder="Tu API key" value={evoKey} onChange={(e) => setEvoKey(e.target.value)} /></div>
           </div>
-          <div className="space-y-2">
-            <Label>Nombre de instancia</Label>
-            <Input
-              placeholder="mi-instancia-whatsapp"
-              value={instanceName}
-              onChange={(e) => setInstanceName(e.target.value)}
-            />
-          </div>
-
+          <div className="space-y-2"><Label>Nombre de instancia</Label><Input placeholder="mi-instancia-whatsapp" value={instanceName} onChange={(e) => setInstanceName(e.target.value)} /></div>
           {qrCode && !waConnected && (
             <div className="flex flex-col items-center gap-3 rounded-lg border border-dashed p-6">
               <QrCode className="h-5 w-5 text-muted-foreground" />
               <p className="text-sm text-muted-foreground">Escanea con WhatsApp</p>
               <img src={qrCode} alt="QR WhatsApp" className="h-64 w-64 rounded-md" />
-              <p className="text-xs text-muted-foreground animate-pulse">
-                Esperando conexión...
-              </p>
+              <p className="text-xs text-muted-foreground animate-pulse">Esperando conexión...</p>
             </div>
           )}
-
           <Button onClick={handleConnectWhatsApp} disabled={waLoading || waConnected}>
-            {waLoading ? (
-              <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Conectando...</>
-            ) : waConnected ? (
-              <><CheckCircle2 className="mr-2 h-4 w-4" /> Conectado</>
-            ) : (
-              "Conectar WhatsApp"
-            )}
+            {waLoading ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Conectando...</> : waConnected ? <><CheckCircle2 className="mr-2 h-4 w-4" />Conectado</> : "Conectar WhatsApp"}
           </Button>
         </CardContent>
       </Card>
-
-      <Separator />
 
       {/* Email IMAP */}
       <Card>
         <CardHeader>
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <Mail className="h-5 w-5 text-blue-600" />
+              <Mail className="h-5 w-5 text-primary" />
               <CardTitle>Email (IMAP)</CardTitle>
             </div>
-            {imapConnected && (
-              <Badge className="bg-blue-600 text-white">
-                <CheckCircle2 className="mr-1 h-3 w-3" /> Conectado
-              </Badge>
-            )}
+            {imapConnected && <Badge variant="secondary" className="bg-primary/10 text-primary"><CheckCircle2 className="mr-1 h-3 w-3" /> Conectado</Badge>}
           </div>
-          <CardDescription>
-            Conecta tu cuenta de email para sincronizar conversaciones con contactos.
-          </CardDescription>
+          <CardDescription>Conecta tu cuenta de email para sincronizar conversaciones.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="grid gap-4 sm:grid-cols-2">
-            <div className="space-y-2">
-              <Label>Servidor IMAP</Label>
-              <Input
-                placeholder="imap.gmail.com"
-                value={imapHost}
-                onChange={(e) => setImapHost(e.target.value)}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Puerto</Label>
-              <Input
-                type="number"
-                placeholder="993"
-                value={imapPort}
-                onChange={(e) => setImapPort(e.target.value)}
-              />
-            </div>
+            <div className="space-y-2"><Label>Servidor IMAP</Label><Input placeholder="imap.gmail.com" value={imapHost} onChange={(e) => setImapHost(e.target.value)} /></div>
+            <div className="space-y-2"><Label>Puerto</Label><Input type="number" placeholder="993" value={imapPort} onChange={(e) => setImapPort(e.target.value)} /></div>
           </div>
           <div className="grid gap-4 sm:grid-cols-2">
-            <div className="space-y-2">
-              <Label>Usuario / Email</Label>
-              <Input
-                placeholder="usuario@ejemplo.com"
-                value={imapUser}
-                onChange={(e) => setImapUser(e.target.value)}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Contraseña</Label>
-              <Input
-                type="password"
-                placeholder="••••••••"
-                value={imapPass}
-                onChange={(e) => setImapPass(e.target.value)}
-              />
-            </div>
+            <div className="space-y-2"><Label>Usuario / Email</Label><Input placeholder="usuario@ejemplo.com" value={imapUser} onChange={(e) => setImapUser(e.target.value)} /></div>
+            <div className="space-y-2"><Label>Contraseña</Label><Input type="password" placeholder="••••••••" value={imapPass} onChange={(e) => setImapPass(e.target.value)} /></div>
           </div>
-
           <Button onClick={handleConnectEmail} disabled={imapLoading || imapConnected}>
-            {imapLoading ? (
-              <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Guardando...</>
-            ) : imapConnected ? (
-              <><CheckCircle2 className="mr-2 h-4 w-4" /> Conectado</>
-            ) : (
-              "Conectar email"
-            )}
+            {imapLoading ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Guardando...</> : imapConnected ? <><CheckCircle2 className="mr-2 h-4 w-4" />Conectado</> : "Conectar email"}
           </Button>
         </CardContent>
       </Card>
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════════════
+   TAB: Conexión IA
+   ═══════════════════════════════════════════════════ */
+function TabConexionIA() {
+  const [connectionStatus, setConnectionStatus] = useState<"idle" | "testing" | "ok" | "error">("idle");
+  const [pingLatency, setPingLatency] = useState<number | null>(null);
+  const [logs, setLogs] = useState<any[]>([]);
+  const [logsLoading, setLogsLoading] = useState(true);
+  const { toast } = useToast();
+
+  useEffect(() => {
+    supabase.from("auditoria_ia").select("*").order("created_at", { ascending: false }).limit(10)
+      .then(({ data }) => { setLogs(data || []); setLogsLoading(false); });
+  }, []);
+
+  const testConnection = async () => {
+    setConnectionStatus("testing");
+    const res = await healthCheckExpertForge();
+    setPingLatency(res.latency_ms);
+    if (res.status === "error") {
+      setConnectionStatus("error");
+      toast({ title: "Conexión fallida", description: res.error || "Error desconocido", variant: "destructive" });
+    } else {
+      setConnectionStatus("ok");
+      toast({ title: "Conexión activa", description: `Latencia: ${res.latency_ms}ms` });
+    }
+  };
+
+  const statusColor = connectionStatus === "ok"
+    ? (pingLatency && pingLatency > 5000 ? "bg-yellow-500" : "bg-chart-2")
+    : connectionStatus === "error" ? "bg-destructive"
+    : connectionStatus === "testing" ? "bg-yellow-500 animate-pulse"
+    : "bg-muted-foreground/30";
+
+  const SPECIALISTS_INFO = [
+    { name: "ATLAS", id: EXPERT_SPECIALISTS.ATLAS, desc: "Localización y análisis geoespacial" },
+    { name: "FORGE7", id: EXPERT_SPECIALISTS.FORGE7, desc: "Generación de documentos estratégicos" },
+    { name: "MATCHING", id: EXPERT_SPECIALISTS.MATCHING, desc: "Matching operador-local" },
+    { name: "AUDITORIA", id: EXPERT_SPECIALISTS.AUDITORIA, desc: "Auditoría y validación" },
+    { name: "SCRAPING", id: EXPERT_SPECIALISTS.SCRAPING, desc: "Recopilación de datos externos" },
+    { name: "COORDINADOR", id: EXPERT_SPECIALISTS.COORDINADOR, desc: "Coordinador MoE" },
+    { name: "NEGOCIACION", id: EXPERT_SPECIALISTS.NEGOCIACION, desc: "Negociación y briefings" },
+  ];
+
+  const RAGS_INFO = [
+    "Centros Comerciales España", "Normativa Retail", "Benchmarks Mercado", "Operadores Nacionales",
+    "Demografía y Zonas", "Negociación Inmobiliaria", "Documentos Internos", "Histórico Transacciones",
+  ];
+
+  return (
+    <div className="space-y-4">
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            {connectionStatus === "ok" ? <Wifi className="h-5 w-5 text-chart-2" /> :
+             connectionStatus === "error" ? <WifiOff className="h-5 w-5 text-destructive" /> :
+             <Wifi className="h-5 w-5 text-muted-foreground" />}
+            Estado de Conexión
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid gap-4 sm:grid-cols-3">
+            <div><Label className="text-xs text-muted-foreground">Estado</Label><div className="flex items-center gap-2 mt-1"><div className={`w-3 h-3 rounded-full ${statusColor}`} /><span className="text-sm font-medium">{connectionStatus === "ok" ? (pingLatency && pingLatency > 5000 ? "Lento" : "Conectado") : connectionStatus === "error" ? "Error" : connectionStatus === "testing" ? "Probando..." : "Sin probar"}</span></div></div>
+            <div><Label className="text-xs text-muted-foreground">Última latencia</Label><p className="text-sm font-medium mt-1">{pingLatency ? `${pingLatency}ms` : "—"}</p></div>
+            <div><Label className="text-xs text-muted-foreground">Gateway</Label><p className="text-sm font-medium mt-1 truncate">expert-forge-proxy</p></div>
+          </div>
+          <Button onClick={testConnection} disabled={connectionStatus === "testing"} variant="outline" className="gap-1">
+            {connectionStatus === "testing" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+            Probar conexión
+          </Button>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader><CardTitle>Especialistas disponibles</CardTitle></CardHeader>
+        <CardContent>
+          <Table>
+            <TableHeader><TableRow><TableHead>Nombre</TableHead><TableHead>Descripción</TableHead><TableHead>UUID</TableHead><TableHead>Estado</TableHead></TableRow></TableHeader>
+            <TableBody>
+              {SPECIALISTS_INFO.map(s => (
+                <TableRow key={s.name}><TableCell className="font-medium">{s.name}</TableCell><TableCell className="text-sm text-muted-foreground">{s.desc}</TableCell><TableCell className="font-mono text-xs">{s.id.substring(0, 8)}...</TableCell><TableCell><CheckCircle className="h-4 w-4 text-chart-2" /></TableCell></TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader><CardTitle>RAGs conectados</CardTitle></CardHeader>
+        <CardContent>
+          <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+            {RAGS_INFO.map(r => <div key={r} className="rounded-lg border p-3 flex items-center gap-2"><div className="w-2 h-2 rounded-full bg-chart-2" /><span className="text-sm">{r}</span></div>)}
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader><CardTitle className="text-base">Últimas consultas</CardTitle></CardHeader>
+        <CardContent>
+          {logsLoading ? <div className="space-y-3">{[1, 2, 3].map(i => <Skeleton key={i} className="h-12 w-full" />)}</div> : (
+            <Table>
+              <TableHeader><TableRow><TableHead>Función</TableHead><TableHead>Modelo</TableHead><TableHead>Latencia</TableHead><TableHead>Estado</TableHead><TableHead>Fecha</TableHead></TableRow></TableHeader>
+              <TableBody>
+                {logs.map(l => (
+                  <TableRow key={l.id}><TableCell className="font-medium">{l.funcion_ia || "—"}</TableCell><TableCell className="text-xs">{l.modelo}</TableCell><TableCell>{l.latencia_ms ? `${l.latencia_ms}ms` : "—"}</TableCell><TableCell><Badge variant="secondary" className={l.exito ? "bg-chart-2/10 text-chart-2" : "bg-destructive/10 text-destructive"}>{l.exito ? "OK" : "Error"}</Badge></TableCell><TableCell className="text-xs text-muted-foreground">{new Date(l.created_at).toLocaleString("es-ES")}</TableCell></TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════════════
+   TAB: Auditoría
+   ═══════════════════════════════════════════════════ */
+function TabAuditoria() {
+  const [logs, setLogs] = useState<any[]>([]);
+  const [logsLoading, setLogsLoading] = useState(true);
+  const [filterFuncion, setFilterFuncion] = useState("all");
+  const [filterDateFrom, setFilterDateFrom] = useState("");
+  const [filterDateTo, setFilterDateTo] = useState("");
+
+  useEffect(() => {
+    supabase.from("auditoria_ia").select("*").order("created_at", { ascending: false }).limit(200)
+      .then(({ data }) => { setLogs(data || []); setLogsLoading(false); });
+  }, []);
+
+  const filteredLogs = logs.filter(l => {
+    if (filterFuncion !== "all" && l.funcion_ia !== filterFuncion) return false;
+    if (filterDateFrom && new Date(l.created_at) < new Date(filterDateFrom)) return false;
+    if (filterDateTo && new Date(l.created_at) > new Date(filterDateTo + "T23:59:59")) return false;
+    return true;
+  });
+
+  const avgLatency = filteredLogs.length > 0 ? Math.round(filteredLogs.reduce((sum, l) => sum + (Number(l.latencia_ms) || 0), 0) / filteredLogs.length) : 0;
+  const funciones = [...new Set(logs.map(l => l.funcion_ia).filter(Boolean))];
+
+  return (
+    <div className="space-y-4">
+      <div className="grid gap-4 md:grid-cols-3">
+        <Card><CardContent className="pt-6"><p className="text-sm text-muted-foreground">Operaciones</p><p className="text-2xl font-bold">{filteredLogs.length}</p></CardContent></Card>
+        <Card><CardContent className="pt-6"><p className="text-sm text-muted-foreground">Tasa de éxito</p><p className="text-2xl font-bold">{filteredLogs.length > 0 ? Math.round((filteredLogs.filter(l => l.exito).length / filteredLogs.length) * 100) : 0}%</p></CardContent></Card>
+        <Card><CardContent className="pt-6"><p className="text-sm text-muted-foreground">Latencia media</p><p className="text-2xl font-bold">{avgLatency}ms</p></CardContent></Card>
+      </div>
+
+      <div className="flex flex-wrap gap-3 items-end">
+        <div className="space-y-1"><Label className="text-xs">Función</Label><Select value={filterFuncion} onValueChange={setFilterFuncion}><SelectTrigger className="w-48"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="all">Todas</SelectItem>{funciones.map(f => <SelectItem key={f} value={f}>{f}</SelectItem>)}</SelectContent></Select></div>
+        <div className="space-y-1"><Label className="text-xs">Desde</Label><Input type="date" value={filterDateFrom} onChange={e => setFilterDateFrom(e.target.value)} className="w-40" /></div>
+        <div className="space-y-1"><Label className="text-xs">Hasta</Label><Input type="date" value={filterDateTo} onChange={e => setFilterDateTo(e.target.value)} className="w-40" /></div>
+      </div>
+
+      <Card>
+        <CardHeader><CardTitle className="text-base">Operaciones</CardTitle></CardHeader>
+        <CardContent>
+          {logsLoading ? <div className="space-y-3">{[1, 2, 3].map(i => <Skeleton key={i} className="h-12 w-full" />)}</div> :
+           filteredLogs.length === 0 ? <div className="py-12 text-center"><Shield className="mx-auto mb-3 h-10 w-10 text-muted-foreground/30" /><p className="text-muted-foreground">No hay operaciones registradas.</p></div> : (
+            <Table>
+              <TableHeader><TableRow><TableHead>Función</TableHead><TableHead>Modelo</TableHead><TableHead>Latencia</TableHead><TableHead>Tokens</TableHead><TableHead>Estado</TableHead><TableHead>Fecha</TableHead></TableRow></TableHeader>
+              <TableBody>
+                {filteredLogs.map(l => (
+                  <TableRow key={l.id}><TableCell className="font-medium">{l.funcion_ia || "—"}</TableCell><TableCell className="text-xs">{l.modelo}</TableCell><TableCell>{l.latencia_ms ? `${l.latencia_ms}ms` : "—"}</TableCell><TableCell className="text-xs">{l.tokens_entrada || 0} → {l.tokens_salida || 0}</TableCell><TableCell><Badge variant="secondary" className={l.exito ? "bg-chart-2/10 text-chart-2" : "bg-destructive/10 text-destructive"}>{l.exito ? "OK" : "Error"}</Badge></TableCell><TableCell className="text-xs text-muted-foreground">{new Date(l.created_at).toLocaleString("es-ES")}</TableCell></TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════════════
+   TAB: Configuración
+   ═══════════════════════════════════════════════════ */
+function TabConfiguracion() {
+  return (
+    <div className="space-y-4">
+      <Card>
+        <CardHeader><CardTitle>Arquitectura AVA</CardTitle></CardHeader>
+        <CardContent className="space-y-3">
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div><Label className="text-xs text-muted-foreground">Orquestador</Label><p className="text-sm font-mono mt-1">ava-orchestrator</p></div>
+            <div><Label className="text-xs text-muted-foreground">Gateway IA</Label><p className="text-sm font-mono mt-1">expert-forge-proxy</p></div>
+            <div><Label className="text-xs text-muted-foreground">Project ID Expert Forge</Label><p className="text-sm font-mono mt-1">5123d6ea</p></div>
+            <div><Label className="text-xs text-muted-foreground">Modelo Orquestador</Label><p className="text-sm font-mono mt-1">gemini-3.1-flash</p></div>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader><CardTitle>Funciones de Inteligencia</CardTitle></CardHeader>
+        <CardContent>
+          <div className="grid gap-2 sm:grid-cols-2">
+            {[
+              { name: "Localización", fn: "ai-localizacion-patrones" },
+              { name: "Tenant Mix", fn: "ai-tenant-mix-avanzado" },
+              { name: "Validación Dossier", fn: "ai-validacion-retorno" },
+              { name: "Perfil Negociador", fn: "ai-perfil-negociador" },
+            ].map(f => (
+              <div key={f.fn} className="rounded-lg border p-3 flex items-center justify-between">
+                <div><p className="text-sm font-medium">{f.name}</p><p className="text-xs text-muted-foreground font-mono">{f.fn}</p></div>
+                <CheckCircle className="h-4 w-4 text-chart-2" />
+              </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════════════
+   MAIN PAGE
+   ═══════════════════════════════════════════════════ */
+export default function Ajustes() {
+  return (
+    <div className="space-y-6">
+      <div>
+        <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2">
+          <Settings className="h-6 w-6" /> Ajustes
+        </h1>
+        <p className="text-sm text-muted-foreground">Conexiones, auditoría y configuración del sistema</p>
+      </div>
+
+      <Tabs defaultValue="conexiones">
+        <TabsList>
+          <TabsTrigger value="conexiones" className="gap-1"><Link2 className="h-3 w-3" /> Conexiones</TabsTrigger>
+          <TabsTrigger value="conexion-ia" className="gap-1"><Sparkles className="h-3 w-3" /> Conexión IA</TabsTrigger>
+          <TabsTrigger value="auditoria" className="gap-1"><Shield className="h-3 w-3" /> Auditoría</TabsTrigger>
+          <TabsTrigger value="config" className="gap-1"><Settings className="h-3 w-3" /> Configuración</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="conexiones"><TabConexiones /></TabsContent>
+        <TabsContent value="conexion-ia"><TabConexionIA /></TabsContent>
+        <TabsContent value="auditoria"><TabAuditoria /></TabsContent>
+        <TabsContent value="config"><TabConfiguracion /></TabsContent>
+      </Tabs>
     </div>
   );
 }

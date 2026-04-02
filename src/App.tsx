@@ -77,14 +77,14 @@ const App = () => (
                   <Route path="/negociacion-ia" element={<NegotiationBriefing />} />
                   <Route path="/asistente" element={<AsistenteIA />} />
                   <Route path="/patrones" element={<Patrones />} />
-                  <Route path="/admin" element={<Admin />} />
                   <Route path="/playground" element={<Playground />} />
                   <Route path="/consumo" element={<Consumo />} />
                   <Route path="/ajustes" element={<Ajustes />} />
                   <Route path="/importar" element={<Importar />} />
                   {/* Retrocompatibilidad */}
                   <Route path="/busqueda" element={<Navigate to="/asistente" replace />} />
-                  <Route path="/auditoria" element={<Navigate to="/admin" replace />} />
+                  <Route path="/auditoria" element={<Navigate to="/ajustes" replace />} />
+                  <Route path="/admin" element={<Navigate to="/ajustes" replace />} />
                 </Route>
                 <Route path="*" element={<NotFound />} />
               </Routes>

@@ -17,8 +17,6 @@ import { Button } from "@/components/ui/button";
 const mainItems = [
   { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
   { title: "AVA", url: "/asistente", icon: Sparkles },
-  { title: "Patrones", url: "/patrones", icon: Network },
-  { title: "Playground", url: "/playground", icon: FlaskConical },
   { title: "Proyectos", url: "/proyectos", icon: FolderKanban },
   { title: "Notificaciones", url: "/notificaciones", icon: Bell },
 ];
@@ -40,8 +38,9 @@ const aiToolsItems = [
 
 const adminItems = [
   { title: "Consumo y Costes", url: "/consumo", icon: DollarSign },
+  { title: "Patrones", url: "/patrones", icon: Network },
+  { title: "Playground", url: "/playground", icon: FlaskConical },
   { title: "Ajustes", url: "/ajustes", icon: Settings },
-  { title: "Administración", url: "/admin", icon: Settings },
 ];
 
 export function AppSidebar() {
