@@ -1,38 +1,18 @@
-import { useEffect, useState, useMemo } from "react";
-import { useNavigate } from "react-router-dom";
+import { useEffect, useState, useMemo, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import {
-  Plus, Search, Star, MessageCircle, Mic, Phone, Mail,
-  Building2, Upload, Users, Heart, Filter,
-} from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Textarea } from "@/components/ui/textarea";
+import {
+  Plus, Search, Star, MessageCircle, Mic, Users, Heart, Upload, Building2, Network,
+} from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import ImportContactosModal from "@/components/contactos/ImportContactosModal";
-
-const estiloLabels: Record<string, string> = {
-  colaborativo: "Colaborativo",
-  competitivo: "Competitivo",
-  analitico: "Analítico",
-  expresivo: "Expresivo",
-  evitador: "Evitador",
-};
-
-const estiloColors: Record<string, string> = {
-  colaborativo: "bg-chart-2/10 text-chart-2 border-chart-2/20",
-  competitivo: "bg-destructive/10 text-destructive border-destructive/20",
-  analitico: "bg-primary/10 text-primary border-primary/20",
-  expresivo: "bg-chart-3/10 text-chart-3 border-chart-3/20",
-  evitador: "bg-muted text-muted-foreground border-muted",
-};
+import CreateContactForm from "@/components/contactos/CreateContactForm";
+import ContactDetailPanel from "@/components/contactos/ContactDetailPanel";
 
 const TIPOS = [
   { value: "todos", label: "Todos" },
@@ -47,35 +27,21 @@ const CATEGORIAS = [
   { value: "personal", label: "Personal" },
 ];
 
-function daysSince(dateStr: string | null): number | null {
-  if (!dateStr) return null;
-  const diff = Date.now() - new Date(dateStr).getTime();
-  return Math.floor(diff / (1000 * 60 * 60 * 24));
-}
-
 export default function Contactos() {
-  const navigate = useNavigate();
   const [contactos, setContactos] = useState<any[]>([]);
   const [operadores, setOperadores] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [tipoFilter, setTipoFilter] = useState("todos");
   const [catFilter, setCatFilter] = useState("todos");
-  const [favorites, setFavorites] = useState<Set<string>>(() => {
-    try {
-      const stored = localStorage.getItem("contactos_favs");
-      return stored ? new Set(JSON.parse(stored)) : new Set();
-    } catch {
-      return new Set();
-    }
-  });
+  const [selectedId, setSelectedId] = useState<string | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const { toast } = useToast();
   const { user } = useAuth();
 
-  const fetchContactos = async () => {
+  const fetchContactos = useCallback(async () => {
     setLoading(true);
     let query = supabase.from("contactos").select("*").order("created_at", { ascending: false });
     if (search) {
@@ -84,31 +50,14 @@ export default function Contactos() {
     const { data } = await query;
     setContactos(data || []);
     setLoading(false);
-  };
+  }, [search]);
 
   useEffect(() => {
-    supabase
-      .from("operadores")
-      .select("id, nombre")
-      .eq("activo", true)
-      .order("nombre")
+    supabase.from("operadores").select("id, nombre").eq("activo", true).order("nombre")
       .then(({ data }) => setOperadores(data || []));
   }, []);
 
-  useEffect(() => {
-    fetchContactos();
-  }, [search]);
-
-  const toggleFav = (id: string, e: React.MouseEvent) => {
-    e.stopPropagation();
-    setFavorites((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      localStorage.setItem("contactos_favs", JSON.stringify([...next]));
-      return next;
-    });
-  };
+  useEffect(() => { fetchContactos(); }, [fetchContactos]);
 
   const filtered = useMemo(() => {
     let list = contactos;
@@ -131,7 +80,27 @@ export default function Contactos() {
     return list;
   }, [contactos, tipoFilter, catFilter]);
 
-  const favCount = contactos.filter((c) => favorites.has(c.id)).length;
+  const inNetworkCount = contactos.filter((c) => c.in_network).length;
+  const favCount = contactos.filter((c) => c.is_favorite).length;
+  const selected = contactos.find((c) => c.id === selectedId) || null;
+
+  const toggleFav = async (id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    const c = contactos.find((x) => x.id === id);
+    if (!c) return;
+    const next = !c.is_favorite;
+    setContactos((prev) => prev.map((x) => x.id === id ? { ...x, is_favorite: next } : x));
+    await supabase.from("contactos").update({ is_favorite: next } as any).eq("id", id);
+  };
+
+  const toggleNetwork = async (id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    const c = contactos.find((x) => x.id === id);
+    if (!c) return;
+    const next = !c.in_network;
+    setContactos((prev) => prev.map((x) => x.id === id ? { ...x, in_network: next } : x));
+    await supabase.from("contactos").update({ in_network: next } as any).eq("id", id);
+  };
 
   const handleCreate = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -157,303 +126,188 @@ export default function Contactos() {
     if (error) {
       toast({ title: "Error al crear contacto", description: error.message, variant: "destructive" });
     } else {
-      toast({ title: "Contacto creado correctamente" });
+      toast({ title: "Contacto creado" });
       setDialogOpen(false);
       fetchContactos();
     }
   };
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">Red de Contactos</h1>
-          <p className="text-sm text-muted-foreground">Tu red estratégica de relaciones profesionales</p>
-        </div>
-        <div className="flex gap-2">
-          <Button variant="outline" size="sm" onClick={() => setImportOpen(true)}>
-            <Upload className="mr-1.5 h-4 w-4" /> Importar
-          </Button>
-          <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-            <DialogTrigger asChild>
-              <Button size="sm" className="bg-accent text-accent-foreground hover:bg-accent/90">
-                <Plus className="mr-1.5 h-4 w-4" /> Nuevo Contacto
+    <div className="flex h-[calc(100vh-4rem)] gap-0 overflow-hidden -m-6">
+      {/* LEFT PANEL */}
+      <div className="flex w-[380px] shrink-0 flex-col border-r bg-card">
+        {/* Header */}
+        <div className="border-b p-4 space-y-3">
+          <div className="flex items-center justify-between">
+            <h1 className="text-lg font-bold tracking-tight">Red de Contactos</h1>
+            <div className="flex gap-1">
+              <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setImportOpen(true)}>
+                <Upload className="h-4 w-4" />
               </Button>
-            </DialogTrigger>
-            <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
-              <DialogHeader><DialogTitle>Crear Nuevo Contacto</DialogTitle></DialogHeader>
-              <CreateContactForm
-                operadores={operadores}
-                submitting={submitting}
-                onSubmit={handleCreate}
-              />
-            </DialogContent>
-          </Dialog>
-          <ImportContactosModal open={importOpen} onOpenChange={setImportOpen} onImported={fetchContactos} />
-        </div>
-      </div>
+              <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+                <DialogTrigger asChild>
+                  <Button variant="ghost" size="icon" className="h-8 w-8">
+                    <Plus className="h-4 w-4" />
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
+                  <DialogHeader><DialogTitle>Nuevo Contacto</DialogTitle></DialogHeader>
+                  <CreateContactForm operadores={operadores} submitting={submitting} onSubmit={handleCreate} />
+                </DialogContent>
+              </Dialog>
+            </div>
+          </div>
 
-      {/* Stats */}
-      <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-        <StatCard icon={Users} label="Total" value={contactos.length} />
-        <StatCard icon={Heart} label="Favoritos" value={favCount} color="text-destructive" />
-        <StatCard icon={MessageCircle} label="Con WhatsApp" value={contactos.filter((c) => c.whatsapp).length} color="text-chart-2" />
-        <StatCard icon={Building2} label="Con empresa" value={contactos.filter((c) => c.empresa).length} color="text-primary" />
-      </div>
+          {/* Stats */}
+          <div className="flex gap-3 text-xs font-medium">
+            <span className="flex items-center gap-1 text-primary">
+              <Network className="h-3.5 w-3.5" /> {inNetworkCount} EN RED
+            </span>
+            <span className="text-muted-foreground">·</span>
+            <span className="flex items-center gap-1 text-chart-3">
+              <Star className="h-3.5 w-3.5" /> {favCount} FAV
+            </span>
+            <span className="text-muted-foreground">·</span>
+            <span className="text-muted-foreground">{contactos.length} TOTAL</span>
+          </div>
 
-      {/* Search + Filters */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            placeholder="Buscar por nombre, empresa o cargo..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="pl-10"
-          />
-        </div>
-        <div className="flex gap-2">
-          <FilterChips items={TIPOS} value={tipoFilter} onChange={setTipoFilter} />
-          <FilterChips items={CATEGORIAS} value={catFilter} onChange={setCatFilter} />
-        </div>
-      </div>
+          {/* Search */}
+          <div className="relative">
+            <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              placeholder="Buscar contacto..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="h-8 pl-8 text-sm"
+            />
+          </div>
 
-      {/* Grid */}
-      {loading ? (
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {[1, 2, 3, 4, 5, 6].map((i) => (
-            <Skeleton key={i} className="h-40 rounded-lg" />
-          ))}
-        </div>
-      ) : filtered.length === 0 ? (
-        <div className="py-16 text-center">
-          <Users className="mx-auto mb-3 h-12 w-12 text-muted-foreground/30" />
-          <p className="text-muted-foreground">
-            {search || tipoFilter !== "todos" || catFilter !== "todos"
-              ? "No se encontraron contactos con esos filtros."
-              : "No hay contactos aún. Crea el primero."}
-          </p>
-        </div>
-      ) : (
-        <>
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {filtered.map((c) => (
-              <ContactCard
-                key={c.id}
-                contacto={c}
-                isFav={favorites.has(c.id)}
-                onToggleFav={toggleFav}
-                onClick={() => navigate(`/contactos/${c.id}`)}
-              />
+          {/* Filters */}
+          <div className="flex gap-1 flex-wrap">
+            {TIPOS.map((t) => (
+              <button key={t.value} onClick={() => setTipoFilter(t.value)}
+                className={`rounded-full px-2.5 py-0.5 text-[10px] font-medium transition-colors ${tipoFilter === t.value ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground hover:bg-muted/80"}`}>
+                {t.label}
+              </button>
+            ))}
+            <span className="w-px bg-border mx-1" />
+            {CATEGORIAS.map((c) => (
+              <button key={c.value} onClick={() => setCatFilter(c.value)}
+                className={`rounded-full px-2.5 py-0.5 text-[10px] font-medium transition-colors ${catFilter === c.value ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground hover:bg-muted/80"}`}>
+                {c.label}
+              </button>
             ))}
           </div>
-          <p className="text-xs text-muted-foreground text-center">
-            {filtered.length} contacto{filtered.length !== 1 ? "s" : ""}
-            {filtered.length !== contactos.length && ` de ${contactos.length}`}
-          </p>
-        </>
-      )}
-    </div>
-  );
-}
-
-/* ─── Sub-components ─── */
-
-function StatCard({ icon: Icon, label, value, color }: { icon: any; label: string; value: number; color?: string }) {
-  return (
-    <Card>
-      <CardContent className="flex items-center gap-3 p-4">
-        <div className={`rounded-lg bg-muted p-2 ${color || "text-foreground"}`}>
-          <Icon className="h-5 w-5" />
         </div>
-        <div>
-          <p className="text-2xl font-bold">{value}</p>
-          <p className="text-xs text-muted-foreground">{label}</p>
-        </div>
-      </CardContent>
-    </Card>
-  );
-}
 
-function FilterChips({ items, value, onChange }: { items: { value: string; label: string }[]; value: string; onChange: (v: string) => void }) {
-  return (
-    <div className="flex gap-1">
-      {items.map((item) => (
-        <button
-          key={item.value}
-          onClick={() => onChange(item.value)}
-          className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
-            value === item.value
-              ? "bg-primary text-primary-foreground"
-              : "bg-muted text-muted-foreground hover:bg-muted/80"
-          }`}
-        >
-          {item.label}
-        </button>
-      ))}
-    </div>
-  );
-}
-
-function ContactCard({ contacto: c, isFav, onToggleFav, onClick }: {
-  contacto: any;
-  isFav: boolean;
-  onToggleFav: (id: string, e: React.MouseEvent) => void;
-  onClick: () => void;
-}) {
-  const days = daysSince(c.updated_at || c.created_at);
-  const initials = `${(c.nombre || "?")[0]}${(c.apellidos || "")[0] || ""}`.toUpperCase();
-
-  return (
-    <Card
-      className="cursor-pointer transition-all hover:shadow-md hover:border-primary/30 group relative"
-      onClick={onClick}
-    >
-      <CardContent className="p-4">
-        {/* Top row: avatar + name + fav */}
-        <div className="flex items-start gap-3">
-          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary font-semibold text-sm">
-            {initials}
-          </div>
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2">
-              <h3 className="font-semibold text-sm truncate">
-                {c.nombre} {c.apellidos || ""}
-              </h3>
-              {c.estilo_negociacion && (
-                <Badge variant="outline" className={`text-[10px] px-1.5 py-0 ${estiloColors[c.estilo_negociacion] || ""}`}>
-                  {estiloLabels[c.estilo_negociacion] || c.estilo_negociacion}
-                </Badge>
-              )}
+        {/* List */}
+        <div className="flex-1 overflow-y-auto">
+          {loading ? (
+            <div className="space-y-1 p-2">
+              {[1, 2, 3, 4, 5].map((i) => <Skeleton key={i} className="h-16 w-full rounded-lg" />)}
             </div>
-            {c.cargo && (
-              <p className="text-xs text-muted-foreground truncate">{c.cargo}</p>
-            )}
-            {c.empresa && (
-              <p className="text-xs text-muted-foreground flex items-center gap-1 truncate">
-                <Building2 className="h-3 w-3 shrink-0" /> {c.empresa}
-              </p>
-            )}
-          </div>
-          <button
-            onClick={(e) => onToggleFav(c.id, e)}
-            className="shrink-0 p-1 rounded-full hover:bg-muted transition-colors"
-          >
-            <Star className={`h-4 w-4 ${isFav ? "fill-yellow-400 text-yellow-400" : "text-muted-foreground/40"}`} />
-          </button>
+          ) : filtered.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-16 text-center">
+              <Users className="mb-2 h-8 w-8 text-muted-foreground/30" />
+              <p className="text-xs text-muted-foreground">Sin contactos</p>
+            </div>
+          ) : (
+            <div className="space-y-0.5 p-1">
+              {filtered.map((c) => (
+                <ContactListItem
+                  key={c.id}
+                  contacto={c}
+                  isSelected={selectedId === c.id}
+                  onSelect={() => setSelectedId(c.id)}
+                  onToggleFav={toggleFav}
+                  onToggleNetwork={toggleNetwork}
+                />
+              ))}
+            </div>
+          )}
         </div>
+      </div>
 
-        {/* Badges row */}
-        <div className="mt-3 flex items-center gap-2 flex-wrap">
-          {c.whatsapp && (
-            <Badge variant="secondary" className="gap-1 text-[10px] bg-chart-2/10 text-chart-2 border-chart-2/20">
-              <MessageCircle className="h-3 w-3" /> WhatsApp
+      {/* RIGHT PANEL */}
+      <div className="flex-1 overflow-y-auto bg-background">
+        {selected ? (
+          <ContactDetailPanel
+            contacto={selected}
+            onRefresh={fetchContactos}
+          />
+        ) : (
+          <div className="flex h-full flex-col items-center justify-center text-center">
+            <Network className="mb-3 h-12 w-12 text-muted-foreground/20" />
+            <p className="text-sm text-muted-foreground">Selecciona un contacto para ver su ficha</p>
+          </div>
+        )}
+      </div>
+
+      <ImportContactosModal open={importOpen} onOpenChange={setImportOpen} onImported={fetchContactos} />
+    </div>
+  );
+}
+
+/* ─── List Item ─── */
+function ContactListItem({ contacto: c, isSelected, onSelect, onToggleFav, onToggleNetwork }: {
+  contacto: any; isSelected: boolean;
+  onSelect: () => void;
+  onToggleFav: (id: string, e: React.MouseEvent) => void;
+  onToggleNetwork: (id: string, e: React.MouseEvent) => void;
+}) {
+  const initials = `${(c.nombre || "?")[0]}${(c.apellidos || "")[0] || ""}`.toUpperCase();
+  const daysSince = c.last_contact
+    ? Math.floor((Date.now() - new Date(c.last_contact).getTime()) / 86400000)
+    : null;
+
+  return (
+    <div
+      onClick={onSelect}
+      className={`flex cursor-pointer items-start gap-3 rounded-lg p-3 transition-colors ${
+        isSelected ? "bg-primary/10 border border-primary/20" : "hover:bg-muted/50"
+      }`}
+    >
+      <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-xs font-semibold ${
+        c.in_network ? "bg-primary/15 text-primary" : "bg-muted text-muted-foreground"
+      }`}>
+        {initials}
+      </div>
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-1.5">
+          <span className="text-sm font-medium truncate">{c.nombre} {c.apellidos || ""}</span>
+          {c.in_network && <Network className="h-3 w-3 text-primary shrink-0" />}
+        </div>
+        {(c.cargo || c.empresa) && (
+          <p className="text-[11px] text-muted-foreground truncate">
+            {c.cargo}{c.cargo && c.empresa ? " · " : ""}{c.empresa}
+          </p>
+        )}
+        <div className="mt-1 flex items-center gap-1.5 flex-wrap">
+          {(c.wa_message_count > 0 || c.whatsapp) && (
+            <Badge variant="secondary" className="h-4 gap-0.5 px-1 text-[9px] bg-chart-2/10 text-chart-2 border-chart-2/20">
+              <MessageCircle className="h-2.5 w-2.5" />
+              {c.wa_message_count > 0 ? c.wa_message_count : "WA"}
             </Badge>
           )}
-          {c.telefono && (
-            <Badge variant="secondary" className="gap-1 text-[10px]">
-              <Phone className="h-3 w-3" /> {c.telefono}
+          {c.plaud_count > 0 && (
+            <Badge variant="secondary" className="h-4 gap-0.5 px-1 text-[9px] bg-chart-3/10 text-chart-3 border-chart-3/20">
+              <Mic className="h-2.5 w-2.5" /> {c.plaud_count}
             </Badge>
           )}
-          {c.email && (
-            <Badge variant="secondary" className="gap-1 text-[10px]">
-              <Mail className="h-3 w-3" /> Email
-            </Badge>
-          )}
-          {days !== null && (
-            <span className={`ml-auto text-[10px] font-medium ${
-              days <= 7 ? "text-chart-2" : days <= 30 ? "text-chart-3" : "text-muted-foreground"
+          {daysSince !== null && (
+            <span className={`ml-auto text-[9px] font-medium ${
+              daysSince <= 7 ? "text-chart-2" : daysSince <= 30 ? "text-chart-3" : "text-muted-foreground"
             }`}>
-              {days === 0 ? "Hoy" : `hace ${days}d`}
+              {daysSince === 0 ? "hoy" : `${daysSince}d`}
             </span>
           )}
         </div>
-      </CardContent>
-    </Card>
-  );
-}
-
-function CreateContactForm({ operadores, submitting, onSubmit }: {
-  operadores: any[];
-  submitting: boolean;
-  onSubmit: (e: React.FormEvent<HTMLFormElement>) => void;
-}) {
-  return (
-    <form onSubmit={onSubmit} className="space-y-4">
-      <div className="grid grid-cols-2 gap-4">
-        <div className="space-y-2">
-          <Label htmlFor="c-nombre">Nombre *</Label>
-          <Input id="c-nombre" name="nombre" placeholder="Ana" required />
-        </div>
-        <div className="space-y-2">
-          <Label htmlFor="c-apellidos">Apellidos</Label>
-          <Input id="c-apellidos" name="apellidos" placeholder="García López" />
-        </div>
       </div>
-      <div className="grid grid-cols-2 gap-4">
-        <div className="space-y-2">
-          <Label htmlFor="c-empresa">Empresa</Label>
-          <Input id="c-empresa" name="empresa" placeholder="Grupo XYZ" />
-        </div>
-        <div className="space-y-2">
-          <Label htmlFor="c-cargo">Cargo</Label>
-          <Input id="c-cargo" name="cargo" placeholder="Dir. Comercial" />
-        </div>
+      <div className="flex flex-col gap-1 shrink-0">
+        <button onClick={(e) => onToggleFav(c.id, e)} className="p-0.5 rounded hover:bg-muted transition-colors">
+          <Star className={`h-3.5 w-3.5 ${c.is_favorite ? "fill-yellow-400 text-yellow-400" : "text-muted-foreground/30"}`} />
+        </button>
       </div>
-      <div className="grid grid-cols-2 gap-4">
-        <div className="space-y-2">
-          <Label htmlFor="c-email">Email</Label>
-          <Input id="c-email" name="email" type="email" placeholder="ana@empresa.com" />
-        </div>
-        <div className="space-y-2">
-          <Label htmlFor="c-tel">Teléfono</Label>
-          <Input id="c-tel" name="telefono" placeholder="+34 600 000 000" />
-        </div>
-      </div>
-      <div className="grid grid-cols-2 gap-4">
-        <div className="space-y-2">
-          <Label htmlFor="c-whatsapp">WhatsApp</Label>
-          <Input id="c-whatsapp" name="whatsapp" placeholder="+34 600 000 000" />
-        </div>
-        <div className="space-y-2">
-          <Label htmlFor="c-linkedin">LinkedIn</Label>
-          <Input id="c-linkedin" name="linkedin_url" placeholder="https://linkedin.com/in/..." />
-        </div>
-      </div>
-      <div className="space-y-2">
-        <Label htmlFor="c-operador">Operador vinculado</Label>
-        <Select name="operador_id" defaultValue="none">
-          <SelectTrigger id="c-operador"><SelectValue placeholder="Sin operador" /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="none">Sin operador</SelectItem>
-            {operadores.map((op) => (
-              <SelectItem key={op.id} value={op.id}>{op.nombre}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
-      <div className="space-y-2">
-        <Label htmlFor="c-estilo">Estilo de negociación</Label>
-        <Select name="estilo_negociacion" defaultValue="none">
-          <SelectTrigger id="c-estilo"><SelectValue placeholder="Sin definir" /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="none">Sin definir</SelectItem>
-            <SelectItem value="colaborativo">Colaborativo</SelectItem>
-            <SelectItem value="competitivo">Competitivo</SelectItem>
-            <SelectItem value="analitico">Analítico</SelectItem>
-            <SelectItem value="expresivo">Expresivo</SelectItem>
-            <SelectItem value="evitador">Evitador</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
-      <div className="space-y-2">
-        <Label htmlFor="c-notas">Notas</Label>
-        <Textarea id="c-notas" name="notas_perfil" placeholder="Observaciones sobre este contacto..." rows={2} />
-      </div>
-      <Button type="submit" className="w-full bg-accent text-accent-foreground hover:bg-accent/90" disabled={submitting}>
-        {submitting ? "Creando..." : "Crear Contacto"}
-      </Button>
-    </form>
+    </div>
   );
 }
