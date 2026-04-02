@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -7,6 +7,7 @@ import { Brain, Loader2, RefreshCw, MessageSquare, ShieldCheck, AlertTriangle, E
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/useAuth";
 
 interface Pattern {
   title: string;
@@ -137,15 +138,47 @@ function parsePatterns(answer: string): PatternResult {
 
 export default function Patrones() {
   const [loading, setLoading] = useState(false);
-  const [result, setResult] = useState<PatternResult | null>(() => {
-    try {
-      const saved = localStorage.getItem("patrones_result");
-      return saved ? JSON.parse(saved) : null;
-    } catch { return null; }
-  });
-  const [rawAnswer, setRawAnswer] = useState(() => localStorage.getItem("patrones_raw") || "");
+  const [result, setResult] = useState<PatternResult | null>(null);
+  const [rawAnswer, setRawAnswer] = useState("");
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { user } = useAuth();
+
+  // Load from DB on mount
+  useEffect(() => {
+    (async () => {
+      try {
+        const { data } = await supabase
+          .from("ai_agent_tasks")
+          .select("resultado")
+          .eq("agente_tipo", "patrones_cache")
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .single();
+        if (data?.resultado) {
+          const cached = data.resultado as any;
+          if (cached.parsed) setResult(cached.parsed);
+          if (cached.raw) setRawAnswer(cached.raw);
+        }
+      } catch {}
+    })();
+  }, []);
+
+  const saveToDb = async (parsed: PatternResult, raw: string) => {
+    try {
+      // Delete old cache then insert new
+      await supabase
+        .from("ai_agent_tasks")
+        .delete()
+        .eq("agente_tipo", "patrones_cache");
+      await supabase.from("ai_agent_tasks").insert({
+        agente_tipo: "patrones_cache",
+        estado: "completado",
+        resultado: { parsed, raw } as any,
+        creado_por: user?.id || null,
+      });
+    } catch {}
+  };
 
   const fetchPatterns = async () => {
     setLoading(true);
@@ -160,10 +193,9 @@ export default function Patrones() {
       if (error) throw new Error(error.message);
       const answer = data?.answer || data?.error || "Sin respuesta";
       setRawAnswer(answer);
-      localStorage.setItem("patrones_raw", answer);
       const parsed = parsePatterns(answer);
       setResult(parsed);
-      localStorage.setItem("patrones_result", JSON.stringify(parsed));
+      await saveToDb(parsed, answer);
     } catch (e: any) {
       toast({ title: "Error", description: e.message, variant: "destructive" });
     } finally {
