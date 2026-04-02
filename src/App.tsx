@@ -33,6 +33,7 @@ const Patrones = lazy(() => import("./pages/Patrones"));
 const Admin = lazy(() => import("./pages/Admin"));
 const Playground = lazy(() => import("./pages/Playground"));
 const Consumo = lazy(() => import("./pages/Consumo"));
+const Ajustes = lazy(() => import("./pages/Ajustes"));
 
 const queryClient = new QueryClient();
 
