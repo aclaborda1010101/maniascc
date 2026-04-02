@@ -71,7 +71,6 @@ export default function Contactos() {
     if (catFilter !== "todos") {
       list = list.filter((c) => {
         if (catFilter === "profesional") return !!c.empresa;
-        if (catFilter === "personal") return !c.empresa;
         return true;
       });
     }
