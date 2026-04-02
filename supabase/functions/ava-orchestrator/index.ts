@@ -401,20 +401,26 @@ serve(async (req) => {
     if (synthesisResponse.ok) {
       const synthesisData = await synthesisResponse.json();
       finalAnswer = synthesisData.choices?.[0]?.message?.content || "He procesado tu solicitud pero no pude formular una respuesta.";
+      const usage2 = synthesisData.usage || {};
+      totalTokensIn += usage2.prompt_tokens || 0;
+      totalTokensOut += usage2.completion_tokens || 0;
     } else {
       await synthesisResponse.text();
-      // Fallback: summarize tool results
       finalAnswer = "He consultado los datos. Resultados:\n\n" +
         toolResults.map(tr => `**${tr.tool}**: ${JSON.stringify(tr.result).substring(0, 500)}`).join("\n\n");
     }
 
     const latencyMs = Date.now() - startTime;
+    const costEur = totalTokensIn * GEMINI_FLASH_INPUT + totalTokensOut * GEMINI_FLASH_OUTPUT;
 
     // Audit
     await admin.from("auditoria_ia").insert({
       modelo: "google/gemini-3-flash-preview",
       funcion_ia: "ava-orchestrator",
       latencia_ms: latencyMs,
+      tokens_entrada: totalTokensIn,
+      tokens_salida: totalTokensOut,
+      coste_estimado: costEur,
       exito: true,
       created_by: user.id,
     });
@@ -424,9 +430,10 @@ serve(async (req) => {
       user_id: user.id,
       action_type: "chat",
       agent_label: "AVA Orchestrator",
-      tokens_input: 0,
-      tokens_output: 0,
-      cost_eur: 0,
+      model: "gemini-3-flash-preview",
+      tokens_input: totalTokensIn,
+      tokens_output: totalTokensOut,
+      cost_eur: costEur,
       latency_ms: latencyMs,
       metadata: { tools_used: toolResults.map(tr => tr.tool), message: message?.slice(0, 200) },
     });

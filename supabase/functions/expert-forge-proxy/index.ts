@@ -125,7 +125,9 @@ serve(async (req) => {
 
     const tokensIn = result.tokens?.input || 0;
     const tokensOut = result.tokens?.output || 0;
-    const costEur = result.cost || (tokensIn * 2.5 / 1_000_000 * 0.92 + tokensOut * 10 / 1_000_000 * 0.92);
+    const modelUsed = result.model || result.specialist_used || "expert-forge-moe";
+    // Expert Forge uses its own MoE routing — use reported cost or estimate based on Gemini pricing
+    const costEur = result.cost || (tokensIn * 0.10 / 1_000_000 * 0.92 + tokensOut * 0.40 / 1_000_000 * 0.92);
 
     // Audit log
     await supabase.from("auditoria_ia").insert({
