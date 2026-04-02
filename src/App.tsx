@@ -34,6 +34,7 @@ const Admin = lazy(() => import("./pages/Admin"));
 const Playground = lazy(() => import("./pages/Playground"));
 const Consumo = lazy(() => import("./pages/Consumo"));
 const Ajustes = lazy(() => import("./pages/Ajustes"));
+const Importar = lazy(() => import("./pages/Importar"));
 
 const queryClient = new QueryClient();
 
