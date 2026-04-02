@@ -145,7 +145,7 @@ export default function Patrones() {
   const { user } = useAuth();
 
   // Load from DB on mount
-  useState(() => {
+  useEffect(() => {
     (async () => {
       try {
         const { data } = await supabase
@@ -162,16 +162,21 @@ export default function Patrones() {
         }
       } catch {}
     })();
-  });
+  }, []);
 
   const saveToDb = async (parsed: PatternResult, raw: string) => {
     try {
-      await supabase.from("ai_agent_tasks").upsert({
+      // Delete old cache then insert new
+      await supabase
+        .from("ai_agent_tasks")
+        .delete()
+        .eq("agente_tipo", "patrones_cache");
+      await supabase.from("ai_agent_tasks").insert({
         agente_tipo: "patrones_cache",
         estado: "completado",
         resultado: { parsed, raw } as any,
         creado_por: user?.id || null,
-      }, { onConflict: "agente_tipo" });
+      });
     } catch {}
   };
 
