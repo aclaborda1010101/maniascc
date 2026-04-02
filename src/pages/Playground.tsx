@@ -146,12 +146,10 @@ export default function Playground() {
     setResults(init);
 
     await Promise.all(cells.map(async (cell) => {
-      const cellKey = `${cell.sourceKey}::${cell.agentKey}`;
+      const cellKey = `${cell.contextKey}::${cell.agentKey}`;
       const start = Date.now();
       try {
-        const message = cell.agentPrompt
-          ? `[INSTRUCCIÓN: ${cell.agentPrompt}]\n[FUENTE RAG PREFERIDA: ${cell.sourceLabel}]\n\n${prompt}`
-          : `[FUENTE RAG PREFERIDA: ${cell.sourceLabel}]\n\n${prompt}`;
+        const message = `[CONTEXTO: ${cell.contextInstruction}]\n[AGENTE: ${cell.agentLabel} (${cell.agentId})]\n\n${prompt}`;
 
         const { data, error } = await supabase.functions.invoke("ava-orchestrator", {
           body: { message, history: [] },
