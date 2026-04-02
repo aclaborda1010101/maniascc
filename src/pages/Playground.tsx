@@ -102,26 +102,26 @@ export default function Playground() {
 
   /* ── Build cells to evaluate ── */
   const buildCells = () => {
-    const cells: { sourceKey: string; sourceLabel: string; domain: string; agentKey: string; agentLabel: string; agentPrompt: string; agentColor: string }[] = [];
+    const cells: { contextKey: string; contextLabel: string; contextInstruction: string; agentKey: string; agentId: string; agentLabel: string; agentColor: string }[] = [];
 
-    // Primary axis: all 8 RAG sources × selected agent
+    // Primary axis: 4 context modes × selected agent
     const agent = AGENTS.find(a => a.key === selectedAgent) || AGENTS[0];
-    for (const src of RAG_SOURCES) {
+    for (const ctx of CONTEXT_MODES) {
       cells.push({
-        sourceKey: src.key, sourceLabel: src.label, domain: src.domain,
-        agentKey: agent.key, agentLabel: agent.label, agentPrompt: agent.prompt, agentColor: agent.color,
+        contextKey: ctx.key, contextLabel: ctx.label, contextInstruction: ctx.instruction,
+        agentKey: agent.key, agentId: agent.id, agentLabel: agent.label, agentColor: agent.color,
       });
     }
 
-    // Secondary axis (optional): selected source × all agents (skip the already-selected combo)
+    // Secondary axis (optional): selected context × all agents (skip already-selected combo)
     if (includeAllAgents) {
-      const src = RAG_SOURCES.find(s => s.key === selectedSource) || RAG_SOURCES[0];
+      const ctx = CONTEXT_MODES.find(c => c.key === selectedContext) || CONTEXT_MODES[0];
       for (const ag of AGENTS) {
-        const cellKey = `${src.key}::${ag.key}`;
-        if (!cells.some(c => `${c.sourceKey}::${c.agentKey}` === cellKey)) {
+        const cellKey = `${ctx.key}::${ag.key}`;
+        if (!cells.some(c => `${c.contextKey}::${c.agentKey}` === cellKey)) {
           cells.push({
-            sourceKey: src.key, sourceLabel: src.label, domain: src.domain,
-            agentKey: ag.key, agentLabel: ag.label, agentPrompt: ag.prompt, agentColor: ag.color,
+            contextKey: ctx.key, contextLabel: ctx.label, contextInstruction: ctx.instruction,
+            agentKey: ag.key, agentId: ag.id, agentLabel: ag.label, agentColor: ag.color,
           });
         }
       }
