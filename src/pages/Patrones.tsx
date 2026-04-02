@@ -137,8 +137,13 @@ function parsePatterns(answer: string): PatternResult {
 
 export default function Patrones() {
   const [loading, setLoading] = useState(false);
-  const [result, setResult] = useState<PatternResult | null>(null);
-  const [rawAnswer, setRawAnswer] = useState("");
+  const [result, setResult] = useState<PatternResult | null>(() => {
+    try {
+      const saved = localStorage.getItem("patrones_result");
+      return saved ? JSON.parse(saved) : null;
+    } catch { return null; }
+  });
+  const [rawAnswer, setRawAnswer] = useState(() => localStorage.getItem("patrones_raw") || "");
   const navigate = useNavigate();
   const { toast } = useToast();
 
@@ -155,7 +160,10 @@ export default function Patrones() {
       if (error) throw new Error(error.message);
       const answer = data?.answer || data?.error || "Sin respuesta";
       setRawAnswer(answer);
-      setResult(parsePatterns(answer));
+      localStorage.setItem("patrones_raw", answer);
+      const parsed = parsePatterns(answer);
+      setResult(parsed);
+      localStorage.setItem("patrones_result", JSON.stringify(parsed));
     } catch (e: any) {
       toast({ title: "Error", description: e.message, variant: "destructive" });
     } finally {
