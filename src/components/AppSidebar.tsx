@@ -38,8 +38,9 @@ const aiToolsItems = [
 
 const adminItems = [
   { title: "Consumo y Costes", url: "/consumo", icon: DollarSign },
+  { title: "Patrones", url: "/patrones", icon: Network },
+  { title: "Playground", url: "/playground", icon: FlaskConical },
   { title: "Ajustes", url: "/ajustes", icon: Settings },
-  { title: "Administración", url: "/admin", icon: Settings },
 ];
 
 export function AppSidebar() {
