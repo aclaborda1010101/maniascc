@@ -152,6 +152,7 @@ serve(async (req) => {
       action_type: "expert-forge",
       agent_id: specialist_id || null,
       agent_label: result.specialist_used || specialist_id || "MoE Router",
+      model: modelUsed,
       rag_filter: context?.rag_filter || null,
       tokens_input: tokensIn,
       tokens_output: tokensOut,
