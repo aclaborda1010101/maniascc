@@ -291,7 +291,7 @@ export default function Playground() {
       {hasResults && (
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
           {cells.map((cell) => {
-            const cellKey = `${cell.sourceKey}::${cell.agentKey}`;
+            const cellKey = `${cell.contextKey}::${cell.agentKey}`;
             const r = results[cellKey];
             const isBest = bestVote === cellKey;
 
@@ -301,7 +301,7 @@ export default function Playground() {
                   <div className="flex items-center justify-between gap-2">
                     <div className="flex flex-wrap items-center gap-1.5 min-w-0">
                       <Badge variant="secondary" className="text-[10px] shrink-0">
-                        <Database className="h-2.5 w-2.5 mr-0.5" />{cell.sourceLabel}
+                        <Database className="h-2.5 w-2.5 mr-0.5" />{cell.contextLabel}
                       </Badge>
                       <Badge variant="outline" className={`text-[10px] shrink-0 ${cell.agentColor}`}>
                         <Bot className="h-2.5 w-2.5 mr-0.5" />{cell.agentLabel}
