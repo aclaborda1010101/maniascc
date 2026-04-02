@@ -166,7 +166,9 @@ export default function Contactos() {
               </Button>
             </form>
           </DialogContent>
-        </Dialog>
+          </Dialog>
+          <ImportContactosModal open={importOpen} onOpenChange={setImportOpen} onImported={fetchContactos} />
+        </div>
       </div>
 
       <Card>
