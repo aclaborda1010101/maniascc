@@ -8,6 +8,7 @@ const corsHeaders = {
 
 const EXPERT_FORGE_URL = "https://nhfocnjtgwuamelovncq.supabase.co/functions/v1/api-gateway";
 const EXPERT_FORGE_PROJECT_ID = "5123d6ea-14aa-4f73-a547-07393d583e89";
+const EXPERT_FORGE_ROUTER_ID = "3fb91959-eff3-4eb7-bdfe-d6609814b8f0";
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -102,7 +103,7 @@ serve(async (req) => {
 
     const body: Record<string, unknown> = {
       action: "query",
-      router_id: EXPERT_FORGE_PROJECT_ID,
+      router_id: EXPERT_FORGE_ROUTER_ID,
       project_id: EXPERT_FORGE_PROJECT_ID,
       api_key: apiKey,
       question,
