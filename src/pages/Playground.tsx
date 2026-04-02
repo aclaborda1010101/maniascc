@@ -14,24 +14,22 @@ import { useAuth } from "@/hooks/useAuth";
 import { toast } from "@/hooks/use-toast";
 import ReactMarkdown from "react-markdown";
 
-/* ── RAG Sources ── */
-const RAG_SOURCES = [
-  { key: "centros_comerciales", label: "Centros Comerciales España", domain: "centros_comerciales" },
-  { key: "normativa", label: "Normativa Retail", domain: "normativa" },
-  { key: "benchmarks", label: "Benchmarks Mercado", domain: "benchmarks" },
-  { key: "operadores", label: "Operadores Nacionales", domain: "operadores" },
-  { key: "demografia", label: "Demografía y Zonas", domain: "demografia" },
-  { key: "negociacion", label: "Negociación Inmobiliaria", domain: "negociacion" },
-  { key: "documentos", label: "Documentos Internos", domain: "documentos_internos" },
-  { key: "historico", label: "Histórico Transacciones", domain: "historico" },
+/* ── Context Modes (eje principal) ── */
+const CONTEXT_MODES = [
+  { key: "solo_interno", label: "Solo Interno", instruction: "Usa SOLO fuentes internas (documentos del proyecto, datos propios). No consultes fuentes externas." },
+  { key: "solo_externo", label: "Solo Externo", instruction: "Usa SOLO fuentes externas (benchmarks, normativa, mercado). No consultes documentos internos." },
+  { key: "interno_externo", label: "Interno+Externo", instruction: "Combina fuentes internas y externas para una respuesta completa." },
+  { key: "sin_rag", label: "Sin RAG", instruction: "Responde sin consultar ninguna fuente RAG, solo con tu conocimiento base." },
 ] as const;
 
-/* ── Agent Modes ── */
+/* ── Agents ── */
 const AGENTS = [
-  { key: "standard", label: "Estándar", color: "bg-blue-500/10 text-blue-600 border-blue-200", prompt: "" },
-  { key: "concise", label: "Conciso", color: "bg-emerald-500/10 text-emerald-600 border-emerald-200", prompt: "Responde de forma muy concisa y directa, máximo 3 párrafos." },
-  { key: "analytical", label: "Analítico", color: "bg-purple-500/10 text-purple-600 border-purple-200", prompt: "Analiza en profundidad. Usa todas las herramientas disponibles para dar una respuesta completa con datos y métricas." },
-  { key: "creative", label: "Creativo", color: "bg-amber-500/10 text-amber-600 border-amber-200", prompt: "Piensa de forma creativa y lateral. Propón ideas no convencionales y perspectivas alternativas." },
+  { key: "coordinador", id: "59d5e344-f6f8-42b8-93ba-c8c7dbe204b5", label: "Coordinador", color: "bg-blue-500/10 text-blue-600 border-blue-200" },
+  { key: "atlas", id: "442a4ad6-c740-49d1-bd96-42a37a6b09ec", label: "ATLAS", color: "bg-emerald-500/10 text-emerald-600 border-emerald-200" },
+  { key: "forge7", id: "0de742b5-1048-455a-8fbd-a710fa300b45", label: "FORGE7", color: "bg-purple-500/10 text-purple-600 border-purple-200" },
+  { key: "matching", id: "6a2cfd5e-e81a-4486-bb96-1d52e7bd0dd0", label: "MATCHING", color: "bg-amber-500/10 text-amber-600 border-amber-200" },
+  { key: "auditoria", id: "6ace2754-f6e2-4e95-bd58-f476096cd74b", label: "AUDITORIA", color: "bg-rose-500/10 text-rose-600 border-rose-200" },
+  { key: "scraping", id: "24d75154-48fd-4203-8d82-8ba8ad2a1540", label: "SCRAPING", color: "bg-cyan-500/10 text-cyan-600 border-cyan-200" },
 ] as const;
 
 /* ── Types ── */
