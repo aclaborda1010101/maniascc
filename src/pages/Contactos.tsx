@@ -98,74 +98,78 @@ export default function Contactos() {
           <h1 className="text-2xl font-bold tracking-tight">Contactos</h1>
           <p className="text-sm text-muted-foreground">Base de datos global de personas externas</p>
         </div>
-        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-          <DialogTrigger asChild>
-            <Button className="bg-accent text-accent-foreground hover:bg-accent/90">
-              <Plus className="mr-2 h-4 w-4" /> Nuevo Contacto
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="max-w-lg">
-            <DialogHeader>
-              <DialogTitle>Crear Nuevo Contacto</DialogTitle>
-            </DialogHeader>
-            <form onSubmit={handleCreate} className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="c-nombre">Nombre *</Label>
-                  <Input id="c-nombre" name="nombre" placeholder="Ana" required />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="c-apellidos">Apellidos</Label>
-                  <Input id="c-apellidos" name="apellidos" placeholder="García López" />
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="c-empresa">Empresa</Label>
-                  <Input id="c-empresa" name="empresa" placeholder="Grupo XYZ" />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="c-cargo">Cargo</Label>
-                  <Input id="c-cargo" name="cargo" placeholder="Dir. Comercial" />
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="c-email">Email</Label>
-                  <Input id="c-email" name="email" type="email" placeholder="ana@empresa.com" />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="c-tel">Teléfono</Label>
-                  <Input id="c-tel" name="telefono" placeholder="+34 600 000 000" />
-                </div>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="c-linkedin">LinkedIn</Label>
-                <Input id="c-linkedin" name="linkedin_url" placeholder="https://linkedin.com/in/..." />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="c-estilo">Estilo de negociación</Label>
-                <Select name="estilo_negociacion" defaultValue="none">
-                  <SelectTrigger id="c-estilo"><SelectValue placeholder="Sin definir" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">Sin definir</SelectItem>
-                    <SelectItem value="colaborativo">Colaborativo</SelectItem>
-                    <SelectItem value="competitivo">Competitivo</SelectItem>
-                    <SelectItem value="analitico">Analítico</SelectItem>
-                    <SelectItem value="expresivo">Expresivo</SelectItem>
-                    <SelectItem value="evitador">Evitador</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="c-notas">Notas</Label>
-                <Textarea id="c-notas" name="notas_perfil" placeholder="Observaciones sobre este contacto..." rows={2} />
-              </div>
-              <Button type="submit" className="w-full bg-accent text-accent-foreground hover:bg-accent/90" disabled={submitting}>
-                {submitting ? "Creando..." : "Crear Contacto"}
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={() => setImportOpen(true)}>
+            <Upload className="mr-2 h-4 w-4" /> Importar
+          </Button>
+          <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+            <DialogTrigger asChild>
+              <Button className="bg-accent text-accent-foreground hover:bg-accent/90">
+                <Plus className="mr-2 h-4 w-4" /> Nuevo Contacto
               </Button>
-            </form>
-          </DialogContent>
+            </DialogTrigger>
+            <DialogContent className="max-w-lg">
+              <DialogHeader>
+                <DialogTitle>Crear Nuevo Contacto</DialogTitle>
+              </DialogHeader>
+              <form onSubmit={handleCreate} className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="c-nombre">Nombre *</Label>
+                    <Input id="c-nombre" name="nombre" placeholder="Ana" required />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="c-apellidos">Apellidos</Label>
+                    <Input id="c-apellidos" name="apellidos" placeholder="García López" />
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="c-empresa">Empresa</Label>
+                    <Input id="c-empresa" name="empresa" placeholder="Grupo XYZ" />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="c-cargo">Cargo</Label>
+                    <Input id="c-cargo" name="cargo" placeholder="Dir. Comercial" />
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="c-email">Email</Label>
+                    <Input id="c-email" name="email" type="email" placeholder="ana@empresa.com" />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="c-tel">Teléfono</Label>
+                    <Input id="c-tel" name="telefono" placeholder="+34 600 000 000" />
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="c-linkedin">LinkedIn</Label>
+                  <Input id="c-linkedin" name="linkedin_url" placeholder="https://linkedin.com/in/..." />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="c-estilo">Estilo de negociación</Label>
+                  <Select name="estilo_negociacion" defaultValue="none">
+                    <SelectTrigger id="c-estilo"><SelectValue placeholder="Sin definir" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">Sin definir</SelectItem>
+                      <SelectItem value="colaborativo">Colaborativo</SelectItem>
+                      <SelectItem value="competitivo">Competitivo</SelectItem>
+                      <SelectItem value="analitico">Analítico</SelectItem>
+                      <SelectItem value="expresivo">Expresivo</SelectItem>
+                      <SelectItem value="evitador">Evitador</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="c-notas">Notas</Label>
+                  <Textarea id="c-notas" name="notas_perfil" placeholder="Observaciones sobre este contacto..." rows={2} />
+                </div>
+                <Button type="submit" className="w-full bg-accent text-accent-foreground hover:bg-accent/90" disabled={submitting}>
+                  {submitting ? "Creando..." : "Crear Contacto"}
+                </Button>
+              </form>
+            </DialogContent>
           </Dialog>
           <ImportContactosModal open={importOpen} onOpenChange={setImportOpen} onImported={fetchContactos} />
         </div>
