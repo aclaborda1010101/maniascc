@@ -476,6 +476,7 @@ export type Database = {
       }
       contactos: {
         Row: {
+          ai_tags: string[] | null
           apellidos: string | null
           cargo: string | null
           creado_por: string | null
@@ -485,16 +486,24 @@ export type Database = {
           empresa: string | null
           estilo_negociacion: string | null
           id: string
+          in_network: boolean | null
+          interaction_count: number | null
+          is_favorite: boolean | null
+          last_contact: string | null
           linkedin_url: string | null
           nombre: string
           notas_perfil: string | null
           operador_id: string | null
           perfil_ia: Json | null
+          plaud_count: number | null
+          sentiment: string | null
           telefono: string | null
           updated_at: string | null
+          wa_message_count: number | null
           whatsapp: string | null
         }
         Insert: {
+          ai_tags?: string[] | null
           apellidos?: string | null
           cargo?: string | null
           creado_por?: string | null
@@ -504,16 +513,24 @@ export type Database = {
           empresa?: string | null
           estilo_negociacion?: string | null
           id?: string
+          in_network?: boolean | null
+          interaction_count?: number | null
+          is_favorite?: boolean | null
+          last_contact?: string | null
           linkedin_url?: string | null
           nombre: string
           notas_perfil?: string | null
           operador_id?: string | null
           perfil_ia?: Json | null
+          plaud_count?: number | null
+          sentiment?: string | null
           telefono?: string | null
           updated_at?: string | null
+          wa_message_count?: number | null
           whatsapp?: string | null
         }
         Update: {
+          ai_tags?: string[] | null
           apellidos?: string | null
           cargo?: string | null
           creado_por?: string | null
@@ -523,13 +540,20 @@ export type Database = {
           empresa?: string | null
           estilo_negociacion?: string | null
           id?: string
+          in_network?: boolean | null
+          interaction_count?: number | null
+          is_favorite?: boolean | null
+          last_contact?: string | null
           linkedin_url?: string | null
           nombre?: string
           notas_perfil?: string | null
           operador_id?: string | null
           perfil_ia?: Json | null
+          plaud_count?: number | null
+          sentiment?: string | null
           telefono?: string | null
           updated_at?: string | null
+          wa_message_count?: number | null
           whatsapp?: string | null
         }
         Relationships: [
@@ -1192,6 +1216,8 @@ export type Database = {
           avatar_url: string | null
           created_at: string
           email: string
+          evolution_api_key: string | null
+          evolution_instance_url: string | null
           id: string
           nombre: string
           telefono: string | null
@@ -1203,6 +1229,8 @@ export type Database = {
           avatar_url?: string | null
           created_at?: string
           email?: string
+          evolution_api_key?: string | null
+          evolution_instance_url?: string | null
           id?: string
           nombre?: string
           telefono?: string | null
@@ -1214,6 +1242,8 @@ export type Database = {
           avatar_url?: string | null
           created_at?: string
           email?: string
+          evolution_api_key?: string | null
+          evolution_instance_url?: string | null
           id?: string
           nombre?: string
           telefono?: string | null
