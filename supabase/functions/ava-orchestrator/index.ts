@@ -214,6 +214,16 @@ serve(async (req) => {
         exito: true,
         created_by: user.id,
       });
+      await admin.from("usage_logs").insert({
+        user_id: user.id,
+        action_type: "chat",
+        agent_label: "AVA Orchestrator",
+        tokens_input: 0,
+        tokens_output: 0,
+        cost_eur: 0,
+        latency_ms: latencyMs,
+        metadata: { direct_answer: true, message: message?.slice(0, 200) },
+      });
       return new Response(JSON.stringify({
         answer: choice?.content || "No tengo una respuesta para eso.",
         tools_used: [],
@@ -395,6 +405,18 @@ serve(async (req) => {
       latencia_ms: latencyMs,
       exito: true,
       created_by: user.id,
+    });
+
+    // Usage log for cost tracking
+    await admin.from("usage_logs").insert({
+      user_id: user.id,
+      action_type: "chat",
+      agent_label: "AVA Orchestrator",
+      tokens_input: 0,
+      tokens_output: 0,
+      cost_eur: 0,
+      latency_ms: latencyMs,
+      metadata: { tools_used: toolResults.map(tr => tr.tool), message: message?.slice(0, 200) },
     });
 
     return new Response(JSON.stringify({
