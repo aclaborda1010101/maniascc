@@ -132,7 +132,7 @@ serve(async (req) => {
     // Audit log
     await supabase.from("auditoria_ia").insert({
       funcion_ia: "expert-forge-proxy",
-      modelo: result.model || result.specialist_used || "expert-forge-moe",
+      modelo: modelUsed,
       exito: resp.ok,
       latencia_ms: latencyMs,
       tokens_entrada: tokensIn || null,
