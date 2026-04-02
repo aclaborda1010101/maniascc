@@ -1217,8 +1217,15 @@ export type Database = {
           created_at: string
           email: string
           evolution_api_key: string | null
+          evolution_connected: boolean | null
+          evolution_instance_name: string | null
           evolution_instance_url: string | null
           id: string
+          imap_connected: boolean | null
+          imap_host: string | null
+          imap_password_encrypted: string | null
+          imap_port: number | null
+          imap_user: string | null
           nombre: string
           telefono: string | null
           updated_at: string
@@ -1230,8 +1237,15 @@ export type Database = {
           created_at?: string
           email?: string
           evolution_api_key?: string | null
+          evolution_connected?: boolean | null
+          evolution_instance_name?: string | null
           evolution_instance_url?: string | null
           id?: string
+          imap_connected?: boolean | null
+          imap_host?: string | null
+          imap_password_encrypted?: string | null
+          imap_port?: number | null
+          imap_user?: string | null
           nombre?: string
           telefono?: string | null
           updated_at?: string
@@ -1243,8 +1257,15 @@ export type Database = {
           created_at?: string
           email?: string
           evolution_api_key?: string | null
+          evolution_connected?: boolean | null
+          evolution_instance_name?: string | null
           evolution_instance_url?: string | null
           id?: string
+          imap_connected?: boolean | null
+          imap_host?: string | null
+          imap_password_encrypted?: string | null
+          imap_port?: number | null
+          imap_user?: string | null
           nombre?: string
           telefono?: string | null
           updated_at?: string
