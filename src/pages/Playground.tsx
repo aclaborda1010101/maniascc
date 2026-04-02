@@ -91,8 +91,8 @@ export default function Playground() {
       const key = `${row.prompt}::${row.created_at.slice(0, 16)}`;
       if (!grouped.has(key)) grouped.set(key, { prompt: row.prompt, created_at: row.created_at, winner: null });
       if (row.evaluacion === "mejor") {
-        const cfg = row.variante_config as { sourceLabel?: string; agentLabel?: string };
-        grouped.get(key)!.winner = `${cfg.sourceLabel || ""} + ${cfg.agentLabel || ""}`;
+        const cfg = row.variante_config as { contextLabel?: string; sourceLabel?: string; agentLabel?: string };
+        grouped.get(key)!.winner = `${cfg.contextLabel || cfg.sourceLabel || ""} + ${cfg.agentLabel || ""}`;
       }
     }
     setPastEvals(Array.from(grouped.values()).slice(0, 10));
