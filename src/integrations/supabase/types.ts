@@ -1534,6 +1534,51 @@ export type Database = {
           },
         ]
       }
+      usage_logs: {
+        Row: {
+          action_type: string
+          agent_id: string | null
+          agent_label: string | null
+          cost_eur: number | null
+          created_at: string
+          id: string
+          latency_ms: number | null
+          metadata: Json | null
+          rag_filter: string | null
+          tokens_input: number | null
+          tokens_output: number | null
+          user_id: string
+        }
+        Insert: {
+          action_type?: string
+          agent_id?: string | null
+          agent_label?: string | null
+          cost_eur?: number | null
+          created_at?: string
+          id?: string
+          latency_ms?: number | null
+          metadata?: Json | null
+          rag_filter?: string | null
+          tokens_input?: number | null
+          tokens_output?: number | null
+          user_id: string
+        }
+        Update: {
+          action_type?: string
+          agent_id?: string | null
+          agent_label?: string | null
+          cost_eur?: number | null
+          created_at?: string
+          id?: string
+          latency_ms?: number | null
+          metadata?: Json | null
+          rag_filter?: string | null
+          tokens_input?: number | null
+          tokens_output?: number | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           id: string
