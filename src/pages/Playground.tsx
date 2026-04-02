@@ -191,11 +191,11 @@ export default function Playground() {
     if (!user) return;
     setBestVote(cellKey);
 
-    const [sourceKey, agentKey] = cellKey.split("::");
-    const src = RAG_SOURCES.find(s => s.key === sourceKey);
+    const [contextKey, agentKey] = cellKey.split("::");
+    const ctx = CONTEXT_MODES.find(c => c.key === contextKey);
     const ag = AGENTS.find(a => a.key === agentKey);
     const result = results[cellKey];
-    if (!result || !src || !ag) return;
+    if (!result || !ctx || !ag) return;
 
     try {
       await supabase.from("playground_evaluations" as never).insert({
