@@ -202,7 +202,7 @@ export default function Playground() {
         usuario_id: user.id,
         prompt,
         variante_index: AGENTS.indexOf(ag),
-        variante_config: { sourceKey, agentKey, sourceLabel: src.label, agentLabel: ag.label },
+        variante_config: { contextKey, agentKey, contextLabel: ctx.label, agentLabel: ag.label },
         respuesta: result.response,
         latencia_ms: result.latencyMs,
         fuentes_consultadas: result.sourcesCount,
