@@ -17,8 +17,6 @@ import { Button } from "@/components/ui/button";
 const mainItems = [
   { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
   { title: "AVA", url: "/asistente", icon: Sparkles },
-  { title: "Patrones", url: "/patrones", icon: Network },
-  { title: "Playground", url: "/playground", icon: FlaskConical },
   { title: "Proyectos", url: "/proyectos", icon: FolderKanban },
   { title: "Notificaciones", url: "/notificaciones", icon: Bell },
 ];
