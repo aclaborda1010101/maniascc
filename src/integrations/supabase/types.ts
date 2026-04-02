@@ -488,9 +488,11 @@ export type Database = {
           linkedin_url: string | null
           nombre: string
           notas_perfil: string | null
+          operador_id: string | null
           perfil_ia: Json | null
           telefono: string | null
           updated_at: string | null
+          whatsapp: string | null
         }
         Insert: {
           apellidos?: string | null
@@ -505,9 +507,11 @@ export type Database = {
           linkedin_url?: string | null
           nombre: string
           notas_perfil?: string | null
+          operador_id?: string | null
           perfil_ia?: Json | null
           telefono?: string | null
           updated_at?: string | null
+          whatsapp?: string | null
         }
         Update: {
           apellidos?: string | null
@@ -522,11 +526,21 @@ export type Database = {
           linkedin_url?: string | null
           nombre?: string
           notas_perfil?: string | null
+          operador_id?: string | null
           perfil_ia?: Json | null
           telefono?: string | null
           updated_at?: string | null
+          whatsapp?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "contactos_operador_id_fkey"
+            columns: ["operador_id"]
+            isOneToOne: false
+            referencedRelation: "operadores"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       document_chunks: {
         Row: {

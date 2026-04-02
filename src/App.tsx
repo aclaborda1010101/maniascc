@@ -20,6 +20,7 @@ const LocalDetail = lazy(() => import("./pages/LocalDetail"));
 const Operadores = lazy(() => import("./pages/Operadores"));
 const OperadorDetail = lazy(() => import("./pages/OperadorDetail"));
 const Contactos = lazy(() => import("./pages/Contactos"));
+const ContactoDetail = lazy(() => import("./pages/ContactoDetail"));
 const Documentos = lazy(() => import("./pages/Documentos"));
 const Matching = lazy(() => import("./pages/Matching"));
 const Notificaciones = lazy(() => import("./pages/Notificaciones"));
@@ -62,6 +63,7 @@ const App = () => (
                   <Route path="/operadores" element={<Operadores />} />
                   <Route path="/operadores/:id" element={<OperadorDetail />} />
                   <Route path="/contactos" element={<Contactos />} />
+                  <Route path="/contactos/:id" element={<ContactoDetail />} />
                   <Route path="/documentos" element={<Documentos />} />
                   <Route path="/locales" element={<Locales />} />
                   <Route path="/locales/:id" element={<LocalDetail />} />

@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -17,23 +18,19 @@ import { useAuth } from "@/hooks/useAuth";
 import ImportContactosModal from "@/components/contactos/ImportContactosModal";
 
 const estiloLabels: Record<string, string> = {
-  colaborativo: "Colaborativo",
-  competitivo: "Competitivo",
-  analitico: "Analítico",
-  expresivo: "Expresivo",
-  evitador: "Evitador",
+  colaborativo: "Colaborativo", competitivo: "Competitivo",
+  analitico: "Analítico", expresivo: "Expresivo", evitador: "Evitador",
 };
-
 const estiloColors: Record<string, string> = {
-  colaborativo: "bg-chart-2/10 text-chart-2",
-  competitivo: "bg-destructive/10 text-destructive",
-  analitico: "bg-accent/10 text-accent",
-  expresivo: "bg-chart-3/10 text-chart-3",
+  colaborativo: "bg-chart-2/10 text-chart-2", competitivo: "bg-destructive/10 text-destructive",
+  analitico: "bg-accent/10 text-accent", expresivo: "bg-chart-3/10 text-chart-3",
   evitador: "bg-muted text-muted-foreground",
 };
 
 export default function Contactos() {
+  const navigate = useNavigate();
   const [contactos, setContactos] = useState<any[]>([]);
+  const [operadores, setOperadores] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -53,6 +50,10 @@ export default function Contactos() {
     setLoading(false);
   };
 
+  useEffect(() => {
+    supabase.from("operadores").select("id, nombre").eq("activo", true).order("nombre").then(({ data }) => setOperadores(data || []));
+  }, []);
+
   useEffect(() => { fetchContactos(); }, [search]);
 
   const handleCreate = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -60,6 +61,7 @@ export default function Contactos() {
     setSubmitting(true);
     const fd = new FormData(e.currentTarget);
     const estilo = fd.get("estilo_negociacion") as string;
+    const opId = fd.get("operador_id") as string;
     const { error } = await supabase.from("contactos").insert({
       nombre: fd.get("nombre") as string,
       apellidos: (fd.get("apellidos") as string) || null,
@@ -67,11 +69,13 @@ export default function Contactos() {
       cargo: (fd.get("cargo") as string) || null,
       email: (fd.get("email") as string) || null,
       telefono: (fd.get("telefono") as string) || null,
+      whatsapp: (fd.get("whatsapp") as string) || null,
       linkedin_url: (fd.get("linkedin_url") as string) || null,
       estilo_negociacion: estilo && estilo !== "none" ? estilo : null,
+      operador_id: opId && opId !== "none" ? opId : null,
       notas_perfil: (fd.get("notas_perfil") as string) || null,
       creado_por: user?.id,
-    });
+    } as any);
     setSubmitting(false);
     if (error) {
       toast({ title: "Error al crear contacto", description: error.message, variant: "destructive" });
@@ -109,7 +113,7 @@ export default function Contactos() {
                 <Plus className="mr-2 h-4 w-4" /> Nuevo Contacto
               </Button>
             </DialogTrigger>
-            <DialogContent className="max-w-lg">
+            <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
               <DialogHeader>
                 <DialogTitle>Crear Nuevo Contacto</DialogTitle>
               </DialogHeader>
@@ -144,9 +148,27 @@ export default function Contactos() {
                     <Input id="c-tel" name="telefono" placeholder="+34 600 000 000" />
                   </div>
                 </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="c-whatsapp">WhatsApp</Label>
+                    <Input id="c-whatsapp" name="whatsapp" placeholder="+34 600 000 000" />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="c-linkedin">LinkedIn</Label>
+                    <Input id="c-linkedin" name="linkedin_url" placeholder="https://linkedin.com/in/..." />
+                  </div>
+                </div>
                 <div className="space-y-2">
-                  <Label htmlFor="c-linkedin">LinkedIn</Label>
-                  <Input id="c-linkedin" name="linkedin_url" placeholder="https://linkedin.com/in/..." />
+                  <Label htmlFor="c-operador">Operador vinculado</Label>
+                  <Select name="operador_id" defaultValue="none">
+                    <SelectTrigger id="c-operador"><SelectValue placeholder="Sin operador" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">Sin operador</SelectItem>
+                      {operadores.map(op => (
+                        <SelectItem key={op.id} value={op.id}>{op.nombre}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="c-estilo">Estilo de negociación</Label>
@@ -205,7 +227,7 @@ export default function Contactos() {
               </TableHeader>
               <TableBody>
                 {contactos.map((c) => (
-                  <TableRow key={c.id}>
+                  <TableRow key={c.id} className="cursor-pointer hover:bg-muted/50" onClick={() => navigate(`/contactos/${c.id}`)}>
                     <TableCell className="font-medium">{c.nombre} {c.apellidos || ""}</TableCell>
                     <TableCell>{c.empresa || <span className="text-muted-foreground">—</span>}</TableCell>
                     <TableCell>{c.cargo || <span className="text-muted-foreground">—</span>}</TableCell>
@@ -220,7 +242,7 @@ export default function Contactos() {
                     <TableCell>
                       <AlertDialog>
                         <AlertDialogTrigger asChild>
-                          <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-destructive">
+                          <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-destructive" onClick={(e) => e.stopPropagation()}>
                             <Trash2 className="h-4 w-4" />
                           </Button>
                         </AlertDialogTrigger>
