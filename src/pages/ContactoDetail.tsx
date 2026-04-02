@@ -71,14 +71,17 @@ export default function ContactoDetail() {
         ).join("\n")
         : "\nSin negociaciones previas registradas.";
 
-      const { data, error } = await supabase.functions.invoke("ava-orchestrator", {
+      const { data, error } = await supabase.functions.invoke("expert-forge-proxy", {
         body: {
-          message: `Genera un brief de negociación profesional para la próxima reunión con este contacto. Incluye: resumen del perfil, puntos clave a tratar, estrategia recomendada según su estilo, riesgos a evitar, y tácticas sugeridas. Sé específico y accionable.\n\nDatos del contacto:\n${context}${negsContext}`
+          action: "chat",
+          question: `Genera un brief de negociación profesional para la próxima reunión con este contacto. Incluye: resumen del perfil, puntos clave a tratar, estrategia recomendada según su estilo, riesgos a evitar, y tácticas sugeridas. Sé específico y accionable.`,
+          context: `${context}${negsContext}`,
         }
       });
 
       if (error) throw error;
-      setBrief(data?.response || data?.message || "No se pudo generar el brief.");
+      const reply = data?.response || data?.answer || data?.result?.answer || data?.message || "No se pudo generar el brief.";
+      setBrief(reply);
       setBriefExpanded(true);
     } catch (err: any) {
       toast({ title: "Error al generar brief", description: err.message, variant: "destructive" });
