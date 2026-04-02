@@ -260,14 +260,14 @@ export default function Playground() {
               <Label htmlFor="all-agents" className="text-xs">+ Todos los agentes</Label>
             </div>
 
-            {/* Source for agent axis */}
+            {/* Context for agent axis */}
             {includeAllAgents && (
               <div className="space-y-1.5">
-                <Label className="text-xs flex items-center gap-1"><Database className="h-3 w-3" /> Fuente para eje agentes</Label>
-                <Select value={selectedSource} onValueChange={(v) => setSelectedSource(v as typeof selectedSource)}>
+                <Label className="text-xs flex items-center gap-1"><Database className="h-3 w-3" /> Contexto para eje agentes</Label>
+                <Select value={selectedContext} onValueChange={(v) => setSelectedContext(v as typeof selectedContext)}>
                   <SelectTrigger className="w-56"><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    {RAG_SOURCES.map(s => <SelectItem key={s.key} value={s.key}>{s.label}</SelectItem>)}
+                    {CONTEXT_MODES.map(c => <SelectItem key={c.key} value={c.key}>{c.label}</SelectItem>)}
                   </SelectContent>
                 </Select>
               </div>
@@ -281,8 +281,8 @@ export default function Playground() {
 
           {/* Legend */}
           <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
-            <span className="font-medium">Eje principal:</span> 8 fuentes RAG × agente seleccionado
-            {includeAllAgents && <><span className="font-medium ml-2">+ Eje secundario:</span> fuente elegida × 4 agentes</>}
+            <span className="font-medium">Eje principal:</span> 4 modos de contexto × agente seleccionado
+            {includeAllAgents && <><span className="font-medium ml-2">+ Eje secundario:</span> contexto elegido × 6 agentes</>}
           </div>
         </CardContent>
       </Card>
