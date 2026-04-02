@@ -38,6 +38,7 @@ const aiToolsItems = [
 ];
 
 const adminItems = [
+  { title: "Consumo y Costes", url: "/consumo", icon: DollarSign },
   { title: "Administración", url: "/admin", icon: Settings },
 ];
 

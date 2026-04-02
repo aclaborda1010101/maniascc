@@ -75,6 +75,7 @@ const App = () => (
                   <Route path="/patrones" element={<Patrones />} />
                   <Route path="/admin" element={<Admin />} />
                   <Route path="/playground" element={<Playground />} />
+                  <Route path="/consumo" element={<Consumo />} />
                   {/* Retrocompatibilidad */}
                   <Route path="/busqueda" element={<Navigate to="/asistente" replace />} />
                   <Route path="/auditoria" element={<Navigate to="/admin" replace />} />
