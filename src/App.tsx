@@ -34,6 +34,7 @@ const Admin = lazy(() => import("./pages/Admin"));
 const Playground = lazy(() => import("./pages/Playground"));
 const Consumo = lazy(() => import("./pages/Consumo"));
 const Ajustes = lazy(() => import("./pages/Ajustes"));
+const Importar = lazy(() => import("./pages/Importar"));
 
 const queryClient = new QueryClient();
 
@@ -80,6 +81,7 @@ const App = () => (
                   <Route path="/playground" element={<Playground />} />
                   <Route path="/consumo" element={<Consumo />} />
                   <Route path="/ajustes" element={<Ajustes />} />
+                  <Route path="/importar" element={<Importar />} />
                   {/* Retrocompatibilidad */}
                   <Route path="/busqueda" element={<Navigate to="/asistente" replace />} />
                   <Route path="/auditoria" element={<Navigate to="/admin" replace />} />
