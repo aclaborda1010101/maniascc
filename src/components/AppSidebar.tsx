@@ -39,6 +39,7 @@ const aiToolsItems = [
 
 const adminItems = [
   { title: "Consumo y Costes", url: "/consumo", icon: DollarSign },
+  { title: "Ajustes", url: "/ajustes", icon: Settings },
   { title: "Administración", url: "/admin", icon: Settings },
 ];
 
