@@ -65,7 +65,6 @@ export default function Contactos() {
         const cargo = (c.cargo || "").toLowerCase();
         if (tipoFilter === "operador") return c.operador_id || cargo.includes("operador");
         if (tipoFilter === "propietario") return cargo.includes("propietario") || cargo.includes("owner");
-        if (tipoFilter === "agente") return cargo.includes("agente") || cargo.includes("agent") || cargo.includes("comercial");
         return true;
       });
     }
