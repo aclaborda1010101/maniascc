@@ -18,12 +18,18 @@ import { useAuth } from "@/hooks/useAuth";
 import ImportContactosModal from "@/components/contactos/ImportContactosModal";
 
 const estiloLabels: Record<string, string> = {
-  colaborativo: "Colaborativo", competitivo: "Competitivo",
-  analitico: "Analítico", expresivo: "Expresivo", evitador: "Evitador",
+  colaborativo: "Colaborativo",
+  competitivo: "Competitivo",
+  analitico: "Analítico",
+  expresivo: "Expresivo",
+  evitador: "Evitador",
 };
+
 const estiloColors: Record<string, string> = {
-  colaborativo: "bg-chart-2/10 text-chart-2", competitivo: "bg-destructive/10 text-destructive",
-  analitico: "bg-accent/10 text-accent", expresivo: "bg-chart-3/10 text-chart-3",
+  colaborativo: "bg-chart-2/10 text-chart-2",
+  competitivo: "bg-destructive/10 text-destructive",
+  analitico: "bg-accent/10 text-accent",
+  expresivo: "bg-chart-3/10 text-chart-3",
   evitador: "bg-muted text-muted-foreground",
 };
 
@@ -51,10 +57,17 @@ export default function Contactos() {
   };
 
   useEffect(() => {
-    supabase.from("operadores").select("id, nombre").eq("activo", true).order("nombre").then(({ data }) => setOperadores(data || []));
+    supabase
+      .from("operadores")
+      .select("id, nombre")
+      .eq("activo", true)
+      .order("nombre")
+      .then(({ data }) => setOperadores(data || []));
   }, []);
 
-  useEffect(() => { fetchContactos(); }, [search]);
+  useEffect(() => {
+    fetchContactos();
+  }, [search]);
 
   const handleCreate = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -161,11 +174,15 @@ export default function Contactos() {
                 <div className="space-y-2">
                   <Label htmlFor="c-operador">Operador vinculado</Label>
                   <Select name="operador_id" defaultValue="none">
-                    <SelectTrigger id="c-operador"><SelectValue placeholder="Sin operador" /></SelectTrigger>
+                    <SelectTrigger id="c-operador">
+                      <SelectValue placeholder="Sin operador" />
+                    </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="none">Sin operador</SelectItem>
-                      {operadores.map(op => (
-                        <SelectItem key={op.id} value={op.id}>{op.nombre}</SelectItem>
+                      {operadores.map((op) => (
+                        <SelectItem key={op.id} value={op.id}>
+                          {op.nombre}
+                        </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
@@ -173,7 +190,9 @@ export default function Contactos() {
                 <div className="space-y-2">
                   <Label htmlFor="c-estilo">Estilo de negociación</Label>
                   <Select name="estilo_negociacion" defaultValue="none">
-                    <SelectTrigger id="c-estilo"><SelectValue placeholder="Sin definir" /></SelectTrigger>
+                    <SelectTrigger id="c-estilo">
+                      <SelectValue placeholder="Sin definir" />
+                    </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="none">Sin definir</SelectItem>
                       <SelectItem value="colaborativo">Colaborativo</SelectItem>
@@ -202,16 +221,27 @@ export default function Contactos() {
         <CardHeader className="pb-3">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input placeholder="Buscar por nombre, empresa o cargo..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-10" />
+            <Input
+              placeholder="Buscar por nombre, empresa o cargo..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="pl-10"
+            />
           </div>
         </CardHeader>
         <CardContent>
           {loading ? (
-            <div className="space-y-3">{[1, 2, 3].map((i) => <Skeleton key={i} className="h-14 w-full" />)}</div>
+            <div className="space-y-3">
+              {[1, 2, 3].map((i) => (
+                <Skeleton key={i} className="h-14 w-full" />
+              ))}
+            </div>
           ) : contactos.length === 0 ? (
             <div className="py-12 text-center">
               <UserCircle className="mx-auto mb-3 h-10 w-10 text-muted-foreground/30" />
-              <p className="text-muted-foreground">{search ? "No se encontraron contactos." : "No hay contactos aún. Crea el primero."}</p>
+              <p className="text-muted-foreground">
+                {search ? "No se encontraron contactos." : "No hay contactos aún. Crea el primero."}
+              </p>
             </div>
           ) : (
             <Table>
@@ -227,14 +257,29 @@ export default function Contactos() {
               </TableHeader>
               <TableBody>
                 {contactos.map((c) => (
-                  <TableRow key={c.id} className="cursor-pointer hover:bg-muted/50" onClick={() => navigate(`/contactos/${c.id}`)}>
-                    <TableCell className="font-medium">{c.nombre} {c.apellidos || ""}</TableCell>
-                    <TableCell>{c.empresa || <span className="text-muted-foreground">—</span>}</TableCell>
-                    <TableCell>{c.cargo || <span className="text-muted-foreground">—</span>}</TableCell>
-                    <TableCell className="text-sm">{c.email || <span className="text-muted-foreground">—</span>}</TableCell>
+                  <TableRow
+                    key={c.id}
+                    className="cursor-pointer hover:bg-muted/50"
+                    onClick={() => navigate(`/contactos/${c.id}`)}
+                  >
+                    <TableCell className="font-medium">
+                      {c.nombre} {c.apellidos || ""}
+                    </TableCell>
+                    <TableCell>
+                      {c.empresa || <span className="text-muted-foreground">—</span>}
+                    </TableCell>
+                    <TableCell>
+                      {c.cargo || <span className="text-muted-foreground">—</span>}
+                    </TableCell>
+                    <TableCell className="text-sm">
+                      {c.email || <span className="text-muted-foreground">—</span>}
+                    </TableCell>
                     <TableCell>
                       {c.estilo_negociacion && (
-                        <Badge variant="secondary" className={`text-xs ${estiloColors[c.estilo_negociacion] || ""}`}>
+                        <Badge
+                          variant="secondary"
+                          className={`text-xs ${estiloColors[c.estilo_negociacion] || ""}`}
+                        >
                           {estiloLabels[c.estilo_negociacion] || c.estilo_negociacion}
                         </Badge>
                       )}
@@ -242,18 +287,28 @@ export default function Contactos() {
                     <TableCell>
                       <AlertDialog>
                         <AlertDialogTrigger asChild>
-                          <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-destructive" onClick={(e) => e.stopPropagation()}>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="text-muted-foreground hover:text-destructive"
+                            onClick={(e) => e.stopPropagation()}
+                          >
                             <Trash2 className="h-4 w-4" />
                           </Button>
                         </AlertDialogTrigger>
                         <AlertDialogContent>
                           <AlertDialogHeader>
                             <AlertDialogTitle>¿Eliminar contacto?</AlertDialogTitle>
-                            <AlertDialogDescription>Se eliminará permanentemente a {c.nombre}.</AlertDialogDescription>
+                            <AlertDialogDescription>
+                              Se eliminará permanentemente a {c.nombre}.
+                            </AlertDialogDescription>
                           </AlertDialogHeader>
                           <AlertDialogFooter>
                             <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                            <AlertDialogAction onClick={() => handleDelete(c.id, c.nombre)} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                            <AlertDialogAction
+                              onClick={() => handleDelete(c.id, c.nombre)}
+                              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                            >
                               Eliminar
                             </AlertDialogAction>
                           </AlertDialogFooter>
@@ -266,7 +321,9 @@ export default function Contactos() {
             </Table>
           )}
           {!loading && contactos.length > 0 && (
-            <p className="mt-3 text-xs text-muted-foreground">{contactos.length} contacto{contactos.length !== 1 ? "s" : ""}</p>
+            <p className="mt-3 text-xs text-muted-foreground">
+              {contactos.length} contacto{contactos.length !== 1 ? "s" : ""}
+            </p>
           )}
         </CardContent>
       </Card>
