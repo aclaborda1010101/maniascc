@@ -160,7 +160,10 @@ export default function Patrones() {
       if (error) throw new Error(error.message);
       const answer = data?.answer || data?.error || "Sin respuesta";
       setRawAnswer(answer);
-      setResult(parsePatterns(answer));
+      localStorage.setItem("patrones_raw", answer);
+      const parsed = parsePatterns(answer);
+      setResult(parsed);
+      localStorage.setItem("patrones_result", JSON.stringify(parsed));
     } catch (e: any) {
       toast({ title: "Error", description: e.message, variant: "destructive" });
     } finally {
