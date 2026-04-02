@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { DollarSign, Zap, TrendingUp, Calendar, Clock, Bot, Database } from "lucide-react";
+import { DollarSign, Zap, TrendingUp, Calendar, Clock, Bot, Database, Cpu } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -9,27 +9,40 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 
-/* Pricing reference: GPT-4o */
-const PRICE_INPUT_EUR_PER_TOKEN = (2.5 / 1_000_000) * 0.92; // $2.50/1M → EUR
-const PRICE_OUTPUT_EUR_PER_TOKEN = (10 / 1_000_000) * 0.92; // $10/1M → EUR
+/* ── Model pricing (EUR per token) ── */
+const MODEL_PRICING: Record<string, { input: number; output: number; label: string }> = {
+  "gemini-3-flash-preview": {
+    input: (0.10 / 1_000_000) * 0.92,
+    output: (0.40 / 1_000_000) * 0.92,
+    label: "Gemini 3 Flash",
+  },
+  "gemini-2.5-flash": {
+    input: (0.15 / 1_000_000) * 0.92,
+    output: (0.60 / 1_000_000) * 0.92,
+    label: "Gemini 2.5 Flash",
+  },
+  "expert-forge-moe": {
+    input: (0.10 / 1_000_000) * 0.92,
+    output: (0.40 / 1_000_000) * 0.92,
+    label: "Expert Forge MoE",
+  },
+};
+
+const DEFAULT_PRICING = MODEL_PRICING["gemini-3-flash-preview"];
+
+function estimateCost(log: UsageLog): number {
+  if (log.cost_eur && log.cost_eur > 0) return log.cost_eur;
+  const pricing = (log.model && MODEL_PRICING[log.model]) || DEFAULT_PRICING;
+  return (log.tokens_input || 0) * pricing.input + (log.tokens_output || 0) * pricing.output;
+}
 
 type Period = "today" | "week" | "month" | "all";
 
 function periodStart(period: Period): string | null {
   const now = new Date();
-  if (period === "today") {
-    return new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString();
-  }
-  if (period === "week") {
-    const d = new Date(now);
-    d.setDate(d.getDate() - 7);
-    return d.toISOString();
-  }
-  if (period === "month") {
-    const d = new Date(now);
-    d.setMonth(d.getMonth() - 1);
-    return d.toISOString();
-  }
+  if (period === "today") return new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString();
+  if (period === "week") { const d = new Date(now); d.setDate(d.getDate() - 7); return d.toISOString(); }
+  if (period === "month") { const d = new Date(now); d.setMonth(d.getMonth() - 1); return d.toISOString(); }
   return null;
 }
 
@@ -38,6 +51,7 @@ interface UsageLog {
   action_type: string;
   agent_id: string | null;
   agent_label: string | null;
+  model: string | null;
   rag_filter: string | null;
   tokens_input: number;
   tokens_output: number;
@@ -76,20 +90,14 @@ export default function Consumo() {
     for (const l of filtered) {
       tokensIn += l.tokens_input || 0;
       tokensOut += l.tokens_output || 0;
-      cost += l.cost_eur || 0;
+      cost += estimateCost(l);
       calls++;
-    }
-    if (cost === 0 && (tokensIn > 0 || tokensOut > 0)) {
-      cost = tokensIn * PRICE_INPUT_EUR_PER_TOKEN + tokensOut * PRICE_OUTPUT_EUR_PER_TOKEN;
     }
     return { tokensIn, tokensOut, cost, calls };
   }, [filtered]);
 
   const periodLabels: Record<Period, string> = {
-    today: "Hoy",
-    week: "Última semana",
-    month: "Último mes",
-    all: "Todo",
+    today: "Hoy", week: "Última semana", month: "Último mes", all: "Todo",
   };
 
   const actionColors: Record<string, string> = {
@@ -99,6 +107,11 @@ export default function Consumo() {
     matching: "bg-emerald-500/10 text-emerald-600 border-emerald-200",
     query: "bg-muted text-muted-foreground",
   };
+
+  function modelLabel(model: string | null): string {
+    if (!model) return "—";
+    return MODEL_PRICING[model]?.label || model;
+  }
 
   return (
     <div className="space-y-6">
@@ -185,7 +198,10 @@ export default function Consumo() {
       <Card>
         <CardContent className="pt-4">
           <p className="text-xs text-muted-foreground">
-            <strong>Referencia de precios:</strong> GPT-4o — Input: $2.50 / 1M tokens · Output: $10.00 / 1M tokens · Conversión ~0.92 €/$
+            <strong>Modelos activos:</strong>{" "}
+            Gemini 3 Flash — Input: $0.10/1M tokens · Output: $0.40/1M tokens{" · "}
+            Expert Forge MoE — coste variable según especialista{" · "}
+            Conversión ~0.92 €/$
           </p>
         </CardContent>
       </Card>
@@ -211,6 +227,7 @@ export default function Consumo() {
                   <TableRow>
                     <TableHead className="w-36">Fecha</TableHead>
                     <TableHead className="w-28">Tipo</TableHead>
+                    <TableHead>Modelo</TableHead>
                     <TableHead>Agente</TableHead>
                     <TableHead>RAG</TableHead>
                     <TableHead className="text-right">Input</TableHead>
@@ -221,9 +238,7 @@ export default function Consumo() {
                 </TableHeader>
                 <TableBody>
                   {filtered.map((log) => {
-                    const estCost = log.cost_eur > 0
-                      ? log.cost_eur
-                      : (log.tokens_input * PRICE_INPUT_EUR_PER_TOKEN + log.tokens_output * PRICE_OUTPUT_EUR_PER_TOKEN);
+                    const estCost = estimateCost(log);
                     return (
                       <TableRow key={log.id}>
                         <TableCell className="text-xs text-muted-foreground">
@@ -235,6 +250,12 @@ export default function Consumo() {
                           <Badge variant="outline" className={`text-[10px] ${actionColors[log.action_type] || actionColors.query}`}>
                             {log.action_type}
                           </Badge>
+                        </TableCell>
+                        <TableCell className="text-xs">
+                          <span className="flex items-center gap-1">
+                            <Cpu className="h-3 w-3 text-muted-foreground" />
+                            {modelLabel(log.model)}
+                          </span>
                         </TableCell>
                         <TableCell className="text-xs">
                           {log.agent_label ? (
