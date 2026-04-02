@@ -65,7 +65,7 @@ export default function Playground() {
   // Config
   const [prompt, setPrompt] = useState("");
   const [selectedAgent, setSelectedAgent] = useState(AGENTS[0].key);
-  const [selectedSource, setSelectedSource] = useState(RAG_SOURCES[0].key);
+  const [selectedContext, setSelectedContext] = useState(CONTEXT_MODES[0].key);
   const [includeAllAgents, setIncludeAllAgents] = useState(false);
   const [running, setRunning] = useState(false);
 
