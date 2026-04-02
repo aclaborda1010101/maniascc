@@ -14,6 +14,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
+import ImportContactosModal from "@/components/contactos/ImportContactosModal";
 
 const estiloLabels: Record<string, string> = {
   colaborativo: "Colaborativo",
