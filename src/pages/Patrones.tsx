@@ -137,8 +137,13 @@ function parsePatterns(answer: string): PatternResult {
 
 export default function Patrones() {
   const [loading, setLoading] = useState(false);
-  const [result, setResult] = useState<PatternResult | null>(null);
-  const [rawAnswer, setRawAnswer] = useState("");
+  const [result, setResult] = useState<PatternResult | null>(() => {
+    try {
+      const saved = localStorage.getItem("patrones_result");
+      return saved ? JSON.parse(saved) : null;
+    } catch { return null; }
+  });
+  const [rawAnswer, setRawAnswer] = useState(() => localStorage.getItem("patrones_raw") || "");
   const navigate = useNavigate();
   const { toast } = useToast();
 
