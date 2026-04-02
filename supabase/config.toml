@@ -38,3 +38,6 @@ verify_jwt = false
 
 [functions.ava-orchestrator]
 verify_jwt = false
+
+[functions.evolution-manage]
+verify_jwt = false
