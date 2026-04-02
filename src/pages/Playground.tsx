@@ -14,24 +14,22 @@ import { useAuth } from "@/hooks/useAuth";
 import { toast } from "@/hooks/use-toast";
 import ReactMarkdown from "react-markdown";
 
-/* ── RAG Sources ── */
-const RAG_SOURCES = [
-  { key: "centros_comerciales", label: "Centros Comerciales España", domain: "centros_comerciales" },
-  { key: "normativa", label: "Normativa Retail", domain: "normativa" },
-  { key: "benchmarks", label: "Benchmarks Mercado", domain: "benchmarks" },
-  { key: "operadores", label: "Operadores Nacionales", domain: "operadores" },
-  { key: "demografia", label: "Demografía y Zonas", domain: "demografia" },
-  { key: "negociacion", label: "Negociación Inmobiliaria", domain: "negociacion" },
-  { key: "documentos", label: "Documentos Internos", domain: "documentos_internos" },
-  { key: "historico", label: "Histórico Transacciones", domain: "historico" },
+/* ── Context Modes (eje principal) ── */
+const CONTEXT_MODES = [
+  { key: "solo_interno", label: "Solo Interno", instruction: "Usa SOLO fuentes internas (documentos del proyecto, datos propios). No consultes fuentes externas." },
+  { key: "solo_externo", label: "Solo Externo", instruction: "Usa SOLO fuentes externas (benchmarks, normativa, mercado). No consultes documentos internos." },
+  { key: "interno_externo", label: "Interno+Externo", instruction: "Combina fuentes internas y externas para una respuesta completa." },
+  { key: "sin_rag", label: "Sin RAG", instruction: "Responde sin consultar ninguna fuente RAG, solo con tu conocimiento base." },
 ] as const;
 
-/* ── Agent Modes ── */
+/* ── Agents ── */
 const AGENTS = [
-  { key: "standard", label: "Estándar", color: "bg-blue-500/10 text-blue-600 border-blue-200", prompt: "" },
-  { key: "concise", label: "Conciso", color: "bg-emerald-500/10 text-emerald-600 border-emerald-200", prompt: "Responde de forma muy concisa y directa, máximo 3 párrafos." },
-  { key: "analytical", label: "Analítico", color: "bg-purple-500/10 text-purple-600 border-purple-200", prompt: "Analiza en profundidad. Usa todas las herramientas disponibles para dar una respuesta completa con datos y métricas." },
-  { key: "creative", label: "Creativo", color: "bg-amber-500/10 text-amber-600 border-amber-200", prompt: "Piensa de forma creativa y lateral. Propón ideas no convencionales y perspectivas alternativas." },
+  { key: "coordinador", id: "59d5e344-f6f8-42b8-93ba-c8c7dbe204b5", label: "Coordinador", color: "bg-blue-500/10 text-blue-600 border-blue-200" },
+  { key: "atlas", id: "442a4ad6-c740-49d1-bd96-42a37a6b09ec", label: "ATLAS", color: "bg-emerald-500/10 text-emerald-600 border-emerald-200" },
+  { key: "forge7", id: "0de742b5-1048-455a-8fbd-a710fa300b45", label: "FORGE7", color: "bg-purple-500/10 text-purple-600 border-purple-200" },
+  { key: "matching", id: "6a2cfd5e-e81a-4486-bb96-1d52e7bd0dd0", label: "MATCHING", color: "bg-amber-500/10 text-amber-600 border-amber-200" },
+  { key: "auditoria", id: "6ace2754-f6e2-4e95-bd58-f476096cd74b", label: "AUDITORIA", color: "bg-rose-500/10 text-rose-600 border-rose-200" },
+  { key: "scraping", id: "24d75154-48fd-4203-8d82-8ba8ad2a1540", label: "SCRAPING", color: "bg-cyan-500/10 text-cyan-600 border-cyan-200" },
 ] as const;
 
 /* ── Types ── */
@@ -67,7 +65,7 @@ export default function Playground() {
   // Config
   const [prompt, setPrompt] = useState("");
   const [selectedAgent, setSelectedAgent] = useState(AGENTS[0].key);
-  const [selectedSource, setSelectedSource] = useState(RAG_SOURCES[0].key);
+  const [selectedContext, setSelectedContext] = useState(CONTEXT_MODES[0].key);
   const [includeAllAgents, setIncludeAllAgents] = useState(false);
   const [running, setRunning] = useState(false);
 
@@ -93,8 +91,8 @@ export default function Playground() {
       const key = `${row.prompt}::${row.created_at.slice(0, 16)}`;
       if (!grouped.has(key)) grouped.set(key, { prompt: row.prompt, created_at: row.created_at, winner: null });
       if (row.evaluacion === "mejor") {
-        const cfg = row.variante_config as { sourceLabel?: string; agentLabel?: string };
-        grouped.get(key)!.winner = `${cfg.sourceLabel || ""} + ${cfg.agentLabel || ""}`;
+        const cfg = row.variante_config as { contextLabel?: string; sourceLabel?: string; agentLabel?: string };
+        grouped.get(key)!.winner = `${cfg.contextLabel || cfg.sourceLabel || ""} + ${cfg.agentLabel || ""}`;
       }
     }
     setPastEvals(Array.from(grouped.values()).slice(0, 10));
@@ -104,26 +102,26 @@ export default function Playground() {
 
   /* ── Build cells to evaluate ── */
   const buildCells = () => {
-    const cells: { sourceKey: string; sourceLabel: string; domain: string; agentKey: string; agentLabel: string; agentPrompt: string; agentColor: string }[] = [];
+    const cells: { contextKey: string; contextLabel: string; contextInstruction: string; agentKey: string; agentId: string; agentLabel: string; agentColor: string }[] = [];
 
-    // Primary axis: all 8 RAG sources × selected agent
+    // Primary axis: 4 context modes × selected agent
     const agent = AGENTS.find(a => a.key === selectedAgent) || AGENTS[0];
-    for (const src of RAG_SOURCES) {
+    for (const ctx of CONTEXT_MODES) {
       cells.push({
-        sourceKey: src.key, sourceLabel: src.label, domain: src.domain,
-        agentKey: agent.key, agentLabel: agent.label, agentPrompt: agent.prompt, agentColor: agent.color,
+        contextKey: ctx.key, contextLabel: ctx.label, contextInstruction: ctx.instruction,
+        agentKey: agent.key, agentId: agent.id, agentLabel: agent.label, agentColor: agent.color,
       });
     }
 
-    // Secondary axis (optional): selected source × all agents (skip the already-selected combo)
+    // Secondary axis (optional): selected context × all agents (skip already-selected combo)
     if (includeAllAgents) {
-      const src = RAG_SOURCES.find(s => s.key === selectedSource) || RAG_SOURCES[0];
+      const ctx = CONTEXT_MODES.find(c => c.key === selectedContext) || CONTEXT_MODES[0];
       for (const ag of AGENTS) {
-        const cellKey = `${src.key}::${ag.key}`;
-        if (!cells.some(c => `${c.sourceKey}::${c.agentKey}` === cellKey)) {
+        const cellKey = `${ctx.key}::${ag.key}`;
+        if (!cells.some(c => `${c.contextKey}::${c.agentKey}` === cellKey)) {
           cells.push({
-            sourceKey: src.key, sourceLabel: src.label, domain: src.domain,
-            agentKey: ag.key, agentLabel: ag.label, agentPrompt: ag.prompt, agentColor: ag.color,
+            contextKey: ctx.key, contextLabel: ctx.label, contextInstruction: ctx.instruction,
+            agentKey: ag.key, agentId: ag.id, agentLabel: ag.label, agentColor: ag.color,
           });
         }
       }
@@ -143,17 +141,15 @@ export default function Playground() {
     // Init all cells as loading
     const init: Record<string, CellResult> = {};
     cells.forEach(c => {
-      init[`${c.sourceKey}::${c.agentKey}`] = { response: "", latencyMs: 0, toolsUsed: [], sourcesCount: 0, loading: true, error: false };
+      init[`${c.contextKey}::${c.agentKey}`] = { response: "", latencyMs: 0, toolsUsed: [], sourcesCount: 0, loading: true, error: false };
     });
     setResults(init);
 
     await Promise.all(cells.map(async (cell) => {
-      const cellKey = `${cell.sourceKey}::${cell.agentKey}`;
+      const cellKey = `${cell.contextKey}::${cell.agentKey}`;
       const start = Date.now();
       try {
-        const message = cell.agentPrompt
-          ? `[INSTRUCCIÓN: ${cell.agentPrompt}]\n[FUENTE RAG PREFERIDA: ${cell.sourceLabel}]\n\n${prompt}`
-          : `[FUENTE RAG PREFERIDA: ${cell.sourceLabel}]\n\n${prompt}`;
+        const message = `[CONTEXTO: ${cell.contextInstruction}]\n[AGENTE: ${cell.agentLabel} (${cell.agentId})]\n\n${prompt}`;
 
         const { data, error } = await supabase.functions.invoke("ava-orchestrator", {
           body: { message, history: [] },
@@ -195,25 +191,25 @@ export default function Playground() {
     if (!user) return;
     setBestVote(cellKey);
 
-    const [sourceKey, agentKey] = cellKey.split("::");
-    const src = RAG_SOURCES.find(s => s.key === sourceKey);
+    const [contextKey, agentKey] = cellKey.split("::");
+    const ctx = CONTEXT_MODES.find(c => c.key === contextKey);
     const ag = AGENTS.find(a => a.key === agentKey);
     const result = results[cellKey];
-    if (!result || !src || !ag) return;
+    if (!result || !ctx || !ag) return;
 
     try {
       await supabase.from("playground_evaluations" as never).insert({
         usuario_id: user.id,
         prompt,
         variante_index: AGENTS.indexOf(ag),
-        variante_config: { sourceKey, agentKey, sourceLabel: src.label, agentLabel: ag.label },
+        variante_config: { contextKey, agentKey, contextLabel: ctx.label, agentLabel: ag.label },
         respuesta: result.response,
         latencia_ms: result.latencyMs,
         fuentes_consultadas: result.sourcesCount,
         tools_used: result.toolsUsed,
         evaluacion: "mejor",
       } as never);
-      toast({ title: "⭐ Mejor respuesta guardada", description: `${src.label} + ${ag.label}` });
+      toast({ title: "⭐ Mejor respuesta guardada", description: `${ctx.label} + ${ag.label}` });
       fetchPastEvals();
     } catch {
       toast({ title: "Error", description: "No se pudo guardar", variant: "destructive" });
@@ -264,14 +260,14 @@ export default function Playground() {
               <Label htmlFor="all-agents" className="text-xs">+ Todos los agentes</Label>
             </div>
 
-            {/* Source for agent axis */}
+            {/* Context for agent axis */}
             {includeAllAgents && (
               <div className="space-y-1.5">
-                <Label className="text-xs flex items-center gap-1"><Database className="h-3 w-3" /> Fuente para eje agentes</Label>
-                <Select value={selectedSource} onValueChange={(v) => setSelectedSource(v as typeof selectedSource)}>
+                <Label className="text-xs flex items-center gap-1"><Database className="h-3 w-3" /> Contexto para eje agentes</Label>
+                <Select value={selectedContext} onValueChange={(v) => setSelectedContext(v as typeof selectedContext)}>
                   <SelectTrigger className="w-56"><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    {RAG_SOURCES.map(s => <SelectItem key={s.key} value={s.key}>{s.label}</SelectItem>)}
+                    {CONTEXT_MODES.map(c => <SelectItem key={c.key} value={c.key}>{c.label}</SelectItem>)}
                   </SelectContent>
                 </Select>
               </div>
@@ -285,8 +281,8 @@ export default function Playground() {
 
           {/* Legend */}
           <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
-            <span className="font-medium">Eje principal:</span> 8 fuentes RAG × agente seleccionado
-            {includeAllAgents && <><span className="font-medium ml-2">+ Eje secundario:</span> fuente elegida × 4 agentes</>}
+            <span className="font-medium">Eje principal:</span> 4 modos de contexto × agente seleccionado
+            {includeAllAgents && <><span className="font-medium ml-2">+ Eje secundario:</span> contexto elegido × 6 agentes</>}
           </div>
         </CardContent>
       </Card>
@@ -295,7 +291,7 @@ export default function Playground() {
       {hasResults && (
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
           {cells.map((cell) => {
-            const cellKey = `${cell.sourceKey}::${cell.agentKey}`;
+            const cellKey = `${cell.contextKey}::${cell.agentKey}`;
             const r = results[cellKey];
             const isBest = bestVote === cellKey;
 
@@ -305,7 +301,7 @@ export default function Playground() {
                   <div className="flex items-center justify-between gap-2">
                     <div className="flex flex-wrap items-center gap-1.5 min-w-0">
                       <Badge variant="secondary" className="text-[10px] shrink-0">
-                        <Database className="h-2.5 w-2.5 mr-0.5" />{cell.sourceLabel}
+                        <Database className="h-2.5 w-2.5 mr-0.5" />{cell.contextLabel}
                       </Badge>
                       <Badge variant="outline" className={`text-[10px] shrink-0 ${cell.agentColor}`}>
                         <Bot className="h-2.5 w-2.5 mr-0.5" />{cell.agentLabel}
