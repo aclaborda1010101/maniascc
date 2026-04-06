@@ -12,7 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import {
   ArrowLeft, MapPin, Users, FileText, Sparkles, MessageSquare,
   Calendar, Building2, Target, Layers, FileSearch, Compass,
-  BookOpen, Hammer, Plus, Trash2, Brain,
+  BookOpen, Plus, Trash2, Brain,
 } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 
