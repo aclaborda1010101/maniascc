@@ -272,6 +272,15 @@ export default function Operadores() {
                         <p className="text-xs text-muted-foreground">{o.contacto_nombre}</p>
                       )}
                     </TableCell>
+                    <TableCell>
+                      {o.matriz_id ? (
+                        <Link to={`/operadores/${o.matriz_id}`} className="text-xs text-accent hover:underline">
+                          {matrices.find((m: any) => m.id === o.matriz_id)?.nombre || "—"}
+                        </Link>
+                      ) : (
+                        <Badge variant="outline" className="text-xs">Matriz</Badge>
+                      )}
+                    </TableCell>
                     <TableCell><Badge variant="secondary">{o.sector || "—"}</Badge></TableCell>
                     <TableCell className="text-right">
                       {Number(o.presupuesto_min).toLocaleString("es-ES")} – {Number(o.presupuesto_max).toLocaleString("es-ES")} €
