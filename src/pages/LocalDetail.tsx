@@ -31,8 +31,10 @@ export default function LocalDetail() {
   const { user } = useAuth();
   const [local, setLocal] = useState<any>(null);
   const [matches, setMatches] = useState<any[]>([]);
+  const [contactos, setContactos] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [showAddContact, setShowAddContact] = useState(false);
 
   useEffect(() => {
     async function fetch() {
