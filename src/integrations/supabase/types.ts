@@ -1703,6 +1703,35 @@ export type Database = {
           },
         ]
       }
+      subdivision_activos: {
+        Row: {
+          activo_id: string
+          created_at: string | null
+          id: string
+          subdivision_id: string
+        }
+        Insert: {
+          activo_id: string
+          created_at?: string | null
+          id?: string
+          subdivision_id: string
+        }
+        Update: {
+          activo_id?: string
+          created_at?: string | null
+          id?: string
+          subdivision_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "subdivision_activos_subdivision_id_fkey"
+            columns: ["subdivision_id"]
+            isOneToOne: false
+            referencedRelation: "operador_subdivisiones"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       usage_logs: {
         Row: {
           action_type: string
