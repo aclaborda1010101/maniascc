@@ -7,8 +7,8 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import {
-  MapPin, Users, Sparkles, Brain, Plus, TrendingUp, Clock, ArrowRight,
-  FolderOpen, DollarSign, Activity, Eye, Zap, CheckCircle, XCircle,
+  MapPin, Users, Sparkles, Plus, Clock, ArrowRight,
+  FolderOpen, DollarSign, Activity, Bell,
 } from "lucide-react";
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
