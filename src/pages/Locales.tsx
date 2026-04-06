@@ -70,9 +70,9 @@ export default function Locales() {
     });
     setSubmitting(false);
     if (error) {
-      toast({ title: "Error al crear local", description: error.message, variant: "destructive" });
+      toast({ title: "Error al crear activo", description: error.message, variant: "destructive" });
     } else {
-      toast({ title: "Local creado correctamente" });
+      toast({ title: "Activo creado correctamente" });
       setDialogOpen(false);
       fetchLocales();
     }
@@ -82,18 +82,18 @@ export default function Locales() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Locales</h1>
-          <p className="text-sm text-muted-foreground">Gestiona los locales comerciales de tus centros</p>
+          <h1 className="text-2xl font-bold tracking-tight">Activos</h1>
+          <p className="text-sm text-muted-foreground">Gestiona los activos comerciales de tus centros</p>
         </div>
         <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
           <DialogTrigger asChild>
             <Button className="bg-accent text-accent-foreground hover:bg-accent/90">
-              <Plus className="mr-2 h-4 w-4" /> Nuevo Local
+              <Plus className="mr-2 h-4 w-4" /> Nuevo Activo
             </Button>
           </DialogTrigger>
           <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
             <DialogHeader>
-              <DialogTitle>Crear Nuevo Local</DialogTitle>
+              <DialogTitle>Crear Nuevo Activo</DialogTitle>
             </DialogHeader>
             <form onSubmit={handleCreate} className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
@@ -139,7 +139,7 @@ export default function Locales() {
                 <Textarea id="c-desc" name="descripcion" placeholder="Detalles adicionales del local..." rows={3} />
               </div>
               <Button type="submit" className="w-full bg-accent text-accent-foreground hover:bg-accent/90" disabled={submitting}>
-                {submitting ? "Creando..." : "Crear Local"}
+                {submitting ? "Creando..." : "Crear Activo"}
               </Button>
             </form>
           </DialogContent>
@@ -181,7 +181,7 @@ export default function Locales() {
             <div className="py-12 text-center">
               <MapPin className="mx-auto mb-3 h-10 w-10 text-muted-foreground/40" />
               <p className="text-muted-foreground">
-                {search || filtroEstado !== "todos" ? "No se encontraron locales con esos filtros." : "No hay locales. Crea el primero."}
+                {search || filtroEstado !== "todos" ? "No se encontraron activos con esos filtros." : "No hay activos. Crea el primero."}
               </p>
             </div>
           ) : (
@@ -199,7 +199,7 @@ export default function Locales() {
                 {locales.map((l) => (
                   <TableRow key={l.id} className="cursor-pointer hover:bg-muted/50">
                     <TableCell>
-                      <Link to={`/locales/${l.id}`} className="font-medium text-accent hover:underline">
+                      <Link to={`/activos/${l.id}`} className="font-medium text-accent hover:underline">
                         {l.nombre}
                       </Link>
                       <p className="text-xs text-muted-foreground truncate max-w-[200px]">{l.direccion}</p>
@@ -218,7 +218,7 @@ export default function Locales() {
             </Table>
           )}
           {!loading && locales.length > 0 && (
-            <p className="mt-3 text-xs text-muted-foreground">{locales.length} local{locales.length !== 1 ? "es" : ""} encontrado{locales.length !== 1 ? "s" : ""}</p>
+            <p className="mt-3 text-xs text-muted-foreground">{locales.length} activo{locales.length !== 1 ? "s" : ""} encontrado{locales.length !== 1 ? "s" : ""}</p>
           )}
         </CardContent>
       </Card>

@@ -209,7 +209,7 @@ export default function Dashboard() {
   const statCards = [
     { label: "Oportunidades Activas", value: stats?.proyectosActivos, icon: FolderOpen, color: "text-primary", bg: "bg-primary/10" },
     { label: "Operadores", value: stats?.totalOperadores, icon: Users, color: "text-chart-2", bg: "bg-chart-2/10" },
-    { label: "Locales", value: stats?.totalLocales, icon: MapPin, color: "text-chart-1", bg: "bg-chart-1/10" },
+    { label: "Activos", value: stats?.totalLocales, icon: MapPin, color: "text-chart-1", bg: "bg-chart-1/10" },
     { label: "Matches Pendientes", value: stats?.matchesPendientes, icon: Sparkles, color: "text-accent", bg: "bg-accent/10" },
     { label: "Coste IA (mes)", value: stats ? `${stats.costeIAMes.toFixed(3)}€` : undefined, icon: DollarSign, color: "text-chart-3", bg: "bg-chart-3/10" },
     { label: "Latencia Media IA", value: stats ? `${stats.latenciaMedia}ms` : undefined, icon: Clock, color: "text-muted-foreground", bg: "bg-muted/50" },
@@ -414,7 +414,7 @@ export default function Dashboard() {
 
       <div className="grid gap-4 lg:grid-cols-2">
         <Card>
-          <CardHeader className="pb-2"><CardTitle className="text-base">Locales por Estado</CardTitle></CardHeader>
+          <CardHeader className="pb-2"><CardTitle className="text-base">Activos por Estado</CardTitle></CardHeader>
           <CardContent className="flex items-center justify-center">
             {loading ? <Skeleton className="h-[140px] w-full" /> : localEstadoDist.length > 0 ? (
               <ResponsiveContainer width="100%" height={140}>
@@ -425,7 +425,7 @@ export default function Dashboard() {
                   <Tooltip /><Legend iconSize={8} wrapperStyle={{ fontSize: "11px" }} />
                 </PieChart>
               </ResponsiveContainer>
-            ) : <p className="text-sm text-muted-foreground">Sin locales</p>}
+            ) : <p className="text-sm text-muted-foreground">Sin activos</p>}
           </CardContent>
         </Card>
         <Card>
@@ -450,7 +450,7 @@ export default function Dashboard() {
         <Card>
           <CardHeader className="pb-2 flex flex-row items-center justify-between">
             <CardTitle className="text-base">Últimos Matches</CardTitle>
-            <Button asChild size="sm" variant="ghost"><Link to="/locales">Ver todos <ArrowRight className="ml-1 h-3 w-3" /></Link></Button>
+            <Button asChild size="sm" variant="ghost"><Link to="/activos">Ver todos <ArrowRight className="ml-1 h-3 w-3" /></Link></Button>
           </CardHeader>
           <CardContent>
             {loading ? <Skeleton className="h-40 w-full" /> : recentMatches.length > 0 ? (

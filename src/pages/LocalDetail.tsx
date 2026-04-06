@@ -62,22 +62,22 @@ export default function LocalDetail() {
     }).eq("id", id);
     setSaving(false);
     if (error) toast({ title: "Error", description: error.message, variant: "destructive" });
-    else toast({ title: "Local actualizado correctamente" });
+    else toast({ title: "Activo actualizado correctamente" });
   };
 
   const handleDelete = async () => {
     await supabase.from("locales").delete().eq("id", id);
-    toast({ title: "Local eliminado" });
-    navigate("/locales");
+    toast({ title: "Activo eliminado" });
+    navigate("/activos");
   };
 
   if (loading) return <div className="space-y-4"><Skeleton className="h-8 w-48" /><Skeleton className="h-64 w-full" /></div>;
-  if (!local) return <p className="text-muted-foreground">Local no encontrado.</p>;
+  if (!local) return <p className="text-muted-foreground">Activo no encontrado.</p>;
 
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-3">
-        <Button variant="ghost" size="icon" onClick={() => navigate("/locales")}>
+        <Button variant="ghost" size="icon" onClick={() => navigate("/activos")}>
           <ArrowLeft className="h-5 w-5" />
         </Button>
         <div className="flex-1">
@@ -92,9 +92,9 @@ export default function LocalDetail() {
           </AlertDialogTrigger>
           <AlertDialogContent>
             <AlertDialogHeader>
-              <AlertDialogTitle>¿Eliminar este local?</AlertDialogTitle>
+              <AlertDialogTitle>¿Eliminar este activo?</AlertDialogTitle>
               <AlertDialogDescription>
-                Esta acción eliminará permanentemente el local "{local.nombre}" y todos sus matches asociados.
+                Esta acción eliminará permanentemente el activo "{local.nombre}" y todos sus matches asociados.
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
@@ -110,7 +110,7 @@ export default function LocalDetail() {
       <div className="grid gap-6 lg:grid-cols-3">
         <Card className="lg:col-span-2">
           <CardHeader>
-            <CardTitle>Datos del Local</CardTitle>
+            <CardTitle>Datos del Activo</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
@@ -209,7 +209,7 @@ export default function LocalDetail() {
         </CardHeader>
         <CardContent>
           {matches.length === 0 ? (
-            <p className="py-6 text-center text-muted-foreground">Sin matches para este local. Usa "Generar Matches IA" para empezar.</p>
+            <p className="py-6 text-center text-muted-foreground">Sin matches para este activo. Usa "Generar Matches IA" para empezar.</p>
           ) : (
             <Table>
               <TableHeader>

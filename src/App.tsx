@@ -67,8 +67,8 @@ const App = () => (
                   <Route path="/contactos" element={<Contactos />} />
                   <Route path="/contactos/:id" element={<ContactoDetail />} />
                   <Route path="/documentos" element={<Documentos />} />
-                  <Route path="/locales" element={<Locales />} />
-                  <Route path="/locales/:id" element={<LocalDetail />} />
+                  <Route path="/activos" element={<Locales />} />
+                  <Route path="/activos/:id" element={<LocalDetail />} />
                   <Route path="/matching/:localId" element={<Matching />} />
                   <Route path="/notificaciones" element={<Notificaciones />} />
                   <Route path="/localizacion" element={<LocationAnalysis />} />
@@ -85,6 +85,8 @@ const App = () => (
                   <Route path="/busqueda" element={<Navigate to="/asistente" replace />} />
                   <Route path="/proyectos" element={<Navigate to="/oportunidades" replace />} />
                   <Route path="/proyectos/:id" element={<Navigate to="/oportunidades" replace />} />
+                  <Route path="/locales" element={<Navigate to="/activos" replace />} />
+                  <Route path="/locales/:id" element={<Navigate to="/activos" replace />} />
                   <Route path="/auditoria" element={<Navigate to="/ajustes" replace />} />
                   <Route path="/admin" element={<Navigate to="/ajustes" replace />} />
                 </Route>
