@@ -15,6 +15,9 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 
 const tipoLabels: Record<string, string> = {
+  desarrollo_comercial: "Desarrollo Comercial",
+  venta_activo: "Venta de Activo",
+  optimizacion_centros: "Optimización de Centros",
   comercializacion: "Comercialización",
   negociacion: "Negociación",
   centro_completo: "Centro Completo",
@@ -26,6 +29,9 @@ const tipoLabels: Record<string, string> = {
 };
 
 const tipoIcons: Record<string, any> = {
+  desarrollo_comercial: ShoppingBag,
+  venta_activo: Building2,
+  optimizacion_centros: TrendingUp,
   comercializacion: Building2,
   centro_completo: Building2,
   auditoria_estrategica: ClipboardCheck,
@@ -55,6 +61,9 @@ const estadoColors: Record<string, string> = {
 };
 
 const tipoColors: Record<string, string> = {
+  desarrollo_comercial: "bg-primary/10 text-primary",
+  venta_activo: "bg-chart-1/10 text-chart-1",
+  optimizacion_centros: "bg-chart-2/10 text-chart-2",
   comercializacion: "bg-accent/10 text-accent",
   negociacion: "bg-chart-3/10 text-chart-3",
   centro_completo: "bg-accent/10 text-accent",
@@ -64,6 +73,12 @@ const tipoColors: Record<string, string> = {
   farmacia: "bg-destructive/10 text-destructive",
   otro: "bg-muted text-muted-foreground",
 };
+
+const subtiposActivo = [
+  "Gasolinera", "Local", "Suelo", "Edificio", "Centro Comercial", "Parque de Medianas",
+];
+
+const tiposNuevos = ["desarrollo_comercial", "venta_activo", "optimizacion_centros"];
 
 export default function Proyectos() {
   const [proyectos, setProyectos] = useState<any[]>([]);
