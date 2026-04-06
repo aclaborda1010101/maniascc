@@ -218,6 +218,7 @@ serve(async (req) => {
         model: "google/gemini-3-flash-preview",
         messages,
         tools: TOOLS,
+        tool_choice: "auto",
       }),
     });
 
