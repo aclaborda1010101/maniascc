@@ -139,7 +139,7 @@ export default function Locales() {
                 <Textarea id="c-desc" name="descripcion" placeholder="Detalles adicionales del local..." rows={3} />
               </div>
               <Button type="submit" className="w-full bg-accent text-accent-foreground hover:bg-accent/90" disabled={submitting}>
-                {submitting ? "Creando..." : "Crear Local"}
+                {submitting ? "Creando..." : "Crear Activo"}
               </Button>
             </form>
           </DialogContent>
