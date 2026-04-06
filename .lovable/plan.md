@@ -1,68 +1,54 @@
 
 
-## Plan: Contactos vinculados desde Operadores/Activos + Subdivisiones de Operador
+## Plan: Reestructurar Operadores, Activos e Importar
 
 ### Resumen
-Permitir crear contactos directamente desde la ficha de Operador y de Activo (auto-vinculados). Introducir el concepto de "Subdivisión" (ej: Dirección Regional Norte) dentro de un operador, donde cada subdivisión tiene sus propios contactos.
+Simplificar Activos (solo info + contactos), reorganizar Operadores con jerarquía Matriz/Sub-operadores donde contactos y documentos viven a nivel de sub-operador, y mover Importar dentro de la página de Contactos.
 
-### 1. Base de datos (2 migraciones)
+### 1. Activos (`LocalDetail.tsx`)
+- Eliminar tab "Matches" y el sidebar de "Acciones IA" / "Estadísticas"
+- Dejar solo la info editable del activo y los contactos vinculados en una vista directa (sin tabs o con 2 tabs: Info + Contactos)
 
-**Tabla `operador_subdivisiones`** (nueva):
-```text
-id          uuid PK default gen_random_uuid()
-operador_id uuid NOT NULL
-nombre      text NOT NULL  (ej: "Dirección Zona Norte")
-descripcion text
-created_at  timestamptz default now()
-```
-RLS: SELECT para authenticated, INSERT/UPDATE/DELETE para gestor/admin.
+### 2. Formulario crear operador (`Operadores.tsx`)
+- Al seleccionar "Matriz existente", auto-rellenar el sector con el de la matriz seleccionada (campo deshabilitado)
+- Cambiar label "Nombre" por un nombre identificativo (no persona)
+- Añadir campo "Dirección" (calle)
+- Añadir selector de activo vinculado (lista de activos existentes, opcional)
+- Quitar campos de contacto persona del formulario de creación (contactos se gestionan dentro del detalle)
 
-**Columnas nuevas en `contactos`**:
-- `subdivision_id uuid` (nullable, referencia lógica a operador_subdivisiones)
-- `activo_id uuid` (nullable, para vincular contacto a un activo)
+### 3. Detalle operador (`OperadorDetail.tsx`)
+- Tabs: "Información General", "Perfil IA", "Sub-operadores"
+- Eliminar tabs "Contactos" y "Documentos" a nivel de operador matriz
+- Tab "Sub-operadores": lista de operadores cuyo `matriz_id` = este operador
+  - Cada sub-operador se muestra como card colapsable con: nombre, dirección, sector, presupuesto, superficie, contacto asociado (query a `contactos` por `operador_id`), documentos (del storage `operadores/{subId}`)
+  - Botón "Nuevo sub-operador" que abre el mismo dialog de creación con la matriz pre-seleccionada
 
-Esto permite:
-- Contacto matriz del operador: `operador_id` = X, `subdivision_id` = NULL
-- Contacto de subdivisión: `operador_id` = X, `subdivision_id` = Y
-- Contacto vinculado a activo: `activo_id` = Z
+### 4. Migración DB
+- Añadir columna `direccion text` a la tabla `operadores` (para la dirección física)
+- Añadir columna `activo_id uuid` a la tabla `operadores` (vínculo opcional a un activo)
 
-### 2. OperadorDetail.tsx - Nueva tab "Contactos"
+### 5. Importar dentro de Contactos
+- Eliminar "Importar" del sidebar (`AppSidebar.tsx`)
+- Eliminar la ruta `/importar` independiente del router
+- Integrar las tabs de importación (CSV, WhatsApp, Email, Plaud) como un dialog/modal accesible desde un botón "Importar" en la página `/contactos`
+- Reutilizar el componente `ImportContactosModal` existente ampliado o mantener el botón que ya existe
 
-Añadir una 4a tab "Contactos" con dos secciones:
+### 6. Sidebar (`AppSidebar.tsx`)
+- Quitar `{ title: "Importar", url: "/importar", icon: Import }` de `directoryItems`
 
-**Contacto Matriz**: lista de contactos donde `operador_id = id` y `subdivision_id IS NULL`. Botón "Añadir contacto" abre un dialog con el formulario de creación (reutilizando campos de CreateContactForm) con `operador_id` pre-rellenado.
-
-**Subdivisiones**: 
-- Botón "Nueva subdivisión" (dialog con campo nombre + descripción)
-- Lista de subdivisiones colapsables, cada una muestra sus contactos (`subdivision_id = sub.id`)
-- Dentro de cada subdivisión, botón "Añadir contacto" que pre-rellena `operador_id` + `subdivision_id`
-
-### 3. LocalDetail.tsx (Activos) - Nueva tab "Contactos"
-
-Añadir tab "Contactos" al detalle del activo:
-- Lista de contactos donde `activo_id = id`
-- Botón "Añadir contacto" con `activo_id` pre-rellenado
-- Cada contacto se muestra como fila con nombre, cargo, email, teléfono y link a su ficha
-
-### 4. Componente reutilizable
-
-Crear `src/components/QuickCreateContactDialog.tsx`:
-- Dialog con formulario reducido (nombre, apellidos, cargo, email, teléfono)
-- Props: `operadorId?`, `subdivisionId?`, `activoId?`, `onCreated()`
-- Al crear, inserta en `contactos` con los IDs pre-vinculados
-
-### 5. Archivos afectados
+### Archivos afectados
 
 | Archivo | Acción |
 |---|---|
-| `supabase/migrations/...` | Nueva tabla + columnas |
-| `src/components/QuickCreateContactDialog.tsx` | Nuevo componente |
-| `src/pages/OperadorDetail.tsx` | Tab "Contactos" + sección subdivisiones |
-| `src/pages/LocalDetail.tsx` | Tab "Contactos" vinculados al activo |
-| `src/pages/Contactos.tsx` | Mostrar subdivisión en la lista si existe |
-| `src/components/contactos/ContactDetailPanel.tsx` | Mostrar subdivisión en el perfil |
+| `supabase/migrations/...` | Añadir `direccion`, `activo_id` a operadores |
+| `src/pages/Operadores.tsx` | Refactor formulario creación |
+| `src/pages/OperadorDetail.tsx` | Tabs Info/IA/Sub-operadores, quitar Contactos/Documentos |
+| `src/pages/LocalDetail.tsx` | Simplificar: quitar Matches y sidebar IA |
+| `src/components/AppSidebar.tsx` | Quitar "Importar" |
+| `src/pages/Contactos.tsx` | Añadir botón/modal importar integrado |
+| `src/App.tsx` | Redirect `/importar` a `/contactos` |
 
-### Nota técnica
-- La tabla `operadores` mantiene `contacto_nombre/email/telefono` como datos rápidos de referencia (legacy), pero los contactos reales viven en la tabla `contactos`
-- Los contactos creados desde operador/activo aparecerán también en la lista general de /contactos
+### Nota
+- La tabla `operador_subdivisiones` y `subdivision_activos` quedan como están pero el foco de la UI pasa a usar la relación `matriz_id` de `operadores` para la jerarquía Matriz > Sub-operadores
+- Los contactos y documentos se gestionan a nivel de cada sub-operador individual
 
