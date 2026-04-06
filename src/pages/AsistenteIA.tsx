@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useChatMessages, toolLabel } from "@/hooks/useChatMessages";
 import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import { cn } from "@/lib/utils";
 
 function exportMessageToPdf(content: string, title?: string) {
@@ -172,7 +173,7 @@ export default function AsistenteIA() {
                 {msg.role === "assistant" ? (
                   <div>
                     <div className="prose prose-sm dark:prose-invert max-w-none text-sm">
-                      <ReactMarkdown>{msg.content}</ReactMarkdown>
+                      <ReactMarkdown remarkPlugins={[remarkGfm]}>{msg.content}</ReactMarkdown>
                     </div>
                     {msg.meta?.pdf_content && (
                       <Button variant="outline" size="sm" className="mt-2 gap-1.5 text-xs h-7 px-3 border-accent text-accent" onClick={() => exportMessageToPdf(msg.meta!.pdf_content!, msg.meta!.pdf_title)}>

@@ -10,6 +10,7 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery } from "@tanstack/react-query";
 import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 
 function markdownToHtml(text: string, title: string, modeLabel: string): string {
   let html = text
@@ -172,7 +173,7 @@ export default function GeneradorDocumentos() {
               </div>
               <div className="rounded-lg border bg-muted/30 p-4 max-h-[500px] overflow-y-auto">
                 <div className="prose prose-sm dark:prose-invert max-w-none text-sm">
-                  <ReactMarkdown>{result}</ReactMarkdown>
+                  <ReactMarkdown remarkPlugins={[remarkGfm]}>{result}</ReactMarkdown>
                 </div>
               </div>
             </div>

@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useChatMessages, toolLabel } from "@/hooks/useChatMessages";
 import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 
 export function FloatingChat() {
   const [open, setOpen] = useState(false);
@@ -84,7 +85,7 @@ export function FloatingChat() {
                 }`}>
                   {msg.role === "assistant" ? (
                     <div className="prose prose-sm dark:prose-invert max-w-none text-xs">
-                      <ReactMarkdown>{msg.content}</ReactMarkdown>
+                      <ReactMarkdown remarkPlugins={[remarkGfm]}>{msg.content}</ReactMarkdown>
                     </div>
                   ) : (
                     <p className="text-xs">{msg.content}</p>

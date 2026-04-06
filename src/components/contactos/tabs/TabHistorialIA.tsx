@@ -6,6 +6,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Sparkles } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 
 const estiloLabels: Record<string, string> = {
   colaborativo: "Colaborativo", competitivo: "Competitivo",
@@ -78,7 +79,7 @@ export default function TabHistorialIA({ contacto: c, operador, negociaciones }:
             </div>
           ) : brief ? (
             <div className="prose prose-sm max-w-none dark:prose-invert">
-              <ReactMarkdown>{brief}</ReactMarkdown>
+              <ReactMarkdown remarkPlugins={[remarkGfm]}>{brief}</ReactMarkdown>
             </div>
           ) : (
             <p className="text-sm text-muted-foreground py-4 text-center">
