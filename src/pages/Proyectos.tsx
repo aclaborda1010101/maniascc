@@ -137,32 +137,32 @@ export default function Proyectos() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Proyectos</h1>
-          <p className="text-sm text-muted-foreground">Gestiona todas las operaciones comerciales</p>
+          <h1 className="text-2xl font-bold tracking-tight">Oportunidades</h1>
+          <p className="text-sm text-muted-foreground">Gestiona todas las oportunidades de negocio</p>
         </div>
         <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
           <DialogTrigger asChild>
             <Button className="bg-accent text-accent-foreground hover:bg-accent/90">
-              <Plus className="mr-2 h-4 w-4" /> Nuevo Proyecto
+              <Plus className="mr-2 h-4 w-4" /> Nueva Oportunidad
             </Button>
           </DialogTrigger>
           <DialogContent className="max-w-lg">
             <DialogHeader>
-              <DialogTitle>Crear Nuevo Proyecto</DialogTitle>
+              <DialogTitle>Crear Nueva Oportunidad</DialogTitle>
             </DialogHeader>
             <form onSubmit={handleCreate} className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="p-nombre">Nombre del proyecto *</Label>
-                <Input id="p-nombre" name="nombre" placeholder="CC Vallecas — Comercialización" required />
+                <Label htmlFor="p-nombre">Nombre de la oportunidad *</Label>
+                <Input id="p-nombre" name="nombre" placeholder="CC Vallecas — Desarrollo Comercial" required />
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="p-tipo">Tipo *</Label>
-                  <Select name="tipo" defaultValue="comercializacion">
+                  <Select name="tipo" defaultValue="desarrollo_comercial" onValueChange={setTipoSeleccionado}>
                     <SelectTrigger id="p-tipo"><SelectValue /></SelectTrigger>
                     <SelectContent>
-                      {Object.entries(tipoLabels).map(([k, v]) => (
-                        <SelectItem key={k} value={k}>{v}</SelectItem>
+                      {tiposNuevos.map((k) => (
+                        <SelectItem key={k} value={k}>{tipoLabels[k]}</SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
@@ -172,6 +172,19 @@ export default function Proyectos() {
                   <Input id="p-fecha" name="fecha_objetivo" type="date" />
                 </div>
               </div>
+              {tipoSeleccionado === "venta_activo" && (
+                <div className="space-y-2">
+                  <Label htmlFor="p-subtipo">Subtipo de activo</Label>
+                  <Select name="subtipo_activo">
+                    <SelectTrigger id="p-subtipo"><SelectValue placeholder="Seleccionar subtipo" /></SelectTrigger>
+                    <SelectContent>
+                      {subtiposActivo.map((s) => (
+                        <SelectItem key={s} value={s}>{s}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="p-ubicacion">Ubicación</Label>
@@ -188,10 +201,10 @@ export default function Proyectos() {
               </div>
               <div className="space-y-2">
                 <Label htmlFor="p-desc">Descripción</Label>
-                <Textarea id="p-desc" name="descripcion" placeholder="Objetivo y contexto del proyecto..." rows={3} />
+                <Textarea id="p-desc" name="descripcion" placeholder="Objetivo y contexto de la oportunidad..." rows={3} />
               </div>
               <Button type="submit" className="w-full bg-accent text-accent-foreground hover:bg-accent/90" disabled={submitting}>
-                {submitting ? "Creando..." : "Crear Proyecto"}
+                {submitting ? "Creando..." : "Crear Oportunidad"}
               </Button>
             </form>
           </DialogContent>
