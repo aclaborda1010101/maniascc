@@ -8,7 +8,9 @@ const corsHeaders = {
 
 const SYSTEM_PROMPT = `Eres AVA, la asistente inteligente de gestión de centros comerciales de F&G Real Estate. Tienes acceso completo a la base de datos (locales, operadores, contactos, documentos, negociaciones), a 6 especialistas de IA (localización, tenant mix, validación, negociación, auditoría, matching), y a funciones de análisis avanzado. Puedes consultar datos, modificarlos, ejecutar análisis, y asistir proactivamente. Responde siempre en español. Sé concisa pero completa.
 
-Cuando te pregunten sobre una ubicación comercial, análisis de localización o viabilidad de un centro comercial, SIEMPRE usa la herramienta nearby_search para analizar el entorno: busca McDonald's, gasolineras, supermercados, centros comerciales competidores, estaciones de transporte público, colegios, hospitales y cualquier POI relevante. Haz múltiples búsquedas con distintos queries para obtener un análisis completo. Presenta los resultados de forma estructurada con distancias y conclusiones.`;
+Cuando te pregunten sobre una ubicación comercial, análisis de localización o viabilidad de un centro comercial, SIEMPRE usa la herramienta nearby_search para analizar el entorno: busca McDonald's, gasolineras, supermercados, centros comerciales competidores, estaciones de transporte público, colegios, hospitales y cualquier POI relevante. Haz múltiples búsquedas con distintos queries para obtener un análisis completo. Presenta los resultados de forma estructurada con distancias y conclusiones.
+
+IMPORTANTE SOBRE INFORMES PDF: Cuando el usuario te pida explícitamente que generes un informe, documento, dossier o reporte (ej: "hazme un informe", "prepárame un documento", "genera un PDF de eso"), usa la herramienta generate_pdf_report. Estructura el contenido como un documento profesional con secciones bien definidas (título, resumen ejecutivo, análisis, conclusiones, recomendaciones). NO uses esta herramienta para respuestas normales de chat; solo cuando el usuario pida explícitamente un documento/informe.`;
 
 const TOOLS = [
   {
@@ -123,6 +125,21 @@ const TOOLS = [
           query: { type: "string", description: "Tipo de POI a buscar, ej: restaurant, fuel, supermarket, school, hospital, shopping, fast_food, bus_stop" },
         },
         required: ["lat", "lon", "query"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "generate_pdf_report",
+      description: "Genera un informe/documento profesional en formato PDF. Úsalo SOLO cuando el usuario pida explícitamente un informe, documento, dossier o reporte. Estructura el contenido con secciones: resumen ejecutivo, análisis, conclusiones, recomendaciones.",
+      parameters: {
+        type: "object",
+        properties: {
+          title: { type: "string", description: "Título del informe (ej: 'Análisis de viabilidad - Centro Comercial Norte')" },
+          content: { type: "string", description: "Contenido completo del informe en formato Markdown con secciones bien estructuradas" },
+        },
+        required: ["title", "content"],
       },
     },
   },
@@ -435,6 +452,9 @@ serve(async (req) => {
           } catch (e) {
             result = { error: "Error consultando Overpass API: " + (e instanceof Error ? e.message : "desconocido") };
           }
+        } else if (fnName === "generate_pdf_report") {
+          toolLabel = "generate_pdf_report";
+          result = { success: true, title: args.title, content: args.content };
         } else {
           result = { error: "Tool no reconocida" };
         }
@@ -510,10 +530,14 @@ serve(async (req) => {
       metadata: { tools_used: toolResults.map(tr => tr.tool), message: message?.slice(0, 200) },
     });
 
+    // Check if generate_pdf_report was used
+    const pdfTool = toolResults.find(tr => tr.tool === "generate_pdf_report" && tr.result?.success);
+
     return new Response(JSON.stringify({
       answer: finalAnswer,
       tools_used: toolResults.map(tr => tr.tool),
       latency_ms: latencyMs,
+      ...(pdfTool ? { pdf_content: pdfTool.result.content, pdf_title: pdfTool.result.title } : {}),
     }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });

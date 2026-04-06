@@ -10,6 +10,8 @@ export interface ChatMessage {
   meta?: {
     tools_used?: string[];
     latency_ms?: number;
+    pdf_content?: string;
+    pdf_title?: string;
   };
 }
 
@@ -26,6 +28,8 @@ function toolLabel(tool: string): { emoji: string; label: string } {
   if (tool === "expert_forge") return { emoji: "🧠", label: "Preguntando a especialista" };
   if (tool.startsWith("run_intelligence")) return { emoji: "📊", label: "Ejecutando análisis" };
   if (tool === "search_data") return { emoji: "🔎", label: "Buscando datos" };
+  if (tool.startsWith("nearby_search")) return { emoji: "📍", label: "Analizando ubicación" };
+  if (tool === "generate_pdf_report") return { emoji: "📄", label: "Generando informe" };
   return { emoji: "⚙️", label: tool };
 }
 
@@ -298,6 +302,7 @@ export function useChatMessages() {
       const meta = (!error && !data?.error) ? {
         tools_used: data?.tools_used,
         latency_ms: data?.latency_ms,
+        ...(data?.pdf_content ? { pdf_content: data.pdf_content, pdf_title: data.pdf_title } : {}),
       } : {};
 
       // Insert assistant message to DB

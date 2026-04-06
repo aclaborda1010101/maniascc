@@ -8,7 +8,7 @@ import { useChatMessages, toolLabel } from "@/hooks/useChatMessages";
 import ReactMarkdown from "react-markdown";
 import { cn } from "@/lib/utils";
 
-function exportMessageToPdf(content: string) {
+function exportMessageToPdf(content: string, title?: string) {
   let html = content
     .replace(/^### (.+)$/gm, '<h3 style="font-size:14px;font-weight:700;margin:18px 0 8px;color:#1a1a2e;">$1</h3>')
     .replace(/^## (.+)$/gm, '<h2 style="font-size:16px;font-weight:700;margin:22px 0 10px;color:#1a1a2e;">$1</h2>')
@@ -26,8 +26,9 @@ function exportMessageToPdf(content: string) {
   });
 
   const now = new Date().toLocaleDateString("es-ES", { year: "numeric", month: "long", day: "numeric" });
+  const docTitle = title || "Informe AVA";
   const fullHtml = `<!DOCTYPE html>
-<html lang="es"><head><meta charset="utf-8"><title>Informe AVA</title>
+<html lang="es"><head><meta charset="utf-8"><title>${docTitle}</title>
 <style>
   @page { margin: 2cm; size: A4; }
   body { font-family: 'Segoe UI', system-ui, sans-serif; color: #1a1a2e; font-size: 11px; line-height: 1.6; }
@@ -37,7 +38,7 @@ function exportMessageToPdf(content: string) {
   .footer { position: fixed; bottom: 0; left: 0; right: 0; text-align: center; font-size: 9px; color: #94a3b8; border-top: 1px solid #e2e8f0; padding-top: 8px; }
   .badge { display: inline-block; background: #6366f1; color: white; font-size: 9px; padding: 2px 8px; border-radius: 4px; font-weight: 600; }
 </style></head><body>
-  <div class="header"><h1>Informe AVA</h1><div class="meta"><span class="badge">Asistente IA</span> &nbsp;·&nbsp; ${now} &nbsp;·&nbsp; F&G Real Estate</div></div>
+  <div class="header"><h1>${docTitle}</h1><div class="meta"><span class="badge">Asistente IA</span> &nbsp;·&nbsp; ${now} &nbsp;·&nbsp; F&G Real Estate</div></div>
   <div class="content"><p style="margin:8px 0;line-height:1.6;">${html}</p></div>
   <div class="footer">Generado por AVA — F&G Real Estate</div>
 </body></html>`;
@@ -173,9 +174,11 @@ export default function AsistenteIA() {
                     <div className="prose prose-sm dark:prose-invert max-w-none text-sm">
                       <ReactMarkdown>{msg.content}</ReactMarkdown>
                     </div>
-                    <Button variant="ghost" size="sm" className="mt-2 gap-1 text-muted-foreground text-xs h-7 px-2" onClick={() => exportMessageToPdf(msg.content)}>
-                      <FileDown className="h-3 w-3" /> PDF
-                    </Button>
+                    {msg.meta?.pdf_content && (
+                      <Button variant="outline" size="sm" className="mt-2 gap-1.5 text-xs h-7 px-3 border-accent text-accent" onClick={() => exportMessageToPdf(msg.meta!.pdf_content!, msg.meta!.pdf_title)}>
+                        <FileDown className="h-3.5 w-3.5" /> Descargar informe PDF
+                      </Button>
+                    )}
                   </div>
                 ) : (
                   <p className="text-sm">{msg.content}</p>
