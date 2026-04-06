@@ -1,6 +1,6 @@
 import {
   LayoutDashboard, Users, Sparkles, LogOut, FileText,
-  FolderKanban, UserCircle, Bell, MapPin, Brain,
+  FolderKanban, UserCircle, MapPin, Brain, Hammer,
   Compass, FileSearch, Layers, MessageSquare, Moon, Sun, Settings, Network, FlaskConical, DollarSign,
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
