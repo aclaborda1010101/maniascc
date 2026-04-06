@@ -92,9 +92,9 @@ export default function LocalDetail() {
           </AlertDialogTrigger>
           <AlertDialogContent>
             <AlertDialogHeader>
-              <AlertDialogTitle>¿Eliminar este local?</AlertDialogTitle>
+              <AlertDialogTitle>¿Eliminar este activo?</AlertDialogTitle>
               <AlertDialogDescription>
-                Esta acción eliminará permanentemente el local "{local.nombre}" y todos sus matches asociados.
+                Esta acción eliminará permanentemente el activo "{local.nombre}" y todos sus matches asociados.
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
