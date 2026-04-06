@@ -8,6 +8,48 @@ import { useChatMessages, toolLabel } from "@/hooks/useChatMessages";
 import ReactMarkdown from "react-markdown";
 import { cn } from "@/lib/utils";
 
+function exportMessageToPdf(content: string) {
+  let html = content
+    .replace(/^### (.+)$/gm, '<h3 style="font-size:14px;font-weight:700;margin:18px 0 8px;color:#1a1a2e;">$1</h3>')
+    .replace(/^## (.+)$/gm, '<h2 style="font-size:16px;font-weight:700;margin:22px 0 10px;color:#1a1a2e;">$1</h2>')
+    .replace(/^# (.+)$/gm, '<h1 style="font-size:20px;font-weight:700;margin:24px 0 12px;color:#1a1a2e;">$1</h1>')
+    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+    .replace(/\*(.+?)\*/g, '<em>$1</em>')
+    .replace(/^[-•] (.+)$/gm, '<li style="margin:3px 0;">$1</li>')
+    .replace(/^\d+\. (.+)$/gm, '<li style="margin:3px 0;">$1</li>')
+    .replace(/\n\n/g, '</p><p style="margin:8px 0;line-height:1.6;">')
+    .replace(/\n/g, '<br/>');
+
+  html = html.replace(/(<li[^>]*>.*?<\/li>(\s*<br\/>)?)+/g, (match) => {
+    const cleaned = match.replace(/<br\/>/g, '');
+    return `<ul style="margin:8px 0 8px 20px;padding:0;">${cleaned}</ul>`;
+  });
+
+  const now = new Date().toLocaleDateString("es-ES", { year: "numeric", month: "long", day: "numeric" });
+  const fullHtml = `<!DOCTYPE html>
+<html lang="es"><head><meta charset="utf-8"><title>Informe AVA</title>
+<style>
+  @page { margin: 2cm; size: A4; }
+  body { font-family: 'Segoe UI', system-ui, sans-serif; color: #1a1a2e; font-size: 11px; line-height: 1.6; }
+  .header { border-bottom: 2px solid #6366f1; padding-bottom: 12px; margin-bottom: 20px; }
+  .header h1 { font-size: 22px; margin: 0; color: #1a1a2e; }
+  .header .meta { font-size: 10px; color: #64748b; margin-top: 4px; }
+  .footer { position: fixed; bottom: 0; left: 0; right: 0; text-align: center; font-size: 9px; color: #94a3b8; border-top: 1px solid #e2e8f0; padding-top: 8px; }
+  .badge { display: inline-block; background: #6366f1; color: white; font-size: 9px; padding: 2px 8px; border-radius: 4px; font-weight: 600; }
+</style></head><body>
+  <div class="header"><h1>Informe AVA</h1><div class="meta"><span class="badge">Asistente IA</span> &nbsp;·&nbsp; ${now} &nbsp;·&nbsp; F&G Real Estate</div></div>
+  <div class="content"><p style="margin:8px 0;line-height:1.6;">${html}</p></div>
+  <div class="footer">Generado por AVA — F&G Real Estate</div>
+</body></html>`;
+
+  const w = window.open("", "_blank");
+  if (!w) return;
+  w.document.write(fullHtml);
+  w.document.close();
+  w.onload = () => setTimeout(() => w.print(), 300);
+  setTimeout(() => w.print(), 800);
+}
+
 export default function AsistenteIA() {
   const {
     conversations, activeConversationId, messages, input, setInput,
