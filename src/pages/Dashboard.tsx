@@ -450,7 +450,7 @@ export default function Dashboard() {
         <Card>
           <CardHeader className="pb-2 flex flex-row items-center justify-between">
             <CardTitle className="text-base">Últimos Matches</CardTitle>
-            <Button asChild size="sm" variant="ghost"><Link to="/locales">Ver todos <ArrowRight className="ml-1 h-3 w-3" /></Link></Button>
+            <Button asChild size="sm" variant="ghost"><Link to="/activos">Ver todos <ArrowRight className="ml-1 h-3 w-3" /></Link></Button>
           </CardHeader>
           <CardContent>
             {loading ? <Skeleton className="h-40 w-full" /> : recentMatches.length > 0 ? (
