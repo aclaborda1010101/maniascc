@@ -1,0 +1,1 @@
+ALTER TABLE public.operadores ADD COLUMN IF NOT EXISTS matriz_id uuid REFERENCES public.operadores(id) ON DELETE SET NULL;

@@ -1214,6 +1214,7 @@ export type Database = {
           descripcion: string | null
           id: string
           logo_url: string | null
+          matriz_id: string | null
           nombre: string
           perfil_ia: string | null
           presupuesto_max: number
@@ -1233,6 +1234,7 @@ export type Database = {
           descripcion?: string | null
           id?: string
           logo_url?: string | null
+          matriz_id?: string | null
           nombre: string
           perfil_ia?: string | null
           presupuesto_max?: number
@@ -1252,6 +1254,7 @@ export type Database = {
           descripcion?: string | null
           id?: string
           logo_url?: string | null
+          matriz_id?: string | null
           nombre?: string
           perfil_ia?: string | null
           presupuesto_max?: number
@@ -1261,7 +1264,15 @@ export type Database = {
           superficie_min?: number
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "operadores_matriz_id_fkey"
+            columns: ["matriz_id"]
+            isOneToOne: false
+            referencedRelation: "operadores"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       patrones_localizacion: {
         Row: {

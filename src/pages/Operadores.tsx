@@ -32,12 +32,15 @@ const SECTORES: { value: string; label: string }[] = [
 
 export default function Operadores() {
   const [operadores, setOperadores] = useState<any[]>([]);
+  const [matrices, setMatrices] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [filtroSector, setFiltroSector] = useState("todos");
   const [filtroActivo, setFiltroActivo] = useState("todos");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [matrizMode, setMatrizMode] = useState<"existing" | "new">("existing");
+  const [selectedMatrizId, setSelectedMatrizId] = useState("");
   const { toast } = useToast();
   const { user } = useAuth();
 
@@ -50,6 +53,8 @@ export default function Operadores() {
     if (filtroActivo === "inactivo") query = query.eq("activo", false);
     const { data } = await query;
     setOperadores(data || []);
+    // Matrices = operators with no matriz_id (they ARE matrices)
+    setMatrices((data || []).filter((o: any) => !o.matriz_id));
     setLoading(false);
   };
 
@@ -59,6 +64,7 @@ export default function Operadores() {
     e.preventDefault();
     setSubmitting(true);
     const fd = new FormData(e.currentTarget);
+    const matrizId = matrizMode === "existing" && selectedMatrizId ? selectedMatrizId : null;
     const { error } = await supabase.from("operadores").insert({
       nombre: fd.get("nombre") as string,
       sector: fd.get("sector") as string,
@@ -71,13 +77,16 @@ export default function Operadores() {
       contacto_telefono: (fd.get("contacto_telefono") as string) || null,
       descripcion: (fd.get("descripcion") as string) || null,
       created_by: user?.id,
-    });
+      matriz_id: matrizId,
+    } as any);
     setSubmitting(false);
     if (error) {
       toast({ title: "Error al crear operador", description: error.message, variant: "destructive" });
     } else {
       toast({ title: "Operador creado correctamente" });
       setDialogOpen(false);
+      setSelectedMatrizId("");
+      setMatrizMode("existing");
       fetchOperadores();
     }
   };
@@ -100,6 +109,31 @@ export default function Operadores() {
               <DialogTitle>Crear Nuevo Operador</DialogTitle>
             </DialogHeader>
             <form onSubmit={handleCreate} className="space-y-4">
+              {/* Matriz selection */}
+              <div className="space-y-2">
+                <Label>Matriz</Label>
+                <div className="flex gap-2">
+                  <Button type="button" size="sm" variant={matrizMode === "existing" ? "default" : "outline"} onClick={() => setMatrizMode("existing")}>
+                    Matriz existente
+                  </Button>
+                  <Button type="button" size="sm" variant={matrizMode === "new" ? "default" : "outline"} onClick={() => { setMatrizMode("new"); setSelectedMatrizId(""); }}>
+                    Es nueva matriz
+                  </Button>
+                </div>
+                {matrizMode === "existing" && (
+                  <Select value={selectedMatrizId} onValueChange={setSelectedMatrizId}>
+                    <SelectTrigger><SelectValue placeholder="Seleccionar matriz..." /></SelectTrigger>
+                    <SelectContent>
+                      {matrices.map((m) => (
+                        <SelectItem key={m.id} value={m.id}>{m.nombre}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+                {matrizMode === "new" && (
+                  <p className="text-xs text-muted-foreground">Este operador será una nueva matriz.</p>
+                )}
+              </div>
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="o-nombre">Nombre *</Label>
@@ -220,6 +254,7 @@ export default function Operadores() {
               <TableHeader>
                 <TableRow>
                   <TableHead>Nombre</TableHead>
+                  <TableHead>Matriz</TableHead>
                   <TableHead>Sector</TableHead>
                   <TableHead className="text-right">Presupuesto</TableHead>
                   <TableHead className="text-right">Superficie</TableHead>
@@ -235,6 +270,15 @@ export default function Operadores() {
                       </Link>
                       {o.contacto_nombre && (
                         <p className="text-xs text-muted-foreground">{o.contacto_nombre}</p>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      {o.matriz_id ? (
+                        <Link to={`/operadores/${o.matriz_id}`} className="text-xs text-accent hover:underline">
+                          {matrices.find((m: any) => m.id === o.matriz_id)?.nombre || "—"}
+                        </Link>
+                      ) : (
+                        <Badge variant="outline" className="text-xs">Matriz</Badge>
                       )}
                     </TableCell>
                     <TableCell><Badge variant="secondary">{o.sector || "—"}</Badge></TableCell>
