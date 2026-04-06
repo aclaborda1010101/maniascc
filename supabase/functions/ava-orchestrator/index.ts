@@ -281,7 +281,7 @@ serve(async (req) => {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "google/gemini-2.5-pro",
+        model: "google/gemini-3.1-pro-preview",
         messages,
         tools: TOOLS,
         tool_choice: "auto",
@@ -310,7 +310,7 @@ serve(async (req) => {
     let totalTokensIn = usage1.prompt_tokens || 0;
     let totalTokensOut = usage1.completion_tokens || 0;
 
-    // Gemini 2.5 Pro pricing: $1.25/1M input, $10.00/1M output (converted to EUR)
+    // Gemini 3.1 Pro Preview pricing (estimated same tier)
     const GEMINI_INPUT = 1.25 / 1_000_000 * 0.92;
     const GEMINI_OUTPUT = 10.00 / 1_000_000 * 0.92;
 
@@ -319,7 +319,7 @@ serve(async (req) => {
       const latencyMs = Date.now() - startTime;
       const costEur = totalTokensIn * GEMINI_INPUT + totalTokensOut * GEMINI_OUTPUT;
       await admin.from("auditoria_ia").insert({
-        modelo: "google/gemini-2.5-pro",
+        modelo: "google/gemini-3.1-pro-preview",
         funcion_ia: "ava-orchestrator",
         latencia_ms: latencyMs,
         tokens_entrada: totalTokensIn,
@@ -585,7 +585,7 @@ serve(async (req) => {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "google/gemini-2.5-pro",
+        model: "google/gemini-3.1-pro-preview",
         messages: synthesisMessages,
       }),
     });
@@ -617,7 +617,7 @@ serve(async (req) => {
 
     // Audit
     await admin.from("auditoria_ia").insert({
-      modelo: "google/gemini-2.5-pro",
+      modelo: "google/gemini-3.1-pro-preview",
       funcion_ia: "ava-orchestrator",
       latencia_ms: latencyMs,
       tokens_entrada: totalTokensIn,
