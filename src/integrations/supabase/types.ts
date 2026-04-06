@@ -1821,6 +1821,9 @@ export type Database = {
         | "desarrollo_suelo"
         | "traspaso_adquisicion"
         | "farmacia"
+        | "desarrollo_comercial"
+        | "venta_activo"
+        | "optimizacion_centros"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -1976,6 +1979,9 @@ export const Constants = {
         "desarrollo_suelo",
         "traspaso_adquisicion",
         "farmacia",
+        "desarrollo_comercial",
+        "venta_activo",
+        "optimizacion_centros",
       ],
     },
   },
