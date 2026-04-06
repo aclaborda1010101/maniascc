@@ -229,7 +229,7 @@ export default function Dashboard() {
         </div>
         <div className="flex gap-2">
           <Button asChild size="sm" className="bg-accent text-accent-foreground hover:bg-accent/90">
-            <Link to="/proyectos"><Plus className="mr-1 h-4 w-4" /> Nuevo Proyecto</Link>
+            <Link to="/oportunidades"><Plus className="mr-1 h-4 w-4" /> Nueva Oportunidad</Link>
           </Button>
           <Button asChild size="sm" variant="outline">
             <Link to="/operadores"><Plus className="mr-1 h-4 w-4" /> Nuevo Operador</Link>
