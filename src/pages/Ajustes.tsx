@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   MessageSquare, Mail, CheckCircle2, Loader2, QrCode, Settings,
-  Shield, Wifi, WifiOff, Sparkles, CheckCircle, Link2,
+  Shield, Wifi, WifiOff, Sparkles, CheckCircle, Link2, User,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
