@@ -80,7 +80,7 @@ const App = () => (
                   <Route path="/playground" element={<Playground />} />
                   <Route path="/consumo" element={<Consumo />} />
                   <Route path="/ajustes" element={<Ajustes />} />
-                  <Route path="/importar" element={<Importar />} />
+                  <Route path="/importar" element={<Navigate to="/contactos" replace />} />
                   {/* Retrocompatibilidad */}
                   <Route path="/busqueda" element={<Navigate to="/asistente" replace />} />
                   <Route path="/proyectos" element={<Navigate to="/oportunidades" replace />} />

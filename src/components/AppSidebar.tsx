@@ -27,7 +27,7 @@ const directoryItems = [
   { title: "Operadores", url: "/operadores", icon: Users },
   { title: "Contactos", url: "/contactos", icon: UserCircle },
   
-  { title: "Importar", url: "/importar", icon: Import },
+  
 ];
 
 const aiToolsItems = [
