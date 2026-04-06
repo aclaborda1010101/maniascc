@@ -134,8 +134,8 @@ export default function ProyectoDetail() {
   if (loading) return <div className="space-y-6"><Skeleton className="h-8 w-48" /><Skeleton className="h-64 w-full" /></div>;
   if (!proyecto) return (
     <div className="space-y-4">
-      <Button variant="ghost" onClick={() => navigate("/proyectos")}><ArrowLeft className="mr-2 h-4 w-4" /> Volver</Button>
-      <p className="text-muted-foreground">Proyecto no encontrado.</p>
+     <Button variant="ghost" onClick={() => navigate("/oportunidades")}><ArrowLeft className="mr-2 h-4 w-4" /> Volver</Button>
+      <p className="text-muted-foreground">Oportunidad no encontrada.</p>
     </div>
   );
 
