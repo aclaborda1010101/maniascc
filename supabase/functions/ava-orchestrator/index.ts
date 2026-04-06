@@ -281,7 +281,7 @@ serve(async (req) => {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "google/gemini-3-flash-preview",
+        model: "google/gemini-2.5-pro",
         messages,
         tools: TOOLS,
         tool_choice: "auto",
@@ -310,16 +310,16 @@ serve(async (req) => {
     let totalTokensIn = usage1.prompt_tokens || 0;
     let totalTokensOut = usage1.completion_tokens || 0;
 
-    // Gemini 3 Flash pricing: $0.10/1M input, $0.40/1M output (converted to EUR)
-    const GEMINI_FLASH_INPUT = 0.10 / 1_000_000 * 0.92;
-    const GEMINI_FLASH_OUTPUT = 0.40 / 1_000_000 * 0.92;
+    // Gemini 2.5 Pro pricing: $1.25/1M input, $10.00/1M output (converted to EUR)
+    const GEMINI_INPUT = 1.25 / 1_000_000 * 0.92;
+    const GEMINI_OUTPUT = 10.00 / 1_000_000 * 0.92;
 
     // If no tool calls, return direct response
     if (!choice?.tool_calls || choice.tool_calls.length === 0) {
       const latencyMs = Date.now() - startTime;
-      const costEur = totalTokensIn * GEMINI_FLASH_INPUT + totalTokensOut * GEMINI_FLASH_OUTPUT;
+      const costEur = totalTokensIn * GEMINI_INPUT + totalTokensOut * GEMINI_OUTPUT;
       await admin.from("auditoria_ia").insert({
-        modelo: "google/gemini-3-flash-preview",
+        modelo: "google/gemini-2.5-pro",
         funcion_ia: "ava-orchestrator",
         latencia_ms: latencyMs,
         tokens_entrada: totalTokensIn,
@@ -332,7 +332,7 @@ serve(async (req) => {
         user_id: user.id,
         action_type: "chat",
         agent_label: "AVA Orchestrator",
-        model: "gemini-3-flash-preview",
+        model: "gemini-2.5-pro",
         tokens_input: totalTokensIn,
         tokens_output: totalTokensOut,
         cost_eur: costEur,
@@ -585,7 +585,7 @@ serve(async (req) => {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "google/gemini-3-flash-preview",
+        model: "google/gemini-2.5-pro",
         messages: synthesisMessages,
       }),
     });
@@ -613,11 +613,11 @@ serve(async (req) => {
     }
 
     const latencyMs = Date.now() - startTime;
-    const costEur = totalTokensIn * GEMINI_FLASH_INPUT + totalTokensOut * GEMINI_FLASH_OUTPUT;
+    const costEur = totalTokensIn * GEMINI_INPUT + totalTokensOut * GEMINI_OUTPUT;
 
     // Audit
     await admin.from("auditoria_ia").insert({
-      modelo: "google/gemini-3-flash-preview",
+      modelo: "google/gemini-2.5-pro",
       funcion_ia: "ava-orchestrator",
       latencia_ms: latencyMs,
       tokens_entrada: totalTokensIn,
@@ -632,7 +632,7 @@ serve(async (req) => {
       user_id: user.id,
       action_type: "chat",
       agent_label: "AVA Orchestrator",
-      model: "gemini-3-flash-preview",
+      model: "gemini-2.5-pro",
       tokens_input: totalTokensIn,
       tokens_output: totalTokensOut,
       cost_eur: costEur,
