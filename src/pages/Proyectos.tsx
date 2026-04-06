@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, Search, FolderKanban, Calendar, MapPin, Building2, ClipboardCheck, Layers, ArrowLeftRight, Pill } from "lucide-react";
+import { Plus, Search, FolderKanban, Calendar, MapPin, Building2, ClipboardCheck, Layers, ArrowLeftRight, Pill, ShoppingBag, TrendingUp } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
@@ -15,6 +15,9 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 
 const tipoLabels: Record<string, string> = {
+  desarrollo_comercial: "Desarrollo Comercial",
+  venta_activo: "Venta de Activo",
+  optimizacion_centros: "Optimización de Centros",
   comercializacion: "Comercialización",
   negociacion: "Negociación",
   centro_completo: "Centro Completo",
@@ -26,6 +29,9 @@ const tipoLabels: Record<string, string> = {
 };
 
 const tipoIcons: Record<string, any> = {
+  desarrollo_comercial: ShoppingBag,
+  venta_activo: Building2,
+  optimizacion_centros: TrendingUp,
   comercializacion: Building2,
   centro_completo: Building2,
   auditoria_estrategica: ClipboardCheck,
@@ -55,6 +61,9 @@ const estadoColors: Record<string, string> = {
 };
 
 const tipoColors: Record<string, string> = {
+  desarrollo_comercial: "bg-primary/10 text-primary",
+  venta_activo: "bg-chart-1/10 text-chart-1",
+  optimizacion_centros: "bg-chart-2/10 text-chart-2",
   comercializacion: "bg-accent/10 text-accent",
   negociacion: "bg-chart-3/10 text-chart-3",
   centro_completo: "bg-accent/10 text-accent",
@@ -65,7 +74,14 @@ const tipoColors: Record<string, string> = {
   otro: "bg-muted text-muted-foreground",
 };
 
+const subtiposActivo = [
+  "Gasolinera", "Local", "Suelo", "Edificio", "Centro Comercial", "Parque de Medianas",
+];
+
+const tiposNuevos = ["desarrollo_comercial", "venta_activo", "optimizacion_centros"];
+
 export default function Proyectos() {
+  const [tipoSeleccionado, setTipoSeleccionado] = useState("desarrollo_comercial");
   const [proyectos, setProyectos] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -109,9 +125,9 @@ export default function Proyectos() {
     });
     setSubmitting(false);
     if (error) {
-      toast({ title: "Error al crear proyecto", description: error.message, variant: "destructive" });
+      toast({ title: "Error al crear oportunidad", description: error.message, variant: "destructive" });
     } else {
-      toast({ title: "Proyecto creado correctamente" });
+      toast({ title: "Oportunidad creada correctamente" });
       setDialogOpen(false);
       fetchProyectos();
     }
@@ -121,32 +137,32 @@ export default function Proyectos() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Proyectos</h1>
-          <p className="text-sm text-muted-foreground">Gestiona todas las operaciones comerciales</p>
+          <h1 className="text-2xl font-bold tracking-tight">Oportunidades</h1>
+          <p className="text-sm text-muted-foreground">Gestiona todas las oportunidades de negocio</p>
         </div>
         <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
           <DialogTrigger asChild>
             <Button className="bg-accent text-accent-foreground hover:bg-accent/90">
-              <Plus className="mr-2 h-4 w-4" /> Nuevo Proyecto
+              <Plus className="mr-2 h-4 w-4" /> Nueva Oportunidad
             </Button>
           </DialogTrigger>
           <DialogContent className="max-w-lg">
             <DialogHeader>
-              <DialogTitle>Crear Nuevo Proyecto</DialogTitle>
+              <DialogTitle>Crear Nueva Oportunidad</DialogTitle>
             </DialogHeader>
             <form onSubmit={handleCreate} className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="p-nombre">Nombre del proyecto *</Label>
-                <Input id="p-nombre" name="nombre" placeholder="CC Vallecas — Comercialización" required />
+                <Label htmlFor="p-nombre">Nombre de la oportunidad *</Label>
+                <Input id="p-nombre" name="nombre" placeholder="CC Vallecas — Desarrollo Comercial" required />
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="p-tipo">Tipo *</Label>
-                  <Select name="tipo" defaultValue="comercializacion">
+                  <Select name="tipo" defaultValue="desarrollo_comercial" onValueChange={setTipoSeleccionado}>
                     <SelectTrigger id="p-tipo"><SelectValue /></SelectTrigger>
                     <SelectContent>
-                      {Object.entries(tipoLabels).map(([k, v]) => (
-                        <SelectItem key={k} value={k}>{v}</SelectItem>
+                      {tiposNuevos.map((k) => (
+                        <SelectItem key={k} value={k}>{tipoLabels[k]}</SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
@@ -156,6 +172,19 @@ export default function Proyectos() {
                   <Input id="p-fecha" name="fecha_objetivo" type="date" />
                 </div>
               </div>
+              {tipoSeleccionado === "venta_activo" && (
+                <div className="space-y-2">
+                  <Label htmlFor="p-subtipo">Subtipo de activo</Label>
+                  <Select name="subtipo_activo">
+                    <SelectTrigger id="p-subtipo"><SelectValue placeholder="Seleccionar subtipo" /></SelectTrigger>
+                    <SelectContent>
+                      {subtiposActivo.map((s) => (
+                        <SelectItem key={s} value={s}>{s}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="p-ubicacion">Ubicación</Label>
@@ -172,10 +201,10 @@ export default function Proyectos() {
               </div>
               <div className="space-y-2">
                 <Label htmlFor="p-desc">Descripción</Label>
-                <Textarea id="p-desc" name="descripcion" placeholder="Objetivo y contexto del proyecto..." rows={3} />
+                <Textarea id="p-desc" name="descripcion" placeholder="Objetivo y contexto de la oportunidad..." rows={3} />
               </div>
               <Button type="submit" className="w-full bg-accent text-accent-foreground hover:bg-accent/90" disabled={submitting}>
-                {submitting ? "Creando..." : "Crear Proyecto"}
+                {submitting ? "Creando..." : "Crear Oportunidad"}
               </Button>
             </form>
           </DialogContent>
@@ -186,7 +215,7 @@ export default function Proyectos() {
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input placeholder="Buscar proyectos..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-10" />
+          <Input placeholder="Buscar oportunidades..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-10" />
         </div>
         <Select value={filtroTipo} onValueChange={setFiltroTipo}>
           <SelectTrigger className="w-[180px]"><SelectValue placeholder="Tipo" /></SelectTrigger>
@@ -216,11 +245,11 @@ export default function Proyectos() {
       ) : proyectos.length === 0 ? (
         <Card>
           <CardContent className="py-16 text-center">
-            <FolderKanban className="mx-auto mb-3 h-12 w-12 text-muted-foreground/30" />
+         <FolderKanban className="mx-auto mb-3 h-12 w-12 text-muted-foreground/30" />
             <p className="text-muted-foreground">
               {search || filtroEstado !== "todos" || filtroTipo !== "todos"
-                ? "No se encontraron proyectos con esos filtros."
-                : "No hay proyectos aún. Crea el primero."}
+                ? "No se encontraron oportunidades con esos filtros."
+                : "No hay oportunidades aún. Crea la primera."}
             </p>
           </CardContent>
         </Card>
@@ -229,7 +258,7 @@ export default function Proyectos() {
           {proyectos.map((p) => {
             const TipoIcon = tipoIcons[p.tipo] || FolderKanban;
             return (
-              <Link key={p.id} to={`/proyectos/${p.id}`}>
+              <Link key={p.id} to={`/oportunidades/${p.id}`}>
                 <Card className="hover:border-accent/50 hover:shadow-md transition-all cursor-pointer h-full">
                   <CardHeader className="pb-3">
                     <div className="flex items-start justify-between gap-2">
@@ -270,7 +299,7 @@ export default function Proyectos() {
         </div>
       )}
       {!loading && proyectos.length > 0 && (
-        <p className="text-xs text-muted-foreground">{proyectos.length} proyecto{proyectos.length !== 1 ? "s" : ""}</p>
+        <p className="text-xs text-muted-foreground">{proyectos.length} oportunidad{proyectos.length !== 1 ? "es" : ""}</p>
       )}
     </div>
   );

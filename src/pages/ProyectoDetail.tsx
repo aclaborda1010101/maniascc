@@ -38,6 +38,8 @@ const estadoColors: Record<string, string> = {
   archivado: "bg-muted text-muted-foreground",
 };
 const tipoLabels: Record<string, string> = {
+  desarrollo_comercial: "Desarrollo Comercial", venta_activo: "Venta de Activo",
+  optimizacion_centros: "Optimización de Centros",
   comercializacion: "Comercialización", negociacion: "Negociación",
   centro_completo: "Centro Completo", auditoria_estrategica: "Auditoría Estratégica",
   desarrollo_suelo: "Desarrollo Suelo", traspaso_adquisicion: "Traspaso/Adquisición",
@@ -132,8 +134,8 @@ export default function ProyectoDetail() {
   if (loading) return <div className="space-y-6"><Skeleton className="h-8 w-48" /><Skeleton className="h-64 w-full" /></div>;
   if (!proyecto) return (
     <div className="space-y-4">
-      <Button variant="ghost" onClick={() => navigate("/proyectos")}><ArrowLeft className="mr-2 h-4 w-4" /> Volver</Button>
-      <p className="text-muted-foreground">Proyecto no encontrado.</p>
+     <Button variant="ghost" onClick={() => navigate("/oportunidades")}><ArrowLeft className="mr-2 h-4 w-4" /> Volver</Button>
+      <p className="text-muted-foreground">Oportunidad no encontrada.</p>
     </div>
   );
 
@@ -148,7 +150,7 @@ export default function ProyectoDetail() {
       <div className="flex items-start justify-between gap-4">
         <div className="space-y-1">
           <div className="flex items-center gap-3">
-            <Button variant="ghost" size="icon" onClick={() => navigate("/proyectos")}><ArrowLeft className="h-4 w-4" /></Button>
+            <Button variant="ghost" size="icon" onClick={() => navigate("/oportunidades")}><ArrowLeft className="h-4 w-4" /></Button>
             <div>
               <h1 className="text-2xl font-bold tracking-tight">{proyecto.nombre}</h1>
               <div className="flex items-center gap-2 mt-1 flex-wrap">

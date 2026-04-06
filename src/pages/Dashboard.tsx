@@ -207,7 +207,7 @@ export default function Dashboard() {
   }, [auditRows]);
 
   const statCards = [
-    { label: "Proyectos Activos", value: stats?.proyectosActivos, icon: FolderOpen, color: "text-primary", bg: "bg-primary/10" },
+    { label: "Oportunidades Activas", value: stats?.proyectosActivos, icon: FolderOpen, color: "text-primary", bg: "bg-primary/10" },
     { label: "Operadores", value: stats?.totalOperadores, icon: Users, color: "text-chart-2", bg: "bg-chart-2/10" },
     { label: "Locales", value: stats?.totalLocales, icon: MapPin, color: "text-chart-1", bg: "bg-chart-1/10" },
     { label: "Matches Pendientes", value: stats?.matchesPendientes, icon: Sparkles, color: "text-accent", bg: "bg-accent/10" },
@@ -229,7 +229,7 @@ export default function Dashboard() {
         </div>
         <div className="flex gap-2">
           <Button asChild size="sm" className="bg-accent text-accent-foreground hover:bg-accent/90">
-            <Link to="/proyectos"><Plus className="mr-1 h-4 w-4" /> Nuevo Proyecto</Link>
+            <Link to="/oportunidades"><Plus className="mr-1 h-4 w-4" /> Nueva Oportunidad</Link>
           </Button>
           <Button asChild size="sm" variant="outline">
             <Link to="/operadores"><Plus className="mr-1 h-4 w-4" /> Nuevo Operador</Link>
@@ -383,7 +383,7 @@ export default function Dashboard() {
                 <Sparkles className="mx-auto mb-2 h-8 w-8 text-muted-foreground/40" />
                 <p className="text-muted-foreground">Aún no hay matches generados.</p>
                 <Button asChild size="sm" variant="link" className="mt-2">
-                  <Link to="/proyectos">Ir a Proyectos <ArrowRight className="ml-1 h-3 w-3" /></Link>
+                  <Link to="/oportunidades">Ir a Oportunidades <ArrowRight className="ml-1 h-3 w-3" /></Link>
                 </Button>
               </div>
             )}

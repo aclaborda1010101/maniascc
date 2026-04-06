@@ -60,8 +60,8 @@ const App = () => (
                 <Route path="/" element={<Navigate to="/dashboard" replace />} />
                 <Route element={<ProtectedRoute><NotificationProvider><AppLayout /></NotificationProvider></ProtectedRoute>}>
                   <Route path="/dashboard" element={<Dashboard />} />
-                  <Route path="/proyectos" element={<Proyectos />} />
-                  <Route path="/proyectos/:id" element={<ProyectoDetail />} />
+                  <Route path="/oportunidades" element={<Proyectos />} />
+                  <Route path="/oportunidades/:id" element={<ProyectoDetail />} />
                   <Route path="/operadores" element={<Operadores />} />
                   <Route path="/operadores/:id" element={<OperadorDetail />} />
                   <Route path="/contactos" element={<Contactos />} />
@@ -83,6 +83,8 @@ const App = () => (
                   <Route path="/importar" element={<Importar />} />
                   {/* Retrocompatibilidad */}
                   <Route path="/busqueda" element={<Navigate to="/asistente" replace />} />
+                  <Route path="/proyectos" element={<Navigate to="/oportunidades" replace />} />
+                  <Route path="/proyectos/:id" element={<Navigate to="/oportunidades" replace />} />
                   <Route path="/auditoria" element={<Navigate to="/ajustes" replace />} />
                   <Route path="/admin" element={<Navigate to="/ajustes" replace />} />
                 </Route>

@@ -17,7 +17,8 @@ import { Button } from "@/components/ui/button";
 const mainItems = [
   { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
   { title: "AVA", url: "/asistente", icon: Sparkles },
-  { title: "Proyectos", url: "/proyectos", icon: FolderKanban },
+  { title: "Oportunidades", url: "/oportunidades", icon: FolderKanban },
+  
   { title: "Notificaciones", url: "/notificaciones", icon: Bell },
 ];
 

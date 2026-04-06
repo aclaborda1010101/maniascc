@@ -3,6 +3,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { MapPin, Calendar } from "lucide-react";
 
 const tipoLabels: Record<string, string> = {
+  desarrollo_comercial: "Desarrollo Comercial", venta_activo: "Venta de Activo",
+  optimizacion_centros: "Optimización de Centros",
   comercializacion: "Comercialización", negociacion: "Negociación",
   centro_completo: "Centro Completo", auditoria_estrategica: "Auditoría Estratégica",
   desarrollo_suelo: "Desarrollo Suelo", traspaso_adquisicion: "Traspaso/Adquisición",
