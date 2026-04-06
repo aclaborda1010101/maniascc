@@ -1206,12 +1206,14 @@ export type Database = {
       operadores: {
         Row: {
           activo: boolean
+          activo_id: string | null
           contacto_email: string | null
           contacto_nombre: string | null
           contacto_telefono: string | null
           created_at: string
           created_by: string | null
           descripcion: string | null
+          direccion: string | null
           id: string
           logo_url: string | null
           matriz_id: string | null
@@ -1226,12 +1228,14 @@ export type Database = {
         }
         Insert: {
           activo?: boolean
+          activo_id?: string | null
           contacto_email?: string | null
           contacto_nombre?: string | null
           contacto_telefono?: string | null
           created_at?: string
           created_by?: string | null
           descripcion?: string | null
+          direccion?: string | null
           id?: string
           logo_url?: string | null
           matriz_id?: string | null
@@ -1246,12 +1250,14 @@ export type Database = {
         }
         Update: {
           activo?: boolean
+          activo_id?: string | null
           contacto_email?: string | null
           contacto_nombre?: string | null
           contacto_telefono?: string | null
           created_at?: string
           created_by?: string | null
           descripcion?: string | null
+          direccion?: string | null
           id?: string
           logo_url?: string | null
           matriz_id?: string | null
@@ -1265,6 +1271,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "operadores_activo_id_fkey"
+            columns: ["activo_id"]
+            isOneToOne: false
+            referencedRelation: "locales"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "operadores_matriz_id_fkey"
             columns: ["matriz_id"]
