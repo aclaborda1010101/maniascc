@@ -310,9 +310,9 @@ serve(async (req) => {
     let totalTokensIn = usage1.prompt_tokens || 0;
     let totalTokensOut = usage1.completion_tokens || 0;
 
-    // Gemini 3 Flash pricing: $0.10/1M input, $0.40/1M output (converted to EUR)
-    const GEMINI_FLASH_INPUT = 0.10 / 1_000_000 * 0.92;
-    const GEMINI_FLASH_OUTPUT = 0.40 / 1_000_000 * 0.92;
+    // Gemini 2.5 Pro pricing: $1.25/1M input, $10.00/1M output (converted to EUR)
+    const GEMINI_INPUT = 1.25 / 1_000_000 * 0.92;
+    const GEMINI_OUTPUT = 10.00 / 1_000_000 * 0.92;
 
     // If no tool calls, return direct response
     if (!choice?.tool_calls || choice.tool_calls.length === 0) {
