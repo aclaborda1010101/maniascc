@@ -128,6 +128,21 @@ const TOOLS = [
       },
     },
   },
+  {
+    type: "function",
+    function: {
+      name: "generate_pdf_report",
+      description: "Genera un informe/documento profesional en formato PDF. Úsalo SOLO cuando el usuario pida explícitamente un informe, documento, dossier o reporte. Estructura el contenido con secciones: resumen ejecutivo, análisis, conclusiones, recomendaciones.",
+      parameters: {
+        type: "object",
+        properties: {
+          title: { type: "string", description: "Título del informe (ej: 'Análisis de viabilidad - Centro Comercial Norte')" },
+          content: { type: "string", description: "Contenido completo del informe en formato Markdown con secciones bien estructuradas" },
+        },
+        required: ["title", "content"],
+      },
+    },
+  },
 ];
 
 const INTELLIGENCE_FUNCTIONS: Record<string, string> = {

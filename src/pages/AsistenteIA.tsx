@@ -174,9 +174,11 @@ export default function AsistenteIA() {
                     <div className="prose prose-sm dark:prose-invert max-w-none text-sm">
                       <ReactMarkdown>{msg.content}</ReactMarkdown>
                     </div>
-                    <Button variant="ghost" size="sm" className="mt-2 gap-1 text-muted-foreground text-xs h-7 px-2" onClick={() => exportMessageToPdf(msg.content)}>
-                      <FileDown className="h-3 w-3" /> PDF
-                    </Button>
+                    {msg.meta?.pdf_content && (
+                      <Button variant="outline" size="sm" className="mt-2 gap-1.5 text-xs h-7 px-3 border-accent text-accent" onClick={() => exportMessageToPdf(msg.meta!.pdf_content!, msg.meta!.pdf_title)}>
+                        <FileDown className="h-3.5 w-3.5" /> Descargar informe PDF
+                      </Button>
+                    )}
                   </div>
                 ) : (
                   <p className="text-sm">{msg.content}</p>

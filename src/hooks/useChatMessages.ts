@@ -300,6 +300,7 @@ export function useChatMessages() {
       const meta = (!error && !data?.error) ? {
         tools_used: data?.tools_used,
         latency_ms: data?.latency_ms,
+        ...(data?.pdf_content ? { pdf_content: data.pdf_content, pdf_title: data.pdf_title } : {}),
       } : {};
 
       // Insert assistant message to DB
