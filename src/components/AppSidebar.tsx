@@ -18,7 +18,7 @@ const mainItems = [
   { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
   { title: "AVA", url: "/asistente", icon: Sparkles },
   { title: "Oportunidades", url: "/oportunidades", icon: FolderKanban },
-  { title: "Proyectos", url: "/proyectos", icon: FolderKanban },
+  
   { title: "Notificaciones", url: "/notificaciones", icon: Bell },
 ];
 
