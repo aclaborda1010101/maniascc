@@ -168,12 +168,28 @@ const TOOLS = [
   {
     type: "function",
     function: {
-      name: "generate_pdf_report",
-      description: "Genera un informe/documento profesional en formato PDF. Úsalo SOLO cuando el usuario pida explícitamente un informe, documento, dossier o reporte. Estructura el contenido con secciones: resumen ejecutivo, análisis, conclusiones, recomendaciones.",
+      name: "rag_search",
+      description: "Busca en los documentos RAG indexados (informes de mercado, contratos, benchmarks, análisis sectoriales). Usa para complementar datos de la BD con conocimiento documental. Dominios: contratos, operadores, activos, mercado, personas, general.",
       parameters: {
         type: "object",
         properties: {
-          title: { type: "string", description: "Título del informe (ej: 'Análisis de viabilidad - Centro Comercial Norte')" },
+          question: { type: "string", description: "Pregunta o tema a buscar en los documentos RAG" },
+          dominio: { type: "string", enum: ["contratos", "operadores", "activos", "mercado", "personas", "general"], description: "Dominio/categoría de documentos a consultar. Opcional." },
+          proyecto_id: { type: "string", description: "UUID del proyecto para filtrar documentos específicos. Opcional." },
+        },
+        required: ["question"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "generate_pdf_report",
+      description: "Genera un informe/documento profesional en formato PDF. Úsalo SOLO cuando el usuario pida explícitamente un informe, documento, dossier o reporte.",
+      parameters: {
+        type: "object",
+        properties: {
+          title: { type: "string", description: "Título del informe" },
           content: { type: "string", description: "Contenido completo del informe en formato Markdown con secciones bien estructuradas" },
         },
         required: ["title", "content"],
