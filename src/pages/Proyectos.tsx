@@ -125,9 +125,9 @@ export default function Proyectos() {
     });
     setSubmitting(false);
     if (error) {
-      toast({ title: "Error al crear proyecto", description: error.message, variant: "destructive" });
+      toast({ title: "Error al crear oportunidad", description: error.message, variant: "destructive" });
     } else {
-      toast({ title: "Proyecto creado correctamente" });
+      toast({ title: "Oportunidad creada correctamente" });
       setDialogOpen(false);
       fetchProyectos();
     }
