@@ -81,6 +81,7 @@ const subtiposActivo = [
 const tiposNuevos = ["desarrollo_comercial", "venta_activo", "optimizacion_centros"];
 
 export default function Proyectos() {
+  const [tipoSeleccionado, setTipoSeleccionado] = useState("desarrollo_comercial");
   const [proyectos, setProyectos] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
