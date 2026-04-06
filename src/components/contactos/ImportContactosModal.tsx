@@ -1,43 +1,306 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef } from "react";
 import * as XLSX from "xlsx";
 import { supabase } from "@/integrations/supabase/client";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Upload, FileSpreadsheet, AlertCircle, Check } from "lucide-react";
-import { useToast } from "@/hooks/use-toast";
+import { Badge } from "@/components/ui/badge";
+import { Upload, FileSpreadsheet, MessageCircle, Mail, Mic, Check, Loader2 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
+import { toast } from "sonner";
 
-const TARGET_COLUMNS = [
+/* ── Shared DropZone ── */
+function DropZone({ accept, label, icon: Icon, onFile }: {
+  accept: string; label: string; icon: React.ElementType; onFile: (f: File) => void;
+}) {
+  const [dragging, setDragging] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
+  return (
+    <div
+      onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
+      onDragLeave={() => setDragging(false)}
+      onDrop={(e) => { e.preventDefault(); setDragging(false); const f = e.dataTransfer.files[0]; if (f) onFile(f); }}
+      onClick={() => inputRef.current?.click()}
+      className={`flex cursor-pointer flex-col items-center justify-center gap-3 rounded-lg border-2 border-dashed p-10 transition-colors ${
+        dragging ? "border-primary bg-primary/5" : "border-muted-foreground/20 hover:border-primary/40"
+      }`}
+    >
+      <Icon className="h-8 w-8 text-muted-foreground/50" />
+      <p className="text-sm text-muted-foreground">{label}</p>
+      <p className="text-xs text-muted-foreground/60">Arrastra o haz clic para seleccionar</p>
+      <input ref={inputRef} type="file" accept={accept} className="hidden"
+        onChange={(e) => { const f = e.target.files?.[0]; if (f) onFile(f); }} />
+    </div>
+  );
+}
+
+/* ── Column mapping ── */
+const TARGET_COLS = [
   { key: "skip", label: "— Ignorar —" },
-  { key: "nombre", label: "Nombre", required: true },
+  { key: "nombre", label: "Nombre" },
   { key: "apellidos", label: "Apellidos" },
   { key: "empresa", label: "Empresa" },
   { key: "cargo", label: "Cargo" },
   { key: "email", label: "Email" },
   { key: "telefono", label: "Teléfono" },
+  { key: "whatsapp", label: "WhatsApp" },
   { key: "linkedin_url", label: "LinkedIn" },
-  { key: "estilo_negociacion", label: "Estilo negociación" },
   { key: "notas_perfil", label: "Notas" },
-] as const;
+];
 
-type ColumnKey = (typeof TARGET_COLUMNS)[number]["key"];
-
-function guessColumn(header: string): ColumnKey {
-  const h = header.toLowerCase().trim();
-  if (/^nombre/i.test(h) || h === "name" || h === "first_name" || h === "first name") return "nombre";
-  if (/apellid/i.test(h) || h === "last_name" || h === "last name" || h === "surname") return "apellidos";
-  if (/empresa|company|organiz/i.test(h)) return "empresa";
-  if (/cargo|puesto|position|title|job/i.test(h)) return "cargo";
-  if (/email|correo|e-mail|mail/i.test(h)) return "email";
-  if (/tel[eé]fono|phone|whatsapp|móvil|movil|mobile/i.test(h)) return "telefono";
-  if (/linkedin/i.test(h)) return "linkedin_url";
-  if (/estilo|negociac/i.test(h)) return "estilo_negociacion";
-  if (/nota|note|observ|comment/i.test(h)) return "notas_perfil";
+function guessCol(h: string) {
+  const l = h.toLowerCase().trim();
+  if (/nombre|name|first/i.test(l)) return "nombre";
+  if (/apellid|last|surname/i.test(l)) return "apellidos";
+  if (/empresa|company|org/i.test(l)) return "empresa";
+  if (/cargo|role|position|title/i.test(l)) return "cargo";
+  if (/email|correo|mail/i.test(l)) return "email";
+  if (/tel|phone|móvil/i.test(l)) return "telefono";
+  if (/whatsapp|wa/i.test(l)) return "whatsapp";
+  if (/linkedin/i.test(l)) return "linkedin_url";
+  if (/nota|note/i.test(l)) return "notas_perfil";
   return "skip";
 }
 
+/* ═══ Tab Contactos ═══ */
+function TabContactos({ onImported }: { onImported: () => void }) {
+  const { user } = useAuth();
+  const [allRows, setAllRows] = useState<string[][]>([]);
+  const [headers, setHeaders] = useState<string[]>([]);
+  const [mapping, setMapping] = useState<string[]>([]);
+  const [importing, setImporting] = useState(false);
+  const [done, setDone] = useState(false);
+
+  const handleFile = useCallback((file: File) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const data = new Uint8Array(e.target!.result as ArrayBuffer);
+      const wb = XLSX.read(data, { type: "array" });
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      const json: string[][] = XLSX.utils.sheet_to_json(ws, { header: 1, defval: "" });
+      if (json.length < 2) { toast.error("Archivo vacío"); return; }
+      setHeaders(json[0].map(String));
+      setAllRows(json.slice(1).map(r => r.map(String)));
+      setMapping(json[0].map(h => guessCol(String(h))));
+      setDone(false);
+    };
+    reader.readAsArrayBuffer(file);
+  }, []);
+
+  const handleImport = async () => {
+    if (!mapping.includes("nombre")) { toast.error("Mapea al menos 'Nombre'"); return; }
+    setImporting(true);
+    const inserts = allRows.map((r) => {
+      const obj: any = { creado_por: user?.id };
+      mapping.forEach((key, i) => { if (key !== "skip" && r[i]) obj[key] = String(r[i]).trim(); });
+      return obj;
+    }).filter((o) => o.nombre);
+
+    const CHUNK = 100;
+    let ok = 0, fail = 0;
+    for (let i = 0; i < inserts.length; i += CHUNK) {
+      const { error } = await supabase.from("contactos").insert(inserts.slice(i, i + CHUNK) as any);
+      if (error) fail += inserts.slice(i, i + CHUNK).length; else ok += inserts.slice(i, i + CHUNK).length;
+    }
+    setImporting(false);
+    if (fail) toast.error(`${fail} filas con error`);
+    if (ok) { toast.success(`${ok} contactos importados`); setDone(true); onImported(); }
+  };
+
+  if (!headers.length) return <DropZone accept=".csv,.xls,.xlsx,.txt" label="CSV, XLS, XLSX o TXT" icon={FileSpreadsheet} onFile={handleFile} />;
+
+  return (
+    <div className="space-y-4">
+      <p className="text-sm text-muted-foreground">{allRows.length} filas detectadas</p>
+      <div className="rounded-lg border overflow-auto max-h-64">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              {headers.map((h, i) => (
+                <TableHead key={i} className="min-w-[140px]">
+                  <div className="space-y-1">
+                    <span className="text-[10px] text-muted-foreground">{h}</span>
+                    <Select value={mapping[i]} onValueChange={(v) => setMapping(p => { const n = [...p]; n[i] = v; return n; })}>
+                      <SelectTrigger className="h-7 text-xs"><SelectValue /></SelectTrigger>
+                      <SelectContent>{TARGET_COLS.map(c => <SelectItem key={c.key} value={c.key}>{c.label}</SelectItem>)}</SelectContent>
+                    </Select>
+                  </div>
+                </TableHead>
+              ))}
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {allRows.slice(0, 5).map((r, ri) => (
+              <TableRow key={ri}>
+                {r.map((cell, ci) => <TableCell key={ci} className="text-xs py-1">{cell}</TableCell>)}
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </div>
+      <div className="flex items-center gap-3">
+        <Button onClick={handleImport} disabled={importing || done}>
+          {importing ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Importando...</> :
+           done ? <><Check className="mr-2 h-4 w-4" />Importado</> : `Importar ${allRows.filter(r => { const ni = mapping.indexOf("nombre"); return ni >= 0 && r[ni]; }).length} contactos`}
+        </Button>
+        <Button variant="outline" onClick={() => { setHeaders([]); setAllRows([]); setDone(false); }}>Cancelar</Button>
+      </div>
+    </div>
+  );
+}
+
+/* ═══ Tab WhatsApp ═══ */
+function TabWhatsApp() {
+  const [messages, setMessages] = useState<{ date: string; sender: string; text: string }[]>([]);
+  const [fileName, setFileName] = useState("");
+  const [contactId, setContactId] = useState("");
+  const [contacts, setContacts] = useState<any[]>([]);
+  const [importing, setImporting] = useState(false);
+
+  const parseWA = useCallback((text: string) => {
+    const regex = /(\d{1,2}\/\d{1,2}\/\d{2,4}),?\s+\d{1,2}:\d{2}(?::\d{2})?\s*(?:a\.?\s*m\.?|p\.?\s*m\.?|AM|PM|[ap]\.m\.)?\s*-\s*([^:]+):\s*(.*)/gi;
+    const msgs: { date: string; sender: string; text: string }[] = [];
+    let m;
+    while ((m = regex.exec(text)) !== null) msgs.push({ date: m[1], sender: m[2].trim(), text: m[3].trim() });
+    return msgs;
+  }, []);
+
+  const handleFile = useCallback(async (f: File) => {
+    setFileName(f.name);
+    const parsed = parseWA(await f.text());
+    setMessages(parsed);
+    if (!parsed.length) toast.error("No se detectaron mensajes en formato WhatsApp");
+    const { data } = await supabase.from("contactos").select("id, nombre, apellidos").order("nombre").limit(200);
+    setContacts(data || []);
+  }, [parseWA]);
+
+  const handleImport = async () => {
+    if (!contactId) { toast.error("Selecciona un contacto"); return; }
+    setImporting(true);
+    await supabase.from("contactos").update({ wa_message_count: messages.length, last_contact: new Date().toISOString() } as any).eq("id", contactId);
+    setImporting(false);
+    toast.success(`${messages.length} mensajes registrados`);
+  };
+
+  if (!fileName) return <DropZone accept=".txt" label="Chat de WhatsApp exportado (.txt)" icon={MessageCircle} onFile={handleFile} />;
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center gap-2">
+        <Badge variant="secondary"><MessageCircle className="mr-1 h-3 w-3" />{fileName}</Badge>
+        <span className="text-sm text-muted-foreground">{messages.length} mensajes</span>
+      </div>
+      {messages.length > 0 && (
+        <div className="rounded-lg border max-h-48 overflow-auto p-3 space-y-1">
+          {messages.slice(0, 10).map((m, i) => (
+            <p key={i} className="text-xs"><span className="font-medium">{m.sender}</span> <span className="text-muted-foreground">({m.date})</span>: {m.text}</p>
+          ))}
+          {messages.length > 10 && <p className="text-xs text-muted-foreground">... y {messages.length - 10} más</p>}
+        </div>
+      )}
+      <div className="flex items-center gap-3">
+        <Select value={contactId} onValueChange={setContactId}>
+          <SelectTrigger className="w-64"><SelectValue placeholder="Vincular a contacto..." /></SelectTrigger>
+          <SelectContent>{contacts.map(c => <SelectItem key={c.id} value={c.id}>{c.nombre} {c.apellidos || ""}</SelectItem>)}</SelectContent>
+        </Select>
+        <Button onClick={handleImport} disabled={importing || !contactId}>
+          {importing ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Importando...</> : "Importar mensajes"}
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+/* ═══ Tab Email ═══ */
+function TabEmailImport() {
+  const { user } = useAuth();
+  const [content, setContent] = useState("");
+  const [fileName, setFileName] = useState("");
+  const [importing, setImporting] = useState(false);
+
+  const handleFile = useCallback(async (f: File) => { setFileName(f.name); setContent(await f.text()); }, []);
+
+  const handleImport = async () => {
+    if (!content) return;
+    setImporting(true);
+    const { error } = await supabase.from("documentos_proyecto").insert({
+      nombre: fileName || "email-import.eml",
+      tipo_documento: "email",
+      storage_path: `emails/${Date.now()}_${fileName}`,
+      subido_por: user?.id,
+      mime_type: "message/rfc822",
+    });
+    setImporting(false);
+    if (error) toast.error(error.message); else toast.success("Email importado como documento");
+  };
+
+  if (!fileName) return <DropZone accept=".eml,.txt,.msg" label="Archivo de email (.eml, .txt)" icon={Mail} onFile={handleFile} />;
+
+  return (
+    <div className="space-y-4">
+      <Badge variant="secondary"><Mail className="mr-1 h-3 w-3" />{fileName}</Badge>
+      <div className="rounded-lg border max-h-48 overflow-auto p-3">
+        <pre className="text-xs whitespace-pre-wrap">{content.slice(0, 2000)}</pre>
+      </div>
+      <Button onClick={handleImport} disabled={importing}>
+        {importing ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Guardando...</> : "Importar email"}
+      </Button>
+    </div>
+  );
+}
+
+/* ═══ Tab Plaud ═══ */
+function TabPlaud() {
+  const [file, setFile] = useState<File | null>(null);
+  const [contactId, setContactId] = useState("");
+  const [contacts, setContacts] = useState<any[]>([]);
+  const [importing, setImporting] = useState(false);
+  const [preview, setPreview] = useState("");
+
+  const handleFile = useCallback(async (f: File) => {
+    setFile(f);
+    setPreview(f.name.endsWith(".txt") ? (await f.text()).slice(0, 1000) : `Audio: ${f.name} (${(f.size / 1024).toFixed(0)} KB)`);
+    const { data } = await supabase.from("contactos").select("id, nombre, apellidos").order("nombre").limit(200);
+    setContacts(data || []);
+  }, []);
+
+  const handleImport = async () => {
+    if (!file || !contactId) { toast.error("Selecciona archivo y contacto"); return; }
+    setImporting(true);
+    if (!file.name.endsWith(".txt")) {
+      const { error } = await supabase.storage.from("multimedia_locales").upload(`plaud/${Date.now()}_${file.name}`, file);
+      if (error) { toast.error(error.message); setImporting(false); return; }
+    }
+    await supabase.from("contactos").update({ plaud_count: 1, last_contact: new Date().toISOString() } as any).eq("id", contactId);
+    setImporting(false);
+    toast.success("Grabación/transcripción importada");
+  };
+
+  if (!file) return <DropZone accept=".txt,.mp3,.wav,.m4a,.ogg" label="Transcripción (.txt) o audio" icon={Mic} onFile={handleFile} />;
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center gap-2">
+        <Badge variant="secondary"><Mic className="mr-1 h-3 w-3" />{file.name}</Badge>
+        <span className="text-sm text-muted-foreground">{(file.size / 1024).toFixed(0)} KB</span>
+      </div>
+      {preview && <div className="rounded-lg border max-h-48 overflow-auto p-3"><pre className="text-xs whitespace-pre-wrap">{preview}</pre></div>}
+      <div className="flex items-center gap-3">
+        <Select value={contactId} onValueChange={setContactId}>
+          <SelectTrigger className="w-64"><SelectValue placeholder="Vincular a contacto..." /></SelectTrigger>
+          <SelectContent>{contacts.map(c => <SelectItem key={c.id} value={c.id}>{c.nombre} {c.apellidos || ""}</SelectItem>)}</SelectContent>
+        </Select>
+        <Button onClick={handleImport} disabled={importing || !contactId}>
+          {importing ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Importando...</> : "Importar grabación"}
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+/* ═══ Modal principal ═══ */
 interface Props {
   open: boolean;
   onOpenChange: (v: boolean) => void;
@@ -45,191 +308,28 @@ interface Props {
 }
 
 export default function ImportContactosModal({ open, onOpenChange, onImported }: Props) {
-  const [step, setStep] = useState<"upload" | "map" | "done">("upload");
-  const [headers, setHeaders] = useState<string[]>([]);
-  const [rows, setRows] = useState<string[][]>([]);
-  const [mapping, setMapping] = useState<ColumnKey[]>([]);
-  const [importing, setImporting] = useState(false);
-  const [result, setResult] = useState<{ ok: number; fail: number }>({ ok: 0, fail: 0 });
-  const { toast } = useToast();
-  const { user } = useAuth();
-
-  const reset = () => { setStep("upload"); setHeaders([]); setRows([]); setMapping([]); };
-
-  const parseFile = useCallback((file: File) => {
-    const ext = file.name.split(".").pop()?.toLowerCase();
-    if (ext === "csv" || ext === "txt") {
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        const text = e.target?.result as string;
-        const lines = text.split(/\r?\n/).filter(Boolean);
-        if (lines.length < 2) { toast({ title: "Archivo vacío o sin datos", variant: "destructive" }); return; }
-        const sep = lines[0].includes("\t") ? "\t" : lines[0].includes(";") ? ";" : ",";
-        const hdr = lines[0].split(sep).map(c => c.replace(/^"|"$/g, "").trim());
-        const data = lines.slice(1).map(l => l.split(sep).map(c => c.replace(/^"|"$/g, "").trim()));
-        setHeaders(hdr);
-        setRows(data);
-        setMapping(hdr.map(guessColumn));
-        setStep("map");
-      };
-      reader.readAsText(file);
-    } else {
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        const wb = XLSX.read(e.target?.result, { type: "array" });
-        const ws = wb.Sheets[wb.SheetNames[0]];
-        const json: string[][] = XLSX.utils.sheet_to_json(ws, { header: 1, defval: "" });
-        if (json.length < 2) { toast({ title: "Archivo vacío o sin datos", variant: "destructive" }); return; }
-        const hdr = json[0].map(String);
-        const data = json.slice(1).map(r => r.map(String));
-        setHeaders(hdr);
-        setRows(data);
-        setMapping(hdr.map(guessColumn));
-        setStep("map");
-      };
-      reader.readAsArrayBuffer(file);
-    }
-  }, [toast]);
-
-  const handleDrop = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    const file = e.dataTransfer.files[0];
-    if (file) parseFile(file);
-  }, [parseFile]);
-
-  const handleFileInput = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) parseFile(file);
-  }, [parseFile]);
-
-  const hasNombre = mapping.includes("nombre");
-  const previewRows = rows.slice(0, 5);
-
-  const handleImport = async () => {
-    setImporting(true);
-    let ok = 0, fail = 0;
-    const batch = rows.map(row => {
-      const obj: Record<string, string | null> = { creado_por: user?.id ?? null };
-      mapping.forEach((col, i) => {
-        if (col !== "skip" && row[i]) obj[col] = row[i];
-      });
-      return obj;
-    }).filter(o => o.nombre);
-
-    const CHUNK = 100;
-    for (let i = 0; i < batch.length; i += CHUNK) {
-      const slice = batch.slice(i, i + CHUNK);
-      const { error } = await supabase.from("contactos").insert(slice as any);
-      if (error) fail += slice.length;
-      else ok += slice.length;
-    }
-    setResult({ ok, fail });
-    setImporting(false);
-    setStep("done");
-    if (ok > 0) onImported();
-  };
-
   return (
-    <Dialog open={open} onOpenChange={(v) => { if (!v) reset(); onOpenChange(v); }}>
-      <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <FileSpreadsheet className="h-5 w-5 text-accent" /> Importar Contactos
+            <Upload className="h-5 w-5 text-primary" /> Importar Datos
           </DialogTitle>
         </DialogHeader>
 
-        {step === "upload" && (
-          <div
-            onDrop={handleDrop}
-            onDragOver={(e) => e.preventDefault()}
-            className="border-2 border-dashed border-muted-foreground/30 rounded-xl p-12 text-center hover:border-accent/50 transition-colors cursor-pointer"
-            onClick={() => document.getElementById("import-file-input")?.click()}
-          >
-            <Upload className="mx-auto mb-3 h-10 w-10 text-muted-foreground/40" />
-            <p className="font-medium text-foreground">Arrastra un archivo aquí o haz clic</p>
-            <p className="text-sm text-muted-foreground mt-1">CSV, TXT, XLS o XLSX</p>
-            <input id="import-file-input" type="file" accept=".csv,.txt,.xls,.xlsx" className="hidden" onChange={handleFileInput} />
-          </div>
-        )}
+        <Tabs defaultValue="contactos">
+          <TabsList className="grid w-full grid-cols-4">
+            <TabsTrigger value="contactos" className="gap-1.5"><FileSpreadsheet className="h-4 w-4" /> Contactos</TabsTrigger>
+            <TabsTrigger value="whatsapp" className="gap-1.5"><MessageCircle className="h-4 w-4" /> WhatsApp</TabsTrigger>
+            <TabsTrigger value="email" className="gap-1.5"><Mail className="h-4 w-4" /> Email</TabsTrigger>
+            <TabsTrigger value="plaud" className="gap-1.5"><Mic className="h-4 w-4" /> Plaud</TabsTrigger>
+          </TabsList>
 
-        {step === "map" && (
-          <div className="space-y-4">
-            <p className="text-sm text-muted-foreground">
-              {rows.length} filas detectadas. Asigna cada columna al campo correspondiente.
-            </p>
-
-            {!hasNombre && (
-              <div className="flex items-center gap-2 text-sm text-destructive bg-destructive/10 rounded-lg p-3">
-                <AlertCircle className="h-4 w-4 shrink-0" />
-                Debes asignar al menos la columna "Nombre".
-              </div>
-            )}
-
-            <div className="overflow-x-auto rounded-lg border">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    {headers.map((h, i) => (
-                      <TableHead key={i} className="min-w-[140px]">
-                        <div className="space-y-1">
-                          <span className="text-xs font-mono text-muted-foreground">{h}</span>
-                          <Select value={mapping[i]} onValueChange={(v) => {
-                            const m = [...mapping];
-                            m[i] = v as ColumnKey;
-                            setMapping(m);
-                          }}>
-                            <SelectTrigger className="h-8 text-xs">
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {TARGET_COLUMNS.map(c => (
-                                <SelectItem key={c.key} value={c.key}>{c.label}</SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </div>
-                      </TableHead>
-                    ))}
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {previewRows.map((row, ri) => (
-                    <TableRow key={ri}>
-                      {row.map((cell, ci) => (
-                        <TableCell key={ci} className="text-xs max-w-[160px] truncate">
-                          {cell || <span className="text-muted-foreground">—</span>}
-                        </TableCell>
-                      ))}
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
-            {rows.length > 5 && (
-              <p className="text-xs text-muted-foreground text-center">
-                Mostrando 5 de {rows.length} filas
-              </p>
-            )}
-
-            <div className="flex gap-3 justify-end">
-              <Button variant="outline" onClick={reset}>Cancelar</Button>
-              <Button onClick={handleImport} disabled={!hasNombre || importing} className="bg-accent text-accent-foreground hover:bg-accent/90">
-                {importing ? "Importando..." : `Confirmar importación (${rows.filter((r) => { const ni = mapping.indexOf("nombre"); return ni >= 0 && r[ni]; }).length} contactos)`}
-              </Button>
-            </div>
-          </div>
-        )}
-
-        {step === "done" && (
-          <div className="py-8 text-center space-y-3">
-            <Check className="mx-auto h-12 w-12 text-chart-2" />
-            <p className="text-lg font-semibold">{result.ok} contactos importados</p>
-            {result.fail > 0 && (
-              <p className="text-sm text-destructive">{result.fail} filas con error</p>
-            )}
-            <Button onClick={() => { reset(); onOpenChange(false); }}>Cerrar</Button>
-          </div>
-        )}
+          <TabsContent value="contactos"><TabContactos onImported={onImported} /></TabsContent>
+          <TabsContent value="whatsapp"><TabWhatsApp /></TabsContent>
+          <TabsContent value="email"><TabEmailImport /></TabsContent>
+          <TabsContent value="plaud"><TabPlaud /></TabsContent>
+        </Tabs>
       </DialogContent>
     </Dialog>
   );
