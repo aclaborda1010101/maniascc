@@ -39,7 +39,7 @@ export function ProyectoResumen({ proyecto, activos, operadores, contactos, allL
           <div className="pt-2 border-t mt-2">
             <p className="text-muted-foreground text-xs mb-2">Activo asignado (para Matching IA)</p>
             <Select value={proyecto.local_id || "__none"} onValueChange={onAssignLocal}>
-              <SelectTrigger className="w-full"><SelectValue placeholder="Sin local asignado" /></SelectTrigger>
+              <SelectTrigger className="w-full"><SelectValue placeholder="Sin activo asignado" /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="__none">— Sin local —</SelectItem>
                 {allLocales.map((loc: any) => (
