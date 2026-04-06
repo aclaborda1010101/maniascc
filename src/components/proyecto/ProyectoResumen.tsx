@@ -41,7 +41,7 @@ export function ProyectoResumen({ proyecto, activos, operadores, contactos, allL
             <Select value={proyecto.local_id || "__none"} onValueChange={onAssignLocal}>
               <SelectTrigger className="w-full"><SelectValue placeholder="Sin activo asignado" /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="__none">— Sin local —</SelectItem>
+                <SelectItem value="__none">— Sin activo —</SelectItem>
                 {allLocales.map((loc: any) => (
                   <SelectItem key={loc.id} value={loc.id}>{loc.nombre} — {loc.direccion}, {loc.ciudad}</SelectItem>
                 ))}
