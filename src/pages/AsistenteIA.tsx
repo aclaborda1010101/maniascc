@@ -167,12 +167,12 @@ export default function AsistenteIA() {
                   <Sparkles className="h-4 w-4 text-accent" />
                 </div>
               )}
-              <div className={`max-w-[75%] rounded-xl px-4 py-3 ${
-                msg.role === "user" ? "bg-accent text-accent-foreground" : "bg-muted"
+              <div className={`max-w-[85%] rounded-xl px-4 py-3 ${
+                msg.role === "user" ? "bg-accent text-accent-foreground" : "bg-card border border-border shadow-sm"
               }`}>
                 {msg.role === "assistant" ? (
                   <div>
-                    <div className="prose prose-sm dark:prose-invert max-w-none text-sm">
+                    <div className="ava-report prose prose-sm dark:prose-invert max-w-none text-sm">
                       <ReactMarkdown remarkPlugins={[remarkGfm]}>{msg.content}</ReactMarkdown>
                     </div>
                     {msg.meta?.pdf_content && (
