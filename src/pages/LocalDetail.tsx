@@ -67,8 +67,8 @@ export default function LocalDetail() {
 
   const handleDelete = async () => {
     await supabase.from("locales").delete().eq("id", id);
-    toast({ title: "Local eliminado" });
-    navigate("/locales");
+    toast({ title: "Activo eliminado" });
+    navigate("/activos");
   };
 
   if (loading) return <div className="space-y-4"><Skeleton className="h-8 w-48" /><Skeleton className="h-64 w-full" /></div>;
