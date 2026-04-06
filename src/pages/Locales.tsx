@@ -181,7 +181,7 @@ export default function Locales() {
             <div className="py-12 text-center">
               <MapPin className="mx-auto mb-3 h-10 w-10 text-muted-foreground/40" />
               <p className="text-muted-foreground">
-                {search || filtroEstado !== "todos" ? "No se encontraron locales con esos filtros." : "No hay locales. Crea el primero."}
+                {search || filtroEstado !== "todos" ? "No se encontraron activos con esos filtros." : "No hay activos. Crea el primero."}
               </p>
             </div>
           ) : (
