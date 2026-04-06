@@ -471,10 +471,20 @@ serve(async (req) => {
     }
 
     // Second AI call: synthesize response with tool results
+    // Build a simpler synthesis prompt that works reliably with Gemini
+    const toolResultsSummary = toolResults.map(tr => 
+      `[Resultado de ${tr.tool}]:\n${JSON.stringify(tr.result).substring(0, 6000)}`
+    ).join("\n\n");
+
     const synthesisMessages = [
-      ...messages,
-      { role: "assistant", content: choice.content || "", tool_calls: choice.tool_calls },
-      ...toolMessages,
+      { role: "system", content: SYSTEM_PROMPT },
+      ...(history && Array.isArray(history) ? history.slice(-10).map((h: any) => ({ role: h.role, content: h.content })) : []),
+      { role: "user", content: message },
+      { 
+        role: "assistant", 
+        content: `He ejecutado las siguientes herramientas para responder. Aquí están los resultados:\n\n${toolResultsSummary}\n\nAhora voy a formular una respuesta completa basada en estos datos.`
+      },
+      { role: "user", content: "Perfecto, ahora responde mi pregunta original de forma completa y detallada usando los datos que has obtenido. Responde en español." },
     ];
 
     const synthesisResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
@@ -492,12 +502,18 @@ serve(async (req) => {
     let finalAnswer: string;
     if (synthesisResponse.ok) {
       const synthesisData = await synthesisResponse.json();
-      finalAnswer = synthesisData.choices?.[0]?.message?.content || "He procesado tu solicitud pero no pude formular una respuesta.";
+      finalAnswer = synthesisData.choices?.[0]?.message?.content || "";
+      if (!finalAnswer) {
+        console.error("Empty synthesis response:", JSON.stringify(synthesisData).substring(0, 1000));
+        finalAnswer = "He consultado los datos. Resultados:\n\n" +
+          toolResults.map(tr => `**${tr.tool}**: ${JSON.stringify(tr.result).substring(0, 500)}`).join("\n\n");
+      }
       const usage2 = synthesisData.usage || {};
       totalTokensIn += usage2.prompt_tokens || 0;
       totalTokensOut += usage2.completion_tokens || 0;
     } else {
-      await synthesisResponse.text();
+      const errBody = await synthesisResponse.text();
+      console.error("Synthesis call failed:", synthesisResponse.status, errBody);
       finalAnswer = "He consultado los datos. Resultados:\n\n" +
         toolResults.map(tr => `**${tr.tool}**: ${JSON.stringify(tr.result).substring(0, 500)}`).join("\n\n");
     }
