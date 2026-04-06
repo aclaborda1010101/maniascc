@@ -1,6 +1,6 @@
 import {
   LayoutDashboard, Users, Sparkles, LogOut, FileText,
-  FolderKanban, UserCircle, Bell, MapPin, Brain,
+  FolderKanban, UserCircle, MapPin, Brain, Hammer,
   Compass, FileSearch, Layers, MessageSquare, Moon, Sun, Settings, Network, FlaskConical, DollarSign,
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
@@ -18,8 +18,7 @@ const mainItems = [
   { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
   { title: "AVA", url: "/asistente", icon: Sparkles },
   { title: "Oportunidades", url: "/oportunidades", icon: FolderKanban },
-  
-  { title: "Notificaciones", url: "/notificaciones", icon: Bell },
+  { title: "Generador de Documentos", url: "/generador", icon: Hammer },
 ];
 
 const directoryItems = [

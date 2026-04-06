@@ -12,7 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import {
   ArrowLeft, MapPin, Users, FileText, Sparkles, MessageSquare,
   Calendar, Building2, Target, Layers, FileSearch, Compass,
-  BookOpen, Hammer, Plus, Trash2, Brain,
+  BookOpen, Plus, Trash2, Brain,
 } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 
@@ -22,7 +22,6 @@ import { ProyectoOperadores } from "@/components/proyecto/ProyectoOperadores";
 import { ProyectoMatches } from "@/components/proyecto/ProyectoMatches";
 import { ProyectoDocumentos } from "@/components/proyecto/ProyectoDocumentos";
 import { ProyectoRAG } from "@/components/proyecto/ProyectoRAG";
-import { ProyectoForge } from "@/components/proyecto/ProyectoForge";
 import { ProyectoInsights } from "@/components/proyecto/ProyectoInsights";
 
 const estadoLabels: Record<string, string> = {
@@ -178,7 +177,6 @@ export default function ProyectoDetail() {
           <TabsTrigger value="matches" className="gap-1"><Sparkles className="h-3.5 w-3.5" /> Matches IA</TabsTrigger>
           <TabsTrigger value="documentos" className="gap-1"><FileText className="h-3.5 w-3.5" /> Documentos</TabsTrigger>
           <TabsTrigger value="conocimiento" className="gap-1"><BookOpen className="h-3.5 w-3.5" /> Conocimiento</TabsTrigger>
-          <TabsTrigger value="forge" className="gap-1"><Hammer className="h-3.5 w-3.5" /> FORGE</TabsTrigger>
           <TabsTrigger value="insights" className="gap-1"><Brain className="h-3.5 w-3.5" /> Insights IA</TabsTrigger>
           <TabsTrigger value="negociacion" className="gap-1"><MessageSquare className="h-3.5 w-3.5" /> Negociación</TabsTrigger>
         </TabsList>
@@ -205,10 +203,6 @@ export default function ProyectoDetail() {
 
         <TabsContent value="conocimiento">
           <ProyectoRAG proyectoId={id!} docs={docs} onRefreshDocs={fetchDocs} />
-        </TabsContent>
-
-        <TabsContent value="forge">
-          <ProyectoForge proyectoId={id!} />
         </TabsContent>
 
         <TabsContent value="insights">

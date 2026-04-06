@@ -6,7 +6,9 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-const SYSTEM_PROMPT = `Eres AVA, la asistente inteligente de gestión de centros comerciales de F&G Real Estate. Tienes acceso completo a la base de datos (locales, operadores, contactos, documentos, negociaciones), a 6 especialistas de IA (localización, tenant mix, validación, negociación, auditoría, matching), y a funciones de análisis avanzado. Puedes consultar datos, modificarlos, ejecutar análisis, y asistir proactivamente. Responde siempre en español. Sé concisa pero completa.`;
+const SYSTEM_PROMPT = `Eres AVA, la asistente inteligente de gestión de centros comerciales de F&G Real Estate. Tienes acceso completo a la base de datos (locales, operadores, contactos, documentos, negociaciones), a 6 especialistas de IA (localización, tenant mix, validación, negociación, auditoría, matching), y a funciones de análisis avanzado. Puedes consultar datos, modificarlos, ejecutar análisis, y asistir proactivamente. Responde siempre en español. Sé concisa pero completa.
+
+Cuando te pregunten sobre una ubicación comercial, análisis de localización o viabilidad de un centro comercial, SIEMPRE usa la herramienta nearby_search para analizar el entorno: busca McDonald's, gasolineras, supermercados, centros comerciales competidores, estaciones de transporte público, colegios, hospitales y cualquier POI relevante. Haz múltiples búsquedas con distintos queries para obtener un análisis completo. Presenta los resultados de forma estructurada con distancias y conclusiones.`;
 
 const TOOLS = [
   {
@@ -104,6 +106,23 @@ const TOOLS = [
           },
         },
         required: ["query"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "nearby_search",
+      description: "Busca puntos de interés (POIs) cercanos a unas coordenadas usando OpenStreetMap. Úsalo para analizar entornos comerciales: McDonald's, gasolineras, supermercados, centros comerciales, transporte, etc.",
+      parameters: {
+        type: "object",
+        properties: {
+          lat: { type: "number", description: "Latitud del punto central" },
+          lon: { type: "number", description: "Longitud del punto central" },
+          radius_m: { type: "number", description: "Radio de búsqueda en metros (default 2000)" },
+          query: { type: "string", description: "Tipo de POI a buscar, ej: restaurant, fuel, supermarket, school, hospital, shopping, fast_food, bus_stop" },
+        },
+        required: ["lat", "lon", "query"],
       },
     },
   },
@@ -363,6 +382,59 @@ serve(async (req) => {
             if (data && data.length > 0) searchResults[t] = data;
           }
           result = searchResults;
+        } else if (fnName === "nearby_search") {
+          toolLabel = "nearby_search:" + (args.query || "");
+          const radius = args.radius_m || 2000;
+          const lat = args.lat;
+          const lon = args.lon;
+          const q = args.query || "";
+
+          // Map common queries to Overpass tags
+          const tagMap: Record<string, string> = {
+            restaurant: '["amenity"="restaurant"]',
+            fast_food: '["amenity"="fast_food"]',
+            fuel: '["amenity"="fuel"]',
+            supermarket: '["shop"="supermarket"]',
+            school: '["amenity"="school"]',
+            hospital: '["amenity"="hospital"]',
+            shopping: '["shop"="mall"]',
+            bus_stop: '["highway"="bus_stop"]',
+            pharmacy: '["amenity"="pharmacy"]',
+            bank: '["amenity"="bank"]',
+            parking: '["amenity"="parking"]',
+          };
+
+          let overpassFilter = tagMap[q];
+          if (!overpassFilter) {
+            // Name search for specific brands
+            overpassFilter = `["name"~"${q}",i]`;
+          }
+
+          const overpassQuery = `[out:json][timeout:15];(node${overpassFilter}(around:${radius},${lat},${lon});way${overpassFilter}(around:${radius},${lat},${lon}););out center 30;`;
+          try {
+            const overpassResp = await fetch("https://overpass-api.de/api/interpreter", {
+              method: "POST",
+              headers: { "Content-Type": "application/x-www-form-urlencoded" },
+              body: "data=" + encodeURIComponent(overpassQuery),
+            });
+            const overpassData = await overpassResp.json();
+            const pois = (overpassData.elements || []).slice(0, 30).map((el: any) => {
+              const elLat = el.lat || el.center?.lat;
+              const elLon = el.lon || el.center?.lon;
+              const dist = elLat && elLon ? Math.round(Math.sqrt(Math.pow((elLat - lat) * 111320, 2) + Math.pow((elLon - lon) * 111320 * Math.cos(lat * Math.PI / 180), 2))) : null;
+              return {
+                name: el.tags?.name || el.tags?.brand || "Sin nombre",
+                type: el.tags?.amenity || el.tags?.shop || el.tags?.highway || q,
+                lat: elLat,
+                lon: elLon,
+                distance_m: dist,
+                address: el.tags?.["addr:street"] ? `${el.tags["addr:street"]} ${el.tags["addr:housenumber"] || ""}`.trim() : undefined,
+              };
+            }).sort((a: any, b: any) => (a.distance_m || 9999) - (b.distance_m || 9999));
+            result = { query: q, radius_m: radius, center: { lat, lon }, count: pois.length, pois };
+          } catch (e) {
+            result = { error: "Error consultando Overpass API: " + (e instanceof Error ? e.message : "desconocido") };
+          }
         } else {
           result = { error: "Tool no reconocida" };
         }

@@ -34,6 +34,7 @@ const Admin = lazy(() => import("./pages/Admin"));
 const Playground = lazy(() => import("./pages/Playground"));
 const Consumo = lazy(() => import("./pages/Consumo"));
 const Ajustes = lazy(() => import("./pages/Ajustes"));
+const GeneradorDocumentos = lazy(() => import("./pages/GeneradorDocumentos"));
 
 
 const queryClient = new QueryClient();
@@ -80,7 +81,9 @@ const App = () => (
                   <Route path="/playground" element={<Playground />} />
                   <Route path="/consumo" element={<Consumo />} />
                   <Route path="/ajustes" element={<Ajustes />} />
+                  <Route path="/generador" element={<GeneradorDocumentos />} />
                   <Route path="/importar" element={<Navigate to="/contactos" replace />} />
+                  <Route path="/notificaciones" element={<Navigate to="/dashboard" replace />} />
                   {/* Retrocompatibilidad */}
                   <Route path="/busqueda" element={<Navigate to="/asistente" replace />} />
                   <Route path="/proyectos" element={<Navigate to="/oportunidades" replace />} />
