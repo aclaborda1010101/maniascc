@@ -6,6 +6,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Sparkles } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 
 const estiloLabels: Record<string, string> = {
   colaborativo: "Colaborativo", competitivo: "Competitivo",

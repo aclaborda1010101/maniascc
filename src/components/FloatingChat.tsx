@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useChatMessages, toolLabel } from "@/hooks/useChatMessages";
 import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 
 export function FloatingChat() {
   const [open, setOpen] = useState(false);
