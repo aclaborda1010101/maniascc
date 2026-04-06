@@ -32,12 +32,15 @@ const SECTORES: { value: string; label: string }[] = [
 
 export default function Operadores() {
   const [operadores, setOperadores] = useState<any[]>([]);
+  const [matrices, setMatrices] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [filtroSector, setFiltroSector] = useState("todos");
   const [filtroActivo, setFiltroActivo] = useState("todos");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [matrizMode, setMatrizMode] = useState<"existing" | "new">("existing");
+  const [selectedMatrizId, setSelectedMatrizId] = useState("");
   const { toast } = useToast();
   const { user } = useAuth();
 
@@ -50,6 +53,8 @@ export default function Operadores() {
     if (filtroActivo === "inactivo") query = query.eq("activo", false);
     const { data } = await query;
     setOperadores(data || []);
+    // Matrices = operators with no matriz_id (they ARE matrices)
+    setMatrices((data || []).filter((o: any) => !o.matriz_id));
     setLoading(false);
   };
 
@@ -59,6 +64,7 @@ export default function Operadores() {
     e.preventDefault();
     setSubmitting(true);
     const fd = new FormData(e.currentTarget);
+    const matrizId = matrizMode === "existing" && selectedMatrizId ? selectedMatrizId : null;
     const { error } = await supabase.from("operadores").insert({
       nombre: fd.get("nombre") as string,
       sector: fd.get("sector") as string,
@@ -71,13 +77,16 @@ export default function Operadores() {
       contacto_telefono: (fd.get("contacto_telefono") as string) || null,
       descripcion: (fd.get("descripcion") as string) || null,
       created_by: user?.id,
-    });
+      matriz_id: matrizId,
+    } as any);
     setSubmitting(false);
     if (error) {
       toast({ title: "Error al crear operador", description: error.message, variant: "destructive" });
     } else {
       toast({ title: "Operador creado correctamente" });
       setDialogOpen(false);
+      setSelectedMatrizId("");
+      setMatrizMode("existing");
       fetchOperadores();
     }
   };
