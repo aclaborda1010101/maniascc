@@ -102,3 +102,54 @@
     font-family: 'Inter', system-ui, sans-serif;
   }
 }
+
+/* ── Prose / Markdown styling ── */
+.prose h1 { @apply text-xl font-bold mt-6 mb-3 text-foreground; }
+.prose h2 { @apply text-lg font-semibold mt-5 mb-2 text-foreground; }
+.prose h3 { @apply text-base font-semibold mt-4 mb-2 text-foreground; }
+.prose h4 { @apply text-sm font-semibold mt-3 mb-1 text-foreground; }
+
+.prose ul { @apply list-disc pl-5 my-2 space-y-1; }
+.prose ol { @apply list-decimal pl-5 my-2 space-y-1; }
+.prose li { @apply text-foreground; }
+
+.prose strong { @apply font-semibold text-foreground; }
+.prose em { @apply italic; }
+
+.prose hr { @apply my-4 border-border; }
+
+.prose blockquote {
+  @apply border-l-4 border-accent/40 pl-4 my-3 italic text-muted-foreground;
+}
+
+.prose code:not(pre code) {
+  @apply bg-muted text-accent px-1.5 py-0.5 rounded text-xs font-mono;
+}
+
+.prose pre {
+  @apply bg-muted rounded-lg p-4 my-3 overflow-x-auto;
+}
+.prose pre code {
+  @apply bg-transparent p-0 text-xs font-mono text-foreground;
+}
+
+.prose table {
+  @apply w-full border-collapse my-3 text-sm;
+}
+.prose thead th {
+  @apply bg-muted font-semibold text-left px-3 py-2 border border-border text-foreground;
+}
+.prose tbody td {
+  @apply px-3 py-2 border border-border;
+}
+.prose tbody tr:nth-child(even) {
+  @apply bg-muted/40;
+}
+
+.prose a {
+  @apply text-accent underline underline-offset-2 hover:text-accent/80;
+}
+
+.prose p {
+  @apply my-2 leading-relaxed;
+}
