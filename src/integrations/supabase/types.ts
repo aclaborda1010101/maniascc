@@ -535,6 +535,7 @@ export type Database = {
       }
       contactos: {
         Row: {
+          activo_id: string | null
           ai_tags: string[] | null
           apellidos: string | null
           cargo: string | null
@@ -556,12 +557,14 @@ export type Database = {
           perfil_ia: Json | null
           plaud_count: number | null
           sentiment: string | null
+          subdivision_id: string | null
           telefono: string | null
           updated_at: string | null
           wa_message_count: number | null
           whatsapp: string | null
         }
         Insert: {
+          activo_id?: string | null
           ai_tags?: string[] | null
           apellidos?: string | null
           cargo?: string | null
@@ -583,12 +586,14 @@ export type Database = {
           perfil_ia?: Json | null
           plaud_count?: number | null
           sentiment?: string | null
+          subdivision_id?: string | null
           telefono?: string | null
           updated_at?: string | null
           wa_message_count?: number | null
           whatsapp?: string | null
         }
         Update: {
+          activo_id?: string | null
           ai_tags?: string[] | null
           apellidos?: string | null
           cargo?: string | null
@@ -610,6 +615,7 @@ export type Database = {
           perfil_ia?: Json | null
           plaud_count?: number | null
           sentiment?: string | null
+          subdivision_id?: string | null
           telefono?: string | null
           updated_at?: string | null
           wa_message_count?: number | null
@@ -621,6 +627,13 @@ export type Database = {
             columns: ["operador_id"]
             isOneToOne: false
             referencedRelation: "operadores"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contactos_subdivision_id_fkey"
+            columns: ["subdivision_id"]
+            isOneToOne: false
+            referencedRelation: "operador_subdivisiones"
             referencedColumns: ["id"]
           },
         ]
@@ -1157,6 +1170,38 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      operador_subdivisiones: {
+        Row: {
+          created_at: string | null
+          descripcion: string | null
+          id: string
+          nombre: string
+          operador_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          descripcion?: string | null
+          id?: string
+          nombre: string
+          operador_id: string
+        }
+        Update: {
+          created_at?: string | null
+          descripcion?: string | null
+          id?: string
+          nombre?: string
+          operador_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "operador_subdivisiones_operador_id_fkey"
+            columns: ["operador_id"]
+            isOneToOne: false
+            referencedRelation: "operadores"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       operadores: {
         Row: {

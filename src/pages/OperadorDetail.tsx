@@ -14,6 +14,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { UploadZone } from "@/components/UploadZone";
+import { OperadorContactosTab } from "@/components/operador/OperadorContactosTab";
 
 const SECTORES = [
   "Alimentación", "Moda", "Restauración", "Hogar", "Electrónica",
@@ -102,6 +103,7 @@ export default function OperadorDetail() {
         <TabsList>
           <TabsTrigger value="info">Información General</TabsTrigger>
           <TabsTrigger value="perfil-ia">Perfil IA</TabsTrigger>
+          <TabsTrigger value="contactos">Contactos</TabsTrigger>
           <TabsTrigger value="documentos">Documentos</TabsTrigger>
         </TabsList>
 
@@ -182,6 +184,10 @@ export default function OperadorDetail() {
               )}
             </CardContent>
           </Card>
+        </TabsContent>
+
+        <TabsContent value="contactos">
+          <OperadorContactosTab operadorId={id!} />
         </TabsContent>
 
         <TabsContent value="documentos">
