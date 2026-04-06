@@ -14,6 +14,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { UploadZone } from "@/components/UploadZone";
+import { OperadorContactosTab } from "@/components/operador/OperadorContactosTab";
 
 const SECTORES = [
   "Alimentación", "Moda", "Restauración", "Hogar", "Electrónica",
