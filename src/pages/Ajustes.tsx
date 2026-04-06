@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   MessageSquare, Mail, CheckCircle2, Loader2, QrCode, Settings,
-  Shield, Wifi, WifiOff, Sparkles, CheckCircle, Link2,
+  Shield, Wifi, WifiOff, Sparkles, CheckCircle, Link2, User,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -402,6 +402,142 @@ function TabConfiguracion() {
 /* ═══════════════════════════════════════════════════
    MAIN PAGE
    ═══════════════════════════════════════════════════ */
+/* ═══════════════════════════════════════════════════
+   TAB: Perfil (nombre, email, contraseña)
+   ═══════════════════════════════════════════════════ */
+function TabPerfil() {
+  const { user } = useAuth();
+  const [nombre, setNombre] = useState("");
+  const [apellidos, setApellidos] = useState("");
+  const [email, setEmail] = useState("");
+  const [telefono, setTelefono] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [changingPwd, setChangingPwd] = useState(false);
+
+  useEffect(() => {
+    if (!user) return;
+    setEmail(user.email || "");
+    (async () => {
+      const { data } = await supabase.from("perfiles").select("nombre, apellidos, telefono").eq("user_id", user.id).single();
+      if (data) {
+        setNombre(data.nombre || "");
+        setApellidos(data.apellidos || "");
+        setTelefono(data.telefono || "");
+      }
+    })();
+  }, [user]);
+
+  const handleSaveProfile = async () => {
+    if (!user) return;
+    setSaving(true);
+    try {
+      const { error } = await supabase.from("perfiles").update({
+        nombre,
+        apellidos,
+        telefono,
+      }).eq("user_id", user.id);
+      if (error) throw error;
+
+      // Update email if changed
+      if (email !== user.email) {
+        const { error: emailErr } = await supabase.auth.updateUser({ email });
+        if (emailErr) throw emailErr;
+        toast.success("Se ha enviado un email de confirmación a la nueva dirección");
+      } else {
+        toast.success("Perfil actualizado correctamente");
+      }
+    } catch (e: any) {
+      toast.error(e.message || "Error al guardar perfil");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleChangePassword = async () => {
+    if (newPassword !== confirmPassword) {
+      toast.error("Las contraseñas no coinciden");
+      return;
+    }
+    if (newPassword.length < 6) {
+      toast.error("La contraseña debe tener al menos 6 caracteres");
+      return;
+    }
+    setChangingPwd(true);
+    try {
+      const { error } = await supabase.auth.updateUser({ password: newPassword });
+      if (error) throw error;
+      toast.success("Contraseña actualizada correctamente");
+      setCurrentPassword("");
+      setNewPassword("");
+      setConfirmPassword("");
+    } catch (e: any) {
+      toast.error(e.message || "Error al cambiar contraseña");
+    } finally {
+      setChangingPwd(false);
+    }
+  };
+
+  return (
+    <div className="grid gap-6 md:grid-cols-2">
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-lg">Datos personales</CardTitle>
+          <CardDescription>Actualiza tu nombre, email y teléfono</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label>Nombre</Label>
+              <Input value={nombre} onChange={e => setNombre(e.target.value)} placeholder="Nombre" />
+            </div>
+            <div className="space-y-2">
+              <Label>Apellidos</Label>
+              <Input value={apellidos} onChange={e => setApellidos(e.target.value)} placeholder="Apellidos" />
+            </div>
+          </div>
+          <div className="space-y-2">
+            <Label>Email</Label>
+            <Input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="email@ejemplo.com" />
+          </div>
+          <div className="space-y-2">
+            <Label>Teléfono</Label>
+            <Input value={telefono} onChange={e => setTelefono(e.target.value)} placeholder="+34 600 000 000" />
+          </div>
+          <Button onClick={handleSaveProfile} disabled={saving} className="w-full">
+            {saving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+            Guardar cambios
+          </Button>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-lg">Cambiar contraseña</CardTitle>
+          <CardDescription>Introduce tu nueva contraseña</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="space-y-2">
+            <Label>Nueva contraseña</Label>
+            <Input type="password" value={newPassword} onChange={e => setNewPassword(e.target.value)} placeholder="••••••••" />
+          </div>
+          <div className="space-y-2">
+            <Label>Confirmar contraseña</Label>
+            <Input type="password" value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} placeholder="••••••••" />
+          </div>
+          <Button onClick={handleChangePassword} disabled={changingPwd} variant="outline" className="w-full">
+            {changingPwd ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+            Cambiar contraseña
+          </Button>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
 export default function Ajustes() {
   return (
     <div className="space-y-6">
@@ -409,17 +545,19 @@ export default function Ajustes() {
         <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2">
           <Settings className="h-6 w-6" /> Ajustes
         </h1>
-        <p className="text-sm text-muted-foreground">Conexiones, auditoría y configuración del sistema</p>
+        <p className="text-sm text-muted-foreground">Perfil, conexiones, auditoría y configuración del sistema</p>
       </div>
 
-      <Tabs defaultValue="conexiones">
+      <Tabs defaultValue="perfil">
         <TabsList>
+          <TabsTrigger value="perfil" className="gap-1"><User className="h-3 w-3" /> Perfil</TabsTrigger>
           <TabsTrigger value="conexiones" className="gap-1"><Link2 className="h-3 w-3" /> Conexiones</TabsTrigger>
           <TabsTrigger value="conexion-ia" className="gap-1"><Sparkles className="h-3 w-3" /> Conexión IA</TabsTrigger>
           <TabsTrigger value="auditoria" className="gap-1"><Shield className="h-3 w-3" /> Auditoría</TabsTrigger>
           <TabsTrigger value="config" className="gap-1"><Settings className="h-3 w-3" /> Configuración</TabsTrigger>
         </TabsList>
 
+        <TabsContent value="perfil"><TabPerfil /></TabsContent>
         <TabsContent value="conexiones"><TabConexiones /></TabsContent>
         <TabsContent value="conexion-ia"><TabConexionIA /></TabsContent>
         <TabsContent value="auditoria"><TabAuditoria /></TabsContent>
