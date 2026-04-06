@@ -60,8 +60,8 @@ const App = () => (
                 <Route path="/" element={<Navigate to="/dashboard" replace />} />
                 <Route element={<ProtectedRoute><NotificationProvider><AppLayout /></NotificationProvider></ProtectedRoute>}>
                   <Route path="/dashboard" element={<Dashboard />} />
-                  <Route path="/proyectos" element={<Proyectos />} />
-                  <Route path="/proyectos/:id" element={<ProyectoDetail />} />
+                  <Route path="/oportunidades" element={<Proyectos />} />
+                  <Route path="/oportunidades/:id" element={<ProyectoDetail />} />
                   <Route path="/operadores" element={<Operadores />} />
                   <Route path="/operadores/:id" element={<OperadorDetail />} />
                   <Route path="/contactos" element={<Contactos />} />
