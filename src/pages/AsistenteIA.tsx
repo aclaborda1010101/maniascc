@@ -173,7 +173,7 @@ export default function AsistenteIA() {
                 {msg.role === "assistant" ? (
                   <div>
                     <div className="prose prose-sm dark:prose-invert max-w-none text-sm">
-                      <ReactMarkdown>{msg.content}</ReactMarkdown>
+                      <ReactMarkdown remarkPlugins={[remarkGfm]}>{msg.content}</ReactMarkdown>
                     </div>
                     {msg.meta?.pdf_content && (
                       <Button variant="outline" size="sm" className="mt-2 gap-1.5 text-xs h-7 px-3 border-accent text-accent" onClick={() => exportMessageToPdf(msg.meta!.pdf_content!, msg.meta!.pdf_title)}>
