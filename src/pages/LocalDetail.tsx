@@ -72,7 +72,7 @@ export default function LocalDetail() {
   };
 
   if (loading) return <div className="space-y-4"><Skeleton className="h-8 w-48" /><Skeleton className="h-64 w-full" /></div>;
-  if (!local) return <p className="text-muted-foreground">Local no encontrado.</p>;
+  if (!local) return <p className="text-muted-foreground">Activo no encontrado.</p>;
 
   return (
     <div className="space-y-6">
