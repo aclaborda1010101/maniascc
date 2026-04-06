@@ -452,6 +452,9 @@ serve(async (req) => {
           } catch (e) {
             result = { error: "Error consultando Overpass API: " + (e instanceof Error ? e.message : "desconocido") };
           }
+        } else if (fnName === "generate_pdf_report") {
+          toolLabel = "generate_pdf_report";
+          result = { success: true, title: args.title, content: args.content };
         } else {
           result = { error: "Tool no reconocida" };
         }
