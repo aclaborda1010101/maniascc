@@ -18,8 +18,7 @@ const mainItems = [
   { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
   { title: "AVA", url: "/asistente", icon: Sparkles },
   { title: "Oportunidades", url: "/oportunidades", icon: FolderKanban },
-  
-  { title: "Notificaciones", url: "/notificaciones", icon: Bell },
+  { title: "Generador de Documentos", url: "/generador", icon: Hammer },
 ];
 
 const directoryItems = [

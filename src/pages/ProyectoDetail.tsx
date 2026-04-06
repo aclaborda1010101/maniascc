@@ -205,10 +205,6 @@ export default function ProyectoDetail() {
           <ProyectoRAG proyectoId={id!} docs={docs} onRefreshDocs={fetchDocs} />
         </TabsContent>
 
-        <TabsContent value="forge">
-          <ProyectoForge proyectoId={id!} />
-        </TabsContent>
-
         <TabsContent value="insights">
           <ProyectoInsights proyectoId={id!} />
         </TabsContent>

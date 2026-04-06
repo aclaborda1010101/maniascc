@@ -169,8 +169,13 @@ export default function AsistenteIA() {
                 msg.role === "user" ? "bg-accent text-accent-foreground" : "bg-muted"
               }`}>
                 {msg.role === "assistant" ? (
-                  <div className="prose prose-sm dark:prose-invert max-w-none text-sm">
-                    <ReactMarkdown>{msg.content}</ReactMarkdown>
+                  <div>
+                    <div className="prose prose-sm dark:prose-invert max-w-none text-sm">
+                      <ReactMarkdown>{msg.content}</ReactMarkdown>
+                    </div>
+                    <Button variant="ghost" size="sm" className="mt-2 gap-1 text-muted-foreground text-xs h-7 px-2" onClick={() => exportMessageToPdf(msg.content)}>
+                      <FileDown className="h-3 w-3" /> PDF
+                    </Button>
                   </div>
                 ) : (
                   <p className="text-sm">{msg.content}</p>

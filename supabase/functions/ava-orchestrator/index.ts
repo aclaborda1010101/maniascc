@@ -382,6 +382,59 @@ serve(async (req) => {
             if (data && data.length > 0) searchResults[t] = data;
           }
           result = searchResults;
+        } else if (fnName === "nearby_search") {
+          toolLabel = "nearby_search:" + (args.query || "");
+          const radius = args.radius_m || 2000;
+          const lat = args.lat;
+          const lon = args.lon;
+          const q = args.query || "";
+
+          // Map common queries to Overpass tags
+          const tagMap: Record<string, string> = {
+            restaurant: '["amenity"="restaurant"]',
+            fast_food: '["amenity"="fast_food"]',
+            fuel: '["amenity"="fuel"]',
+            supermarket: '["shop"="supermarket"]',
+            school: '["amenity"="school"]',
+            hospital: '["amenity"="hospital"]',
+            shopping: '["shop"="mall"]',
+            bus_stop: '["highway"="bus_stop"]',
+            pharmacy: '["amenity"="pharmacy"]',
+            bank: '["amenity"="bank"]',
+            parking: '["amenity"="parking"]',
+          };
+
+          let overpassFilter = tagMap[q];
+          if (!overpassFilter) {
+            // Name search for specific brands
+            overpassFilter = `["name"~"${q}",i]`;
+          }
+
+          const overpassQuery = `[out:json][timeout:15];(node${overpassFilter}(around:${radius},${lat},${lon});way${overpassFilter}(around:${radius},${lat},${lon}););out center 30;`;
+          try {
+            const overpassResp = await fetch("https://overpass-api.de/api/interpreter", {
+              method: "POST",
+              headers: { "Content-Type": "application/x-www-form-urlencoded" },
+              body: "data=" + encodeURIComponent(overpassQuery),
+            });
+            const overpassData = await overpassResp.json();
+            const pois = (overpassData.elements || []).slice(0, 30).map((el: any) => {
+              const elLat = el.lat || el.center?.lat;
+              const elLon = el.lon || el.center?.lon;
+              const dist = elLat && elLon ? Math.round(Math.sqrt(Math.pow((elLat - lat) * 111320, 2) + Math.pow((elLon - lon) * 111320 * Math.cos(lat * Math.PI / 180), 2))) : null;
+              return {
+                name: el.tags?.name || el.tags?.brand || "Sin nombre",
+                type: el.tags?.amenity || el.tags?.shop || el.tags?.highway || q,
+                lat: elLat,
+                lon: elLon,
+                distance_m: dist,
+                address: el.tags?.["addr:street"] ? `${el.tags["addr:street"]} ${el.tags["addr:housenumber"] || ""}`.trim() : undefined,
+              };
+            }).sort((a: any, b: any) => (a.distance_m || 9999) - (b.distance_m || 9999));
+            result = { query: q, radius_m: radius, center: { lat, lon }, count: pois.length, pois };
+          } catch (e) {
+            result = { error: "Error consultando Overpass API: " + (e instanceof Error ? e.message : "desconocido") };
+          }
         } else {
           result = { error: "Tool no reconocida" };
         }
