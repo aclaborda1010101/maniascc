@@ -10,6 +10,8 @@ export interface ChatMessage {
   meta?: {
     tools_used?: string[];
     latency_ms?: number;
+    pdf_content?: string;
+    pdf_title?: string;
   };
 }
 
