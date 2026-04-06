@@ -186,6 +186,10 @@ export default function OperadorDetail() {
           </Card>
         </TabsContent>
 
+        <TabsContent value="contactos">
+          <OperadorContactosTab operadorId={id!} />
+        </TabsContent>
+
         <TabsContent value="documentos">
           <Card>
             <CardHeader><CardTitle>Documentos del Operador</CardTitle></CardHeader>

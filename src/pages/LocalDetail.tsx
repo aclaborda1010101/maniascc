@@ -116,149 +116,148 @@ export default function LocalDetail() {
         </AlertDialog>
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-3">
-        <Card className="lg:col-span-2">
-          <CardHeader>
-            <CardTitle>Datos del Activo</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>Nombre</Label>
-                <Input value={local.nombre} onChange={(e) => setLocal({ ...local, nombre: e.target.value })} />
-              </div>
-              <div className="space-y-2">
-                <Label>Ciudad</Label>
-                <Input value={local.ciudad} onChange={(e) => setLocal({ ...local, ciudad: e.target.value })} />
-              </div>
-            </div>
-            <div className="space-y-2">
-              <Label>Dirección</Label>
-              <Input value={local.direccion} onChange={(e) => setLocal({ ...local, direccion: e.target.value })} />
-            </div>
-            <div className="grid grid-cols-3 gap-4">
-              <div className="space-y-2">
-                <Label>Código Postal</Label>
-                <Input value={local.codigo_postal} onChange={(e) => setLocal({ ...local, codigo_postal: e.target.value })} />
-              </div>
-              <div className="space-y-2">
-                <Label>Superficie (m²)</Label>
-                <Input type="number" value={local.superficie_m2} onChange={(e) => setLocal({ ...local, superficie_m2: Number(e.target.value) })} />
-              </div>
-              <div className="space-y-2">
-                <Label>Renta (€/mes)</Label>
-                <Input type="number" value={local.precio_renta} onChange={(e) => setLocal({ ...local, precio_renta: Number(e.target.value) })} />
-              </div>
-            </div>
-            <div className="grid grid-cols-3 gap-4">
-              <div className="space-y-2">
-                <Label>Estado</Label>
-                <Select value={local.estado} onValueChange={(v) => setLocal({ ...local, estado: v })}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="disponible">Disponible</SelectItem>
-                    <SelectItem value="en_negociacion">En negociación</SelectItem>
-                    <SelectItem value="ocupado">Ocupado</SelectItem>
-                    <SelectItem value="reforma">En reforma</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label>Latitud</Label>
-                <Input type="number" step="any" value={local.coordenadas_lat || ""} onChange={(e) => setLocal({ ...local, coordenadas_lat: e.target.value ? Number(e.target.value) : null })} />
-              </div>
-              <div className="space-y-2">
-                <Label>Longitud</Label>
-                <Input type="number" step="any" value={local.coordenadas_lng || ""} onChange={(e) => setLocal({ ...local, coordenadas_lng: e.target.value ? Number(e.target.value) : null })} />
-              </div>
-            </div>
-            <div className="space-y-2">
-              <Label>Descripción</Label>
-              <Textarea value={local.descripcion || ""} onChange={(e) => setLocal({ ...local, descripcion: e.target.value })} rows={3} />
-            </div>
-            <Button onClick={handleSave} disabled={saving} className="bg-accent text-accent-foreground hover:bg-accent/90">
-              <Save className="mr-2 h-4 w-4" /> {saving ? "Guardando..." : "Guardar cambios"}
-            </Button>
-          </CardContent>
-        </Card>
+      <Tabs defaultValue="info">
+        <TabsList>
+          <TabsTrigger value="info">Información</TabsTrigger>
+          <TabsTrigger value="contactos">Contactos</TabsTrigger>
+          <TabsTrigger value="matches">Matches</TabsTrigger>
+        </TabsList>
 
-        <div className="space-y-4">
+        <TabsContent value="info">
+          <div className="grid gap-6 lg:grid-cols-3">
+            <Card className="lg:col-span-2">
+              <CardHeader><CardTitle>Datos del Activo</CardTitle></CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2"><Label>Nombre</Label><Input value={local.nombre} onChange={(e) => setLocal({ ...local, nombre: e.target.value })} /></div>
+                  <div className="space-y-2"><Label>Ciudad</Label><Input value={local.ciudad} onChange={(e) => setLocal({ ...local, ciudad: e.target.value })} /></div>
+                </div>
+                <div className="space-y-2"><Label>Dirección</Label><Input value={local.direccion} onChange={(e) => setLocal({ ...local, direccion: e.target.value })} /></div>
+                <div className="grid grid-cols-3 gap-4">
+                  <div className="space-y-2"><Label>Código Postal</Label><Input value={local.codigo_postal} onChange={(e) => setLocal({ ...local, codigo_postal: e.target.value })} /></div>
+                  <div className="space-y-2"><Label>Superficie (m²)</Label><Input type="number" value={local.superficie_m2} onChange={(e) => setLocal({ ...local, superficie_m2: Number(e.target.value) })} /></div>
+                  <div className="space-y-2"><Label>Renta (€/mes)</Label><Input type="number" value={local.precio_renta} onChange={(e) => setLocal({ ...local, precio_renta: Number(e.target.value) })} /></div>
+                </div>
+                <div className="grid grid-cols-3 gap-4">
+                  <div className="space-y-2">
+                    <Label>Estado</Label>
+                    <Select value={local.estado} onValueChange={(v) => setLocal({ ...local, estado: v })}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="disponible">Disponible</SelectItem>
+                        <SelectItem value="en_negociacion">En negociación</SelectItem>
+                        <SelectItem value="ocupado">Ocupado</SelectItem>
+                        <SelectItem value="reforma">En reforma</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2"><Label>Latitud</Label><Input type="number" step="any" value={local.coordenadas_lat || ""} onChange={(e) => setLocal({ ...local, coordenadas_lat: e.target.value ? Number(e.target.value) : null })} /></div>
+                  <div className="space-y-2"><Label>Longitud</Label><Input type="number" step="any" value={local.coordenadas_lng || ""} onChange={(e) => setLocal({ ...local, coordenadas_lng: e.target.value ? Number(e.target.value) : null })} /></div>
+                </div>
+                <div className="space-y-2"><Label>Descripción</Label><Textarea value={local.descripcion || ""} onChange={(e) => setLocal({ ...local, descripcion: e.target.value })} rows={3} /></div>
+                <Button onClick={handleSave} disabled={saving} className="bg-accent text-accent-foreground hover:bg-accent/90">
+                  <Save className="mr-2 h-4 w-4" /> {saving ? "Guardando..." : "Guardar cambios"}
+                </Button>
+              </CardContent>
+            </Card>
+            <div className="space-y-4">
+              <Card>
+                <CardHeader><CardTitle className="flex items-center gap-2"><Sparkles className="h-5 w-5 text-accent" /> Acciones IA</CardTitle></CardHeader>
+                <CardContent className="space-y-4">
+                  <Button asChild className="w-full bg-accent text-accent-foreground hover:bg-accent/90">
+                    <Link to={`/matching/${id}`}><Sparkles className="mr-2 h-4 w-4" /> Generar Matches IA</Link>
+                  </Button>
+                  <p className="text-xs text-muted-foreground">El algoritmo buscará los operadores más compatibles.</p>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardHeader><CardTitle className="text-sm">Estadísticas</CardTitle></CardHeader>
+                <CardContent className="space-y-3 text-sm">
+                  <div className="flex justify-between"><span className="text-muted-foreground">Matches generados</span><span className="font-semibold">{matches.length}</span></div>
+                  <div className="flex justify-between"><span className="text-muted-foreground">Mejor score</span><span className="font-semibold">{matches.length > 0 ? `${matches[0].score}%` : "—"}</span></div>
+                  <div className="flex justify-between"><span className="text-muted-foreground">Último match</span><span className="font-semibold">{matches.length > 0 ? new Date(matches[0].created_at).toLocaleDateString("es-ES") : "—"}</span></div>
+                </CardContent>
+              </Card>
+            </div>
+          </div>
+        </TabsContent>
+
+        <TabsContent value="contactos">
           <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Sparkles className="h-5 w-5 text-accent" /> Acciones IA
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <Button asChild className="w-full bg-accent text-accent-foreground hover:bg-accent/90">
-                <Link to={`/matching/${id}`}>
-                  <Sparkles className="mr-2 h-4 w-4" /> Generar Matches IA
-                </Link>
+            <CardHeader className="flex flex-row items-center justify-between">
+              <CardTitle>Contactos del Activo</CardTitle>
+              <Button size="sm" variant="outline" onClick={() => setShowAddContact(true)}>
+                <UserPlus className="mr-1 h-3 w-3" /> Añadir contacto
               </Button>
-              <p className="text-xs text-muted-foreground">
-                El algoritmo buscará los operadores más compatibles según superficie, renta y sector.
-              </p>
+            </CardHeader>
+            <CardContent className="space-y-2">
+              {contactos.length === 0 && <p className="py-4 text-center text-sm text-muted-foreground">Sin contactos vinculados a este activo.</p>}
+              {contactos.map(c => (
+                <div key={c.id} className="flex items-center justify-between rounded-md border px-3 py-2">
+                  <div className="flex items-center gap-3">
+                    <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 text-xs font-bold text-primary">
+                      {c.nombre?.[0]}{c.apellidos?.[0] || ""}
+                    </div>
+                    <div>
+                      <Link to={`/contactos/${c.id}`} className="font-medium text-sm hover:underline">{c.nombre} {c.apellidos || ""}</Link>
+                      {c.cargo && <p className="text-xs text-muted-foreground">{c.cargo}</p>}
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                    {c.email && <span className="flex items-center gap-1"><Mail className="h-3 w-3" />{c.email}</span>}
+                    {c.telefono && <span className="flex items-center gap-1"><Phone className="h-3 w-3" />{c.telefono}</span>}
+                  </div>
+                </div>
+              ))}
             </CardContent>
           </Card>
+          <QuickCreateContactDialog open={showAddContact} onOpenChange={setShowAddContact} activoId={id} onCreated={fetchContactos} />
+        </TabsContent>
 
+        <TabsContent value="matches">
           <Card>
-            <CardHeader><CardTitle className="text-sm">Estadísticas</CardTitle></CardHeader>
-            <CardContent className="space-y-3 text-sm">
-              <div className="flex justify-between"><span className="text-muted-foreground">Matches generados</span><span className="font-semibold">{matches.length}</span></div>
-              <div className="flex justify-between"><span className="text-muted-foreground">Mejor score</span><span className="font-semibold">{matches.length > 0 ? `${matches[0].score}%` : "—"}</span></div>
-              <div className="flex justify-between"><span className="text-muted-foreground">Último match</span><span className="font-semibold">{matches.length > 0 ? new Date(matches[0].created_at).toLocaleDateString("es-ES") : "—"}</span></div>
+            <CardHeader><CardTitle>Histórico de Matches</CardTitle></CardHeader>
+            <CardContent>
+              {matches.length === 0 ? (
+                <p className="py-6 text-center text-muted-foreground">Sin matches para este activo.</p>
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Operador</TableHead>
+                      <TableHead className="text-right">Score</TableHead>
+                      <TableHead>Tags</TableHead>
+                      <TableHead>Estado</TableHead>
+                      <TableHead>Explicación</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {matches.map((m) => (
+                      <TableRow key={m.id}>
+                        <TableCell>
+                          <Link to={`/operadores/${m.operador_id}`} className="font-medium text-accent hover:underline">
+                            {(m.operadores as any)?.nombre}
+                          </Link>
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <span className="rounded-full bg-accent/10 px-2 py-0.5 text-sm font-semibold text-accent">{m.score}%</span>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex gap-1 flex-wrap">
+                            {(m.tags || []).map((t: string) => <Badge key={t} variant="secondary" className="text-xs">{t}</Badge>)}
+                          </div>
+                        </TableCell>
+                        <TableCell><Badge variant="secondary" className="capitalize">{m.estado?.replace("_", " ")}</Badge></TableCell>
+                        <TableCell className="max-w-xs truncate text-xs text-muted-foreground">{m.explicacion}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              )}
             </CardContent>
           </Card>
-        </div>
-      </div>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Histórico de Matches</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {matches.length === 0 ? (
-            <p className="py-6 text-center text-muted-foreground">Sin matches para este activo. Usa "Generar Matches IA" para empezar.</p>
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Operador</TableHead>
-                  <TableHead className="text-right">Score</TableHead>
-                  <TableHead>Tags</TableHead>
-                  <TableHead>Estado</TableHead>
-                  <TableHead>Explicación</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {matches.map((m) => (
-                  <TableRow key={m.id}>
-                    <TableCell>
-                      <Link to={`/operadores/${m.operador_id}`} className="font-medium text-accent hover:underline">
-                        {(m.operadores as any)?.nombre}
-                      </Link>
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <span className="rounded-full bg-accent/10 px-2 py-0.5 text-sm font-semibold text-accent">{m.score}%</span>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex gap-1 flex-wrap">
-                        {(m.tags || []).map((t: string) => (
-                          <Badge key={t} variant="secondary" className="text-xs">{t}</Badge>
-                        ))}
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant="secondary" className="capitalize">{m.estado?.replace("_", " ")}</Badge>
-                    </TableCell>
-                    <TableCell className="max-w-xs truncate text-xs text-muted-foreground">{m.explicacion}</TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          )}
-        </CardContent>
-      </Card>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
