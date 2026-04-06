@@ -209,7 +209,7 @@ export default function Dashboard() {
   const statCards = [
     { label: "Oportunidades Activas", value: stats?.proyectosActivos, icon: FolderOpen, color: "text-primary", bg: "bg-primary/10" },
     { label: "Operadores", value: stats?.totalOperadores, icon: Users, color: "text-chart-2", bg: "bg-chart-2/10" },
-    { label: "Locales", value: stats?.totalLocales, icon: MapPin, color: "text-chart-1", bg: "bg-chart-1/10" },
+    { label: "Activos", value: stats?.totalLocales, icon: MapPin, color: "text-chart-1", bg: "bg-chart-1/10" },
     { label: "Matches Pendientes", value: stats?.matchesPendientes, icon: Sparkles, color: "text-accent", bg: "bg-accent/10" },
     { label: "Coste IA (mes)", value: stats ? `${stats.costeIAMes.toFixed(3)}€` : undefined, icon: DollarSign, color: "text-chart-3", bg: "bg-chart-3/10" },
     { label: "Latencia Media IA", value: stats ? `${stats.latenciaMedia}ms` : undefined, icon: Clock, color: "text-muted-foreground", bg: "bg-muted/50" },
