@@ -1,52 +1,53 @@
 
 
-## Plan: Página de Conexiones (/ajustes)
+## Plan: Renombrar "Proyectos" a "Oportunidades" y redefinir tipos
 
 ### Resumen
-Nueva página `/ajustes` con dos secciones: conexión WhatsApp vía Evolution API (con QR code) y conexión Email vía IMAP. Se añade al sidebar y se crea una edge function para gestionar la instancia de Evolution.
+Renombrar toda la sección "Proyectos" a "Oportunidades" en la UI y actualizar los tipos de proyecto en la base de datos para reflejar las 3 líneas de negocio: Desarrollo Comercial, Venta de Activo y Optimización de Centros.
 
-### Cambios
+### 1. Migración de base de datos
 
-#### 1. Base de datos (migración)
-- Añadir columnas a `perfiles`: `imap_host`, `imap_port`, `imap_user`, `imap_password_encrypted`, `imap_connected` (boolean), `evolution_instance_name`, `evolution_connected` (boolean)
-- Las columnas `evolution_instance_url` y `evolution_api_key` ya existen en `perfiles`
+Actualizar el enum `tipo_proyecto` para reemplazar los tipos actuales por los nuevos:
 
-#### 2. Edge function `evolution-manage` (`supabase/functions/evolution-manage/index.ts`)
-- Acción `create_instance`: POST a `{evolution_url}/instance/create` con instance name. Devuelve QR code base64
-- Acción `check_status`: GET a `{evolution_url}/instance/connectionState/{instance}`. Devuelve si está conectado
-- Acción `get_qr`: GET a `{evolution_url}/instance/connect/{instance}`. Devuelve QR actualizado
-- Lee `evolution_instance_url` y `evolution_api_key` del perfil del usuario autenticado
-- CORS headers incluidos
+| Valor DB | Label UI | Descripción |
+|---|---|---|
+| `desarrollo_comercial` | Desarrollo Comercial | Operadores buscando ubicaciones |
+| `venta_activo` | Venta de Activo | Gasolinera, local, suelo, edificio, CC, parque medianas… |
+| `optimizacion_centros` | Optimización de Centros | Centros comerciales y parques de medianas |
 
-#### 3. Nueva página `src/pages/Ajustes.tsx`
-**Sección WhatsApp:**
-- Campo "Evolution API URL" (prellenado de perfil)
-- Campo "Instance Name"
-- Botón "Conectar" que:
-  1. Guarda URL + instance name en `perfiles`
-  2. Llama a edge function `evolution-manage` con acción `create_instance`
-  3. Muestra QR code como `<img src="data:image/png;base64,...">`
-  4. Polling cada 3s llamando `check_status` hasta estado "open"
-  5. Al conectar: muestra badge verde "Conectado", actualiza `evolution_connected = true`
+SQL: Añadir los 3 nuevos valores al enum, migrar filas existentes a `otro` (o mapeo lógico), eliminar los valores antiguos que ya no apliquen. Se mantiene `otro` como fallback.
 
-**Sección Email (IMAP):**
-- Campos: Servidor IMAP, Puerto (default 993), Usuario, Contraseña
-- Botón "Conectar email" que guarda en `perfiles` (contraseña cifrada via edge function)
-- Badge de estado conexión
+### 2. Archivos a modificar
 
-#### 4. Sidebar (`src/components/AppSidebar.tsx`)
-- Añadir ítem `{ title: "Ajustes", url: "/ajustes", icon: Settings }` en `adminItems`
+**`src/components/AppSidebar.tsx`**
+- Cambiar `{ title: "Proyectos", url: "/proyectos" }` → `{ title: "Oportunidades", url: "/oportunidades" }`
 
-#### 5. Router (`src/App.tsx`)
-- Lazy import de `Ajustes`
-- Ruta `/ajustes` dentro del layout protegido
+**`src/App.tsx`**
+- Renombrar rutas: `/proyectos` → `/oportunidades`, `/proyectos/:id` → `/oportunidades/:id`
+- Añadir redirect `/proyectos` → `/oportunidades` para retrocompatibilidad
 
-### Archivos
-| Archivo | Acción |
-|---|---|
-| `supabase/migrations/...` | Nuevas columnas en perfiles |
-| `supabase/functions/evolution-manage/index.ts` | Nueva edge function |
-| `src/pages/Ajustes.tsx` | Nueva página |
-| `src/components/AppSidebar.tsx` | Añadir ítem Ajustes |
-| `src/App.tsx` | Añadir ruta /ajustes |
+**`src/pages/Proyectos.tsx`**
+- Título: "Proyectos" → "Oportunidades"
+- Subtítulo: "Gestiona todas las operaciones comerciales" → "Gestiona todas las oportunidades de negocio"
+- Botón: "Nuevo Proyecto" → "Nueva Oportunidad"
+- `tipoLabels` actualizado con los 3 nuevos tipos + `otro`
+- `tipoIcons` y `tipoColors` actualizados
+- Formulario de creación: select de tipo con las nuevas opciones; añadir campo "Subtipo de activo" condicional (solo visible cuando tipo = `venta_activo`) con opciones: Gasolinera, Local, Suelo, Edificio, Centro Comercial, Parque de Medianas
+
+**`src/pages/ProyectoDetail.tsx`**
+- Actualizar `tipoLabels` y `estadoLabels` con los nuevos valores
+- Título de página: "Proyecto" → "Oportunidad"
+
+**`src/components/proyecto/ProyectoResumen.tsx`**
+- Actualizar `tipoLabels` con los nuevos tipos
+
+**`src/pages/Dashboard.tsx`**
+- Cambiar label "Proyectos Activos" → "Oportunidades Activas"
+- Cambiar links y textos que referencien "Proyectos" → "Oportunidades"
+- Actualizar URLs `/proyectos` → `/oportunidades`
+
+### 3. Nota técnica
+- La tabla en Supabase sigue llamándose `proyectos` (no se renombra la tabla para evitar romper relaciones, edge functions, etc.)
+- Solo se cambia la capa de presentación (labels, rutas, menú)
+- Se añade redirect de `/proyectos` a `/oportunidades` para no romper enlaces existentes
 
