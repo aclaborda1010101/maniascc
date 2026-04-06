@@ -77,7 +77,7 @@ export default function LocalDetail() {
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-3">
-        <Button variant="ghost" size="icon" onClick={() => navigate("/locales")}>
+        <Button variant="ghost" size="icon" onClick={() => navigate("/activos")}>
           <ArrowLeft className="h-5 w-5" />
         </Button>
         <div className="flex-1">
