@@ -67,8 +67,8 @@ const App = () => (
                   <Route path="/contactos" element={<Contactos />} />
                   <Route path="/contactos/:id" element={<ContactoDetail />} />
                   <Route path="/documentos" element={<Documentos />} />
-                  <Route path="/locales" element={<Locales />} />
-                  <Route path="/locales/:id" element={<LocalDetail />} />
+                  <Route path="/activos" element={<Locales />} />
+                  <Route path="/activos/:id" element={<LocalDetail />} />
                   <Route path="/matching/:localId" element={<Matching />} />
                   <Route path="/notificaciones" element={<Notificaciones />} />
                   <Route path="/localizacion" element={<LocationAnalysis />} />
