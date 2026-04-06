@@ -258,7 +258,7 @@ export default function Proyectos() {
           {proyectos.map((p) => {
             const TipoIcon = tipoIcons[p.tipo] || FolderKanban;
             return (
-              <Link key={p.id} to={`/proyectos/${p.id}`}>
+              <Link key={p.id} to={`/oportunidades/${p.id}`}>
                 <Card className="hover:border-accent/50 hover:shadow-md transition-all cursor-pointer h-full">
                   <CardHeader className="pb-3">
                     <div className="flex items-start justify-between gap-2">
