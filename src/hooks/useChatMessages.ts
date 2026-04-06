@@ -28,6 +28,8 @@ function toolLabel(tool: string): { emoji: string; label: string } {
   if (tool === "expert_forge") return { emoji: "🧠", label: "Preguntando a especialista" };
   if (tool.startsWith("run_intelligence")) return { emoji: "📊", label: "Ejecutando análisis" };
   if (tool === "search_data") return { emoji: "🔎", label: "Buscando datos" };
+  if (tool.startsWith("nearby_search")) return { emoji: "📍", label: "Analizando ubicación" };
+  if (tool === "generate_pdf_report") return { emoji: "📄", label: "Generando informe" };
   return { emoji: "⚙️", label: tool };
 }
 
