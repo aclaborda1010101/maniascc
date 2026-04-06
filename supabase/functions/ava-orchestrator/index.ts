@@ -6,11 +6,48 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-const SYSTEM_PROMPT = `Eres AVA, la asistente inteligente de gestión de centros comerciales de F&G Real Estate. Tienes acceso completo a la base de datos (locales, operadores, contactos, documentos, negociaciones), a 6 especialistas de IA (localización, tenant mix, validación, negociación, auditoría, matching), y a funciones de análisis avanzado. Puedes consultar datos, modificarlos, ejecutar análisis, y asistir proactivamente. Responde siempre en español. Sé concisa pero completa.
+const SYSTEM_PROMPT = `Eres AVA, la asistente estratégica de F&G Real Estate especializada en retail e inmobiliario comercial. Tienes acceso a:
+1. BASE DE DATOS interna: locales, operadores, contactos, activos, proyectos/oportunidades, matches, negociaciones, documentos
+2. RAG (Retrieval-Augmented Generation): documentos indexados segmentados por dominio (contratos, operadores, activos, mercado, personas)
+3. NEARBY SEARCH: análisis geográfico de POIs via OpenStreetMap (competencia, restauración, transporte, servicios)
+4. EXPERT FORGE: sistema MoE con 7 especialistas IA
+5. INTELIGENCIA AVANZADA: localización, tenant mix, validación dossier, negociación
+6. TU CONOCIMIENTO GENERAL del sector retail, centros comerciales, demografía, urbanismo y mercado inmobiliario
 
-Cuando te pregunten sobre una ubicación comercial, análisis de localización o viabilidad de un centro comercial, SIEMPRE usa la herramienta nearby_search para analizar el entorno: busca McDonald's, gasolineras, supermercados, centros comerciales competidores, estaciones de transporte público, colegios, hospitales y cualquier POI relevante. Haz múltiples búsquedas con distintos queries para obtener un análisis completo. Presenta los resultados de forma estructurada con distancias y conclusiones.
+## REGLA FUNDAMENTAL DE ANÁLISIS MULTI-FUENTE
+Cuando el usuario pregunte sobre un centro comercial, ubicación, zona comercial, operador o cualquier tema estratégico, SIEMPRE debes combinar AUTOMÁTICAMENTE múltiples fuentes de datos. NO te limites a una sola herramienta. Usa VARIAS en paralelo:
 
-IMPORTANTE SOBRE INFORMES PDF: Cuando el usuario te pida explícitamente que generes un informe, documento, dossier o reporte (ej: "hazme un informe", "prepárame un documento", "genera un PDF de eso"), usa la herramienta generate_pdf_report. Estructura el contenido como un documento profesional con secciones bien definidas (título, resumen ejecutivo, análisis, conclusiones, recomendaciones). NO uses esta herramienta para respuestas normales de chat; solo cuando el usuario pida explícitamente un documento/informe.`;
+### Para preguntas sobre CENTROS COMERCIALES o UBICACIONES:
+1. **db_query** en locales/activos/operadores para datos internos del centro
+2. **rag_search** para buscar documentos relevantes (informes de mercado, contratos, benchmarks)
+3. **nearby_search** con MÚLTIPLES queries: "supermarket", "fast_food", "fuel", "shopping", "bus_stop", "school", "restaurant" para analizar competencia, servicios, accesibilidad y entorno
+4. **Tu conocimiento general** para añadir contexto de mercado, tendencias del sector, demografía estimada
+
+### Para preguntas sobre OPERADORES:
+1. **db_query** en operadores + contactos + matches para datos internos
+2. **rag_search** para documentos asociados y benchmarks del sector
+3. **Tu conocimiento** sobre el operador (si es conocido), su posicionamiento, expansión habitual, ticket medio
+
+### Para preguntas ESTRATÉGICAS (viabilidad, tenant mix, competencia):
+1. Usa TODAS las herramientas relevantes
+2. Cruza datos internos con análisis geográfico
+3. Complementa SIEMPRE con tu conocimiento del mercado retail español e internacional
+4. Ofrece comparables, benchmarks y recomendaciones accionables
+
+## FORMATO DE RESPUESTA ESTRATÉGICA
+Cuando hagas un análisis completo, estructura tu respuesta con:
+- **Resumen ejecutivo** (2-3 líneas)
+- **Datos del entorno** (competencia, servicios, accesibilidad)
+- **Análisis de mercado** (demografía, potencial, tendencias)
+- **Operadores ideales** (por sector, posicionamiento y compatibilidad)
+- **Riesgos y oportunidades**
+- **Recomendaciones estratégicas**
+
+NUNCA digas "no tengo datos suficientes" sin antes haber consultado TODAS las fuentes disponibles y complementado con tu conocimiento general. Siempre aporta valor.
+
+Responde siempre en español. Sé profesional, detallada y estratégica.
+
+IMPORTANTE SOBRE INFORMES PDF: Cuando el usuario te pida explícitamente que generes un informe, documento, dossier o reporte, usa la herramienta generate_pdf_report. NO uses esta herramienta para respuestas normales de chat.`;
 
 const TOOLS = [
   {
@@ -131,12 +168,28 @@ const TOOLS = [
   {
     type: "function",
     function: {
-      name: "generate_pdf_report",
-      description: "Genera un informe/documento profesional en formato PDF. Úsalo SOLO cuando el usuario pida explícitamente un informe, documento, dossier o reporte. Estructura el contenido con secciones: resumen ejecutivo, análisis, conclusiones, recomendaciones.",
+      name: "rag_search",
+      description: "Busca en los documentos RAG indexados (informes de mercado, contratos, benchmarks, análisis sectoriales). Usa para complementar datos de la BD con conocimiento documental. Dominios: contratos, operadores, activos, mercado, personas, general.",
       parameters: {
         type: "object",
         properties: {
-          title: { type: "string", description: "Título del informe (ej: 'Análisis de viabilidad - Centro Comercial Norte')" },
+          question: { type: "string", description: "Pregunta o tema a buscar en los documentos RAG" },
+          dominio: { type: "string", enum: ["contratos", "operadores", "activos", "mercado", "personas", "general"], description: "Dominio/categoría de documentos a consultar. Opcional." },
+          proyecto_id: { type: "string", description: "UUID del proyecto para filtrar documentos específicos. Opcional." },
+        },
+        required: ["question"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "generate_pdf_report",
+      description: "Genera un informe/documento profesional en formato PDF. Úsalo SOLO cuando el usuario pida explícitamente un informe, documento, dossier o reporte.",
+      parameters: {
+        type: "object",
+        properties: {
+          title: { type: "string", description: "Título del informe" },
           content: { type: "string", description: "Contenido completo del informe en formato Markdown con secciones bien estructuradas" },
         },
         required: ["title", "content"],
@@ -452,6 +505,30 @@ serve(async (req) => {
             result = { query: q, radius_m: radius, center: { lat, lon }, count: pois.length, pois };
           } catch (e) {
             result = { error: "Error consultando Overpass API: " + (e instanceof Error ? e.message : "desconocido") };
+          }
+        } else if (fnName === "rag_search") {
+          toolLabel = "rag_search:" + (args.dominio || "general");
+          const ragUrl = Deno.env.get("SUPABASE_URL") + "/functions/v1/rag-proxy";
+          try {
+            const ragResp = await fetch(ragUrl, {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                Authorization: authHeader,
+                apikey: anonKey,
+              },
+              body: JSON.stringify({
+                question: args.question,
+                filters: {
+                  dominio: args.dominio || undefined,
+                  proyecto_id: args.proyecto_id || undefined,
+                },
+              }),
+            });
+            const ragData = await ragResp.json();
+            result = ragData;
+          } catch (e) {
+            result = { error: "Error consultando RAG: " + (e instanceof Error ? e.message : "desconocido") };
           }
         } else if (fnName === "generate_pdf_report") {
           toolLabel = "generate_pdf_report";
