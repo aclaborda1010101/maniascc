@@ -506,6 +506,30 @@ serve(async (req) => {
           } catch (e) {
             result = { error: "Error consultando Overpass API: " + (e instanceof Error ? e.message : "desconocido") };
           }
+        } else if (fnName === "rag_search") {
+          toolLabel = "rag_search:" + (args.dominio || "general");
+          const ragUrl = Deno.env.get("SUPABASE_URL") + "/functions/v1/rag-proxy";
+          try {
+            const ragResp = await fetch(ragUrl, {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                Authorization: authHeader,
+                apikey: anonKey,
+              },
+              body: JSON.stringify({
+                question: args.question,
+                filters: {
+                  dominio: args.dominio || undefined,
+                  proyecto_id: args.proyecto_id || undefined,
+                },
+              }),
+            });
+            const ragData = await ragResp.json();
+            result = ragData;
+          } catch (e) {
+            result = { error: "Error consultando RAG: " + (e instanceof Error ? e.message : "desconocido") };
+          }
         } else if (fnName === "generate_pdf_report") {
           toolLabel = "generate_pdf_report";
           result = { success: true, title: args.title, content: args.content };
