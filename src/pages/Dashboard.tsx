@@ -414,7 +414,7 @@ export default function Dashboard() {
 
       <div className="grid gap-4 lg:grid-cols-2">
         <Card>
-          <CardHeader className="pb-2"><CardTitle className="text-base">Locales por Estado</CardTitle></CardHeader>
+          <CardHeader className="pb-2"><CardTitle className="text-base">Activos por Estado</CardTitle></CardHeader>
           <CardContent className="flex items-center justify-center">
             {loading ? <Skeleton className="h-[140px] w-full" /> : localEstadoDist.length > 0 ? (
               <ResponsiveContainer width="100%" height={140}>
