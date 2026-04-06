@@ -37,7 +37,7 @@ export function ProyectoResumen({ proyecto, activos, operadores, contactos, allL
           </div>
           {proyecto.notas && <div className="pt-2 border-t mt-2"><p className="text-muted-foreground text-xs mb-1">Notas</p><p>{proyecto.notas}</p></div>}
           <div className="pt-2 border-t mt-2">
-            <p className="text-muted-foreground text-xs mb-2">Local asignado (para Matching IA)</p>
+            <p className="text-muted-foreground text-xs mb-2">Activo asignado (para Matching IA)</p>
             <Select value={proyecto.local_id || "__none"} onValueChange={onAssignLocal}>
               <SelectTrigger className="w-full"><SelectValue placeholder="Sin local asignado" /></SelectTrigger>
               <SelectContent>
