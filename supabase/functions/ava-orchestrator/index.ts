@@ -218,6 +218,7 @@ serve(async (req) => {
         model: "google/gemini-3-flash-preview",
         messages,
         tools: TOOLS,
+        tool_choice: "auto",
       }),
     });
 
@@ -482,9 +483,9 @@ serve(async (req) => {
       { role: "user", content: message },
       { 
         role: "assistant", 
-        content: `He ejecutado las siguientes herramientas para responder. Aquí están los resultados:\n\n${toolResultsSummary}\n\nAhora voy a formular una respuesta completa basada en estos datos.`
+        content: `He ejecutado las siguientes herramientas para responder a la pregunta del usuario. Aquí están los resultados obtenidos:\n\n${toolResultsSummary}`
       },
-      { role: "user", content: "Perfecto, ahora responde mi pregunta original de forma completa y detallada usando los datos que has obtenido. Responde en español." },
+      { role: "user", content: "Basándote en los datos obtenidos y en tu conocimiento general del sector retail e inmobiliario comercial, responde de forma completa, detallada y profesional a mi pregunta original. Si los datos de la base de datos están vacíos o no son suficientes, complementa con tu conocimiento general. NUNCA respondas que no puedes formular una respuesta. Siempre ofrece análisis, recomendaciones y valor. Responde en español." },
     ];
 
     const synthesisResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
