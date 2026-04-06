@@ -425,7 +425,7 @@ export default function Dashboard() {
                   <Tooltip /><Legend iconSize={8} wrapperStyle={{ fontSize: "11px" }} />
                 </PieChart>
               </ResponsiveContainer>
-            ) : <p className="text-sm text-muted-foreground">Sin locales</p>}
+            ) : <p className="text-sm text-muted-foreground">Sin activos</p>}
           </CardContent>
         </Card>
         <Card>

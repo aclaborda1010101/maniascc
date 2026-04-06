@@ -209,7 +209,7 @@ export default function LocalDetail() {
         </CardHeader>
         <CardContent>
           {matches.length === 0 ? (
-            <p className="py-6 text-center text-muted-foreground">Sin matches para este local. Usa "Generar Matches IA" para empezar.</p>
+            <p className="py-6 text-center text-muted-foreground">Sin matches para este activo. Usa "Generar Matches IA" para empezar.</p>
           ) : (
             <Table>
               <TableHeader>

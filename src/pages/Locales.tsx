@@ -218,7 +218,7 @@ export default function Locales() {
             </Table>
           )}
           {!loading && locales.length > 0 && (
-            <p className="mt-3 text-xs text-muted-foreground">{locales.length} local{locales.length !== 1 ? "es" : ""} encontrado{locales.length !== 1 ? "s" : ""}</p>
+            <p className="mt-3 text-xs text-muted-foreground">{locales.length} activo{locales.length !== 1 ? "s" : ""} encontrado{locales.length !== 1 ? "s" : ""}</p>
           )}
         </CardContent>
       </Card>
