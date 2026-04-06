@@ -36,6 +36,11 @@ export default function LocalDetail() {
   const [saving, setSaving] = useState(false);
   const [showAddContact, setShowAddContact] = useState(false);
 
+  const fetchContactos = async () => {
+    const { data } = await supabase.from("contactos").select("*").eq("activo_id", id);
+    setContactos(data || []);
+  };
+
   useEffect(() => {
     async function fetch() {
       const [localRes, matchesRes] = await Promise.all([
@@ -46,7 +51,7 @@ export default function LocalDetail() {
       setMatches(matchesRes.data || []);
       setLoading(false);
     }
-    if (id) fetch();
+    if (id) { fetch(); fetchContactos(); }
   }, [id]);
 
   const handleSave = async () => {
