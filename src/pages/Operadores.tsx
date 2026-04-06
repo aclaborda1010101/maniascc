@@ -254,6 +254,7 @@ export default function Operadores() {
               <TableHeader>
                 <TableRow>
                   <TableHead>Nombre</TableHead>
+                  <TableHead>Matriz</TableHead>
                   <TableHead>Sector</TableHead>
                   <TableHead className="text-right">Presupuesto</TableHead>
                   <TableHead className="text-right">Superficie</TableHead>
