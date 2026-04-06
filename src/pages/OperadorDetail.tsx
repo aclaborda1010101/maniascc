@@ -103,6 +103,7 @@ export default function OperadorDetail() {
         <TabsList>
           <TabsTrigger value="info">Información General</TabsTrigger>
           <TabsTrigger value="perfil-ia">Perfil IA</TabsTrigger>
+          <TabsTrigger value="contactos">Contactos</TabsTrigger>
           <TabsTrigger value="documentos">Documentos</TabsTrigger>
         </TabsList>
 
