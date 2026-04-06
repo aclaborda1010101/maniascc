@@ -109,6 +109,23 @@ const TOOLS = [
       },
     },
   },
+  {
+    type: "function",
+    function: {
+      name: "nearby_search",
+      description: "Busca puntos de interés (POIs) cercanos a unas coordenadas usando OpenStreetMap. Úsalo para analizar entornos comerciales: McDonald's, gasolineras, supermercados, centros comerciales, transporte, etc.",
+      parameters: {
+        type: "object",
+        properties: {
+          lat: { type: "number", description: "Latitud del punto central" },
+          lon: { type: "number", description: "Longitud del punto central" },
+          radius_m: { type: "number", description: "Radio de búsqueda en metros (default 2000)" },
+          query: { type: "string", description: "Tipo de POI a buscar, ej: restaurant, fuel, supermarket, school, hospital, shopping, fast_food, bus_stop" },
+        },
+        required: ["lat", "lon", "query"],
+      },
+    },
+  },
 ];
 
 const INTELLIGENCE_FUNCTIONS: Record<string, string> = {
