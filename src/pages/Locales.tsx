@@ -82,8 +82,8 @@ export default function Locales() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Locales</h1>
-          <p className="text-sm text-muted-foreground">Gestiona los locales comerciales de tus centros</p>
+          <h1 className="text-2xl font-bold tracking-tight">Activos</h1>
+          <p className="text-sm text-muted-foreground">Gestiona los activos comerciales de tus centros</p>
         </div>
         <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
           <DialogTrigger asChild>
