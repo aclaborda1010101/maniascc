@@ -383,7 +383,7 @@ export default function Dashboard() {
                 <Sparkles className="mx-auto mb-2 h-8 w-8 text-muted-foreground/40" />
                 <p className="text-muted-foreground">Aún no hay matches generados.</p>
                 <Button asChild size="sm" variant="link" className="mt-2">
-                  <Link to="/proyectos">Ir a Proyectos <ArrowRight className="ml-1 h-3 w-3" /></Link>
+                  <Link to="/oportunidades">Ir a Oportunidades <ArrowRight className="ml-1 h-3 w-3" /></Link>
                 </Button>
               </div>
             )}

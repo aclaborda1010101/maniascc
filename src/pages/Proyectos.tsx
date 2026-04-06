@@ -299,7 +299,7 @@ export default function Proyectos() {
         </div>
       )}
       {!loading && proyectos.length > 0 && (
-        <p className="text-xs text-muted-foreground">{proyectos.length} proyecto{proyectos.length !== 1 ? "s" : ""}</p>
+        <p className="text-xs text-muted-foreground">{proyectos.length} oportunidad{proyectos.length !== 1 ? "es" : ""}</p>
       )}
     </div>
   );

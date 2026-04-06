@@ -150,7 +150,7 @@ export default function ProyectoDetail() {
       <div className="flex items-start justify-between gap-4">
         <div className="space-y-1">
           <div className="flex items-center gap-3">
-            <Button variant="ghost" size="icon" onClick={() => navigate("/proyectos")}><ArrowLeft className="h-4 w-4" /></Button>
+            <Button variant="ghost" size="icon" onClick={() => navigate("/oportunidades")}><ArrowLeft className="h-4 w-4" /></Button>
             <div>
               <h1 className="text-2xl font-bold tracking-tight">{proyecto.nombre}</h1>
               <div className="flex items-center gap-2 mt-1 flex-wrap">
