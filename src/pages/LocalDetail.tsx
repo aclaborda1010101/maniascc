@@ -62,7 +62,7 @@ export default function LocalDetail() {
     }).eq("id", id);
     setSaving(false);
     if (error) toast({ title: "Error", description: error.message, variant: "destructive" });
-    else toast({ title: "Local actualizado correctamente" });
+    else toast({ title: "Activo actualizado correctamente" });
   };
 
   const handleDelete = async () => {
