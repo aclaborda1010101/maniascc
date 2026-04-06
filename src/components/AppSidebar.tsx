@@ -1,7 +1,7 @@
 import {
   LayoutDashboard, Users, Sparkles, LogOut, FileText,
   FolderKanban, UserCircle, Bell, MapPin, Brain,
-  Compass, FileSearch, Layers, MessageSquare, Moon, Sun, Settings, Network, FlaskConical, DollarSign, Import,
+  Compass, FileSearch, Layers, MessageSquare, Moon, Sun, Settings, Network, FlaskConical, DollarSign,
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useLocation } from "react-router-dom";
