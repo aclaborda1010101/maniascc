@@ -213,6 +213,19 @@ const ALLOWED_TABLES = [
   "proyecto_contactos", "proyecto_equipo", "sinergias_operadores",
 ];
 
+function formatToolResultsFallback(toolResults: Array<{ tool: string; result: any }>): string {
+  const sections = toolResults.map(tr => {
+    const toolName = tr.tool.split(":")[0];
+    const data = tr.result;
+    if (data?.error) return `### ⚠️ ${toolName}\n${data.error}`;
+    if (Array.isArray(data) && data.length === 0) return `### ${toolName}\nSin resultados`;
+    if (data?.pois) return `### 📍 ${toolName} (${data.count} POIs)\n${data.pois.slice(0, 10).map((p: any) => `- **${p.name}** (${p.type}) — ${p.distance_m}m`).join("\n")}`;
+    if (Array.isArray(data)) return `### ${toolName} (${data.length} resultados)\n${JSON.stringify(data.slice(0, 5), null, 2).substring(0, 1000)}`;
+    return `### ${toolName}\n${JSON.stringify(data).substring(0, 800)}`;
+  });
+  return "He consultado las siguientes fuentes de datos:\n\n" + sections.join("\n\n");
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
@@ -577,14 +590,17 @@ serve(async (req) => {
       }),
     });
 
+    // Use first call's partial content as fallback base
+    const firstCallContent = choice?.content || "";
+    
     let finalAnswer: string;
     if (synthesisResponse.ok) {
       const synthesisData = await synthesisResponse.json();
       finalAnswer = synthesisData.choices?.[0]?.message?.content || "";
       if (!finalAnswer) {
         console.error("Empty synthesis response:", JSON.stringify(synthesisData).substring(0, 1000));
-        finalAnswer = "He consultado los datos. Resultados:\n\n" +
-          toolResults.map(tr => `**${tr.tool}**: ${JSON.stringify(tr.result).substring(0, 500)}`).join("\n\n");
+        // Fallback: use first call content if available, otherwise format tool results
+        finalAnswer = firstCallContent || formatToolResultsFallback(toolResults);
       }
       const usage2 = synthesisData.usage || {};
       totalTokensIn += usage2.prompt_tokens || 0;
@@ -592,8 +608,8 @@ serve(async (req) => {
     } else {
       const errBody = await synthesisResponse.text();
       console.error("Synthesis call failed:", synthesisResponse.status, errBody);
-      finalAnswer = "He consultado los datos. Resultados:\n\n" +
-        toolResults.map(tr => `**${tr.tool}**: ${JSON.stringify(tr.result).substring(0, 500)}`).join("\n\n");
+      // Fallback: prefer first call content, then formatted tool results
+      finalAnswer = firstCallContent || formatToolResultsFallback(toolResults);
     }
 
     const latencyMs = Date.now() - startTime;
