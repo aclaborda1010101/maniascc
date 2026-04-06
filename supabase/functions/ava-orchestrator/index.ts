@@ -530,10 +530,14 @@ serve(async (req) => {
       metadata: { tools_used: toolResults.map(tr => tr.tool), message: message?.slice(0, 200) },
     });
 
+    // Check if generate_pdf_report was used
+    const pdfTool = toolResults.find(tr => tr.tool === "generate_pdf_report" && tr.result?.success);
+
     return new Response(JSON.stringify({
       answer: finalAnswer,
       tools_used: toolResults.map(tr => tr.tool),
       latency_ms: latencyMs,
+      ...(pdfTool ? { pdf_content: pdfTool.result.content, pdf_title: pdfTool.result.title } : {}),
     }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
