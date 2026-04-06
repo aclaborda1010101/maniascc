@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
 
 export interface ChatMessage {
   id: string;
@@ -19,82 +20,6 @@ export interface Conversation {
   updatedAt: number;
 }
 
-const CONVS_KEY = "ava-conversations";
-const ACTIVE_KEY = "ava-active-conv";
-const OLD_KEY = "ava-asistente-messages";
-
-function convMessagesKey(id: string) {
-  return `ava-conv-${id}`;
-}
-
-function loadConversations(): Conversation[] {
-  try {
-    const raw = localStorage.getItem(CONVS_KEY);
-    return raw ? JSON.parse(raw) : [];
-  } catch {
-    return [];
-  }
-}
-
-function saveConversations(convs: Conversation[]) {
-  localStorage.setItem(CONVS_KEY, JSON.stringify(convs));
-}
-
-function loadMessages(convId: string): ChatMessage[] {
-  try {
-    const raw = localStorage.getItem(convMessagesKey(convId));
-    return raw ? JSON.parse(raw) : [];
-  } catch {
-    return [];
-  }
-}
-
-function saveMessages(convId: string, msgs: ChatMessage[]) {
-  localStorage.setItem(convMessagesKey(convId), JSON.stringify(msgs));
-}
-
-function migrateOldMessages(): { convs: Conversation[]; activeId: string } {
-  let convs = loadConversations();
-  let activeId = localStorage.getItem(ACTIVE_KEY) || "";
-
-  // Migrate old single-conversation format
-  if (convs.length === 0) {
-    const oldRaw = localStorage.getItem(OLD_KEY);
-    const now = Date.now();
-    const newId = crypto.randomUUID();
-
-    if (oldRaw) {
-      try {
-        const oldMsgs: ChatMessage[] = JSON.parse(oldRaw);
-        if (oldMsgs.length > 0) {
-          const conv: Conversation = { id: newId, title: "Conversación anterior", createdAt: now, updatedAt: now };
-          convs = [conv];
-          saveConversations(convs);
-          saveMessages(newId, oldMsgs);
-          localStorage.removeItem(OLD_KEY);
-          activeId = newId;
-          localStorage.setItem(ACTIVE_KEY, activeId);
-          return { convs, activeId };
-        }
-      } catch { /* ignore */ }
-    }
-
-    // Create a default conversation
-    const conv: Conversation = { id: newId, title: "Nueva conversación", createdAt: now, updatedAt: now };
-    convs = [conv];
-    saveConversations(convs);
-    activeId = newId;
-    localStorage.setItem(ACTIVE_KEY, activeId);
-  }
-
-  if (!activeId || !convs.find(c => c.id === activeId)) {
-    activeId = convs[0]?.id || "";
-    localStorage.setItem(ACTIVE_KEY, activeId);
-  }
-
-  return { convs, activeId };
-}
-
 function toolLabel(tool: string): { emoji: string; label: string } {
   if (tool.startsWith("db_query")) return { emoji: "🔍", label: "Consultando datos" };
   if (tool.startsWith("db_mutate")) return { emoji: "✏️", label: "Modificando datos" };
@@ -106,101 +31,226 @@ function toolLabel(tool: string): { emoji: string; label: string } {
 
 export { toolLabel };
 
-function getAllMessagesGlobal(convs: Conversation[]): ChatMessage[] {
-  const all: ChatMessage[] = [];
-  for (const c of convs) {
-    const msgs = loadMessages(c.id);
-    all.push(...msgs);
-  }
-  all.sort((a, b) => a.timestamp - b.timestamp);
-  return all.slice(-10);
-}
-
 export function useChatMessages() {
-  const initial = migrateOldMessages();
-  const [conversations, setConversations] = useState<Conversation[]>(initial.convs);
-  const [activeConversationId, setActiveConversationId] = useState(initial.activeId);
-  const [messages, setMessages] = useState<ChatMessage[]>(loadMessages(initial.activeId));
+  const { user } = useAuth();
+  const [conversations, setConversations] = useState<Conversation[]>([]);
+  const [activeConversationId, setActiveConversationId] = useState("");
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
+  const [initialLoading, setInitialLoading] = useState(true);
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  // Persist conversations list
+  // Load conversations from DB
   useEffect(() => {
-    saveConversations(conversations);
-  }, [conversations]);
+    if (!user) return;
+    (async () => {
+      setInitialLoading(true);
+      const { data: convRows } = await supabase
+        .from("ava_conversations")
+        .select("*")
+        .eq("user_id", user.id)
+        .order("updated_at", { ascending: false });
 
-  // Persist active conversation messages
-  useEffect(() => {
-    if (activeConversationId) {
-      saveMessages(activeConversationId, messages);
+      if (convRows && convRows.length > 0) {
+        const convs: Conversation[] = convRows.map((r: any) => ({
+          id: r.id,
+          title: r.title,
+          createdAt: new Date(r.created_at).getTime(),
+          updatedAt: new Date(r.updated_at).getTime(),
+        }));
+        setConversations(convs);
+        setActiveConversationId(convs[0].id);
+        await loadMessagesFromDb(convs[0].id);
+      } else {
+        // Migrate from localStorage if any
+        const migrated = await migrateLocalStorage(user.id);
+        if (migrated) {
+          setConversations(migrated.convs);
+          setActiveConversationId(migrated.activeId);
+          await loadMessagesFromDb(migrated.activeId);
+        } else {
+          // Create default
+          const newId = await createConversationInDb(user.id, "Nueva conversación");
+          if (newId) {
+            const conv: Conversation = { id: newId, title: "Nueva conversación", createdAt: Date.now(), updatedAt: Date.now() };
+            setConversations([conv]);
+            setActiveConversationId(newId);
+            setMessages([]);
+          }
+        }
+      }
+      setInitialLoading(false);
+    })();
+  }, [user]);
+
+  async function migrateLocalStorage(userId: string): Promise<{ convs: Conversation[]; activeId: string } | null> {
+    const CONVS_KEY = "ava-conversations";
+    const OLD_KEY = "ava-asistente-messages";
+    try {
+      const rawConvs = localStorage.getItem(CONVS_KEY);
+      const localConvs = rawConvs ? JSON.parse(rawConvs) : [];
+      
+      if (localConvs.length === 0) {
+        const oldRaw = localStorage.getItem(OLD_KEY);
+        if (!oldRaw) return null;
+        const oldMsgs = JSON.parse(oldRaw);
+        if (!oldMsgs.length) return null;
+        // Single old conversation
+        const newId = await createConversationInDb(userId, "Conversación anterior");
+        if (!newId) return null;
+        await insertMessagesInDb(newId, oldMsgs);
+        localStorage.removeItem(OLD_KEY);
+        const conv: Conversation = { id: newId, title: "Conversación anterior", createdAt: Date.now(), updatedAt: Date.now() };
+        return { convs: [conv], activeId: newId };
+      }
+
+      // Migrate multi-conversation format
+      const resultConvs: Conversation[] = [];
+      let firstId = "";
+      for (const lc of localConvs) {
+        const newId = await createConversationInDb(userId, lc.title || "Sin título");
+        if (!newId) continue;
+        const localMsgs = (() => {
+          try {
+            const raw = localStorage.getItem(`ava-conv-${lc.id}`);
+            return raw ? JSON.parse(raw) : [];
+          } catch { return []; }
+        })();
+        if (localMsgs.length > 0) {
+          await insertMessagesInDb(newId, localMsgs);
+        }
+        resultConvs.push({ id: newId, title: lc.title, createdAt: lc.createdAt || Date.now(), updatedAt: lc.updatedAt || Date.now() });
+        if (!firstId) firstId = newId;
+        // Clean up localStorage
+        localStorage.removeItem(`ava-conv-${lc.id}`);
+      }
+      localStorage.removeItem(CONVS_KEY);
+      localStorage.removeItem("ava-active-conv");
+
+      if (resultConvs.length === 0) return null;
+      return { convs: resultConvs, activeId: firstId };
+    } catch {
+      return null;
     }
-  }, [messages, activeConversationId]);
+  }
 
-  // Persist active id
-  useEffect(() => {
-    localStorage.setItem(ACTIVE_KEY, activeConversationId);
-  }, [activeConversationId]);
+  async function createConversationInDb(userId: string, title: string): Promise<string | null> {
+    const { data, error } = await supabase
+      .from("ava_conversations")
+      .insert({ user_id: userId, title })
+      .select("id")
+      .single();
+    if (error || !data) return null;
+    return data.id;
+  }
+
+  async function insertMessagesInDb(convId: string, msgs: ChatMessage[]) {
+    const rows = msgs.map(m => ({
+      conversation_id: convId,
+      role: m.role,
+      content: m.content,
+      meta: m.meta || {},
+    }));
+    // Insert in batches of 50
+    for (let i = 0; i < rows.length; i += 50) {
+      await supabase.from("ava_messages").insert(rows.slice(i, i + 50));
+    }
+  }
+
+  async function loadMessagesFromDb(convId: string) {
+    const { data } = await supabase
+      .from("ava_messages")
+      .select("*")
+      .eq("conversation_id", convId)
+      .order("created_at", { ascending: true });
+    if (data) {
+      const msgs: ChatMessage[] = data.map((r: any) => ({
+        id: r.id,
+        role: r.role,
+        content: r.content,
+        timestamp: new Date(r.created_at).getTime(),
+        meta: r.meta && Object.keys(r.meta).length > 0 ? r.meta : undefined,
+      }));
+      setMessages(msgs);
+    } else {
+      setMessages([]);
+    }
+  }
 
   // Auto-scroll
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
   }, [messages, loading]);
 
-  const createConversation = useCallback(() => {
+  const createConversation = useCallback(async () => {
+    if (!user) return "";
+    const newId = await createConversationInDb(user.id, "Nueva conversación");
+    if (!newId) return "";
     const now = Date.now();
-    const newConv: Conversation = {
-      id: crypto.randomUUID(),
-      title: "Nueva conversación",
-      createdAt: now,
-      updatedAt: now,
-    };
+    const newConv: Conversation = { id: newId, title: "Nueva conversación", createdAt: now, updatedAt: now };
     setConversations(prev => [newConv, ...prev]);
-    setActiveConversationId(newConv.id);
+    setActiveConversationId(newId);
     setMessages([]);
     setInput("");
-    return newConv.id;
+    return newId;
+  }, [user]);
+
+  const switchConversation = useCallback(async (id: string) => {
+    setActiveConversationId(id);
+    await loadMessagesFromDb(id);
+    setInput("");
   }, []);
 
-  const switchConversation = useCallback((id: string) => {
-    // Save current messages first
-    if (activeConversationId) {
-      saveMessages(activeConversationId, messages);
-    }
-    setActiveConversationId(id);
-    setMessages(loadMessages(id));
-    setInput("");
-  }, [activeConversationId, messages]);
-
-  const renameConversation = useCallback((id: string, title: string) => {
+  const renameConversation = useCallback(async (id: string, title: string) => {
+    await supabase.from("ava_conversations").update({ title, updated_at: new Date().toISOString() }).eq("id", id);
     setConversations(prev => prev.map(c => c.id === id ? { ...c, title, updatedAt: Date.now() } : c));
   }, []);
 
-  const deleteConversation = useCallback((id: string) => {
-    localStorage.removeItem(convMessagesKey(id));
+  const deleteConversation = useCallback(async (id: string) => {
+    await supabase.from("ava_conversations").delete().eq("id", id);
     setConversations(prev => {
       const next = prev.filter(c => c.id !== id);
       if (next.length === 0) {
-        const now = Date.now();
-        const newConv: Conversation = { id: crypto.randomUUID(), title: "Nueva conversación", createdAt: now, updatedAt: now };
-        setActiveConversationId(newConv.id);
-        setMessages([]);
-        return [newConv];
+        // Will create a new one
+        if (user) {
+          createConversationInDb(user.id, "Nueva conversación").then(newId => {
+            if (newId) {
+              const now = Date.now();
+              setConversations([{ id: newId, title: "Nueva conversación", createdAt: now, updatedAt: now }]);
+              setActiveConversationId(newId);
+              setMessages([]);
+            }
+          });
+        }
+        return [];
       }
       if (id === activeConversationId) {
         const newActive = next[0].id;
         setActiveConversationId(newActive);
-        setMessages(loadMessages(newActive));
+        loadMessagesFromDb(newActive);
       }
       return next;
     });
-  }, [activeConversationId]);
+  }, [activeConversationId, user]);
 
   const sendMessage = useCallback(async () => {
     const q = input.trim();
-    if (!q || loading) return;
+    if (!q || loading || !user) return;
 
-    const userMsg: ChatMessage = { id: crypto.randomUUID(), role: "user", content: q, timestamp: Date.now() };
+    // Insert user message to DB
+    const { data: insertedMsg } = await supabase
+      .from("ava_messages")
+      .insert({ conversation_id: activeConversationId, role: "user", content: q, meta: {} })
+      .select("id, created_at")
+      .single();
+
+    const userMsg: ChatMessage = {
+      id: insertedMsg?.id || crypto.randomUUID(),
+      role: "user",
+      content: q,
+      timestamp: insertedMsg ? new Date(insertedMsg.created_at).getTime() : Date.now(),
+    };
     const updatedMessages = [...messages, userMsg];
     setMessages(updatedMessages);
     setInput("");
@@ -209,15 +259,16 @@ export function useChatMessages() {
     // Auto-title on first message
     if (messages.length === 0) {
       const autoTitle = q.length > 40 ? q.slice(0, 40) + "…" : q;
+      await supabase.from("ava_conversations").update({ title: autoTitle, updated_at: new Date().toISOString() }).eq("id", activeConversationId);
       setConversations(prev => prev.map(c => c.id === activeConversationId ? { ...c, title: autoTitle, updatedAt: Date.now() } : c));
     } else {
+      await supabase.from("ava_conversations").update({ updated_at: new Date().toISOString() }).eq("id", activeConversationId);
       setConversations(prev => prev.map(c => c.id === activeConversationId ? { ...c, updatedAt: Date.now() } : c));
     }
 
     try {
-      // Build global history from all conversations
-      const globalHistory = getAllMessagesGlobal(conversations);
-      const recentMessages = [...globalHistory, userMsg].slice(-10).map(m => ({
+      // Build recent history from current conversation
+      const recentMessages = updatedMessages.slice(-10).map(m => ({
         role: m.role,
         content: m.content,
       }));
@@ -229,38 +280,52 @@ export function useChatMessages() {
         },
       });
 
+      const assistantContent = error
+        ? `❌ Error: ${error.message}`
+        : data?.error
+          ? `❌ Error: ${data.error}`
+          : data?.answer || "Sin respuesta";
+
+      const meta = (!error && !data?.error) ? {
+        tools_used: data?.tools_used,
+        latency_ms: data?.latency_ms,
+      } : {};
+
+      // Insert assistant message to DB
+      const { data: asstInserted } = await supabase
+        .from("ava_messages")
+        .insert({ conversation_id: activeConversationId, role: "assistant", content: assistantContent, meta })
+        .select("id, created_at")
+        .single();
+
       const assistantMsg: ChatMessage = {
-        id: crypto.randomUUID(),
+        id: asstInserted?.id || crypto.randomUUID(),
         role: "assistant",
-        content: error
-          ? `❌ Error: ${error.message}`
-          : data?.error
-            ? `❌ Error: ${data.error}`
-            : data?.answer || "Sin respuesta",
-        timestamp: Date.now(),
-        meta: (!error && !data?.error) ? {
-          tools_used: data?.tools_used,
-          latency_ms: data?.latency_ms,
-        } : undefined,
+        content: assistantContent,
+        timestamp: asstInserted ? new Date(asstInserted.created_at).getTime() : Date.now(),
+        meta: meta && Object.keys(meta).length > 0 ? meta as any : undefined,
       };
       setMessages(prev => [...prev, assistantMsg]);
     } catch (e) {
+      const errContent = `❌ Error de conexión: ${e instanceof Error ? e.message : "Error desconocido"}`;
+      await supabase.from("ava_messages").insert({ conversation_id: activeConversationId, role: "assistant", content: errContent, meta: {} });
       const errMsg: ChatMessage = {
         id: crypto.randomUUID(),
         role: "assistant",
-        content: `❌ Error de conexión: ${e instanceof Error ? e.message : "Error desconocido"}`,
+        content: errContent,
         timestamp: Date.now(),
       };
       setMessages(prev => [...prev, errMsg]);
     }
     setLoading(false);
-  }, [input, loading, messages, conversations, activeConversationId]);
+  }, [input, loading, messages, activeConversationId, user]);
 
-  const clearChat = () => {
-    setMessages([]);
+  const clearChat = async () => {
     if (activeConversationId) {
-      saveMessages(activeConversationId, []);
+      // Delete all messages for this conversation
+      await supabase.from("ava_messages").delete().eq("conversation_id", activeConversationId);
     }
+    setMessages([]);
   };
 
   return {
@@ -269,7 +334,7 @@ export function useChatMessages() {
     messages,
     input,
     setInput,
-    loading,
+    loading: loading || initialLoading,
     sendMessage,
     clearChat,
     scrollRef,
