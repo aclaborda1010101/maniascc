@@ -1,64 +1,40 @@
 
 
-## Plan: Generador de Documentos + AVA con análisis geográfico y exportación PDF
+## Plan: PDF bajo demanda en AVA (no automático)
 
 ### Resumen
-Tres cambios: (1) Reemplazar "Notificaciones" en el menú principal por "Generador de Documentos" con ruta `/generador`, extrayendo FORGE de Oportunidades a una página independiente. (2) Mejorar AVA para que haga análisis de localización con POIs del entorno (Google Maps/Nominatim). (3) Añadir a AVA la capacidad de generar PDFs profesionales desde sus respuestas.
+Quitar el botón "PDF" que aparece en cada mensaje del asistente. En su lugar, AVA debe ser capaz de generar un informe/documento PDF cuando el usuario se lo pida explícitamente en el chat (ej: "prepárame un informe de eso"). El flujo normal de preguntas se responde con texto markdown como siempre.
 
----
+### Cambios
 
-### 1. Menú lateral: Notificaciones → Generador de Documentos
+#### 1. `src/pages/AsistenteIA.tsx`
+- Eliminar el botón `<Button>` con icono `FileDown` y texto "PDF" que aparece en cada mensaje assistant (línea 176-178)
+- Eliminar la función `exportMessageToPdf` y la importación de `FileDown` (ya no se usan)
 
-**`src/components/AppSidebar.tsx`**
-- Cambiar en `mainItems`: `{ title: "Generador de Documentos", url: "/generador", icon: Hammer }` en lugar de Notificaciones
-- Las notificaciones siguen accesibles desde el icono de campana en el header (ya existe en `AppLayout`)
+#### 2. `supabase/functions/ava-orchestrator/index.ts`
+- Añadir una nueva tool `generate_pdf_report` al array de herramientas disponibles para el modelo
+- Parámetros: `title` (string), `content` (string, markdown del informe)
+- Cuando el usuario pida "hazme un informe", "genera un documento", etc., el modelo usará esta tool
+- La respuesta del orchestrator incluirá un campo `pdf_content` en el meta cuando se use esta tool
+- Actualizar el SYSTEM_PROMPT para indicar que cuando el usuario pida un informe o documento, debe usar `generate_pdf_report` estructurando el contenido como un documento profesional con secciones
 
-**`src/pages/GeneradorDocumentos.tsx`** (nuevo)
-- Página standalone que reutiliza la lógica de `ProyectoForge` pero sin requerir `proyectoId`
-- Muestra las 6 cards de FORGE_MODES, campo de contexto, botón generar, resultado con markdown renderizado y exportar PDF
-- El `proyectoId` pasa a ser opcional (selector de oportunidad existente, o vacío)
+#### 3. `src/pages/AsistenteIA.tsx` (renderizado condicional)
+- Cuando un mensaje assistant tenga `meta.pdf_content`, mostrar un botón "Descargar informe PDF" solo en ese mensaje
+- Al pulsar, se ejecuta la función `exportMessageToPdf` con el contenido estructurado del informe (no con la respuesta conversacional)
 
-**`src/App.tsx`**
-- Añadir ruta `/generador` → `GeneradorDocumentos`
-- Redirect `/notificaciones` → `/dashboard`
+#### 4. `src/hooks/useChatMessages.ts`
+- Ampliar el tipo `ChatMessage.meta` para incluir `pdf_content?: string` y `pdf_title?: string`
+- Parsear estos campos de la respuesta del orchestrator cuando vengan
 
-**`src/pages/ProyectoDetail.tsx`**
-- Eliminar el tab "FORGE" de las pestañas de oportunidad (la funcionalidad vive ahora en `/generador`)
-
----
-
-### 2. AVA con análisis geográfico de POIs
-
-**`supabase/functions/ava-orchestrator/index.ts`**
-- Añadir nueva tool `nearby_search` al array TOOLS:
-  - Parámetros: `lat`, `lon`, `radius_m`, `query` (ej: "McDonald's", "gasolinera", "centro comercial")
-  - Implementación: llama a la API Nominatim/Overpass (OSM) para buscar POIs cercanos (gratuita, sin API key)
-- Actualizar el SYSTEM_PROMPT para indicar a AVA que cuando le pregunten sobre una ubicación comercial, debe usar `nearby_search` para analizar McDonald's, gasolineras, competencia, transporte, etc.
-
----
-
-### 3. AVA genera PDF profesional desde respuestas
-
-**`src/pages/AsistenteIA.tsx`**
-- Añadir botón "Exportar PDF" en cada mensaje de tipo assistant
-- Al pulsar, genera un HTML profesional con la función `markdownToHtml` (reutilizada de ProyectoForge) y abre diálogo de impresión/PDF
-- Diseño limpio: header con "Informe AVA", fecha, branding MANIAS CC, contenido formateado
-
----
+### Flujo resultante
+1. Usuario pregunta algo → AVA responde en texto markdown (sin botón PDF)
+2. Usuario dice "hazme un informe de eso" → AVA usa tool `generate_pdf_report`, estructura un documento profesional → se muestra la respuesta + botón "Descargar PDF" solo en ese mensaje
 
 ### Archivos afectados
 
 | Archivo | Acción |
 |---|---|
-| `src/components/AppSidebar.tsx` | Notificaciones → Generador de Documentos |
-| `src/pages/GeneradorDocumentos.tsx` | Nueva página FORGE standalone |
-| `src/App.tsx` | Ruta `/generador`, redirect `/notificaciones` |
-| `src/pages/ProyectoDetail.tsx` | Quitar tab FORGE |
-| `supabase/functions/ava-orchestrator/index.ts` | Tool `nearby_search` con Overpass/Nominatim |
-| `src/pages/AsistenteIA.tsx` | Botón exportar PDF en mensajes assistant |
-
-### Nota técnica
-- La búsqueda de POIs usa Overpass API (OpenStreetMap), gratuita y sin clave API
-- El PDF se genera mediante HTML + `window.print()` (mismo método actual de FORGE)
-- `ProyectoForge` se mantiene como componente por si se reutiliza, pero el tab se elimina de ProyectoDetail
+| `src/pages/AsistenteIA.tsx` | Quitar botón PDF de todos los mensajes, añadir botón condicional solo cuando hay `pdf_content` |
+| `src/hooks/useChatMessages.ts` | Ampliar meta con `pdf_content` |
+| `supabase/functions/ava-orchestrator/index.ts` | Nueva tool `generate_pdf_report` + instrucciones en system prompt |
 
