@@ -245,11 +245,11 @@ export default function Proyectos() {
       ) : proyectos.length === 0 ? (
         <Card>
           <CardContent className="py-16 text-center">
-            <FolderKanban className="mx-auto mb-3 h-12 w-12 text-muted-foreground/30" />
+         <FolderKanban className="mx-auto mb-3 h-12 w-12 text-muted-foreground/30" />
             <p className="text-muted-foreground">
               {search || filtroEstado !== "todos" || filtroTipo !== "todos"
-                ? "No se encontraron proyectos con esos filtros."
-                : "No hay proyectos aún. Crea el primero."}
+                ? "No se encontraron oportunidades con esos filtros."
+                : "No hay oportunidades aún. Crea la primera."}
             </p>
           </CardContent>
         </Card>
