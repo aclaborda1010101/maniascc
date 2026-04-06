@@ -199,7 +199,7 @@ export default function Locales() {
                 {locales.map((l) => (
                   <TableRow key={l.id} className="cursor-pointer hover:bg-muted/50">
                     <TableCell>
-                      <Link to={`/locales/${l.id}`} className="font-medium text-accent hover:underline">
+                      <Link to={`/activos/${l.id}`} className="font-medium text-accent hover:underline">
                         {l.nombre}
                       </Link>
                       <p className="text-xs text-muted-foreground truncate max-w-[200px]">{l.direccion}</p>
