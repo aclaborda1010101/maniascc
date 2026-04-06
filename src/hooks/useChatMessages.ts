@@ -43,7 +43,11 @@ export function useChatMessages() {
 
   // Load conversations from DB
   useEffect(() => {
-    if (!user) return;
+    if (!user) {
+      setInitialLoading(false);
+      return;
+    }
+    let cancelled = false;
     (async () => {
       setInitialLoading(true);
       const { data: convRows } = await supabase
@@ -51,6 +55,8 @@ export function useChatMessages() {
         .select("*")
         .eq("user_id", user.id)
         .order("updated_at", { ascending: false });
+
+      if (cancelled) return;
 
       if (convRows && convRows.length > 0) {
         const convs: Conversation[] = convRows.map((r: any) => ({
@@ -61,17 +67,19 @@ export function useChatMessages() {
         }));
         setConversations(convs);
         setActiveConversationId(convs[0].id);
-        await loadMessagesFromDb(convs[0].id);
+        if (!cancelled) await loadMessagesFromDb(convs[0].id);
       } else {
         // Migrate from localStorage if any
         const migrated = await migrateLocalStorage(user.id);
+        if (cancelled) return;
         if (migrated) {
           setConversations(migrated.convs);
           setActiveConversationId(migrated.activeId);
-          await loadMessagesFromDb(migrated.activeId);
+          if (!cancelled) await loadMessagesFromDb(migrated.activeId);
         } else {
           // Create default
           const newId = await createConversationInDb(user.id, "Nueva conversación");
+          if (cancelled) return;
           if (newId) {
             const conv: Conversation = { id: newId, title: "Nueva conversación", createdAt: Date.now(), updatedAt: Date.now() };
             setConversations([conv]);
@@ -80,9 +88,10 @@ export function useChatMessages() {
           }
         }
       }
-      setInitialLoading(false);
+      if (!cancelled) setInitialLoading(false);
     })();
-  }, [user]);
+    return () => { cancelled = true; };
+  }, [user?.id]);
 
   async function migrateLocalStorage(userId: string): Promise<{ convs: Conversation[]; activeId: string } | null> {
     const CONVS_KEY = "ava-conversations";
