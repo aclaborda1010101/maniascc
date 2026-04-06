@@ -109,6 +109,31 @@ export default function Operadores() {
               <DialogTitle>Crear Nuevo Operador</DialogTitle>
             </DialogHeader>
             <form onSubmit={handleCreate} className="space-y-4">
+              {/* Matriz selection */}
+              <div className="space-y-2">
+                <Label>Matriz</Label>
+                <div className="flex gap-2">
+                  <Button type="button" size="sm" variant={matrizMode === "existing" ? "default" : "outline"} onClick={() => setMatrizMode("existing")}>
+                    Matriz existente
+                  </Button>
+                  <Button type="button" size="sm" variant={matrizMode === "new" ? "default" : "outline"} onClick={() => { setMatrizMode("new"); setSelectedMatrizId(""); }}>
+                    Es nueva matriz
+                  </Button>
+                </div>
+                {matrizMode === "existing" && (
+                  <Select value={selectedMatrizId} onValueChange={setSelectedMatrizId}>
+                    <SelectTrigger><SelectValue placeholder="Seleccionar matriz..." /></SelectTrigger>
+                    <SelectContent>
+                      {matrices.map((m) => (
+                        <SelectItem key={m.id} value={m.id}>{m.nombre}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+                {matrizMode === "new" && (
+                  <p className="text-xs text-muted-foreground">Este operador será una nueva matriz.</p>
+                )}
+              </div>
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="o-nombre">Nombre *</Label>
