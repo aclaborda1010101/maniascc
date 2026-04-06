@@ -577,14 +577,17 @@ serve(async (req) => {
       }),
     });
 
+    // Use first call's partial content as fallback base
+    const firstCallContent = choice?.content || "";
+    
     let finalAnswer: string;
     if (synthesisResponse.ok) {
       const synthesisData = await synthesisResponse.json();
       finalAnswer = synthesisData.choices?.[0]?.message?.content || "";
       if (!finalAnswer) {
         console.error("Empty synthesis response:", JSON.stringify(synthesisData).substring(0, 1000));
-        finalAnswer = "He consultado los datos. Resultados:\n\n" +
-          toolResults.map(tr => `**${tr.tool}**: ${JSON.stringify(tr.result).substring(0, 500)}`).join("\n\n");
+        // Fallback: use first call content if available, otherwise format tool results
+        finalAnswer = firstCallContent || formatToolResultsFallback(toolResults);
       }
       const usage2 = synthesisData.usage || {};
       totalTokensIn += usage2.prompt_tokens || 0;
@@ -592,8 +595,8 @@ serve(async (req) => {
     } else {
       const errBody = await synthesisResponse.text();
       console.error("Synthesis call failed:", synthesisResponse.status, errBody);
-      finalAnswer = "He consultado los datos. Resultados:\n\n" +
-        toolResults.map(tr => `**${tr.tool}**: ${JSON.stringify(tr.result).substring(0, 500)}`).join("\n\n");
+      // Fallback: prefer first call content, then formatted tool results
+      finalAnswer = firstCallContent || formatToolResultsFallback(toolResults);
     }
 
     const latencyMs = Date.now() - startTime;
