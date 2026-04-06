@@ -70,9 +70,9 @@ export default function Locales() {
     });
     setSubmitting(false);
     if (error) {
-      toast({ title: "Error al crear local", description: error.message, variant: "destructive" });
+      toast({ title: "Error al crear activo", description: error.message, variant: "destructive" });
     } else {
-      toast({ title: "Local creado correctamente" });
+      toast({ title: "Activo creado correctamente" });
       setDialogOpen(false);
       fetchLocales();
     }
