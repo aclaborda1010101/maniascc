@@ -92,7 +92,7 @@ export default function Dashboard() {
         supabase.from("proyectos").select("id", { count: "exact", head: true }).in("estado", ["activo", "en_negociacion"]),
         supabase.from("operadores").select("id", { count: "exact", head: true }),
         supabase.from("matches").select("id", { count: "exact", head: true }).eq("estado", "pendiente"),
-        supabase.from("auditoria_ia").select("coste_estimado, latencia_ms").gte("created_at", startOfMonth.toISOString()),
+        supabase.from("auditoria_ia").select("coste_estimado, latencia_ms, tokens_entrada, tokens_salida, modelo").gte("created_at", startOfMonth.toISOString()),
         supabase.from("locales").select("id", { count: "exact", head: true }),
         supabase.from("auditoria_ia").select("latencia_ms").order("created_at", { ascending: false }).limit(50),
         supabase.from("matches").select("*, locales(nombre), operadores(nombre)").order("created_at", { ascending: false }).limit(8),
