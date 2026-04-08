@@ -19,6 +19,21 @@ import {
 
 const PIE_COLORS = ["hsl(142,71%,45%)", "hsl(38,92%,50%)", "hsl(0,84%,60%)", "hsl(217,91%,60%)", "hsl(262,83%,58%)", "hsl(180,70%,45%)"];
 
+const MODEL_PRICING: Record<string, { input: number; output: number }> = {
+  "google/gemini-3.1-pro-preview": { input: 1.25, output: 10.0 },
+  "google/gemini-2.5-pro": { input: 1.25, output: 10.0 },
+  "google/gemini-2.5-flash": { input: 0.15, output: 0.60 },
+  "google/gemini-2.5-flash-lite": { input: 0.10, output: 0.40 },
+  "gemini-2.5-pro": { input: 1.25, output: 10.0 },
+  "gemini-2.5-flash": { input: 0.15, output: 0.60 },
+};
+const DEFAULT_PRICING = { input: 0.15, output: 0.60 };
+
+function estimateCostFromTokens(modelo: string, tokensIn: number, tokensOut: number): number {
+  const rates = MODEL_PRICING[modelo] || DEFAULT_PRICING;
+  return (tokensIn * rates.input / 1_000_000 + tokensOut * rates.output / 1_000_000) * 0.92;
+}
+
 const estadoLocalLabels: Record<string, string> = {
   disponible: "Disponible", en_negociacion: "Negociación", ocupado: "Ocupado", reforma: "Reforma",
 };
@@ -77,7 +92,7 @@ export default function Dashboard() {
         supabase.from("proyectos").select("id", { count: "exact", head: true }).in("estado", ["activo", "en_negociacion"]),
         supabase.from("operadores").select("id", { count: "exact", head: true }),
         supabase.from("matches").select("id", { count: "exact", head: true }).eq("estado", "pendiente"),
-        supabase.from("auditoria_ia").select("coste_estimado, latencia_ms").gte("created_at", startOfMonth.toISOString()),
+        supabase.from("auditoria_ia").select("coste_estimado, latencia_ms, tokens_entrada, tokens_salida, modelo").gte("created_at", startOfMonth.toISOString()),
         supabase.from("locales").select("id", { count: "exact", head: true }),
         supabase.from("auditoria_ia").select("latencia_ms").order("created_at", { ascending: false }).limit(50),
         supabase.from("matches").select("*, locales(nombre), operadores(nombre)").order("created_at", { ascending: false }).limit(8),
@@ -88,7 +103,7 @@ export default function Dashboard() {
       ]);
 
       const audMes = audMesRes.data || [];
-      const costeIAMes = audMes.reduce((s, r) => s + (Number(r.coste_estimado) || 0), 0);
+      const costeIAMes = audMes.reduce((s, r) => s + estimateCostFromTokens(r.modelo || '', Number(r.tokens_entrada) || 0, Number(r.tokens_salida) || 0), 0);
       const latRows = audLatRes.data || [];
       const latenciaMedia = latRows.length > 0
         ? Math.round(latRows.reduce((s, r) => s + (Number(r.latencia_ms) || 0), 0) / latRows.length) : 0;
