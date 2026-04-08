@@ -19,6 +19,21 @@ import {
 
 const PIE_COLORS = ["hsl(142,71%,45%)", "hsl(38,92%,50%)", "hsl(0,84%,60%)", "hsl(217,91%,60%)", "hsl(262,83%,58%)", "hsl(180,70%,45%)"];
 
+const MODEL_PRICING: Record<string, { input: number; output: number }> = {
+  "google/gemini-3.1-pro-preview": { input: 1.25, output: 10.0 },
+  "google/gemini-2.5-pro": { input: 1.25, output: 10.0 },
+  "google/gemini-2.5-flash": { input: 0.15, output: 0.60 },
+  "google/gemini-2.5-flash-lite": { input: 0.10, output: 0.40 },
+  "gemini-2.5-pro": { input: 1.25, output: 10.0 },
+  "gemini-2.5-flash": { input: 0.15, output: 0.60 },
+};
+const DEFAULT_PRICING = { input: 0.15, output: 0.60 };
+
+function estimateCostFromTokens(modelo: string, tokensIn: number, tokensOut: number): number {
+  const rates = MODEL_PRICING[modelo] || DEFAULT_PRICING;
+  return (tokensIn * rates.input / 1_000_000 + tokensOut * rates.output / 1_000_000) * 0.92;
+}
+
 const estadoLocalLabels: Record<string, string> = {
   disponible: "Disponible", en_negociacion: "Negociación", ocupado: "Ocupado", reforma: "Reforma",
 };
