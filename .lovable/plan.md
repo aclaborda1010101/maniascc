@@ -1,40 +1,49 @@
 
 
-## Plan: PDF bajo demanda en AVA (no automático)
+## Plan: Corregir costes IA falsos en todas las Edge Functions
 
-### Resumen
-Quitar el botón "PDF" que aparece en cada mensaje del asistente. En su lugar, AVA debe ser capaz de generar un informe/documento PDF cuando el usuario se lo pida explícitamente en el chat (ej: "prepárame un informe de eso"). El flujo normal de preguntas se responde con texto markdown como siempre.
+### El problema real (con datos)
+
+Los 2.158€ que ves en el Dashboard son **falsos**. Las Edge Functions tienen costes **hardcodeados** que no corresponden con los tokens reales:
+
+| Servicio | Coste registrado | Coste REAL (por tokens) | Inflación |
+|---|---|---|---|
+| `localizacion-patrones` (6 calls) | 0.90€ (6 × 0.15€ fijo) | 0.001€ | **×720** |
+| `tenant-mix-avanzado` (2 calls) | 0.50€ (2 × 0.25€ fijo) | 0.0004€ | **×1,125** |
+| `ava-orchestrator` (11 calls Pro) | 0.61€ | 0.61€ | Correcto |
+| `ava-orchestrator` (55 calls Flash) | 0.004€ | 0.004€ | Correcto |
+
+El orchestrator calcula bien (usa tokens reales). Pero las funciones especializadas ponen costes inventados (`0.15€`, `0.25€`, `0.10€`, `0.08€` por llamada) que son cientos de veces superiores al coste real de Flash (~0.0002€ por llamada con ~500 tokens).
+
+**Coste real del mes: ~0.62€, NO 2.16€**
 
 ### Cambios
 
-#### 1. `src/pages/AsistenteIA.tsx`
-- Eliminar el botón `<Button>` con icono `FileDown` y texto "PDF" que aparece en cada mensaje assistant (línea 176-178)
-- Eliminar la función `exportMessageToPdf` y la importación de `FileDown` (ya no se usan)
+#### 1. `supabase/functions/ai-localizacion-patrones/index.ts` (linea 137)
+- Cambiar `coste_estimado: 0.15` por calculo dinámico basado en tokens:
+```
+coste_estimado: (tokens_in * 0.10 / 1_000_000 + tokens_out * 0.40 / 1_000_000) * 0.92
+```
 
-#### 2. `supabase/functions/ava-orchestrator/index.ts`
-- Añadir una nueva tool `generate_pdf_report` al array de herramientas disponibles para el modelo
-- Parámetros: `title` (string), `content` (string, markdown del informe)
-- Cuando el usuario pida "hazme un informe", "genera un documento", etc., el modelo usará esta tool
-- La respuesta del orchestrator incluirá un campo `pdf_content` en el meta cuando se use esta tool
-- Actualizar el SYSTEM_PROMPT para indicar que cuando el usuario pida un informe o documento, debe usar `generate_pdf_report` estructurando el contenido como un documento profesional con secciones
+#### 2. `supabase/functions/ai-tenant-mix-avanzado/index.ts` (linea 128)
+- Cambiar `coste_estimado: 0.25` por mismo calculo dinámico
 
-#### 3. `src/pages/AsistenteIA.tsx` (renderizado condicional)
-- Cuando un mensaje assistant tenga `meta.pdf_content`, mostrar un botón "Descargar informe PDF" solo en ese mensaje
-- Al pulsar, se ejecuta la función `exportMessageToPdf` con el contenido estructurado del informe (no con la respuesta conversacional)
+#### 3. `supabase/functions/ai-validacion-retorno/index.ts` (linea 123)
+- Cambiar `coste_estimado: 0.10` por calculo dinámico
 
-#### 4. `src/hooks/useChatMessages.ts`
-- Ampliar el tipo `ChatMessage.meta` para incluir `pdf_content?: string` y `pdf_title?: string`
-- Parsear estos campos de la respuesta del orchestrator cuando vengan
+#### 4. `supabase/functions/ai-perfil-negociador/index.ts` (linea 140)
+- Cambiar `coste_estimado: 0.08` por calculo dinámico
 
-### Flujo resultante
-1. Usuario pregunta algo → AVA responde en texto markdown (sin botón PDF)
-2. Usuario dice "hazme un informe de eso" → AVA usa tool `generate_pdf_report`, estructura un documento profesional → se muestra la respuesta + botón "Descargar PDF" solo en ese mensaje
+#### 5. `supabase/functions/ava-orchestrator/index.ts` (lineas 344 y 644)
+- Cambiar `model: "gemini-2.5-pro"` a `model: "google/gemini-3.1-pro-preview"` en `usage_logs`
 
-### Archivos afectados
+#### 6. `src/pages/Consumo.tsx`
+- Añadir `"google/gemini-3.1-pro-preview"` a `MODEL_PRICING` con rates reales ($1.25/$10.00 por 1M)
+- Actualizar nota de modelos activos
 
-| Archivo | Acción |
-|---|---|
-| `src/pages/AsistenteIA.tsx` | Quitar botón PDF de todos los mensajes, añadir botón condicional solo cuando hay `pdf_content` |
-| `src/hooks/useChatMessages.ts` | Ampliar meta con `pdf_content` |
-| `supabase/functions/ava-orchestrator/index.ts` | Nueva tool `generate_pdf_report` + instrucciones en system prompt |
+### Resultado
+- Dashboard y Consumo mostrarán el mismo coste (real, basado en tokens)
+- Las funciones Flash registrarán ~0.0002€ por llamada en vez de 0.15-0.25€
+- El orchestrator Pro seguirá registrando correctamente (~0.05€/llamada)
+- Los datos históricos seguirán inflados pero los nuevos serán correctos
 
