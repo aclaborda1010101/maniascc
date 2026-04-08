@@ -103,7 +103,7 @@ export default function Dashboard() {
       ]);
 
       const audMes = audMesRes.data || [];
-      const costeIAMes = audMes.reduce((s, r) => s + (Number(r.coste_estimado) || 0), 0);
+      const costeIAMes = audMes.reduce((s, r) => s + estimateCostFromTokens(r.modelo || '', Number(r.tokens_entrada) || 0, Number(r.tokens_salida) || 0), 0);
       const latRows = audLatRes.data || [];
       const latenciaMedia = latRows.length > 0
         ? Math.round(latRows.reduce((s, r) => s + (Number(r.latencia_ms) || 0), 0) / latRows.length) : 0;
