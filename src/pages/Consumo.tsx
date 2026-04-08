@@ -26,9 +26,14 @@ const MODEL_PRICING: Record<string, { input: number; output: number; label: stri
     output: (0.40 / 1_000_000) * 0.92,
     label: "Expert Forge MoE",
   },
+  "google/gemini-3.1-pro-preview": {
+    input: (1.25 / 1_000_000) * 0.92,
+    output: (10.00 / 1_000_000) * 0.92,
+    label: "Gemini 3.1 Pro Preview",
+  },
 };
 
-const DEFAULT_PRICING = MODEL_PRICING["gemini-3-flash-preview"];
+const DEFAULT_PRICING = MODEL_PRICING["google/gemini-3.1-pro-preview"];
 
 function estimateCost(log: UsageLog): number {
   if (log.cost_eur && log.cost_eur > 0) return log.cost_eur;
