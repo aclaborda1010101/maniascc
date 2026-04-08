@@ -1,49 +1,23 @@
 
 
-## Plan: Corregir costes IA falsos en todas las Edge Functions
+## Plan: Corregir "Coste IA (mes)" en Dashboard para usar cálculo real por tokens
 
-### El problema real (con datos)
+### Problema
+El Dashboard lee `coste_estimado` directamente de `auditoria_ia` y lo suma. Los registros históricos tienen costes hardcodeados inflados (€0.08–€0.25 por llamada) que producen el valor falso de 2.158€. No podemos modificar datos históricos desde el cliente.
 
-Los 2.158€ que ves en el Dashboard son **falsos**. Las Edge Functions tienen costes **hardcodeados** que no corresponden con los tokens reales:
+### Solución
+Cambiar el Dashboard para que recalcule el coste basándose en **tokens reales** (igual que hace la página de Consumo), en lugar de confiar en `coste_estimado` de la base de datos.
 
-| Servicio | Coste registrado | Coste REAL (por tokens) | Inflación |
-|---|---|---|---|
-| `localizacion-patrones` (6 calls) | 0.90€ (6 × 0.15€ fijo) | 0.001€ | **×720** |
-| `tenant-mix-avanzado` (2 calls) | 0.50€ (2 × 0.25€ fijo) | 0.0004€ | **×1,125** |
-| `ava-orchestrator` (11 calls Pro) | 0.61€ | 0.61€ | Correcto |
-| `ava-orchestrator` (55 calls Flash) | 0.004€ | 0.004€ | Correcto |
+### Cambios en `src/pages/Dashboard.tsx`
 
-El orchestrator calcula bien (usa tokens reales). Pero las funciones especializadas ponen costes inventados (`0.15€`, `0.25€`, `0.10€`, `0.08€` por llamada) que son cientos de veces superiores al coste real de Flash (~0.0002€ por llamada con ~500 tokens).
+1. **Ampliar la query de auditoría del mes** (línea 80): además de `coste_estimado, latencia_ms`, traer también `tokens_entrada, tokens_salida, modelo`
 
-**Coste real del mes: ~0.62€, NO 2.16€**
+2. **Añadir lógica de pricing** (misma que Consumo.tsx): tabla `MODEL_PRICING` con las tarifas reales por modelo, y función `estimateCostFromTokens(modelo, tokens_in, tokens_out)` que calcula `(in * rate_in + out * rate_out) * 0.92`
 
-### Cambios
-
-#### 1. `supabase/functions/ai-localizacion-patrones/index.ts` (linea 137)
-- Cambiar `coste_estimado: 0.15` por calculo dinámico basado en tokens:
-```
-coste_estimado: (tokens_in * 0.10 / 1_000_000 + tokens_out * 0.40 / 1_000_000) * 0.92
-```
-
-#### 2. `supabase/functions/ai-tenant-mix-avanzado/index.ts` (linea 128)
-- Cambiar `coste_estimado: 0.25` por mismo calculo dinámico
-
-#### 3. `supabase/functions/ai-validacion-retorno/index.ts` (linea 123)
-- Cambiar `coste_estimado: 0.10` por calculo dinámico
-
-#### 4. `supabase/functions/ai-perfil-negociador/index.ts` (linea 140)
-- Cambiar `coste_estimado: 0.08` por calculo dinámico
-
-#### 5. `supabase/functions/ava-orchestrator/index.ts` (lineas 344 y 644)
-- Cambiar `model: "gemini-2.5-pro"` a `model: "google/gemini-3.1-pro-preview"` en `usage_logs`
-
-#### 6. `src/pages/Consumo.tsx`
-- Añadir `"google/gemini-3.1-pro-preview"` a `MODEL_PRICING` con rates reales ($1.25/$10.00 por 1M)
-- Actualizar nota de modelos activos
+3. **Recalcular `costeIAMes`** (línea 91): en vez de sumar `coste_estimado`, iterar los registros y sumar el coste calculado por tokens con `estimateCostFromTokens`
 
 ### Resultado
-- Dashboard y Consumo mostrarán el mismo coste (real, basado en tokens)
-- Las funciones Flash registrarán ~0.0002€ por llamada en vez de 0.15-0.25€
-- El orchestrator Pro seguirá registrando correctamente (~0.05€/llamada)
-- Los datos históricos seguirán inflados pero los nuevos serán correctos
+- El Dashboard mostrará el coste real (~0.62€) calculado a partir de tokens, no los valores inflados históricos
+- Consistente con la página de Consumo
+- Nuevos registros (ya corregidos en las Edge Functions) también se mostrarán correctamente
 
