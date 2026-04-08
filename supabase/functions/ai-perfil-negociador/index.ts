@@ -137,7 +137,7 @@ Genera recomendaciones tácticas específicas.`;
       exito: true,
       tokens_entrada: aiData.usage?.prompt_tokens || 0,
       tokens_salida: aiData.usage?.completion_tokens || 0,
-      coste_estimado: 0.08,
+      coste_estimado: ((aiData.usage?.prompt_tokens || 0) * 0.10 / 1_000_000 + (aiData.usage?.completion_tokens || 0) * 0.40 / 1_000_000) * 0.92,
       created_by: user.id,
     });
 

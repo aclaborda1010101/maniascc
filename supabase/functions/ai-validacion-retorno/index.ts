@@ -120,7 +120,7 @@ Considera desviaciones típicas del sector: rentabilidad (15-30% inflación medi
       exito: true,
       tokens_entrada: aiData.usage?.prompt_tokens || 0,
       tokens_salida: aiData.usage?.completion_tokens || 0,
-      coste_estimado: 0.10,
+      coste_estimado: ((aiData.usage?.prompt_tokens || 0) * 0.10 / 1_000_000 + (aiData.usage?.completion_tokens || 0) * 0.40 / 1_000_000) * 0.92,
       created_by: user.id,
     });
 
