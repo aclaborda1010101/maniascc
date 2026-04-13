@@ -244,9 +244,31 @@ serve(async (req) => {
     }));
 
     if (rows.length > 0) {
-      const { error: insertErr } = await admin.from("document_chunks").insert(rows);
-      if (insertErr) {
-        return new Response(JSON.stringify({ error: "Insert error: " + insertErr.message }), {
+      // Insert chunks one by one to handle individual failures
+      let insertedCount = 0;
+      for (const row of rows) {
+        try {
+          const { error: insertErr } = await admin.from("document_chunks").insert(row);
+          if (insertErr) {
+            console.error(`Chunk ${row.chunk_index} insert error:`, insertErr.message, "contenido length:", row.contenido.length);
+            // Try with more aggressive sanitization
+            const sanitized = {
+              ...row,
+              contenido: row.contenido.replace(/[^\x20-\x7E\xA0-\uFFFF\n\r\t]/g, " "),
+            };
+            const { error: retryErr } = await admin.from("document_chunks").insert(sanitized);
+            if (retryErr) {
+              console.error(`Chunk ${row.chunk_index} retry failed:`, retryErr.message);
+              continue;
+            }
+          }
+          insertedCount++;
+        } catch (e) {
+          console.error(`Chunk ${row.chunk_index} exception:`, e);
+        }
+      }
+      if (insertedCount === 0) {
+        return new Response(JSON.stringify({ error: "All chunk inserts failed" }), {
           status: 500, headers: corsHeaders,
         });
       }
