@@ -211,8 +211,12 @@ serve(async (req) => {
       return new Response(JSON.stringify({ error: "No extractable text" }), { status: 422, headers: corsHeaders });
     }
 
-    // Sanitize: remove null bytes and invalid Unicode escape sequences that break PostgreSQL
-    text = text.replace(/\x00/g, "").replace(/\\u0000/g, "");
+    // Sanitize: remove null bytes, invalid Unicode escape sequences, and other problematic chars
+    text = text
+      .replace(/\x00/g, "")
+      .replace(/\\u0000/g, "")
+      .replace(/\uFFFD/g, "")
+      .replace(/[\x01-\x08\x0B\x0C\x0E-\x1F]/g, "");
 
     // Chunk text (~500 tokens ≈ ~2000 chars, overlap ~200 chars)
     const CHUNK_SIZE = 2000;
@@ -228,19 +232,43 @@ serve(async (req) => {
     await admin.from("document_chunks").delete().eq("documento_id", documento_id);
 
     // Insert new chunks with domain
+    const safeName = (doc.nombre || "").replace(/[\x00-\x1F\x7F]/g, "");
+    const safeTipo = (doc.tipo_documento || "").replace(/[\x00-\x1F\x7F]/g, "");
     const rows = chunks.map((contenido, i) => ({
       documento_id: doc.id,
       proyecto_id: doc.proyecto_id,
       contenido,
       chunk_index: i,
       dominio,
-      metadata: { nombre: doc.nombre, mime_type: mime, tipo_documento: doc.tipo_documento, extraction_method },
+      metadata: JSON.parse(JSON.stringify({ nombre: safeName, mime_type: mime, tipo_documento: safeTipo, extraction_method })),
     }));
 
     if (rows.length > 0) {
-      const { error: insertErr } = await admin.from("document_chunks").insert(rows);
-      if (insertErr) {
-        return new Response(JSON.stringify({ error: "Insert error: " + insertErr.message }), {
+      // Insert chunks one by one to handle individual failures
+      let insertedCount = 0;
+      for (const row of rows) {
+        try {
+          const { error: insertErr } = await admin.from("document_chunks").insert(row);
+          if (insertErr) {
+            console.error(`Chunk ${row.chunk_index} insert error:`, insertErr.message, "contenido length:", row.contenido.length);
+            // Try with more aggressive sanitization
+            const sanitized = {
+              ...row,
+              contenido: row.contenido.replace(/[^\x20-\x7E\xA0-\uFFFF\n\r\t]/g, " "),
+            };
+            const { error: retryErr } = await admin.from("document_chunks").insert(sanitized);
+            if (retryErr) {
+              console.error(`Chunk ${row.chunk_index} retry failed:`, retryErr.message);
+              continue;
+            }
+          }
+          insertedCount++;
+        } catch (e) {
+          console.error(`Chunk ${row.chunk_index} exception:`, e);
+        }
+      }
+      if (insertedCount === 0) {
+        return new Response(JSON.stringify({ error: "All chunk inserts failed" }), {
           status: 500, headers: corsHeaders,
         });
       }
