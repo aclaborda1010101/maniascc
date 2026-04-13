@@ -9,20 +9,109 @@ const corsHeaders = {
 /** Map document tipo_documento to RAG domain */
 function inferDomain(tipoDoc: string | null, mimeType: string | null): string {
   const t = (tipoDoc || "").toLowerCase();
-  // Contratos
   if (["contrato", "contrato_arrendamiento", "clausula", "addendum"].includes(t)) return "contratos";
-  // Operadores
   if (["ficha_operador", "propuesta_operador", "dossier_operador", "perfil_operador"].includes(t)) return "operadores";
-  // Activos
   if (["tasacion", "plano", "catastro", "ficha_activo", "informe_activo"].includes(t)) return "activos";
-  // Mercado
   if (["informe_mercado", "estudio_mercado", "paper", "informe_sectorial"].includes(t)) return "mercado";
-  // Personas
   if (["perfil_contacto", "notas_reunion", "acta", "comunicacion"].includes(t)) return "personas";
-  // Dossier / propuesta → activos
   if (["dossier", "propuesta"].includes(t)) return "activos";
-  // Default
   return "general";
+}
+
+/** Check if file is plain text that can be read directly */
+function isPlainText(mime: string): boolean {
+  return mime.includes("text") || mime.includes("json") || mime.includes("csv") || mime.includes("xml");
+}
+
+/** Map common file extensions/mimes to Gemini-compatible mime types */
+function geminiMimeType(mime: string, fileName: string): string {
+  const ext = fileName.split(".").pop()?.toLowerCase() || "";
+  // Gemini natively supports these
+  const supported: Record<string, string> = {
+    "pdf": "application/pdf",
+    "png": "image/png",
+    "jpg": "image/jpeg",
+    "jpeg": "image/jpeg",
+    "gif": "image/gif",
+    "webp": "image/webp",
+    "doc": "application/msword",
+    "docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    "ppt": "application/vnd.ms-powerpoint",
+    "pptx": "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+    "xls": "application/vnd.ms-excel",
+    "xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    "csv": "text/csv",
+    "txt": "text/plain",
+    "html": "text/html",
+    "msg": "application/vnd.ms-outlook",
+    "eml": "message/rfc822",
+  };
+  if (supported[ext]) return supported[ext];
+  if (mime && mime !== "application/octet-stream") return mime;
+  return "application/octet-stream";
+}
+
+/** Extract text from a file using Google Gemini multimodal */
+async function extractWithGemini(
+  fileBase64: string,
+  mimeType: string,
+  fileName: string,
+  apiKey: string
+): Promise<string> {
+  const resolvedMime = geminiMimeType(mimeType, fileName);
+
+  const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      "Authorization": `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      model: "google/gemini-2.5-flash",
+      messages: [
+        {
+          role: "system",
+          content: `Eres un extractor de documentos profesional especializado en el sector inmobiliario y centros comerciales en España. 
+Tu tarea es extraer TODO el contenido textual del documento adjunto de forma estructurada y completa.
+
+Reglas:
+- Extrae absolutamente todo el texto, tablas, cifras, nombres, fechas, direcciones y datos relevantes
+- Mantén la estructura del documento (títulos, secciones, listas)
+- Si hay tablas, represéntalas de forma legible con formato de texto
+- Si hay imágenes con texto (OCR), extrae ese texto también
+- Si es un email (MSG/EML), extrae: remitente, destinatario, asunto, fecha, cuerpo y adjuntos mencionados
+- Si es un plano o archivo técnico, describe lo que puedas interpretar
+- Responde SOLO con el contenido extraído, sin comentarios ni explicaciones adicionales
+- Idioma: mantén el idioma original del documento`
+        },
+        {
+          role: "user",
+          content: [
+            {
+              type: "text",
+              text: `Extrae todo el contenido textual del siguiente documento: "${fileName}"`
+            },
+            {
+              type: "image_url",
+              image_url: {
+                url: `data:${resolvedMime};base64,${fileBase64}`
+              }
+            }
+          ]
+        }
+      ],
+      max_tokens: 16000,
+      temperature: 0.1,
+    }),
+  });
+
+  if (!response.ok) {
+    const errText = await response.text();
+    throw new Error(`Gemini API error ${response.status}: ${errText}`);
+  }
+
+  const data = await response.json();
+  return data.choices?.[0]?.message?.content || "";
 }
 
 serve(async (req) => {
@@ -32,6 +121,7 @@ serve(async (req) => {
     const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
     const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
+    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY")!;
 
     // Auth
     const authHeader = req.headers.get("Authorization");
@@ -81,22 +171,48 @@ serve(async (req) => {
     // Extract text content
     let text = "";
     const mime = doc.mime_type || "";
-    if (mime.includes("text") || mime.includes("json") || mime.includes("csv") || mime.includes("xml")) {
+    let extraction_method = "direct";
+
+    if (isPlainText(mime)) {
+      // Direct text reading for plain text files
       text = await fileData.text();
-    } else if (mime.includes("pdf")) {
-      const raw = await fileData.text();
-      const readable = raw.replace(/[^\x20-\x7E\xC0-\xFF\n\r\t]/g, " ");
-      text = readable.replace(/\s{3,}/g, "\n").trim();
-      if (text.length < 50) {
-        text = `[PDF document: ${doc.nombre}. Text extraction limited. File size: ${doc.tamano_bytes || 0} bytes]`;
-      }
+      extraction_method = "direct_text";
     } else {
-      text = `[Binary document: ${doc.nombre}. Type: ${mime}. Size: ${doc.tamano_bytes || 0} bytes]`;
+      // Use Gemini multimodal for everything else (PDF, DOCX, PPTX, XLSX, images, MSG, EML, DWG, etc.)
+      try {
+        const arrayBuffer = await fileData.arrayBuffer();
+        const uint8 = new Uint8Array(arrayBuffer);
+        // Convert to base64
+        let binary = "";
+        const chunkSize = 8192;
+        for (let i = 0; i < uint8.length; i += chunkSize) {
+          const chunk = uint8.subarray(i, i + chunkSize);
+          binary += String.fromCharCode(...chunk);
+        }
+        const base64 = btoa(binary);
+
+        text = await extractWithGemini(base64, mime, doc.nombre, LOVABLE_API_KEY);
+        extraction_method = "gemini_multimodal";
+
+        // If Gemini returned empty or very short, add metadata fallback
+        if (!text || text.trim().length < 20) {
+          text = `[Documento: ${doc.nombre}. Tipo: ${mime}. Tamaño: ${doc.tamano_bytes || 0} bytes. Dominio: ${dominio}. Extracción automática no pudo obtener contenido textual significativo.]`;
+          extraction_method = "metadata_fallback";
+        }
+      } catch (geminiErr) {
+        console.error("Gemini extraction failed:", geminiErr);
+        // Fallback: store metadata as chunk
+        text = `[Documento: ${doc.nombre}. Tipo: ${mime}. Tamaño: ${doc.tamano_bytes || 0} bytes. Dominio: ${dominio}. Error en extracción: ${geminiErr instanceof Error ? geminiErr.message : "unknown"}]`;
+        extraction_method = "error_fallback";
+      }
     }
 
     if (!text || text.trim().length === 0) {
       return new Response(JSON.stringify({ error: "No extractable text" }), { status: 422, headers: corsHeaders });
     }
+
+    // Sanitize: remove null bytes and invalid Unicode escape sequences that break PostgreSQL
+    text = text.replace(/\x00/g, "").replace(/\\u0000/g, "");
 
     // Chunk text (~500 tokens ≈ ~2000 chars, overlap ~200 chars)
     const CHUNK_SIZE = 2000;
@@ -118,7 +234,7 @@ serve(async (req) => {
       contenido,
       chunk_index: i,
       dominio,
-      metadata: { nombre: doc.nombre, mime_type: mime, tipo_documento: doc.tipo_documento },
+      metadata: { nombre: doc.nombre, mime_type: mime, tipo_documento: doc.tipo_documento, extraction_method },
     }));
 
     if (rows.length > 0) {
@@ -138,6 +254,7 @@ serve(async (req) => {
       chunks_created: rows.length,
       documento_id,
       dominio,
+      extraction_method,
     }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
   } catch (e) {
     console.error("rag-ingest error:", e);
