@@ -8,12 +8,17 @@ import { generateForgeDocument, FORGE_MODES, ForgeMode } from "@/services/ragSer
 import { useToast } from "@/hooks/use-toast";
 import { generateProfessionalPdf, downloadBlob } from "@/services/pdfService";
 
+interface Props {
+  proyectoId: string;
+}
+
 export function ProyectoForge({ proyectoId }: Props) {
   const { toast } = useToast();
   const [mode, setMode] = useState<ForgeMode>("dossier_operador");
   const [context, setContext] = useState("");
   const [result, setResult] = useState("");
   const [loading, setLoading] = useState(false);
+  const [exportingPdf, setExportingPdf] = useState(false);
   const [meta, setMeta] = useState<{ model: string; latency_ms: number } | null>(null);
 
   const handleGenerate = async () => {
@@ -31,9 +36,21 @@ export function ProyectoForge({ proyectoId }: Props) {
     setLoading(false);
   };
 
-  const handleExportPdf = () => {
-    exportToPdf(result, mode);
-    toast({ title: "Exportando PDF", description: "Se abrirá el diálogo de impresión/guardado." });
+  const handleExportPdf = async () => {
+    setExportingPdf(true);
+    const modeInfo = FORGE_MODES.find(m => m.value === mode);
+    const { blob, error } = await generateProfessionalPdf(
+      modeInfo?.label || "Documento FORGE",
+      result,
+      modeInfo?.label
+    );
+    if (blob) {
+      downloadBlob(blob, `${modeInfo?.label || "documento"}.pdf`);
+      toast({ title: "PDF descargado" });
+    } else {
+      toast({ title: "Error", description: error, variant: "destructive" });
+    }
+    setExportingPdf(false);
   };
 
   return (
