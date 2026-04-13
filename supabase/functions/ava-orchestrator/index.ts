@@ -649,41 +649,72 @@ serve(async (req) => {
       `[Resultado de ${tr.tool}]:\n${JSON.stringify(tr.result).substring(0, 6000)}`
     ).join("\n\n");
 
-    const synthesisMessages = [
+    // Build synthesis messages with cumulative summary
+    const synthesisMessages: Array<{ role: string; content: string }> = [
       { role: "system", content: SYSTEM_PROMPT },
-      ...(history && Array.isArray(history) ? history.slice(-10).map((h: any) => ({ role: h.role, content: h.content })) : []),
+    ];
+    
+    if (cumulativeSummary) {
+      synthesisMessages.push({
+        role: "system",
+        content: `CONTEXTO ACUMULADO DE LA CONVERSACIÓN (hechos establecidos que NO debes contradecir bajo ninguna circunstancia):\n\n${cumulativeSummary}`
+      });
+    }
+
+    if (history && Array.isArray(history)) {
+      const recentForSynthesis = history.length > 12 ? history.slice(-6) : history;
+      for (const h of recentForSynthesis) {
+        synthesisMessages.push({ role: h.role, content: h.content });
+      }
+    }
+
+    synthesisMessages.push(
       { role: "user", content: message },
       { 
         role: "assistant", 
         content: `He ejecutado las siguientes herramientas para responder a la pregunta del usuario. Aquí están los resultados obtenidos:\n\n${toolResultsSummary}`
       },
       { role: "user", content: "Basándote en los datos obtenidos y en tu conocimiento general del sector retail e inmobiliario comercial, responde de forma completa, detallada y profesional a mi pregunta original. Si los datos de la base de datos están vacíos o no son suficientes, complementa con tu conocimiento general. NUNCA respondas que no puedes formular una respuesta. Siempre ofrece análisis, recomendaciones y valor. Responde en español." },
-    ];
+    );
 
-    const synthesisResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${lovableKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "google/gemini-3.1-pro-preview",
-        messages: synthesisMessages,
-      }),
-    });
-
-    // Use first call's partial content as fallback base
-    const firstCallContent = choice?.content || "";
+    let finalAnswer: string = "";
     
-    let finalAnswer: string;
-    if (synthesisResponse.ok) {
-      const synthesisData = await synthesisResponse.json();
-      finalAnswer = synthesisData.choices?.[0]?.message?.content || "";
-      if (!finalAnswer) {
-        console.error("Empty synthesis response:", JSON.stringify(synthesisData).substring(0, 1000));
-        // Fallback: use first call content if available, otherwise format tool results
-        finalAnswer = firstCallContent || formatToolResultsFallback(toolResults);
+    // Try synthesis up to 2 times
+    for (let attempt = 0; attempt < 2; attempt++) {
+      const synthesisResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${lovableKey}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model: "google/gemini-3.1-pro-preview",
+          messages: attempt === 0 ? synthesisMessages : [
+            // Simplified retry: just system + tool results + question
+            { role: "system", content: "Eres AVA, asistente estratégica de inmobiliario comercial. Responde en español con markdown rico." },
+            { role: "user", content: `Pregunta del usuario: ${message}\n\nDatos obtenidos:\n${toolResultsSummary}\n\nResponde de forma completa y profesional.` },
+          ],
+        }),
+      });
+
+      if (synthesisResponse.ok) {
+        const synthesisData = await synthesisResponse.json();
+        finalAnswer = synthesisData.choices?.[0]?.message?.content || "";
+        const usage2 = synthesisData.usage || {};
+        totalTokensIn += usage2.prompt_tokens || 0;
+        totalTokensOut += usage2.completion_tokens || 0;
+        if (finalAnswer) break; // Success
+        console.error(`Synthesis attempt ${attempt + 1} returned empty`);
+      } else {
+        const errBody = await synthesisResponse.text();
+        console.error(`Synthesis attempt ${attempt + 1} failed:`, synthesisResponse.status, errBody);
       }
+    }
+
+    // Final fallback
+    if (!finalAnswer) {
+      finalAnswer = firstCallContent || formatToolResultsFallback(toolResults);
+    }
       const usage2 = synthesisData.usage || {};
       totalTokensIn += usage2.prompt_tokens || 0;
       totalTokensOut += usage2.completion_tokens || 0;
