@@ -460,12 +460,13 @@ Deno.serve(async (req) => {
     }
 
     const pdfBuffer = await pdfResponse.arrayBuffer();
+    const cleanTitle = stripEmoji(title).replace(/[^a-zA-Z0-9áéíóúñü ]/gi, '_');
 
     return new Response(pdfBuffer, {
       headers: {
         ...corsHeaders,
         "Content-Type": "application/pdf",
-        "Content-Disposition": `attachment; filename="${safeTitle.replace(/[^a-zA-Z0-9áéíóúñü ]/gi, '_')}.pdf"`,
+        "Content-Disposition": `attachment; filename="${cleanTitle}.pdf"`,
       },
     });
   } catch (err) {
@@ -476,7 +477,3 @@ Deno.serve(async (req) => {
     );
   }
 });
-
-function safeTitle(title: string): string {
-  return stripEmoji(title);
-}
