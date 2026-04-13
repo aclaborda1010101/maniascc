@@ -6,92 +6,10 @@ import { Textarea } from "@/components/ui/textarea";
 import { Hammer, Loader2, Copy, FileDown } from "lucide-react";
 import { generateForgeDocument, FORGE_MODES, ForgeMode } from "@/services/ragService";
 import { useToast } from "@/hooks/use-toast";
+import { generateProfessionalPdf, downloadBlob } from "@/services/pdfService";
 
 interface Props {
   proyectoId: string;
-}
-
-/**
- * Convert markdown-like text to styled HTML for PDF export
- */
-function markdownToHtml(text: string, title: string, modeLabel: string): string {
-  let html = text
-    // Headers
-    .replace(/^### (.+)$/gm, '<h3 style="font-size:14px;font-weight:700;margin:18px 0 8px;color:#1a1a2e;">$1</h3>')
-    .replace(/^## (.+)$/gm, '<h2 style="font-size:16px;font-weight:700;margin:22px 0 10px;color:#1a1a2e;">$1</h2>')
-    .replace(/^# (.+)$/gm, '<h1 style="font-size:20px;font-weight:700;margin:24px 0 12px;color:#1a1a2e;">$1</h1>')
-    // Bold & italic
-    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
-    .replace(/\*(.+?)\*/g, '<em>$1</em>')
-    // Bullet lists
-    .replace(/^[-•] (.+)$/gm, '<li style="margin:3px 0;">$1</li>')
-    // Numbered lists
-    .replace(/^\d+\. (.+)$/gm, '<li style="margin:3px 0;">$1</li>')
-    // Line breaks
-    .replace(/\n\n/g, '</p><p style="margin:8px 0;line-height:1.6;">')
-    .replace(/\n/g, '<br/>');
-
-  // Wrap consecutive <li> in <ul>
-  html = html.replace(/(<li[^>]*>.*?<\/li>(\s*<br\/>)?)+/g, (match) => {
-    const cleaned = match.replace(/<br\/>/g, '');
-    return `<ul style="margin:8px 0 8px 20px;padding:0;">${cleaned}</ul>`;
-  });
-
-  const now = new Date().toLocaleDateString("es-ES", { year: "numeric", month: "long", day: "numeric" });
-
-  return `<!DOCTYPE html>
-<html lang="es">
-<head>
-  <meta charset="utf-8">
-  <title>${title}</title>
-  <style>
-    @page { margin: 2cm; size: A4; }
-    body { font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; color: #1a1a2e; font-size: 11px; line-height: 1.6; }
-    .header { border-bottom: 2px solid #6366f1; padding-bottom: 12px; margin-bottom: 20px; }
-    .header h1 { font-size: 22px; margin: 0; color: #1a1a2e; }
-    .header .meta { font-size: 10px; color: #64748b; margin-top: 4px; }
-    .footer { position: fixed; bottom: 0; left: 0; right: 0; text-align: center; font-size: 9px; color: #94a3b8; border-top: 1px solid #e2e8f0; padding-top: 8px; }
-    .content p { margin: 8px 0; }
-    .badge { display: inline-block; background: #6366f1; color: white; font-size: 9px; padding: 2px 8px; border-radius: 4px; font-weight: 600; }
-  </style>
-</head>
-<body>
-  <div class="header">
-    <h1>${title}</h1>
-    <div class="meta">
-      <span class="badge">${modeLabel}</span> &nbsp;·&nbsp; Generado el ${now} &nbsp;·&nbsp; MANIAS CC — Plataforma de Gestión Inmobiliaria
-    </div>
-  </div>
-  <div class="content">
-    <p style="margin:8px 0;line-height:1.6;">${html}</p>
-  </div>
-  <div class="footer">Documento generado por FORGE IA — MANIAS CC</div>
-</body>
-</html>`;
-}
-
-function exportToPdf(content: string, mode: ForgeMode) {
-  const modeInfo = FORGE_MODES.find(m => m.value === mode);
-  const title = modeInfo?.label || "Documento FORGE";
-  const htmlContent = markdownToHtml(content, title, `${modeInfo?.icon || "📄"} ${title}`);
-
-  // Open print dialog for PDF
-  const printWindow = window.open("", "_blank");
-  if (!printWindow) return;
-
-  printWindow.document.write(htmlContent);
-  printWindow.document.close();
-
-  // Wait for rendering then trigger print
-  printWindow.onload = () => {
-    setTimeout(() => {
-      printWindow.print();
-    }, 300);
-  };
-  // Fallback for browsers that don't fire onload for data
-  setTimeout(() => {
-    printWindow.print();
-  }, 800);
 }
 
 export function ProyectoForge({ proyectoId }: Props) {
@@ -100,6 +18,7 @@ export function ProyectoForge({ proyectoId }: Props) {
   const [context, setContext] = useState("");
   const [result, setResult] = useState("");
   const [loading, setLoading] = useState(false);
+  const [exportingPdf, setExportingPdf] = useState(false);
   const [meta, setMeta] = useState<{ model: string; latency_ms: number } | null>(null);
 
   const handleGenerate = async () => {
@@ -117,9 +36,21 @@ export function ProyectoForge({ proyectoId }: Props) {
     setLoading(false);
   };
 
-  const handleExportPdf = () => {
-    exportToPdf(result, mode);
-    toast({ title: "Exportando PDF", description: "Se abrirá el diálogo de impresión/guardado." });
+  const handleExportPdf = async () => {
+    setExportingPdf(true);
+    const modeInfo = FORGE_MODES.find(m => m.value === mode);
+    const { blob, error } = await generateProfessionalPdf(
+      modeInfo?.label || "Documento FORGE",
+      result,
+      modeInfo?.label
+    );
+    if (blob) {
+      downloadBlob(blob, `${modeInfo?.label || "documento"}.pdf`);
+      toast({ title: "PDF descargado" });
+    } else {
+      toast({ title: "Error", description: error, variant: "destructive" });
+    }
+    setExportingPdf(false);
   };
 
   return (
@@ -154,8 +85,8 @@ export function ProyectoForge({ proyectoId }: Props) {
                 <Button variant="ghost" size="sm" onClick={() => { navigator.clipboard.writeText(result); toast({ title: "Copiado" }); }}>
                   <Copy className="h-3.5 w-3.5 mr-1" /> Copiar
                 </Button>
-                <Button variant="outline" size="sm" onClick={handleExportPdf}>
-                  <FileDown className="h-3.5 w-3.5 mr-1" /> Exportar PDF
+                <Button variant="outline" size="sm" onClick={handleExportPdf} disabled={exportingPdf}>
+                  {exportingPdf ? <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" /> : <FileDown className="h-3.5 w-3.5 mr-1" />} Exportar PDF
                 </Button>
               </div>
             </div>
