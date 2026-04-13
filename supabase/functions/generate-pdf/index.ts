@@ -182,11 +182,11 @@ function buildFullHtml(title: string, contentMd: string, modeLabel: string, date
   }
   .cover-title {
     font-family: 'Playfair Display', Georgia, 'Times New Roman', serif;
-    font-size: 30pt;
+    font-size: 22pt;
     font-weight: 700;
-    line-height: 1.25;
+    line-height: 1.3;
     color: var(--navy);
-    max-width: 500px;
+    max-width: 600px;
   }
   .cover-meta {
     margin-top: 48px;
@@ -221,7 +221,7 @@ function buildFullHtml(title: string, contentMd: string, modeLabel: string, date
   /* ════════ TOC ════════ */
   .toc-page {
     page-break-after: always;
-    padding: 0 20mm;
+    padding: 10mm 20mm 0;
   }
   .toc-header {
     font-family: 'Inter', sans-serif;
@@ -291,9 +291,15 @@ function buildFullHtml(title: string, contentMd: string, modeLabel: string, date
     font-weight: 700;
     color: var(--navy);
     margin: 32px 0 10px;
-    padding-left: 14px;
+    padding: 8px 0 0 14px;
     border-left: 4px solid var(--navy);
     page-break-after: avoid;
+  }
+  .content h2 + * {
+    page-break-before: avoid;
+  }
+  .content .section-block {
+    page-break-inside: avoid;
   }
   .content h3 {
     font-size: 11pt;
@@ -440,7 +446,7 @@ Deno.serve(async (req) => {
         apiKey,
         format: "A4",
         margin: {
-          top: "15mm",
+          top: "20mm",
           bottom: "20mm",
           left: "0mm",
           right: "0mm",
