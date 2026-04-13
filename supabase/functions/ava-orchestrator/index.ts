@@ -235,6 +235,58 @@ function formatToolResultsFallback(toolResults: Array<{ tool: string; result: an
   return "He consultado las siguientes fuentes de datos:\n\n" + sections.join("\n\n");
 }
 
+// Summarize older history messages using a cheap/fast model to preserve context
+async function summarizeOlderHistory(
+  olderMessages: Array<{ role: string; content: string }>,
+  lovableKey: string
+): Promise<string> {
+  const conversationText = olderMessages.map(m => 
+    `${m.role === "user" ? "USUARIO" : "AVA"}: ${m.content.substring(0, 2000)}`
+  ).join("\n\n");
+
+  try {
+    const resp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${lovableKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "google/gemini-2.5-flash-lite",
+        messages: [
+          { 
+            role: "system", 
+            content: `Eres un asistente que resume conversaciones de trabajo sobre inmobiliario comercial y retail.
+Tu ÚNICA tarea es extraer y listar TODOS los hechos clave, restricciones, decisiones y datos mencionados.
+
+REGLAS:
+- Lista cada hecho como un bullet point conciso
+- NO omitas NINGUNA restricción o corrección del usuario
+- Incluye: nombres de operadores, datos de superficie, ubicaciones, competidores cercanos, operadores ya existentes, decisiones tomadas
+- Incluye correcciones explícitas del usuario (ej: "ya hay un KFC enfrente", "no hay superficie para X")
+- Máximo 800 palabras` 
+          },
+          { 
+            role: "user", 
+            content: `Resume los hechos clave de esta conversación:\n\n${conversationText}` 
+          }
+        ],
+      }),
+    });
+
+    if (!resp.ok) {
+      console.error("Summary call failed:", resp.status);
+      return "";
+    }
+
+    const data = await resp.json();
+    return data.choices?.[0]?.message?.content || "";
+  } catch (e) {
+    console.error("Error summarizing history:", e);
+    return "";
+  }
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
@@ -274,10 +326,31 @@ serve(async (req) => {
       { role: "system", content: SYSTEM_PROMPT },
     ];
 
-    // Add conversation history (last 10 messages for context)
+    // Build context with cumulative summary for long conversations
+    let cumulativeSummary = "";
     if (history && Array.isArray(history)) {
-      for (const h of history.slice(-10)) {
-        messages.push({ role: h.role, content: h.content });
+      if (history.length > 12) {
+        // Split: older messages get summarized, recent 6 stay raw
+        const olderMessages = history.slice(0, history.length - 6);
+        const recentMessages = history.slice(-6);
+        
+        cumulativeSummary = await summarizeOlderHistory(olderMessages, lovableKey);
+        
+        if (cumulativeSummary) {
+          messages.push({
+            role: "system",
+            content: `CONTEXTO ACUMULADO DE LA CONVERSACIÓN (hechos establecidos que NO debes contradecir bajo ninguna circunstancia):\n\n${cumulativeSummary}`
+          });
+        }
+        
+        for (const h of recentMessages) {
+          messages.push({ role: h.role, content: h.content });
+        }
+      } else {
+        // Short conversation: send all messages
+        for (const h of history) {
+          messages.push({ role: h.role, content: h.content });
+        }
       }
     }
     messages.push({ role: "user", content: message });
