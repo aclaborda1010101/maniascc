@@ -21,6 +21,7 @@ export default function GeneradorDocumentos() {
   const [loading, setLoading] = useState(false);
   const [meta, setMeta] = useState<{ model: string; latency_ms: number } | null>(null);
   const [selectedProyecto, setSelectedProyecto] = useState<string>("");
+  const [exportingPdf, setExportingPdf] = useState(false);
 
   const { data: proyectos } = useQuery({
     queryKey: ["proyectos-selector"],

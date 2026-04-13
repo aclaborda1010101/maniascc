@@ -11,6 +11,28 @@ import { cn } from "@/lib/utils";
 import { generateProfessionalPdf, downloadBlob } from "@/services/pdfService";
 import { useToast } from "@/hooks/use-toast";
 
+function PdfDownloadButton({ content, title }: { content: string; title?: string }) {
+  const { toast } = useToast();
+  const [exporting, setExporting] = useState(false);
+  const handleClick = async () => {
+    setExporting(true);
+    const docTitle = title || "Informe AVA";
+    const { blob, error } = await generateProfessionalPdf(docTitle, content, "Asistente IA");
+    if (blob) {
+      downloadBlob(blob, `${docTitle}.pdf`);
+      toast({ title: "PDF descargado" });
+    } else {
+      toast({ title: "Error", description: error, variant: "destructive" });
+    }
+    setExporting(false);
+  };
+  return (
+    <Button variant="outline" size="sm" className="mt-2 gap-1.5 text-xs h-7 px-3 border-accent text-accent" onClick={handleClick} disabled={exporting}>
+      {exporting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <FileDown className="h-3.5 w-3.5" />} Descargar informe PDF
+    </Button>
+  );
+}
+
 export default function AsistenteIA() {
   const {
     conversations, activeConversationId, messages, input, setInput,

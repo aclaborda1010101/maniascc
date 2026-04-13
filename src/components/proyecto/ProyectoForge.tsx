@@ -85,8 +85,8 @@ export function ProyectoForge({ proyectoId }: Props) {
                 <Button variant="ghost" size="sm" onClick={() => { navigator.clipboard.writeText(result); toast({ title: "Copiado" }); }}>
                   <Copy className="h-3.5 w-3.5 mr-1" /> Copiar
                 </Button>
-                <Button variant="outline" size="sm" onClick={handleExportPdf}>
-                  <FileDown className="h-3.5 w-3.5 mr-1" /> Exportar PDF
+                <Button variant="outline" size="sm" onClick={handleExportPdf} disabled={exportingPdf}>
+                  {exportingPdf ? <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" /> : <FileDown className="h-3.5 w-3.5 mr-1" />} Exportar PDF
                 </Button>
               </div>
             </div>
