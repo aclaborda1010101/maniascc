@@ -3,9 +3,30 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+/**
+ * Strip emoji characters that render as □ in PDF fonts
+ */
+function stripEmoji(text: string): string {
+  return text
+    // Remove common emoji ranges
+    .replace(/[\u{1F300}-\u{1F9FF}]/gu, '')
+    .replace(/[\u{2600}-\u{27BF}]/gu, '')
+    .replace(/[\u{FE00}-\u{FE0F}]/gu, '')
+    .replace(/[\u{1F000}-\u{1F02F}]/gu, '')
+    .replace(/[\u{200D}]/gu, '')
+    // Remove specific symbols that appear as boxes
+    .replace(/[📄📊🏢🔍📋🤝🏗️🍔🛍️⚡💡🎯🔑✅❌⚠️🚀📈📉💰🏠🏬🔥⭐🎪🏪🛒🍕🍟🍔☕🥤🍻🎉🔧⚙️📌📍🗺️🏆🎯💎🌟✨🔶🔷▶️◀️🔲🔳▪️▫️◽◾⬛⬜🟥🟧🟨🟩🟦🟪🟫☑️✔️❗❓‼️⁉️]/gu, '')
+    // Clean up leftover whitespace
+    .replace(/^\s+/gm, (m) => m.replace(/  +/g, ' '))
+    .trim();
+}
+
 function markdownToHtml(md: string): string {
-  let html = md
-    // Tables - convert markdown tables to HTML
+  // Pre-process: strip emojis
+  let cleaned = stripEmoji(md);
+
+  let html = cleaned
+    // Tables
     .replace(/^\|(.+)\|\s*\n\|[-| :]+\|\s*\n((?:\|.+\|\s*\n?)*)/gm, (_match, headerRow, bodyRows) => {
       const headers = headerRow.split('|').map((h: string) => h.trim()).filter(Boolean);
       const headerHtml = headers.map((h: string) => `<th>${h}</th>`).join('');
@@ -18,22 +39,24 @@ function markdownToHtml(md: string): string {
     // Headers
     .replace(/^#### (.+)$/gm, '<h4>$1</h4>')
     .replace(/^### (.+)$/gm, '<h3>$1</h3>')
-    .replace(/^## (.+)$/gm, '<h2 class="section-heading">$1</h2>')
+    .replace(/^## (.+)$/gm, '<h2>$1</h2>')
     .replace(/^# (.+)$/gm, '<h1>$1</h1>')
     // Bold & italic
     .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
     .replace(/\*(.+?)\*/g, '<em>$1</em>')
-    // Bullet lists
-    .replace(/^[-•] (.+)$/gm, '<li>$1</li>')
+    // Bullet lists (including * prefix)
+    .replace(/^[*\-•] (.+)$/gm, '<li>$1</li>')
     // Numbered lists
-    .replace(/^\d+\. (.+)$/gm, '<li class="numbered">$1</li>')
+    .replace(/^\d+\.\s+(.+)$/gm, '<li class="numbered">$1</li>')
     // Horizontal rules
     .replace(/^---$/gm, '<hr/>')
-    // Line breaks
+    // Blockquotes
+    .replace(/^> (.+)$/gm, '<blockquote>$1</blockquote>')
+    // Paragraphs
     .replace(/\n\n/g, '</p><p>')
     .replace(/\n/g, '<br/>');
 
-  // Wrap consecutive <li> in <ul>
+  // Wrap consecutive <li> in <ul> or <ol>
   html = html.replace(/(<li[^>]*>.*?<\/li>(\s*<br\/>)?)+/g, (match) => {
     const cleaned = match.replace(/<br\/>/g, '');
     const isNumbered = cleaned.includes('class="numbered"');
@@ -41,6 +64,9 @@ function markdownToHtml(md: string): string {
     const cleanedItems = cleaned.replace(/ class="numbered"/g, '');
     return `<${tag}>${cleanedItems}</${tag}>`;
   });
+
+  // Merge consecutive blockquotes
+  html = html.replace(/<\/blockquote>(\s*<br\/>)*\s*<blockquote>/g, '<br/>');
 
   return html;
 }
@@ -52,7 +78,9 @@ function extractHeadings(md: string): { level: number; text: string; id: string 
     const match = line.match(/^(#{1,3}) (.+)$/);
     if (match) {
       const level = match[1].length;
-      const text = match[2].replace(/\*\*/g, '').replace(/\*/g, '');
+      let text = match[2].replace(/\*\*/g, '').replace(/\*/g, '');
+      text = stripEmoji(text).trim();
+      if (!text) continue;
       const id = text.toLowerCase().replace(/[^a-záéíóúñü0-9]+/gi, '-').replace(/^-|-$/g, '');
       headings.push({ level, text, id });
     }
@@ -64,27 +92,23 @@ function buildFullHtml(title: string, contentMd: string, modeLabel: string, date
   const headings = extractHeadings(contentMd);
   const contentHtml = markdownToHtml(contentMd);
 
-  // Add IDs to section headings in content
+  // Add IDs to section headings
   let contentWithIds = contentHtml;
   for (const h of headings) {
     const tag = h.level === 1 ? 'h1' : h.level === 2 ? 'h2' : 'h3';
-    const classAttr = h.level === 2 ? ' class="section-heading"' : '';
-    contentWithIds = contentWithIds.replace(
-      `<${tag}${classAttr}>${h.text}</${tag}>`,
-      `<${tag}${classAttr} id="${h.id}">${h.text}</${tag}>`
-    );
+    // Match the heading tag with or without the stripped emoji text
+    const escapedText = h.text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const regex = new RegExp(`<${tag}>([^<]*${escapedText}[^<]*)</${tag}>`);
+    contentWithIds = contentWithIds.replace(regex, `<${tag} id="${h.id}">$1</${tag}>`);
   }
 
-  // Build TOC
-  const tocItems = headings
-    .filter(h => h.level <= 2)
+  // Build TOC - only ## headings (sections)
+  const tocHeadings = headings.filter(h => h.level === 2);
+  const tocItems = tocHeadings
     .map((h, i) => {
-      const indent = h.level === 1 ? '' : 'padding-left: 20px;';
-      const weight = h.level === 1 ? 'font-weight: 700;' : '';
-      return `<div class="toc-item" style="${indent}${weight}">
+      return `<div class="toc-item">
         <span class="toc-num">${i + 1}.</span>
         <span class="toc-text">${h.text}</span>
-        <span class="toc-dots"></span>
       </div>`;
     })
     .join('');
@@ -93,7 +117,7 @@ function buildFullHtml(title: string, contentMd: string, modeLabel: string, date
 <html lang="es">
 <head>
 <meta charset="utf-8">
-<title>${title}</title>
+<title>${stripEmoji(title)}</title>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
 
@@ -101,8 +125,8 @@ function buildFullHtml(title: string, contentMd: string, modeLabel: string, date
 
   body {
     font-family: 'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif;
-    color: #1a1a2e;
-    font-size: 11pt;
+    color: #1e293b;
+    font-size: 10.5pt;
     line-height: 1.7;
   }
 
@@ -121,61 +145,55 @@ function buildFullHtml(title: string, contentMd: string, modeLabel: string, date
   .cover::before {
     content: '';
     position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    height: 6px;
+    top: 0; left: 0; right: 0;
+    height: 5px;
     background: linear-gradient(90deg, #6366f1, #8b5cf6, #6366f1);
   }
   .cover-brand {
-    font-size: 13pt;
+    font-size: 12pt;
     font-weight: 600;
-    letter-spacing: 6px;
+    letter-spacing: 5px;
     text-transform: uppercase;
     color: #6366f1;
-    margin-bottom: 60px;
+    margin-bottom: 50px;
   }
   .cover-line {
-    width: 80px;
-    height: 3px;
+    width: 60px;
+    height: 2px;
     background: linear-gradient(90deg, #6366f1, #8b5cf6);
-    margin: 30px auto;
+    margin: 24px auto;
     border-radius: 2px;
   }
   .cover-title {
-    font-size: 32pt;
+    font-size: 28pt;
     font-weight: 800;
     line-height: 1.2;
-    color: #1a1a2e;
-    margin-bottom: 8px;
-    max-width: 500px;
+    color: #1e293b;
+    max-width: 480px;
   }
   .cover-meta {
-    margin-top: 50px;
-    font-size: 10pt;
-    color: #64748b;
+    margin-top: 40px;
   }
   .cover-badge {
     display: inline-block;
     background: #6366f1;
     color: white;
-    font-size: 8pt;
-    padding: 4px 14px;
-    border-radius: 4px;
+    font-size: 7.5pt;
+    padding: 3px 12px;
+    border-radius: 3px;
     font-weight: 600;
     letter-spacing: 1px;
     text-transform: uppercase;
-    margin-bottom: 12px;
+    margin-bottom: 10px;
   }
   .cover-date {
-    font-size: 11pt;
-    color: #475569;
-    font-weight: 400;
+    font-size: 10pt;
+    color: #64748b;
   }
   .cover-footer {
     position: absolute;
     bottom: 40px;
-    font-size: 8pt;
+    font-size: 7.5pt;
     color: #94a3b8;
     letter-spacing: 2px;
     text-transform: uppercase;
@@ -184,113 +202,129 @@ function buildFullHtml(title: string, contentMd: string, modeLabel: string, date
   /* ─── TOC PAGE ─── */
   .toc-page {
     page-break-after: always;
-    padding: 60px 70px;
+    padding: 50px 60px;
   }
-  .toc-page h2 {
-    font-size: 18pt;
+  .toc-title {
+    font-size: 16pt;
     font-weight: 700;
-    color: #1a1a2e;
-    margin-bottom: 8px;
+    color: #1e293b;
+    margin-bottom: 6px;
   }
   .toc-separator {
-    width: 50px;
-    height: 3px;
+    width: 40px;
+    height: 2px;
     background: #6366f1;
-    margin-bottom: 30px;
-    border-radius: 2px;
+    margin-bottom: 24px;
   }
   .toc-item {
     display: flex;
     align-items: baseline;
-    padding: 6px 0;
-    font-size: 10.5pt;
-    border-bottom: 1px dotted #e2e8f0;
+    padding: 8px 0;
+    font-size: 10pt;
+    border-bottom: 1px solid #f1f5f9;
   }
+  .toc-item:last-child { border-bottom: none; }
   .toc-num {
-    width: 30px;
+    width: 28px;
     color: #6366f1;
     font-weight: 600;
     flex-shrink: 0;
   }
-  .toc-text { flex: 1; }
+  .toc-text {
+    flex: 1;
+    color: #334155;
+  }
 
-  /* ─── CONTENT PAGES ─── */
+  /* ─── CONTENT ─── */
   .content {
-    padding: 0 70px;
+    padding: 0 60px;
   }
   .content p {
-    margin: 10px 0;
+    margin: 8px 0;
     text-align: justify;
+    orphans: 3;
+    widows: 3;
   }
   .content h1 {
-    font-size: 18pt;
+    font-size: 16pt;
     font-weight: 800;
-    color: #1a1a2e;
-    margin: 36px 0 14px;
+    color: #1e293b;
+    margin: 28px 0 12px;
     page-break-after: avoid;
   }
   .content h2 {
-    font-size: 14pt;
+    font-size: 13pt;
     font-weight: 700;
-    color: #1a1a2e;
-    margin: 30px 0 12px;
-    padding-bottom: 6px;
+    color: #1e293b;
+    margin: 28px 0 10px;
+    padding-top: 16px;
+    padding-bottom: 5px;
     border-bottom: 2px solid #6366f1;
-    page-break-before: always;
     page-break-after: avoid;
   }
-  .content h2:first-of-type {
-    page-break-before: avoid;
-  }
   .content h3 {
-    font-size: 12pt;
+    font-size: 11pt;
     font-weight: 600;
     color: #334155;
-    margin: 22px 0 8px;
+    margin: 20px 0 6px;
     page-break-after: avoid;
   }
   .content h4 {
-    font-size: 11pt;
+    font-size: 10pt;
     font-weight: 600;
     color: #475569;
-    margin: 16px 0 6px;
+    margin: 14px 0 4px;
   }
   .content ul, .content ol {
-    margin: 10px 0 10px 24px;
+    margin: 6px 0 6px 22px;
     padding: 0;
   }
   .content li {
-    margin: 4px 0;
+    margin: 3px 0;
     line-height: 1.6;
   }
   .content strong {
     font-weight: 700;
-    color: #1e293b;
+    color: #0f172a;
+  }
+  .content em {
+    font-style: italic;
+    color: #334155;
   }
   .content hr {
     border: none;
     border-top: 1px solid #e2e8f0;
-    margin: 24px 0;
+    margin: 18px 0;
+  }
+  .content blockquote {
+    border-left: 3px solid #6366f1;
+    padding: 8px 16px;
+    margin: 12px 0;
+    background: #f8fafc;
+    color: #475569;
+    font-style: italic;
   }
   .content table {
     width: 100%;
     border-collapse: collapse;
-    margin: 16px 0;
-    font-size: 10pt;
+    margin: 12px 0;
+    font-size: 9.5pt;
+    page-break-inside: avoid;
   }
   .content th {
     background: #f1f5f9;
     font-weight: 600;
     text-align: left;
-    padding: 8px 12px;
+    padding: 6px 10px;
     border: 1px solid #e2e8f0;
+    color: #334155;
   }
   .content td {
-    padding: 6px 12px;
+    padding: 5px 10px;
     border: 1px solid #e2e8f0;
   }
   .content tr:nth-child(even) td {
-    background: #f8fafc;
+    background: #fafbfc;
   }
 </style>
 </head>
@@ -298,12 +332,12 @@ function buildFullHtml(title: string, contentMd: string, modeLabel: string, date
 
 <!-- COVER -->
 <div class="cover">
-  <div class="cover-brand">F&G Real Estate</div>
+  <div class="cover-brand">F&amp;G Real Estate</div>
   <div class="cover-line"></div>
-  <div class="cover-title">${title}</div>
+  <div class="cover-title">${stripEmoji(title)}</div>
   <div class="cover-line"></div>
   <div class="cover-meta">
-    <div class="cover-badge">${modeLabel}</div>
+    <div class="cover-badge">${stripEmoji(modeLabel)}</div>
     <div class="cover-date">${date}</div>
   </div>
   <div class="cover-footer">Documento confidencial</div>
@@ -311,7 +345,7 @@ function buildFullHtml(title: string, contentMd: string, modeLabel: string, date
 
 <!-- TABLE OF CONTENTS -->
 <div class="toc-page">
-  <h2>Índice</h2>
+  <div class="toc-title">&Iacute;ndice</div>
   <div class="toc-separator"></div>
   ${tocItems || '<p style="color:#94a3b8;font-style:italic;">Sin secciones detectadas</p>'}
 </div>
@@ -355,7 +389,6 @@ Deno.serve(async (req) => {
 
     const fullHtml = buildFullHtml(title, content_markdown, modeLabel, docDate);
 
-    // Call html2pdf.app API
     const pdfResponse = await fetch("https://api.html2pdf.app/v1/generate", {
       method: "POST",
       headers: {
@@ -367,16 +400,16 @@ Deno.serve(async (req) => {
         apiKey,
         format: "A4",
         margin: {
-          top: "20mm",
-          bottom: "25mm",
+          top: "15mm",
+          bottom: "20mm",
           left: "0mm",
           right: "0mm",
         },
         displayHeaderFooter: true,
         headerTemplate: "<div></div>",
-        footerTemplate: `<div style="width:100%;text-align:center;font-size:8px;color:#94a3b8;font-family:Inter,sans-serif;padding:0 40px;">
-          <span>F&G Real Estate — Generado por AVA</span>
-          <span style="float:right;">Pág. <span class="pageNumber"></span> de <span class="totalPages"></span></span>
+        footerTemplate: `<div style="width:100%;text-align:center;font-size:7px;color:#94a3b8;font-family:Inter,system-ui,sans-serif;padding:0 30px;display:flex;justify-content:space-between;">
+          <span>F&amp;G Real Estate</span>
+          <span>P&aacute;g. <span class="pageNumber"></span> / <span class="totalPages"></span></span>
         </div>`,
       }),
     });
@@ -396,7 +429,7 @@ Deno.serve(async (req) => {
       headers: {
         ...corsHeaders,
         "Content-Type": "application/pdf",
-        "Content-Disposition": `attachment; filename="${title.replace(/[^a-zA-Z0-9áéíóúñü ]/gi, '_')}.pdf"`,
+        "Content-Disposition": `attachment; filename="${stripEmoji(title).replace(/[^a-zA-Z0-9áéíóúñü ]/gi, '_')}.pdf"`,
       },
     });
   } catch (err) {
