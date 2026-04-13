@@ -211,6 +211,9 @@ serve(async (req) => {
       return new Response(JSON.stringify({ error: "No extractable text" }), { status: 422, headers: corsHeaders });
     }
 
+    // Sanitize: remove null bytes and invalid Unicode escape sequences that break PostgreSQL
+    text = text.replace(/\x00/g, "").replace(/\\u0000/g, "");
+
     // Chunk text (~500 tokens ≈ ~2000 chars, overlap ~200 chars)
     const CHUNK_SIZE = 2000;
     const OVERLAP = 200;
