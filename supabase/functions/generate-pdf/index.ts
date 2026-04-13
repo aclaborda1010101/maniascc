@@ -102,13 +102,15 @@ function buildFullHtml(title: string, contentMd: string, modeLabel: string, date
     contentWithIds = contentWithIds.replace(regex, `<${tag} id="${h.id}">$1</${tag}>`);
   }
 
-  // Build TOC - only ## headings (sections)
+  // Build TOC - only ## headings (sections), strip leading numbers
   const tocHeadings = headings.filter(h => h.level === 2);
   const tocItems = tocHeadings
     .map((h, i) => {
+      // Strip leading "1. " or "1." from heading text to avoid double numbering
+      const cleanText = h.text.replace(/^\d+\.\s*/, '');
       return `<div class="toc-item">
         <span class="toc-num">${i + 1}.</span>
-        <span class="toc-text">${h.text}</span>
+        <span class="toc-text">${cleanText}</span>
       </div>`;
     })
     .join('');
