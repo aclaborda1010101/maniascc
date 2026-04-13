@@ -1,94 +1,63 @@
 
 
-## Plan: PDF profesional con portada, índice y contenido via html2pdf.app
+## Plan: Rediseño completo del PDF profesional
 
-### Situación actual
-Los 3 puntos de generación de PDF (AsistenteIA, GeneradorDocumentos, ProyectoForge) usan `window.open()` + `window.print()`. Esto produce PDFs sin portada, sin índice, y con formato básico. El contenido markdown se convierte a HTML inline con regex simples.
+### Problemas identificados en el PDF actual
 
-### Arquitectura propuesta
+1. **Texto cortado entre páginas**: El contenido se monta entre páginas porque los márgenes del API están a `left: 0mm, right: 0mm` y el contenido se envuelve en un solo `<p>` tag, impidiendo que el motor de PDF calcule saltos de página correctos
+2. **Márgenes inexistentes**: Se usa `padding` CSS (60px) en lugar de márgenes reales del API, lo que no funciona con html2pdf.app para paginación
+3. **Color morado corporativo**: Todos los acentos usan `#6366f1` (morado/indigo) en vez de azul marino
+4. **Tipografía y diseño amateur**: Falta jerarquía visual, espaciado profesional, y estructura de informe corporativo
 
-Crear una **Edge Function `generate-pdf`** que reciba el HTML completo y llame a la API de html2pdf.app para generar un PDF real (no dependiente del navegador). Esto centraliza la generación y permite portada + índice + paginación.
+### Cambios a implementar
 
-### Cambios
+#### 1. Corregir márgenes en la llamada API
+- Cambiar de `left: 0mm, right: 0mm` a `left: 20mm, right: 20mm`
+- Ajustar `top: 20mm, bottom: 25mm` para dar espacio al footer
+- Eliminar el padding CSS redundante del `.content`
 
-#### 1. Guardar el API key de html2pdf.app como secret
-- Usar la herramienta `add_secret` para almacenar `HTML2PDF_API_KEY`
+#### 2. Corregir estructura HTML del contenido
+- Eliminar el wrapper `<p>${contentWithIds}</p>` que mete todo el contenido en un solo párrafo (causa que no se puedan calcular page-breaks)
+- Insertar el HTML directamente: `<div class="content">${contentWithIds}</div>`
 
-#### 2. Nueva Edge Function `supabase/functions/generate-pdf/index.ts`
-- Recibe `{ title, content_markdown, mode_label?, date? }`
-- Convierte el markdown a HTML estructurado con:
-  - **Página 1 (Portada)**: título centrado, fecha, logo/branding "F&G Real Estate", badge del tipo de documento
-  - **Página 2 (Índice)**: extrae los `## headings` del markdown y genera una tabla de contenidos con enlaces internos
-  - **Páginas 3+ (Contenido)**: el informe completo con headers, tablas, listas, tipografía profesional, footer con número de página
-- Llama a `https://api.html2pdf.app/v1/generate` con el HTML y opciones (A4, márgenes 2cm, header/footer)
-- Devuelve el PDF como blob binario
+#### 3. Paleta de colores: azul marino corporativo
+- Reemplazar `#6366f1` (morado) por `#0A1E3D` (azul marino oscuro) como color primario
+- Reemplazar `#8b5cf6` por `#1A3A5C` como color secundario
+- Usar `#B8860B` (dorado oscuro) como acento sutil para badges y líneas decorativas
 
-#### 3. Nuevo servicio compartido `src/services/pdfService.ts`
-- `export async function generateProfessionalPdf(title, markdownContent, modeLabel?): Promise<Blob>`
-- Llama a la Edge Function `generate-pdf`
-- Descarga el blob y lo ofrece al usuario como archivo `.pdf`
+#### 4. Rediseño completo de la portada
+- Banda superior gruesa (8px) en azul marino
+- Logo/nombre "F&G REAL ESTATE" en azul marino con tracking amplio
+- Línea decorativa dorada fina
+- Título en tipografía Georgia/serif grande (32pt) para elegancia
+- Badge del tipo de documento en azul marino
+- Fecha en gris elegante
+- Footer "DOCUMENTO CONFIDENCIAL" en gris claro
 
-#### 4. Actualizar los 3 consumidores
-- **`src/pages/AsistenteIA.tsx`**: reemplazar `exportMessageToPdf()` por llamada a `generateProfessionalPdf()`
-- **`src/pages/GeneradorDocumentos.tsx`**: reemplazar `exportToPdf()` por `generateProfessionalPdf()`
-- **`src/components/proyecto/ProyectoForge.tsx`**: reemplazar `exportToPdf()` por `generateProfessionalPdf()`
-- Eliminar las funciones `markdownToHtml` y `exportToPdf` duplicadas de cada archivo
+#### 5. Rediseño del índice
+- Título "ÍNDICE" con underline en azul marino
+- Numeración con puntos guía (dot leaders) entre título y número
+- Tipografía más limpia y espaciado generoso
 
-### Estructura del PDF generado
+#### 6. Rediseño del contenido
+- `h1`: 18pt, azul marino, mayúsculas, con línea inferior
+- `h2`: 14pt, azul marino, borde izquierdo grueso (4px) en vez de borde inferior
+- `h3`: 12pt, gris oscuro, weight 600
+- Párrafos: 10.5pt, interlineado 1.8, justificados
+- Tablas: cabecera azul marino con texto blanco, bordes sutiles, zebra-striping
+- Listas: bullets personalizados, indentación correcta
+- Blockquotes: borde izquierdo azul marino, fondo gris muy claro
+- `page-break-inside: avoid` en tablas, blockquotes y listas
+- `page-break-after: avoid` en todos los headings
 
-```text
-┌─────────────────────┐
-│                     │
-│   F&G REAL ESTATE   │
-│                     │
-│   ═══════════════   │
-│                     │
-│   MASTERPLAN        │
-│   ESTRATÉGICO       │
-│   LA MILLA DE       │
-│   ARGANDA           │
-│                     │
-│   13 abril 2026     │
-│   Plan Estratégico  │
-│                     │
-│        [Pág 1]      │
-└─────────────────────┘
+#### 7. Footer profesional
+- Línea fina separadora
+- "F&G Real Estate" a la izquierda, "Pág X / Y" a la derecha
+- Tipografía 8px en gris
 
-┌─────────────────────┐
-│  ÍNDICE             │
-│  ─────              │
-│  1. Resumen Ejec. 3 │
-│  2. Análisis Comp.  4│
-│  3. Fase 1 ........ 6│
-│  4. Fase 2 ........ 8│
-│  5. Fase 3 ........ 9│
-│  6. Métricas ...... 11│
-│                     │
-│        [Pág 2]      │
-└─────────────────────┘
+### Archivos a modificar
+- `supabase/functions/generate-pdf/index.ts` — rediseño completo del HTML/CSS y parámetros del API
 
-┌─────────────────────┐
-│  1. Resumen Ejecut. │
-│  ───────────────    │
-│  El parque comercial│
-│  "La Milla de..."  │
-│  ...                │
-│                     │
-│  ── F&G ── Pág 3 ──│
-└─────────────────────┘
-```
-
-### Diseño visual
-- Portada con fondo blanco limpio, título en tipografía grande, línea decorativa en color corporativo (#6366f1)
-- Índice generado automáticamente desde los headings `##` del markdown
-- Contenido con tipografía Inter/Segoe UI, tablas con bordes sutiles, listas con bullets limpios
-- Footer en todas las páginas de contenido con "F&G Real Estate — Generado por AVA/FORGE" y número de página
-- Saltos de página automáticos antes de cada sección principal (`##`)
-
-### Archivos a crear/modificar
-- **Crear**: `supabase/functions/generate-pdf/index.ts`
-- **Crear**: `src/services/pdfService.ts`
-- **Modificar**: `src/pages/AsistenteIA.tsx` — usar nuevo servicio
-- **Modificar**: `src/pages/GeneradorDocumentos.tsx` — usar nuevo servicio
-- **Modificar**: `src/components/proyecto/ProyectoForge.tsx` — usar nuevo servicio
+### Resultado esperado
+Un PDF con aspecto de informe de consultoría McKinsey/Deloitte: sobrio, azul marino, tipografía serif en portada, sans-serif en contenido, márgenes generosos, sin texto cortado entre páginas.
 
