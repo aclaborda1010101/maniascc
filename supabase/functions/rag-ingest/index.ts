@@ -232,13 +232,14 @@ serve(async (req) => {
     await admin.from("document_chunks").delete().eq("documento_id", documento_id);
 
     // Insert new chunks with domain
+    const sanitizeName = (n: string) => n.replace(/[\x00-\x1F]/g, "").replace(/\\u0000/g, "");
     const rows = chunks.map((contenido, i) => ({
       documento_id: doc.id,
       proyecto_id: doc.proyecto_id,
-      contenido,
+      contenido: contenido.replace(/[\x00-\x1F]/g, " ").replace(/\\/g, "\\\\").replace(/"/g, '\\"'),
       chunk_index: i,
       dominio,
-      metadata: { nombre: doc.nombre, mime_type: mime, tipo_documento: doc.tipo_documento, extraction_method },
+      metadata: { nombre: sanitizeName(doc.nombre), mime_type: mime, tipo_documento: doc.tipo_documento, extraction_method },
     }));
 
     if (rows.length > 0) {
