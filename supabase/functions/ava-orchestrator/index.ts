@@ -235,6 +235,58 @@ function formatToolResultsFallback(toolResults: Array<{ tool: string; result: an
   return "He consultado las siguientes fuentes de datos:\n\n" + sections.join("\n\n");
 }
 
+// Summarize older history messages using a cheap/fast model to preserve context
+async function summarizeOlderHistory(
+  olderMessages: Array<{ role: string; content: string }>,
+  lovableKey: string
+): Promise<string> {
+  const conversationText = olderMessages.map(m => 
+    `${m.role === "user" ? "USUARIO" : "AVA"}: ${m.content.substring(0, 2000)}`
+  ).join("\n\n");
+
+  try {
+    const resp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${lovableKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "google/gemini-2.5-flash-lite",
+        messages: [
+          { 
+            role: "system", 
+            content: `Eres un asistente que resume conversaciones de trabajo sobre inmobiliario comercial y retail.
+Tu ÚNICA tarea es extraer y listar TODOS los hechos clave, restricciones, decisiones y datos mencionados.
+
+REGLAS:
+- Lista cada hecho como un bullet point conciso
+- NO omitas NINGUNA restricción o corrección del usuario
+- Incluye: nombres de operadores, datos de superficie, ubicaciones, competidores cercanos, operadores ya existentes, decisiones tomadas
+- Incluye correcciones explícitas del usuario (ej: "ya hay un KFC enfrente", "no hay superficie para X")
+- Máximo 800 palabras` 
+          },
+          { 
+            role: "user", 
+            content: `Resume los hechos clave de esta conversación:\n\n${conversationText}` 
+          }
+        ],
+      }),
+    });
+
+    if (!resp.ok) {
+      console.error("Summary call failed:", resp.status);
+      return "";
+    }
+
+    const data = await resp.json();
+    return data.choices?.[0]?.message?.content || "";
+  } catch (e) {
+    console.error("Error summarizing history:", e);
+    return "";
+  }
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
@@ -274,10 +326,31 @@ serve(async (req) => {
       { role: "system", content: SYSTEM_PROMPT },
     ];
 
-    // Add conversation history (last 10 messages for context)
+    // Build context with cumulative summary for long conversations
+    let cumulativeSummary = "";
     if (history && Array.isArray(history)) {
-      for (const h of history.slice(-10)) {
-        messages.push({ role: h.role, content: h.content });
+      if (history.length > 12) {
+        // Split: older messages get summarized, recent 6 stay raw
+        const olderMessages = history.slice(0, history.length - 6);
+        const recentMessages = history.slice(-6);
+        
+        cumulativeSummary = await summarizeOlderHistory(olderMessages, lovableKey);
+        
+        if (cumulativeSummary) {
+          messages.push({
+            role: "system",
+            content: `CONTEXTO ACUMULADO DE LA CONVERSACIÓN (hechos establecidos que NO debes contradecir bajo ninguna circunstancia):\n\n${cumulativeSummary}`
+          });
+        }
+        
+        for (const h of recentMessages) {
+          messages.push({ role: h.role, content: h.content });
+        }
+      } else {
+        // Short conversation: send all messages
+        for (const h of history) {
+          messages.push({ role: h.role, content: h.content });
+        }
       }
     }
     messages.push({ role: "user", content: message });
@@ -576,48 +649,70 @@ serve(async (req) => {
       `[Resultado de ${tr.tool}]:\n${JSON.stringify(tr.result).substring(0, 6000)}`
     ).join("\n\n");
 
-    const synthesisMessages = [
+    // Build synthesis messages with cumulative summary
+    const synthesisMessages: Array<{ role: string; content: string }> = [
       { role: "system", content: SYSTEM_PROMPT },
-      ...(history && Array.isArray(history) ? history.slice(-10).map((h: any) => ({ role: h.role, content: h.content })) : []),
+    ];
+    
+    if (cumulativeSummary) {
+      synthesisMessages.push({
+        role: "system",
+        content: `CONTEXTO ACUMULADO DE LA CONVERSACIÓN (hechos establecidos que NO debes contradecir bajo ninguna circunstancia):\n\n${cumulativeSummary}`
+      });
+    }
+
+    if (history && Array.isArray(history)) {
+      const recentForSynthesis = history.length > 12 ? history.slice(-6) : history;
+      for (const h of recentForSynthesis) {
+        synthesisMessages.push({ role: h.role, content: h.content });
+      }
+    }
+
+    synthesisMessages.push(
       { role: "user", content: message },
       { 
         role: "assistant", 
         content: `He ejecutado las siguientes herramientas para responder a la pregunta del usuario. Aquí están los resultados obtenidos:\n\n${toolResultsSummary}`
       },
       { role: "user", content: "Basándote en los datos obtenidos y en tu conocimiento general del sector retail e inmobiliario comercial, responde de forma completa, detallada y profesional a mi pregunta original. Si los datos de la base de datos están vacíos o no son suficientes, complementa con tu conocimiento general. NUNCA respondas que no puedes formular una respuesta. Siempre ofrece análisis, recomendaciones y valor. Responde en español." },
-    ];
+    );
 
-    const synthesisResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${lovableKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "google/gemini-3.1-pro-preview",
-        messages: synthesisMessages,
-      }),
-    });
-
-    // Use first call's partial content as fallback base
-    const firstCallContent = choice?.content || "";
+    let finalAnswer: string = "";
     
-    let finalAnswer: string;
-    if (synthesisResponse.ok) {
-      const synthesisData = await synthesisResponse.json();
-      finalAnswer = synthesisData.choices?.[0]?.message?.content || "";
-      if (!finalAnswer) {
-        console.error("Empty synthesis response:", JSON.stringify(synthesisData).substring(0, 1000));
-        // Fallback: use first call content if available, otherwise format tool results
-        finalAnswer = firstCallContent || formatToolResultsFallback(toolResults);
+    // Try synthesis up to 2 times
+    for (let attempt = 0; attempt < 2; attempt++) {
+      const synthesisResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${lovableKey}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model: "google/gemini-3.1-pro-preview",
+          messages: attempt === 0 ? synthesisMessages : [
+            // Simplified retry: just system + tool results + question
+            { role: "system", content: "Eres AVA, asistente estratégica de inmobiliario comercial. Responde en español con markdown rico." },
+            { role: "user", content: `Pregunta del usuario: ${message}\n\nDatos obtenidos:\n${toolResultsSummary}\n\nResponde de forma completa y profesional.` },
+          ],
+        }),
+      });
+
+      if (synthesisResponse.ok) {
+        const synthesisData = await synthesisResponse.json();
+        finalAnswer = synthesisData.choices?.[0]?.message?.content || "";
+        const usage2 = synthesisData.usage || {};
+        totalTokensIn += usage2.prompt_tokens || 0;
+        totalTokensOut += usage2.completion_tokens || 0;
+        if (finalAnswer) break; // Success
+        console.error(`Synthesis attempt ${attempt + 1} returned empty`);
+      } else {
+        const errBody = await synthesisResponse.text();
+        console.error(`Synthesis attempt ${attempt + 1} failed:`, synthesisResponse.status, errBody);
       }
-      const usage2 = synthesisData.usage || {};
-      totalTokensIn += usage2.prompt_tokens || 0;
-      totalTokensOut += usage2.completion_tokens || 0;
-    } else {
-      const errBody = await synthesisResponse.text();
-      console.error("Synthesis call failed:", synthesisResponse.status, errBody);
-      // Fallback: prefer first call content, then formatted tool results
+    }
+
+    // Final fallback
+    if (!finalAnswer) {
       finalAnswer = firstCallContent || formatToolResultsFallback(toolResults);
     }
 

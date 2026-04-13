@@ -281,7 +281,7 @@ export function useChatMessages() {
 
     try {
       // Build recent history from current conversation
-      const recentMessages = updatedMessages.slice(-10).map(m => ({
+      const recentMessages = updatedMessages.slice(-20).map(m => ({
         role: m.role,
         content: m.content,
       }));
