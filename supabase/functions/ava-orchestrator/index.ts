@@ -715,15 +715,6 @@ serve(async (req) => {
     if (!finalAnswer) {
       finalAnswer = firstCallContent || formatToolResultsFallback(toolResults);
     }
-      const usage2 = synthesisData.usage || {};
-      totalTokensIn += usage2.prompt_tokens || 0;
-      totalTokensOut += usage2.completion_tokens || 0;
-    } else {
-      const errBody = await synthesisResponse.text();
-      console.error("Synthesis call failed:", synthesisResponse.status, errBody);
-      // Fallback: prefer first call content, then formatted tool results
-      finalAnswer = firstCallContent || formatToolResultsFallback(toolResults);
-    }
 
     const latencyMs = Date.now() - startTime;
     const costEur = totalTokensIn * GEMINI_INPUT + totalTokensOut * GEMINI_OUTPUT;
