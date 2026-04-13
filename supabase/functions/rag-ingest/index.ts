@@ -51,6 +51,9 @@ function geminiMimeType(mime: string, fileName: string): string {
   return "application/octet-stream";
 }
 
+/** Max base64 size we'll send to Gemini (~15MB raw = ~20MB base64) */
+const MAX_BASE64_SIZE = 20 * 1024 * 1024;
+
 /** Extract text from a file using Google Gemini multimodal */
 async function extractWithGemini(
   fileBase64: string,
@@ -59,6 +62,14 @@ async function extractWithGemini(
   apiKey: string
 ): Promise<string> {
   const resolvedMime = geminiMimeType(mimeType, fileName);
+
+  // If base64 is too large, skip multimodal and return metadata fallback
+  if (fileBase64.length > MAX_BASE64_SIZE) {
+    console.warn(`File ${fileName} base64 too large (${(fileBase64.length / 1024 / 1024).toFixed(1)}MB), using metadata fallback`);
+    return "";
+  }
+
+  console.log(`Extracting ${fileName} (${(fileBase64.length / 1024 / 1024).toFixed(1)}MB base64, mime: ${resolvedMime})`);
 
   const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
     method: "POST",
@@ -107,11 +118,14 @@ Reglas:
 
   if (!response.ok) {
     const errText = await response.text();
-    throw new Error(`Gemini API error ${response.status}: ${errText}`);
+    console.error(`Gemini API error for ${fileName}: ${response.status} - ${errText.substring(0, 500)}`);
+    throw new Error(`Gemini API error ${response.status}: ${errText.substring(0, 200)}`);
   }
 
   const data = await response.json();
-  return data.choices?.[0]?.message?.content || "";
+  const content = data.choices?.[0]?.message?.content || "";
+  console.log(`Extracted ${content.length} chars from ${fileName}`);
+  return content;
 }
 
 serve(async (req) => {
