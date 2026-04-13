@@ -1,49 +1,94 @@
 
 
-## Plan: Implementar memoria acumulativa en AVA para eliminar pérdida de contexto
+## Plan: PDF profesional con portada, índice y contenido via html2pdf.app
 
-### El problema demostrado
+### Situación actual
+Los 3 puntos de generación de PDF (AsistenteIA, GeneradorDocumentos, ProyectoForge) usan `window.open()` + `window.print()`. Esto produce PDFs sin portada, sin índice, y con formato básico. El contenido markdown se convierte a HTML inline con regex simples.
 
-La conversación que adjuntas lo demuestra perfectamente: AVA propone KFC cuando ya le dijiste que hay uno enfrente, olvida el gimnasio, vuelve a proponer Obramat tras decirle que no hay superficie. Esto ocurre porque **solo se envían los últimos 10 mensajes** al modelo (truncado tanto en cliente como en servidor). En una conversación larga, los datos críticos de los primeros turnos desaparecen.
+### Arquitectura propuesta
 
-### Solución: Resumen progresivo + ventana ampliada
+Crear una **Edge Function `generate-pdf`** que reciba el HTML completo y llame a la API de html2pdf.app para generar un PDF real (no dependiente del navegador). Esto centraliza la generación y permite portada + índice + paginación.
 
-#### 1. Cliente (`src/hooks/useChatMessages.ts`, línea 284)
-- Cambiar `slice(-10)` a `slice(-20)` para enviar más historial al servidor
-- El servidor se encargará de la compresión inteligente
+### Cambios
 
-#### 2. Servidor (`supabase/functions/ava-orchestrator/index.ts`)
+#### 1. Guardar el API key de html2pdf.app como secret
+- Usar la herramienta `add_secret` para almacenar `HTML2PDF_API_KEY`
 
-**Nueva función `summarizeOlderHistory()`** (antes de la primera llamada AI):
-- Si el historial tiene más de 12 mensajes, tomar los mensajes antiguos (todos menos los últimos 6)
-- Hacer una llamada rápida a Gemini Flash (`google/gemini-2.5-flash-lite`, coste ~€0.0001) con prompt: "Resume los hechos clave, restricciones y decisiones establecidas en esta conversación. Lista cada dato como un bullet point. No omitas ninguna restricción mencionada por el usuario."
-- Inyectar el resumen como un mensaje de sistema adicional: `"CONTEXTO ACUMULADO DE LA CONVERSACIÓN (hechos establecidos que NO debes contradecir): [resumen]"`
+#### 2. Nueva Edge Function `supabase/functions/generate-pdf/index.ts`
+- Recibe `{ title, content_markdown, mode_label?, date? }`
+- Convierte el markdown a HTML estructurado con:
+  - **Página 1 (Portada)**: título centrado, fecha, logo/branding "F&G Real Estate", badge del tipo de documento
+  - **Página 2 (Índice)**: extrae los `## headings` del markdown y genera una tabla de contenidos con enlaces internos
+  - **Páginas 3+ (Contenido)**: el informe completo con headers, tablas, listas, tipografía profesional, footer con número de página
+- Llama a `https://api.html2pdf.app/v1/generate` con el HTML y opciones (A4, márgenes 2cm, header/footer)
+- Devuelve el PDF como blob binario
 
-**Cambios en la construcción de mensajes** (líneas 273-283):
+#### 3. Nuevo servicio compartido `src/services/pdfService.ts`
+- `export async function generateProfessionalPdf(title, markdownContent, modeLabel?): Promise<Blob>`
+- Llama a la Edge Function `generate-pdf`
+- Descarga el blob y lo ofrece al usuario como archivo `.pdf`
+
+#### 4. Actualizar los 3 consumidores
+- **`src/pages/AsistenteIA.tsx`**: reemplazar `exportMessageToPdf()` por llamada a `generateProfessionalPdf()`
+- **`src/pages/GeneradorDocumentos.tsx`**: reemplazar `exportToPdf()` por `generateProfessionalPdf()`
+- **`src/components/proyecto/ProyectoForge.tsx`**: reemplazar `exportToPdf()` por `generateProfessionalPdf()`
+- Eliminar las funciones `markdownToHtml` y `exportToPdf` duplicadas de cada archivo
+
+### Estructura del PDF generado
+
+```text
+┌─────────────────────┐
+│                     │
+│   F&G REAL ESTATE   │
+│                     │
+│   ═══════════════   │
+│                     │
+│   MASTERPLAN        │
+│   ESTRATÉGICO       │
+│   LA MILLA DE       │
+│   ARGANDA           │
+│                     │
+│   13 abril 2026     │
+│   Plan Estratégico  │
+│                     │
+│        [Pág 1]      │
+└─────────────────────┘
+
+┌─────────────────────┐
+│  ÍNDICE             │
+│  ─────              │
+│  1. Resumen Ejec. 3 │
+│  2. Análisis Comp.  4│
+│  3. Fase 1 ........ 6│
+│  4. Fase 2 ........ 8│
+│  5. Fase 3 ........ 9│
+│  6. Métricas ...... 11│
+│                     │
+│        [Pág 2]      │
+└─────────────────────┘
+
+┌─────────────────────┐
+│  1. Resumen Ejecut. │
+│  ───────────────    │
+│  El parque comercial│
+│  "La Milla de..."  │
+│  ...                │
+│                     │
+│  ── F&G ── Pág 3 ──│
+└─────────────────────┘
 ```
-Si history > 12 mensajes:
-  [system prompt]
-  [system: resumen acumulado de msgs 1..N-6]
-  [últimos 6 mensajes completos]
-  [mensaje actual]
-Sino:
-  [system prompt]
-  [todos los mensajes del historial]
-  [mensaje actual]
-```
 
-**Mismo cambio en la síntesis** (línea 579-588): incluir el resumen acumulado en `synthesisMessages`
+### Diseño visual
+- Portada con fondo blanco limpio, título en tipografía grande, línea decorativa en color corporativo (#6366f1)
+- Índice generado automáticamente desde los headings `##` del markdown
+- Contenido con tipografía Inter/Segoe UI, tablas con bordes sutiles, listas con bullets limpios
+- Footer en todas las páginas de contenido con "F&G Real Estate — Generado por AVA/FORGE" y número de página
+- Saltos de página automáticos antes de cada sección principal (`##`)
 
-#### 3. Retry en síntesis vacía (líneas 606-622)
-- Si la síntesis devuelve vacío, reintentar una vez con prompt simplificado antes de usar el fallback genérico
-- Esto elimina el "He procesado tu solicitud pero no pude formular una respuesta"
-
-### Impacto en costes
-- La llamada de resumen con Flash Lite cuesta ~€0.0001 (negligible)
-- Solo se activa cuando hay más de 12 mensajes en el historial
-- Resultado: AVA nunca más olvidará que hay un KFC enfrente, que ya hay gimnasio, o que no hay superficie para Obramat
-
-### Archivos a modificar
-- `src/hooks/useChatMessages.ts` — ampliar ventana de historial a 20
-- `supabase/functions/ava-orchestrator/index.ts` — añadir función de resumen, inyectar contexto acumulado, retry en síntesis
+### Archivos a crear/modificar
+- **Crear**: `supabase/functions/generate-pdf/index.ts`
+- **Crear**: `src/services/pdfService.ts`
+- **Modificar**: `src/pages/AsistenteIA.tsx` — usar nuevo servicio
+- **Modificar**: `src/pages/GeneradorDocumentos.tsx` — usar nuevo servicio
+- **Modificar**: `src/components/proyecto/ProyectoForge.tsx` — usar nuevo servicio
 
