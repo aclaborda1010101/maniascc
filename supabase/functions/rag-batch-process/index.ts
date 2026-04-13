@@ -50,7 +50,7 @@ serve(async (req) => {
 
   // mode === "process" - actually process documents
   const results: Array<{ id: string; nombre: string; status: string; chunks?: number; error?: string }> = [];
-  const limit = 3; // Process max 3 at a time
+  const limit = 2; // Process max 2 at a time
   const toProcess = (docs || []).slice(0, limit);
 
   for (const doc of toProcess) {
