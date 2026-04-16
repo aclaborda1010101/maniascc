@@ -94,10 +94,7 @@ export default function Proyectos() {
 
   const fetchProyectos = async () => {
     setLoading(true);
-    let query = supabase
-      .from("proyectos")
-      .select("*")
-      .order("created_at", { ascending: false });
+    let query = supabase.from("proyectos").select("*").order("created_at", { ascending: false });
     if (filtroEstado !== "todos") query = query.eq("estado", filtroEstado as any);
     if (filtroTipo !== "todos") query = query.eq("tipo", filtroTipo as any);
     if (search) query = query.or(`nombre.ilike.%${search}%,descripcion.ilike.%${search}%`);
@@ -134,36 +131,32 @@ export default function Proyectos() {
   };
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="space-y-4 md:space-y-6">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Oportunidades</h1>
-          <p className="text-sm text-muted-foreground">Gestiona todas las oportunidades de negocio</p>
+          <h1 className="text-xl md:text-2xl font-bold tracking-tight">Oportunidades</h1>
+          <p className="text-xs md:text-sm text-muted-foreground">Gestiona todas las oportunidades de negocio</p>
         </div>
         <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
           <DialogTrigger asChild>
-            <Button className="bg-accent text-accent-foreground hover:bg-accent/90">
+            <Button className="bg-accent text-accent-foreground hover:bg-accent/90 w-full sm:w-auto">
               <Plus className="mr-2 h-4 w-4" /> Nueva Oportunidad
             </Button>
           </DialogTrigger>
-          <DialogContent className="max-w-lg">
-            <DialogHeader>
-              <DialogTitle>Crear Nueva Oportunidad</DialogTitle>
-            </DialogHeader>
+          <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+            <DialogHeader><DialogTitle>Crear Nueva Oportunidad</DialogTitle></DialogHeader>
             <form onSubmit={handleCreate} className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="p-nombre">Nombre de la oportunidad *</Label>
                 <Input id="p-nombre" name="nombre" placeholder="CC Vallecas — Desarrollo Comercial" required />
               </div>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="p-tipo">Tipo *</Label>
                   <Select name="tipo" defaultValue="desarrollo_comercial" onValueChange={setTipoSeleccionado}>
                     <SelectTrigger id="p-tipo"><SelectValue /></SelectTrigger>
                     <SelectContent>
-                      {tiposNuevos.map((k) => (
-                        <SelectItem key={k} value={k}>{tipoLabels[k]}</SelectItem>
-                      ))}
+                      {tiposNuevos.map((k) => <SelectItem key={k} value={k}>{tipoLabels[k]}</SelectItem>)}
                     </SelectContent>
                   </Select>
                 </div>
@@ -178,14 +171,12 @@ export default function Proyectos() {
                   <Select name="subtipo_activo">
                     <SelectTrigger id="p-subtipo"><SelectValue placeholder="Seleccionar subtipo" /></SelectTrigger>
                     <SelectContent>
-                      {subtiposActivo.map((s) => (
-                        <SelectItem key={s} value={s}>{s}</SelectItem>
-                      ))}
+                      {subtiposActivo.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
                     </SelectContent>
                   </Select>
                 </div>
               )}
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="p-ubicacion">Ubicación</Label>
                   <Input id="p-ubicacion" name="ubicacion" placeholder="Madrid Sur" />
@@ -211,42 +202,38 @@ export default function Proyectos() {
         </Dialog>
       </div>
 
-      {/* Filters */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input placeholder="Buscar oportunidades..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-10" />
         </div>
-        <Select value={filtroTipo} onValueChange={setFiltroTipo}>
-          <SelectTrigger className="w-[180px]"><SelectValue placeholder="Tipo" /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="todos">Todos los tipos</SelectItem>
-            {Object.entries(tipoLabels).map(([k, v]) => (
-              <SelectItem key={k} value={k}>{v}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <Select value={filtroEstado} onValueChange={setFiltroEstado}>
-          <SelectTrigger className="w-[180px]"><SelectValue placeholder="Estado" /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="todos">Todos los estados</SelectItem>
-            {Object.entries(estadoLabels).map(([k, v]) => (
-              <SelectItem key={k} value={k}>{v}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <div className="flex gap-2">
+          <Select value={filtroTipo} onValueChange={setFiltroTipo}>
+            <SelectTrigger className="flex-1 sm:w-[180px]"><SelectValue placeholder="Tipo" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="todos">Todos los tipos</SelectItem>
+              {Object.entries(tipoLabels).map(([k, v]) => <SelectItem key={k} value={k}>{v}</SelectItem>)}
+            </SelectContent>
+          </Select>
+          <Select value={filtroEstado} onValueChange={setFiltroEstado}>
+            <SelectTrigger className="flex-1 sm:w-[180px]"><SelectValue placeholder="Estado" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="todos">Todos los estados</SelectItem>
+              {Object.entries(estadoLabels).map(([k, v]) => <SelectItem key={k} value={k}>{v}</SelectItem>)}
+            </SelectContent>
+          </Select>
+        </div>
       </div>
 
-      {/* Project cards */}
       {loading ? (
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+        <div className="grid gap-3 md:gap-4 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
           {[1, 2, 3].map((i) => <Skeleton key={i} className="h-44 w-full rounded-lg" />)}
         </div>
       ) : proyectos.length === 0 ? (
         <Card>
           <CardContent className="py-16 text-center">
-         <FolderKanban className="mx-auto mb-3 h-12 w-12 text-muted-foreground/30" />
-            <p className="text-muted-foreground">
+            <FolderKanban className="mx-auto mb-3 h-12 w-12 text-muted-foreground/30" />
+            <p className="text-muted-foreground text-sm">
               {search || filtroEstado !== "todos" || filtroTipo !== "todos"
                 ? "No se encontraron oportunidades con esos filtros."
                 : "No hay oportunidades aún. Crea la primera."}
@@ -254,31 +241,31 @@ export default function Proyectos() {
           </CardContent>
         </Card>
       ) : (
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+        <div className="grid gap-3 md:gap-4 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
           {proyectos.map((p) => {
             const TipoIcon = tipoIcons[p.tipo] || FolderKanban;
             return (
               <Link key={p.id} to={`/oportunidades/${p.id}`}>
-                <Card className="hover:border-accent/50 hover:shadow-md transition-all cursor-pointer h-full">
+                <Card className="hover:border-accent/50 hover:shadow-md transition-all cursor-pointer h-full shadow-sm">
                   <CardHeader className="pb-3">
                     <div className="flex items-start justify-between gap-2">
-                      <div className="flex items-start gap-2">
+                      <div className="flex items-start gap-2 min-w-0">
                         <TipoIcon className="h-4 w-4 mt-0.5 text-muted-foreground shrink-0" />
-                        <h3 className="font-semibold leading-tight line-clamp-2">{p.nombre}</h3>
+                        <h3 className="font-semibold leading-tight line-clamp-2 text-sm">{p.nombre}</h3>
                       </div>
-                      <Badge variant="secondary" className={`shrink-0 text-xs ${estadoColors[p.estado] || ""}`}>
+                      <Badge variant="secondary" className={`shrink-0 text-[10px] ${estadoColors[p.estado] || ""}`}>
                         {estadoLabels[p.estado] || p.estado}
                       </Badge>
                     </div>
                   </CardHeader>
-                  <CardContent className="space-y-3">
-                    <Badge variant="outline" className={`text-xs ${tipoColors[p.tipo] || ""}`}>
+                  <CardContent className="space-y-2 md:space-y-3">
+                    <Badge variant="outline" className={`text-[10px] md:text-xs ${tipoColors[p.tipo] || ""}`}>
                       {tipoLabels[p.tipo] || p.tipo}
                     </Badge>
                     {p.descripcion && (
-                      <p className="text-sm text-muted-foreground line-clamp-2">{p.descripcion}</p>
+                      <p className="text-xs text-muted-foreground line-clamp-2">{p.descripcion}</p>
                     )}
-                    <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                    <div className="flex items-center gap-3 md:gap-4 text-[10px] md:text-xs text-muted-foreground flex-wrap">
                       {p.ubicacion && (
                         <span className="flex items-center gap-1">
                           <MapPin className="h-3 w-3" /> {p.ubicacion}

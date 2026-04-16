@@ -144,12 +144,12 @@ export default function Dashboard() {
   }, [user]);
 
   const statCards = [
-    { label: "Oportunidades Activas", value: stats?.proyectosActivos, icon: FolderOpen, color: "text-primary", bg: "bg-primary/10" },
+    { label: "Oportunidades", value: stats?.proyectosActivos, icon: FolderOpen, color: "text-primary", bg: "bg-primary/10" },
     { label: "Operadores", value: stats?.totalOperadores, icon: Users, color: "text-chart-2", bg: "bg-chart-2/10" },
     { label: "Activos", value: stats?.totalLocales, icon: MapPin, color: "text-chart-1", bg: "bg-chart-1/10" },
-    { label: "Matches Pendientes", value: stats?.matchesPendientes, icon: Sparkles, color: "text-accent", bg: "bg-accent/10" },
-    { label: "Coste IA (mes)", value: stats ? `${stats.costeIAMes.toFixed(3)}€` : undefined, icon: DollarSign, color: "text-chart-3", bg: "bg-chart-3/10" },
-    { label: "Latencia Media IA", value: stats ? `${stats.latenciaMedia}ms` : undefined, icon: Clock, color: "text-muted-foreground", bg: "bg-muted/50" },
+    { label: "Matches", value: stats?.matchesPendientes, icon: Sparkles, color: "text-accent", bg: "bg-accent/10" },
+    { label: "Coste IA", value: stats ? `${stats.costeIAMes.toFixed(3)}€` : undefined, icon: DollarSign, color: "text-chart-3", bg: "bg-chart-3/10" },
+    { label: "Latencia IA", value: stats ? `${stats.latenciaMedia}ms` : undefined, icon: Clock, color: "text-muted-foreground", bg: "bg-muted/50" },
   ];
 
   const barData = recentMatches.map((m) => ({
@@ -160,43 +160,44 @@ export default function Dashboard() {
   const unreadCount = notifications.filter((n) => !n.read).length;
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="space-y-4 md:space-y-6">
+      {/* Header */}
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Torre de Control</h1>
-          <p className="text-sm text-muted-foreground">Visión general de la plataforma AVA</p>
+          <h1 className="text-xl md:text-2xl font-bold tracking-tight">Torre de Control</h1>
+          <p className="text-xs md:text-sm text-muted-foreground">Visión general de la plataforma AVA</p>
         </div>
-        <div className="flex gap-2">
-          <Button asChild size="sm" className="bg-accent text-accent-foreground hover:bg-accent/90">
-            <Link to="/oportunidades"><Plus className="mr-1 h-4 w-4" /> Nueva Oportunidad</Link>
+        <div className="flex gap-2 w-full sm:w-auto">
+          <Button asChild size="sm" className="bg-accent text-accent-foreground hover:bg-accent/90 flex-1 sm:flex-none">
+            <Link to="/oportunidades"><Plus className="mr-1 h-4 w-4" /> <span className="hidden sm:inline">Nueva </span>Oportunidad</Link>
           </Button>
-          <Button asChild size="sm" variant="outline">
-            <Link to="/operadores"><Plus className="mr-1 h-4 w-4" /> Nuevo Operador</Link>
+          <Button asChild size="sm" variant="outline" className="flex-1 sm:flex-none">
+            <Link to="/operadores"><Plus className="mr-1 h-4 w-4" /> <span className="hidden sm:inline">Nuevo </span>Operador</Link>
           </Button>
         </div>
       </div>
 
       {/* KPI cards */}
-      <div className="grid gap-3 grid-cols-2 md:grid-cols-3 lg:grid-cols-6">
+      <div className="grid gap-2.5 md:gap-3 grid-cols-2 md:grid-cols-3 lg:grid-cols-6">
         {statCards.map((card) => (
-          <Card key={card.label}>
-            <CardContent className="py-4 px-4 flex flex-col gap-2">
+          <Card key={card.label} className="shadow-sm">
+            <CardContent className="py-3 px-3 md:py-4 md:px-4 flex flex-col gap-1.5 md:gap-2">
               <div className="flex items-center justify-between">
-                <p className="text-xs font-medium text-muted-foreground">{card.label}</p>
-                <div className={`h-7 w-7 rounded-full ${card.bg} flex items-center justify-center`}>
-                  <card.icon className={`h-3.5 w-3.5 ${card.color}`} />
+                <p className="text-[10px] md:text-xs font-medium text-muted-foreground leading-tight">{card.label}</p>
+                <div className={`h-6 w-6 md:h-7 md:w-7 rounded-full ${card.bg} flex items-center justify-center`}>
+                  <card.icon className={`h-3 w-3 md:h-3.5 md:w-3.5 ${card.color}`} />
                 </div>
               </div>
-              {loading ? <Skeleton className="h-7 w-16" /> : <p className="text-2xl font-bold">{card.value}</p>}
+              {loading ? <Skeleton className="h-6 md:h-7 w-14" /> : <p className="text-lg md:text-2xl font-bold">{card.value}</p>}
             </CardContent>
           </Card>
         ))}
       </div>
 
       {/* Notificaciones */}
-      <Card>
+      <Card className="shadow-sm">
         <CardHeader className="pb-3 flex flex-row items-center justify-between">
-          <CardTitle className="text-base flex items-center gap-2">
+          <CardTitle className="text-sm md:text-base flex items-center gap-2">
             <Bell className="h-4 w-4 text-primary" /> Notificaciones
             {unreadCount > 0 && (
               <Badge className="text-[10px] px-1.5 py-0">{unreadCount} nuevas</Badge>
@@ -217,16 +218,16 @@ export default function Dashboard() {
               {notifications.slice(0, 8).map((n) => (
                 <div
                   key={n.id}
-                  className={`flex items-start gap-3 rounded-md border p-3 text-sm transition-colors ${!n.read ? "border-l-4 border-l-accent bg-accent/5" : ""}`}
+                  className={`flex items-start gap-3 rounded-md border p-2.5 md:p-3 text-sm transition-colors ${!n.read ? "border-l-4 border-l-accent bg-accent/5" : ""}`}
                 >
-                  <span className="text-lg mt-0.5">{notifTypeIcons[n.type] || "ℹ️"}</span>
+                  <span className="text-base md:text-lg mt-0.5">{notifTypeIcons[n.type] || "ℹ️"}</span>
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <span className="font-medium">{n.title}</span>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="font-medium text-xs md:text-sm">{n.title}</span>
                       {!n.read && <Badge className="text-[10px] px-1.5 py-0">Nueva</Badge>}
                     </div>
-                    <p className="text-muted-foreground truncate">{n.description}</p>
-                    <span className="text-xs text-muted-foreground">
+                    <p className="text-muted-foreground text-xs truncate">{n.description}</p>
+                    <span className="text-[10px] md:text-xs text-muted-foreground">
                       {format(new Date(n.created_at), "dd MMM yyyy, HH:mm", { locale: es })}
                     </span>
                   </div>
@@ -246,24 +247,24 @@ export default function Dashboard() {
       </Card>
 
       {/* Charts */}
-      <div className="grid gap-4 lg:grid-cols-2">
-        <Card>
-          <CardHeader className="pb-2"><CardTitle className="text-base">Últimos Matches por Score</CardTitle></CardHeader>
+      <div className="grid gap-4 md:grid-cols-2">
+        <Card className="shadow-sm">
+          <CardHeader className="pb-2"><CardTitle className="text-sm md:text-base">Últimos Matches por Score</CardTitle></CardHeader>
           <CardContent>
-            {loading ? <Skeleton className="h-[260px] w-full" /> : barData.length > 0 ? (
-              <ResponsiveContainer width="100%" height={260}>
-                <BarChart data={barData} margin={{ top: 5, right: 5, bottom: 5, left: 0 }}>
+            {loading ? <Skeleton className="h-[220px] md:h-[260px] w-full" /> : barData.length > 0 ? (
+              <ResponsiveContainer width="100%" height={220}>
+                <BarChart data={barData} margin={{ top: 5, right: 5, bottom: 5, left: -10 }}>
                   <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
-                  <XAxis dataKey="name" tick={{ fontSize: 11 }} />
-                  <YAxis domain={[0, 100]} tick={{ fontSize: 11 }} />
-                  <Tooltip contentStyle={{ borderRadius: "8px", border: "1px solid hsl(var(--border))", background: "hsl(var(--card))" }} formatter={(v: number) => [`${v}%`, "Score"]} />
+                  <XAxis dataKey="name" tick={{ fontSize: 10 }} />
+                  <YAxis domain={[0, 100]} tick={{ fontSize: 10 }} />
+                  <Tooltip contentStyle={{ borderRadius: "8px", border: "1px solid hsl(var(--border))", background: "hsl(var(--card))", fontSize: "12px" }} formatter={(v: number) => [`${v}%`, "Score"]} />
                   <Bar dataKey="score" fill="hsl(var(--accent))" radius={[4, 4, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
             ) : (
-              <div className="py-12 text-center">
+              <div className="py-10 text-center">
                 <Sparkles className="mx-auto mb-2 h-8 w-8 text-muted-foreground/40" />
-                <p className="text-muted-foreground">Aún no hay matches generados.</p>
+                <p className="text-muted-foreground text-sm">Aún no hay matches generados.</p>
                 <Button asChild size="sm" variant="link" className="mt-2">
                   <Link to="/oportunidades">Ir a Oportunidades <ArrowRight className="ml-1 h-3 w-3" /></Link>
                 </Button>
@@ -272,16 +273,16 @@ export default function Dashboard() {
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader className="pb-2"><CardTitle className="text-base">Distribución de Scores</CardTitle></CardHeader>
+        <Card className="shadow-sm">
+          <CardHeader className="pb-2"><CardTitle className="text-sm md:text-base">Distribución de Scores</CardTitle></CardHeader>
           <CardContent>
-            {loading ? <Skeleton className="h-[260px] w-full" /> : matchScoreDist.some(d => d.count > 0) ? (
-              <ResponsiveContainer width="100%" height={260}>
-                <BarChart data={matchScoreDist} margin={{ top: 5, right: 5, bottom: 5, left: 0 }}>
+            {loading ? <Skeleton className="h-[220px] md:h-[260px] w-full" /> : matchScoreDist.some(d => d.count > 0) ? (
+              <ResponsiveContainer width="100%" height={220}>
+                <BarChart data={matchScoreDist} margin={{ top: 5, right: 5, bottom: 5, left: -10 }}>
                   <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
-                  <XAxis dataKey="range" tick={{ fontSize: 11 }} />
-                  <YAxis allowDecimals={false} tick={{ fontSize: 11 }} />
-                  <Tooltip contentStyle={{ borderRadius: "8px", border: "1px solid hsl(var(--border))", background: "hsl(var(--card))" }} formatter={(v: number) => [v, "Matches"]} />
+                  <XAxis dataKey="range" tick={{ fontSize: 10 }} />
+                  <YAxis allowDecimals={false} tick={{ fontSize: 10 }} />
+                  <Tooltip contentStyle={{ borderRadius: "8px", border: "1px solid hsl(var(--border))", background: "hsl(var(--card))", fontSize: "12px" }} formatter={(v: number) => [v, "Matches"]} />
                   <Bar dataKey="count" radius={[4, 4, 0, 0]}>
                     {matchScoreDist.map((_, i) => (
                       <Cell key={i} fill={["hsl(0,84%,60%)", "hsl(38,92%,50%)", "hsl(48,96%,53%)", "hsl(142,71%,45%)", "hsl(217,91%,60%)"][i]} />
@@ -289,14 +290,14 @@ export default function Dashboard() {
                   </Bar>
                 </BarChart>
               </ResponsiveContainer>
-            ) : <p className="py-12 text-center text-muted-foreground">Sin matches</p>}
+            ) : <p className="py-10 text-center text-muted-foreground text-sm">Sin matches</p>}
           </CardContent>
         </Card>
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-2">
-        <Card>
-          <CardHeader className="pb-2"><CardTitle className="text-base">Activos por Estado</CardTitle></CardHeader>
+      <div className="grid gap-4 md:grid-cols-2">
+        <Card className="shadow-sm">
+          <CardHeader className="pb-2"><CardTitle className="text-sm md:text-base">Activos por Estado</CardTitle></CardHeader>
           <CardContent className="flex items-center justify-center">
             {loading ? <Skeleton className="h-[140px] w-full" /> : localEstadoDist.length > 0 ? (
               <ResponsiveContainer width="100%" height={140}>
@@ -310,8 +311,8 @@ export default function Dashboard() {
             ) : <p className="text-sm text-muted-foreground">Sin activos</p>}
           </CardContent>
         </Card>
-        <Card>
-          <CardHeader className="pb-2"><CardTitle className="text-base">Matches por Estado</CardTitle></CardHeader>
+        <Card className="shadow-sm">
+          <CardHeader className="pb-2"><CardTitle className="text-sm md:text-base">Matches por Estado</CardTitle></CardHeader>
           <CardContent className="flex items-center justify-center">
             {loading ? <Skeleton className="h-[140px] w-full" /> : matchEstadoDist.length > 0 ? (
               <ResponsiveContainer width="100%" height={140}>
@@ -328,35 +329,35 @@ export default function Dashboard() {
       </div>
 
       {/* Recent matches + Activity */}
-      <div className="grid gap-4 lg:grid-cols-2">
-        <Card>
+      <div className="grid gap-4 md:grid-cols-2">
+        <Card className="shadow-sm">
           <CardHeader className="pb-2 flex flex-row items-center justify-between">
-            <CardTitle className="text-base">Últimos Matches</CardTitle>
+            <CardTitle className="text-sm md:text-base">Últimos Matches</CardTitle>
             <Button asChild size="sm" variant="ghost"><Link to="/activos">Ver todos <ArrowRight className="ml-1 h-3 w-3" /></Link></Button>
           </CardHeader>
           <CardContent>
             {loading ? <Skeleton className="h-40 w-full" /> : recentMatches.length > 0 ? (
               <div className="space-y-2">
                 {recentMatches.slice(0, 5).map((m) => (
-                  <div key={m.id} className="flex items-center justify-between rounded-md border p-2.5 text-sm">
+                  <div key={m.id} className="flex flex-col sm:flex-row sm:items-center justify-between rounded-md border p-2.5 text-sm gap-1.5">
                     <div className="min-w-0 flex-1">
-                      <p className="font-medium truncate">{(m.locales as any)?.nombre} ↔ {(m.operadores as any)?.nombre}</p>
-                      <p className="text-xs text-muted-foreground truncate">{m.explicacion?.substring(0, 80)}</p>
+                      <p className="font-medium truncate text-xs md:text-sm">{(m.locales as any)?.nombre} ↔ {(m.operadores as any)?.nombre}</p>
+                      <p className="text-[11px] text-muted-foreground truncate">{m.explicacion?.substring(0, 80)}</p>
                     </div>
-                    <div className="flex items-center gap-2 shrink-0 ml-3">
-                      <Badge className="bg-accent/10 text-accent">{m.score}%</Badge>
-                      <Badge variant="secondary" className="capitalize text-xs">{m.estado}</Badge>
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <Badge className="bg-accent/10 text-accent text-[10px]">{m.score}%</Badge>
+                      <Badge variant="secondary" className="capitalize text-[10px]">{m.estado}</Badge>
                     </div>
                   </div>
                 ))}
               </div>
-            ) : <p className="py-6 text-center text-muted-foreground">Sin matches recientes.</p>}
+            ) : <p className="py-6 text-center text-muted-foreground text-sm">Sin matches recientes.</p>}
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="shadow-sm">
           <CardHeader className="pb-2">
-            <CardTitle className="text-base flex items-center gap-2">
+            <CardTitle className="text-sm md:text-base flex items-center gap-2">
               <Activity className="h-4 w-4 text-accent" /> Actividad Reciente
             </CardTitle>
           </CardHeader>
@@ -364,14 +365,14 @@ export default function Dashboard() {
             {loading ? <Skeleton className="h-40 w-full" /> : recentActivity.length > 0 ? (
               <div className="space-y-2">
                 {recentActivity.map((a) => (
-                  <div key={a.id} className="flex items-center justify-between rounded-md border p-2.5 text-sm">
+                  <div key={a.id} className="flex flex-col sm:flex-row sm:items-center justify-between rounded-md border p-2.5 text-sm gap-1.5">
                     <div className="min-w-0 flex-1">
-                      <p className="font-medium truncate">{a.descripcion}</p>
-                      <p className="text-xs text-muted-foreground">{(a.proyectos as any)?.nombre || "—"}</p>
+                      <p className="font-medium truncate text-xs md:text-sm">{a.descripcion}</p>
+                      <p className="text-[11px] text-muted-foreground">{(a.proyectos as any)?.nombre || "—"}</p>
                     </div>
-                    <div className="flex items-center gap-2 shrink-0 ml-3">
-                      <Badge variant="outline" className="text-xs">{a.tipo}</Badge>
-                      <span className="text-xs text-muted-foreground">{new Date(a.created_at).toLocaleDateString("es-ES")}</span>
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <Badge variant="outline" className="text-[10px]">{a.tipo}</Badge>
+                      <span className="text-[10px] text-muted-foreground">{new Date(a.created_at).toLocaleDateString("es-ES")}</span>
                     </div>
                   </div>
                 ))}
@@ -379,7 +380,7 @@ export default function Dashboard() {
             ) : (
               <div className="py-6 text-center">
                 <Activity className="mx-auto mb-2 h-8 w-8 text-muted-foreground/40" />
-                <p className="text-muted-foreground">Sin actividad reciente.</p>
+                <p className="text-muted-foreground text-sm">Sin actividad reciente.</p>
               </div>
             )}
           </CardContent>

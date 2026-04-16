@@ -133,7 +133,7 @@ export default function ProyectoDetail() {
   if (loading) return <div className="space-y-6"><Skeleton className="h-8 w-48" /><Skeleton className="h-64 w-full" /></div>;
   if (!proyecto) return (
     <div className="space-y-4">
-     <Button variant="ghost" onClick={() => navigate("/oportunidades")}><ArrowLeft className="mr-2 h-4 w-4" /> Volver</Button>
+      <Button variant="ghost" onClick={() => navigate("/oportunidades")}><ArrowLeft className="mr-2 h-4 w-4" /> Volver</Button>
       <p className="text-muted-foreground">Oportunidad no encontrada.</p>
     </div>
   );
@@ -144,42 +144,44 @@ export default function ProyectoDetail() {
   const availableCts = allContactos.filter((c) => !linkedCtIds.has(c.id));
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 md:space-y-6">
       {/* Header */}
-      <div className="flex items-start justify-between gap-4">
-        <div className="space-y-1">
-          <div className="flex items-center gap-3">
-            <Button variant="ghost" size="icon" onClick={() => navigate("/oportunidades")}><ArrowLeft className="h-4 w-4" /></Button>
-            <div>
-              <h1 className="text-2xl font-bold tracking-tight">{proyecto.nombre}</h1>
-              <div className="flex items-center gap-2 mt-1 flex-wrap">
-                <Badge variant="outline" className="text-xs">{tipoLabels[proyecto.tipo]}</Badge>
-                <Badge variant="secondary" className={`text-xs ${estadoColors[proyecto.estado]}`}>{estadoLabels[proyecto.estado]}</Badge>
-                {proyecto.ubicacion && <span className="flex items-center gap-1 text-xs text-muted-foreground"><MapPin className="h-3 w-3" /> {proyecto.ubicacion}</span>}
-                {proyecto.fecha_objetivo && <span className="flex items-center gap-1 text-xs text-muted-foreground"><Calendar className="h-3 w-3" /> Objetivo: {new Date(proyecto.fecha_objetivo).toLocaleDateString("es-ES")}</span>}
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div className="space-y-1 min-w-0">
+          <div className="flex items-center gap-2 md:gap-3">
+            <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0" onClick={() => navigate("/oportunidades")}><ArrowLeft className="h-4 w-4" /></Button>
+            <div className="min-w-0">
+              <h1 className="text-lg md:text-2xl font-bold tracking-tight truncate">{proyecto.nombre}</h1>
+              <div className="flex items-center gap-1.5 md:gap-2 mt-1 flex-wrap">
+                <Badge variant="outline" className="text-[10px] md:text-xs">{tipoLabels[proyecto.tipo]}</Badge>
+                <Badge variant="secondary" className={`text-[10px] md:text-xs ${estadoColors[proyecto.estado]}`}>{estadoLabels[proyecto.estado]}</Badge>
+                {proyecto.ubicacion && <span className="flex items-center gap-1 text-[10px] md:text-xs text-muted-foreground"><MapPin className="h-3 w-3" /> {proyecto.ubicacion}</span>}
+                {proyecto.fecha_objetivo && <span className="flex items-center gap-1 text-[10px] md:text-xs text-muted-foreground"><Calendar className="h-3 w-3" /> {new Date(proyecto.fecha_objetivo).toLocaleDateString("es-ES")}</span>}
               </div>
             </div>
           </div>
         </div>
         <Select value={proyecto.estado} onValueChange={updateEstado}>
-          <SelectTrigger className="w-[170px]"><SelectValue /></SelectTrigger>
+          <SelectTrigger className="w-full sm:w-[170px] shrink-0"><SelectValue /></SelectTrigger>
           <SelectContent>{Object.entries(estadoLabels).map(([k, v]) => <SelectItem key={k} value={k}>{v}</SelectItem>)}</SelectContent>
         </Select>
       </div>
 
-      {proyecto.descripcion && <p className="text-sm text-muted-foreground max-w-2xl">{proyecto.descripcion}</p>}
+      {proyecto.descripcion && <p className="text-xs md:text-sm text-muted-foreground max-w-2xl">{proyecto.descripcion}</p>}
 
       <Tabs defaultValue="resumen" className="space-y-4">
-        <TabsList className="flex-wrap">
-          <TabsTrigger value="resumen">Resumen</TabsTrigger>
-          <TabsTrigger value="activos" className="gap-1"><Building2 className="h-3.5 w-3.5" /> Activos{activos.length > 0 && <Badge variant="secondary" className="ml-1 h-5 px-1.5 text-[10px]">{activos.length}</Badge>}</TabsTrigger>
-          <TabsTrigger value="operadores" className="gap-1"><Users className="h-3.5 w-3.5" /> Operadores{operadores.length > 0 && <Badge variant="secondary" className="ml-1 h-5 px-1.5 text-[10px]">{operadores.length}</Badge>}</TabsTrigger>
-          <TabsTrigger value="matches" className="gap-1"><Sparkles className="h-3.5 w-3.5" /> Matches IA</TabsTrigger>
-          <TabsTrigger value="documentos" className="gap-1"><FileText className="h-3.5 w-3.5" /> Documentos</TabsTrigger>
-          <TabsTrigger value="conocimiento" className="gap-1"><BookOpen className="h-3.5 w-3.5" /> Conocimiento</TabsTrigger>
-          <TabsTrigger value="insights" className="gap-1"><Brain className="h-3.5 w-3.5" /> Insights IA</TabsTrigger>
-          <TabsTrigger value="negociacion" className="gap-1"><MessageSquare className="h-3.5 w-3.5" /> Negociación</TabsTrigger>
-        </TabsList>
+        <div className="overflow-x-auto -mx-4 px-4 md:mx-0 md:px-0">
+          <TabsList className="inline-flex w-max min-w-full md:w-auto md:min-w-0 md:flex-wrap">
+            <TabsTrigger value="resumen" className="text-xs md:text-sm">Resumen</TabsTrigger>
+            <TabsTrigger value="activos" className="gap-1 text-xs md:text-sm"><Building2 className="h-3 w-3 md:h-3.5 md:w-3.5" /> Activos{activos.length > 0 && <Badge variant="secondary" className="ml-0.5 h-4 md:h-5 px-1 md:px-1.5 text-[9px] md:text-[10px]">{activos.length}</Badge>}</TabsTrigger>
+            <TabsTrigger value="operadores" className="gap-1 text-xs md:text-sm"><Users className="h-3 w-3 md:h-3.5 md:w-3.5" /> Ops{operadores.length > 0 && <Badge variant="secondary" className="ml-0.5 h-4 md:h-5 px-1 md:px-1.5 text-[9px] md:text-[10px]">{operadores.length}</Badge>}</TabsTrigger>
+            <TabsTrigger value="matches" className="gap-1 text-xs md:text-sm"><Sparkles className="h-3 w-3 md:h-3.5 md:w-3.5" /> Matches</TabsTrigger>
+            <TabsTrigger value="documentos" className="gap-1 text-xs md:text-sm"><FileText className="h-3 w-3 md:h-3.5 md:w-3.5" /> Docs</TabsTrigger>
+            <TabsTrigger value="conocimiento" className="gap-1 text-xs md:text-sm"><BookOpen className="h-3 w-3 md:h-3.5 md:w-3.5" /> RAG</TabsTrigger>
+            <TabsTrigger value="insights" className="gap-1 text-xs md:text-sm"><Brain className="h-3 w-3 md:h-3.5 md:w-3.5" /> Insights</TabsTrigger>
+            <TabsTrigger value="negociacion" className="gap-1 text-xs md:text-sm"><MessageSquare className="h-3 w-3 md:h-3.5 md:w-3.5" /> Negoc.</TabsTrigger>
+          </TabsList>
+        </div>
 
         <TabsContent value="resumen">
           <ProyectoResumen proyecto={proyecto} activos={activos} operadores={operadores} contactos={contactosVinculados} allLocales={allLocales} onAssignLocal={handleAssignLocal} />
@@ -210,10 +212,10 @@ export default function ProyectoDetail() {
         </TabsContent>
 
         <TabsContent value="negociacion" className="space-y-4">
-          <div className="flex items-center justify-between">
-            <p className="text-sm text-muted-foreground">Deals y negociaciones activas del proyecto</p>
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-xs md:text-sm text-muted-foreground">Deals y negociaciones activas</p>
             <Dialog open={addCtDialog} onOpenChange={setAddCtDialog}>
-              <DialogTrigger asChild><Button size="sm" variant="outline"><Plus className="mr-1 h-3.5 w-3.5" /> Vincular Contacto</Button></DialogTrigger>
+              <DialogTrigger asChild><Button size="sm" variant="outline" className="w-full sm:w-auto"><Plus className="mr-1 h-3.5 w-3.5" /> Vincular Contacto</Button></DialogTrigger>
               <DialogContent>
                 <DialogHeader><DialogTitle>Vincular Contacto</DialogTitle></DialogHeader>
                 {availableCts.length === 0 ? (
@@ -221,7 +223,7 @@ export default function ProyectoDetail() {
                 ) : (
                   <div className="space-y-2 max-h-64 overflow-y-auto">
                     {availableCts.map((ct) => (
-                      <button key={ct.id} onClick={() => addContacto(ct.id)} className="w-full flex items-center justify-between rounded-md border p-3 hover:bg-muted/50 transition-colors text-left">
+                      <button key={ct.id} onClick={() => addContacto(ct.id)} className="w-full flex items-center justify-between rounded-md border p-3 hover:bg-muted/50 transition-colors text-left min-h-[44px]">
                         <div><p className="font-medium text-sm">{ct.nombre} {ct.apellidos || ""}</p><p className="text-xs text-muted-foreground">{ct.empresa || ""}</p></div>
                         <Plus className="h-4 w-4 text-muted-foreground" />
                       </button>
@@ -237,17 +239,17 @@ export default function ProyectoDetail() {
                 const ct = row.contactos as any;
                 return (
                   <div key={row.id} className="flex items-center justify-between rounded-md border p-3">
-                    <div className="flex-1 min-w-0"><p className="font-medium">{ct?.nombre} {ct?.apellidos || ""}</p><p className="text-xs text-muted-foreground">{ct?.cargo && `${ct.cargo} · `}{ct?.empresa || ""}</p></div>
-                    <Button variant="ghost" size="icon" onClick={() => removeContacto(row.id)} className="text-muted-foreground hover:text-destructive"><Trash2 className="h-4 w-4" /></Button>
+                    <div className="flex-1 min-w-0"><p className="font-medium text-sm">{ct?.nombre} {ct?.apellidos || ""}</p><p className="text-xs text-muted-foreground">{ct?.cargo && `${ct.cargo} · `}{ct?.empresa || ""}</p></div>
+                    <Button variant="ghost" size="icon" onClick={() => removeContacto(row.id)} className="text-muted-foreground hover:text-destructive h-9 w-9"><Trash2 className="h-4 w-4" /></Button>
                   </div>
                 );
               })}
             </div>
           )}
-          <Card><CardContent className="py-12 text-center">
+          <Card><CardContent className="py-10 md:py-12 text-center">
             <MessageSquare className="mx-auto mb-3 h-10 w-10 text-muted-foreground/30" />
-            <p className="text-muted-foreground">Crea deals de negociación vinculando operadores, activos e interlocutores.</p>
-            <Button className="mt-3" variant="outline"><Plus className="mr-2 h-4 w-4" /> Nuevo Deal</Button>
+            <p className="text-muted-foreground text-sm">Crea deals de negociación vinculando operadores, activos e interlocutores.</p>
+            <Button className="mt-3 w-full sm:w-auto" variant="outline"><Plus className="mr-2 h-4 w-4" /> Nuevo Deal</Button>
           </CardContent></Card>
         </TabsContent>
       </Tabs>

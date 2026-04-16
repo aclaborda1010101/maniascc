@@ -6,11 +6,13 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Sheet, SheetContent } from "@/components/ui/sheet";
 import {
-  Plus, Search, Star, MessageCircle, Mic, Users, Heart, Upload, Building2, Network,
+  Plus, Search, Star, MessageCircle, Mic, Users, Heart, Upload, Building2, Network, ArrowLeft,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
+import { useIsMobile } from "@/hooks/use-mobile";
 import ImportContactosModal from "@/components/contactos/ImportContactosModal";
 import CreateContactForm from "@/components/contactos/CreateContactForm";
 import ContactDetailPanel from "@/components/contactos/ContactDetailPanel";
@@ -39,6 +41,7 @@ export default function Contactos() {
   const [submitting, setSubmitting] = useState(false);
   const { toast } = useToast();
   const { user } = useAuth();
+  const isMobile = useIsMobile();
 
   const fetchContactos = useCallback(async () => {
     setLoading(true);
@@ -129,124 +132,134 @@ export default function Contactos() {
     }
   };
 
-  return (
-    <div className="flex h-[calc(100vh-4rem)] gap-0 overflow-hidden -m-6">
-      {/* LEFT PANEL */}
-      <div className="flex w-[380px] shrink-0 flex-col border-r bg-card">
-        {/* Header */}
-        <div className="border-b p-4 space-y-3">
-          <div className="flex items-center justify-between">
-            <h1 className="text-lg font-bold tracking-tight">Red de Contactos</h1>
-            <div className="flex gap-1">
-              <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setImportOpen(true)}>
-                <Upload className="h-4 w-4" />
-              </Button>
-              <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-                <DialogTrigger asChild>
-                  <Button variant="ghost" size="icon" className="h-8 w-8">
-                    <Plus className="h-4 w-4" />
-                  </Button>
-                </DialogTrigger>
-                <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
-                  <DialogHeader><DialogTitle>Nuevo Contacto</DialogTitle></DialogHeader>
-                  <CreateContactForm operadores={operadores} submitting={submitting} onSubmit={handleCreate} />
-                </DialogContent>
-              </Dialog>
-            </div>
-          </div>
-
-          {/* Stats */}
-          <div className="flex gap-3 text-xs font-medium">
-            <span className="flex items-center gap-1 text-primary">
-              <Network className="h-3.5 w-3.5" /> {inNetworkCount} EN RED
-            </span>
-            <span className="text-muted-foreground">·</span>
-            <span className="flex items-center gap-1 text-chart-3">
-              <Star className="h-3.5 w-3.5" /> {favCount} FAV
-            </span>
-            <span className="text-muted-foreground">·</span>
-            <span className="text-muted-foreground">{contactos.length} TOTAL</span>
-          </div>
-
-          {/* Search */}
-          <div className="relative">
-            <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              placeholder="Buscar contacto..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="h-8 pl-8 text-sm"
-            />
-          </div>
-
-          {/* Filters */}
-          <div className="flex gap-2">
-            <Select value={tipoFilter} onValueChange={setTipoFilter}>
-              <SelectTrigger className="h-8 text-xs flex-1">
-                <SelectValue placeholder="Tipo" />
-              </SelectTrigger>
-              <SelectContent>
-                {TIPOS.map((t) => (
-                  <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Select value={catFilter} onValueChange={setCatFilter}>
-              <SelectTrigger className="h-8 text-xs flex-1">
-                <SelectValue placeholder="Categoría" />
-              </SelectTrigger>
-              <SelectContent>
-                {CATEGORIAS.map((c) => (
-                  <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+  const listPanel = (
+    <div className="flex flex-col h-full bg-card">
+      {/* Header */}
+      <div className="border-b p-3 md:p-4 space-y-2.5 md:space-y-3">
+        <div className="flex items-center justify-between">
+          <h1 className="text-base md:text-lg font-bold tracking-tight">Red de Contactos</h1>
+          <div className="flex gap-1">
+            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setImportOpen(true)}>
+              <Upload className="h-4 w-4" />
+            </Button>
+            <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+              <DialogTrigger asChild>
+                <Button variant="ghost" size="icon" className="h-8 w-8">
+                  <Plus className="h-4 w-4" />
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
+                <DialogHeader><DialogTitle>Nuevo Contacto</DialogTitle></DialogHeader>
+                <CreateContactForm operadores={operadores} submitting={submitting} onSubmit={handleCreate} />
+              </DialogContent>
+            </Dialog>
           </div>
         </div>
 
-        {/* List */}
-        <div className="flex-1 overflow-y-auto">
-          {loading ? (
-            <div className="space-y-1 p-2">
-              {[1, 2, 3, 4, 5].map((i) => <Skeleton key={i} className="h-16 w-full rounded-lg" />)}
-            </div>
-          ) : filtered.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-16 text-center">
-              <Users className="mb-2 h-8 w-8 text-muted-foreground/30" />
-              <p className="text-xs text-muted-foreground">Sin contactos</p>
-            </div>
-          ) : (
-            <div className="space-y-0.5 p-1">
-              {filtered.map((c) => (
-                <ContactListItem
-                  key={c.id}
-                  contacto={c}
-                  isSelected={selectedId === c.id}
-                  onSelect={() => setSelectedId(c.id)}
-                  onToggleFav={toggleFav}
-                  onToggleNetwork={toggleNetwork}
-                />
-              ))}
-            </div>
-          )}
+        {/* Stats */}
+        <div className="flex gap-3 text-[10px] md:text-xs font-medium">
+          <span className="flex items-center gap-1 text-primary">
+            <Network className="h-3 w-3 md:h-3.5 md:w-3.5" /> {inNetworkCount} EN RED
+          </span>
+          <span className="text-muted-foreground">·</span>
+          <span className="flex items-center gap-1 text-chart-3">
+            <Star className="h-3 w-3 md:h-3.5 md:w-3.5" /> {favCount} FAV
+          </span>
+          <span className="text-muted-foreground">·</span>
+          <span className="text-muted-foreground">{contactos.length} TOTAL</span>
+        </div>
+
+        {/* Search */}
+        <div className="relative">
+          <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+          <Input placeholder="Buscar contacto..." value={search} onChange={(e) => setSearch(e.target.value)} className="h-8 pl-8 text-sm" />
+        </div>
+
+        {/* Filters */}
+        <div className="flex gap-2">
+          <Select value={tipoFilter} onValueChange={setTipoFilter}>
+            <SelectTrigger className="h-8 text-xs flex-1"><SelectValue placeholder="Tipo" /></SelectTrigger>
+            <SelectContent>{TIPOS.map((t) => <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>)}</SelectContent>
+          </Select>
+          <Select value={catFilter} onValueChange={setCatFilter}>
+            <SelectTrigger className="h-8 text-xs flex-1"><SelectValue placeholder="Categoría" /></SelectTrigger>
+            <SelectContent>{CATEGORIAS.map((c) => <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>)}</SelectContent>
+          </Select>
         </div>
       </div>
 
-      {/* RIGHT PANEL */}
-      <div className="flex-1 overflow-y-auto bg-background">
-        {selected ? (
-          <ContactDetailPanel
-            contacto={selected}
-            onRefresh={fetchContactos}
-          />
+      {/* List */}
+      <div className="flex-1 overflow-y-auto">
+        {loading ? (
+          <div className="space-y-1 p-2">
+            {[1, 2, 3, 4, 5].map((i) => <Skeleton key={i} className="h-16 w-full rounded-lg" />)}
+          </div>
+        ) : filtered.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-16 text-center">
+            <Users className="mb-2 h-8 w-8 text-muted-foreground/30" />
+            <p className="text-xs text-muted-foreground">Sin contactos</p>
+          </div>
         ) : (
-          <div className="flex h-full flex-col items-center justify-center text-center">
-            <Network className="mb-3 h-12 w-12 text-muted-foreground/20" />
-            <p className="text-sm text-muted-foreground">Selecciona un contacto para ver su ficha</p>
+          <div className="space-y-0.5 p-1">
+            {filtered.map((c) => (
+              <ContactListItem
+                key={c.id}
+                contacto={c}
+                isSelected={selectedId === c.id}
+                onSelect={() => setSelectedId(c.id)}
+                onToggleFav={toggleFav}
+                onToggleNetwork={toggleNetwork}
+              />
+            ))}
           </div>
         )}
       </div>
+    </div>
+  );
 
+  const detailContent = selected ? (
+    <div className="h-full overflow-y-auto">
+      {isMobile && (
+        <div className="sticky top-0 z-10 flex items-center gap-2 border-b bg-card px-3 py-2">
+          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setSelectedId(null)}>
+            <ArrowLeft className="h-4 w-4" />
+          </Button>
+          <span className="text-sm font-medium truncate">{selected.nombre} {selected.apellidos || ""}</span>
+        </div>
+      )}
+      <ContactDetailPanel contacto={selected} onRefresh={fetchContactos} />
+    </div>
+  ) : (
+    <div className="flex h-full flex-col items-center justify-center text-center">
+      <Network className="mb-3 h-12 w-12 text-muted-foreground/20" />
+      <p className="text-sm text-muted-foreground">Selecciona un contacto para ver su ficha</p>
+    </div>
+  );
+
+  // Mobile: full-screen list, detail as Sheet
+  if (isMobile) {
+    return (
+      <div className="flex flex-col h-[calc(100vh-4rem)] -mx-4 -mt-4">
+        {listPanel}
+        <Sheet open={!!selectedId} onOpenChange={(open) => { if (!open) setSelectedId(null); }}>
+          <SheetContent side="bottom" className="h-[90vh] p-0 rounded-t-xl">
+            {detailContent}
+          </SheetContent>
+        </Sheet>
+        <ImportContactosModal open={importOpen} onOpenChange={setImportOpen} onImported={fetchContactos} />
+      </div>
+    );
+  }
+
+  // Desktop: two-panel
+  return (
+    <div className="flex h-[calc(100vh-4rem)] gap-0 overflow-hidden -m-6">
+      <div className="w-[380px] shrink-0 border-r">
+        {listPanel}
+      </div>
+      <div className="flex-1 overflow-y-auto bg-background">
+        {detailContent}
+      </div>
       <ImportContactosModal open={importOpen} onOpenChange={setImportOpen} onImported={fetchContactos} />
     </div>
   );
@@ -267,7 +280,7 @@ function ContactListItem({ contacto: c, isSelected, onSelect, onToggleFav, onTog
   return (
     <div
       onClick={onSelect}
-      className={`flex cursor-pointer items-start gap-3 rounded-lg p-3 transition-colors ${
+      className={`flex cursor-pointer items-start gap-3 rounded-lg p-3 transition-colors min-h-[44px] ${
         isSelected ? "bg-primary/10 border border-primary/20" : "hover:bg-muted/50"
       }`}
     >
@@ -308,7 +321,7 @@ function ContactListItem({ contacto: c, isSelected, onSelect, onToggleFav, onTog
         </div>
       </div>
       <div className="flex flex-col gap-1 shrink-0">
-        <button onClick={(e) => onToggleFav(c.id, e)} className="p-0.5 rounded hover:bg-muted transition-colors">
+        <button onClick={(e) => onToggleFav(c.id, e)} className="p-0.5 rounded hover:bg-muted transition-colors min-h-[44px] min-w-[32px] flex items-center justify-center">
           <Star className={`h-3.5 w-3.5 ${c.is_favorite ? "fill-yellow-400 text-yellow-400" : "text-muted-foreground/30"}`} />
         </button>
       </div>
