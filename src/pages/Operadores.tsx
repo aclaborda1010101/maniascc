@@ -14,6 +14,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 const SECTORES: { value: string; label: string }[] = [
   { value: "Alimentación", label: "Alimentación" },
@@ -45,6 +46,7 @@ export default function Operadores() {
   const [selectedActivoId, setSelectedActivoId] = useState("");
   const { toast } = useToast();
   const { user } = useAuth();
+  const isMobile = useIsMobile();
 
   const selectedMatriz = matrices.find((m: any) => m.id === selectedMatrizId);
 
@@ -99,22 +101,21 @@ export default function Operadores() {
   };
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="space-y-4 md:space-y-6">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Operadores</h1>
-          <p className="text-sm text-muted-foreground">Gestiona los operadores comerciales (marcas y enseñas)</p>
+          <h1 className="text-xl md:text-2xl font-bold tracking-tight">Operadores</h1>
+          <p className="text-xs md:text-sm text-muted-foreground">Gestiona los operadores comerciales</p>
         </div>
         <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
           <DialogTrigger asChild>
-            <Button className="bg-accent text-accent-foreground hover:bg-accent/90">
+            <Button className="bg-accent text-accent-foreground hover:bg-accent/90 w-full sm:w-auto">
               <Plus className="mr-2 h-4 w-4" /> Nuevo Operador
             </Button>
           </DialogTrigger>
           <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
             <DialogHeader><DialogTitle>Crear Nuevo Operador</DialogTitle></DialogHeader>
             <form onSubmit={handleCreate} className="space-y-4">
-              {/* Matriz selection */}
               <div className="space-y-2">
                 <Label>Matriz</Label>
                 <div className="flex gap-2">
@@ -124,39 +125,30 @@ export default function Operadores() {
                 {matrizMode === "existing" && (
                   <Select value={selectedMatrizId} onValueChange={setSelectedMatrizId}>
                     <SelectTrigger><SelectValue placeholder="Seleccionar matriz..." /></SelectTrigger>
-                    <SelectContent>
-                      {matrices.map((m) => <SelectItem key={m.id} value={m.id}>{m.nombre}</SelectItem>)}
-                    </SelectContent>
+                    <SelectContent>{matrices.map((m) => <SelectItem key={m.id} value={m.id}>{m.nombre}</SelectItem>)}</SelectContent>
                   </Select>
                 )}
                 {matrizMode === "new" && <p className="text-xs text-muted-foreground">Este operador será una nueva matriz.</p>}
               </div>
-
               <div className="space-y-2">
                 <Label htmlFor="o-nombre">Nombre identificativo *</Label>
                 <Input id="o-nombre" name="nombre" placeholder="Ej: Mercadona Norte" required />
               </div>
-
               <div className="space-y-2">
                 <Label>Dirección</Label>
                 <Input name="direccion" placeholder="Calle, número, ciudad" />
               </div>
-
-              {/* Sector: auto-fill if existing matrix */}
               <div className="space-y-2">
-                <Label>Sector {matrizMode === "existing" && selectedMatriz ? "(heredado de matriz)" : "*"}</Label>
+                <Label>Sector {matrizMode === "existing" && selectedMatriz ? "(heredado)" : "*"}</Label>
                 {matrizMode === "existing" && selectedMatriz ? (
                   <Input value={selectedMatriz.sector} disabled className="bg-muted" />
                 ) : (
-                  <select name="sector" required
-                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                  <select name="sector" required className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
                     <option value="">Seleccionar sector</option>
                     {SECTORES.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
                   </select>
                 )}
               </div>
-
-              {/* Activo vinculado */}
               <div className="space-y-2">
                 <Label>Activo vinculado (opcional)</Label>
                 <Select value={selectedActivoId} onValueChange={setSelectedActivoId}>
@@ -167,7 +159,6 @@ export default function Operadores() {
                   </SelectContent>
                 </Select>
               </div>
-
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2"><Label>Presupuesto Min (€/mes)</Label><Input name="presupuesto_min" type="number" min="0" step="0.01" /></div>
                 <div className="space-y-2"><Label>Presupuesto Max (€/mes)</Label><Input name="presupuesto_max" type="number" min="0" step="0.01" /></div>
@@ -185,28 +176,30 @@ export default function Operadores() {
         </Dialog>
       </div>
 
-      <Card>
+      <Card className="shadow-sm">
         <CardHeader className="pb-3">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input placeholder="Buscar por nombre o sector..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-10" />
             </div>
-            <Select value={filtroSector} onValueChange={setFiltroSector}>
-              <SelectTrigger className="w-[160px]"><SelectValue placeholder="Sector" /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="todos">Todos los sectores</SelectItem>
-                {SECTORES.map((s) => <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>)}
-              </SelectContent>
-            </Select>
-            <Select value={filtroActivo} onValueChange={setFiltroActivo}>
-              <SelectTrigger className="w-[130px]"><SelectValue placeholder="Estado" /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="todos">Todos</SelectItem>
-                <SelectItem value="activo">Activos</SelectItem>
-                <SelectItem value="inactivo">Inactivos</SelectItem>
-              </SelectContent>
-            </Select>
+            <div className="flex gap-2">
+              <Select value={filtroSector} onValueChange={setFiltroSector}>
+                <SelectTrigger className="flex-1 sm:w-[160px]"><SelectValue placeholder="Sector" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="todos">Todos los sectores</SelectItem>
+                  {SECTORES.map((s) => <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>)}
+                </SelectContent>
+              </Select>
+              <Select value={filtroActivo} onValueChange={setFiltroActivo}>
+                <SelectTrigger className="flex-1 sm:w-[130px]"><SelectValue placeholder="Estado" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="todos">Todos</SelectItem>
+                  <SelectItem value="activo">Activos</SelectItem>
+                  <SelectItem value="inactivo">Inactivos</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
           </div>
         </CardHeader>
         <CardContent>
@@ -215,9 +208,38 @@ export default function Operadores() {
           ) : operadores.length === 0 ? (
             <div className="py-12 text-center">
               <Users className="mx-auto mb-3 h-10 w-10 text-muted-foreground/40" />
-              <p className="text-muted-foreground">{search || filtroSector !== "todos" || filtroActivo !== "todos" ? "No se encontraron operadores." : "No hay operadores. Crea el primero."}</p>
+              <p className="text-muted-foreground text-sm">{search || filtroSector !== "todos" || filtroActivo !== "todos" ? "No se encontraron operadores." : "No hay operadores. Crea el primero."}</p>
+            </div>
+          ) : isMobile ? (
+            /* Mobile: card layout */
+            <div className="space-y-2">
+              {operadores.map((o) => (
+                <Link key={o.id} to={`/operadores/${o.id}`}>
+                  <Card className="hover:border-accent/40 transition-colors shadow-sm">
+                    <CardContent className="p-3 space-y-1.5">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0 flex-1">
+                          <p className="font-medium text-sm text-accent truncate">{o.nombre}</p>
+                          {o.direccion && <p className="text-[11px] text-muted-foreground truncate">{o.direccion}</p>}
+                        </div>
+                        <Badge variant={o.activo ? "default" : "secondary"} className={`shrink-0 text-[10px] ${o.activo ? "bg-chart-2/10 text-chart-2" : ""}`}>
+                          {o.activo ? "Activo" : "Inactivo"}
+                        </Badge>
+                      </div>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <Badge variant="secondary" className="text-[10px]">{o.sector || "—"}</Badge>
+                        {!o.matriz_id && <Badge variant="outline" className="text-[10px]">Matriz</Badge>}
+                        <span className="text-[10px] text-muted-foreground ml-auto">
+                          {Number(o.presupuesto_min).toLocaleString("es-ES")}–{Number(o.presupuesto_max).toLocaleString("es-ES")} €
+                        </span>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </Link>
+              ))}
             </div>
           ) : (
+            /* Desktop: table */
             <Table>
               <TableHeader>
                 <TableRow>

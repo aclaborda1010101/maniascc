@@ -14,6 +14,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 const estadoColors: Record<string, string> = {
   disponible: "bg-chart-2/10 text-chart-2",
@@ -38,6 +39,7 @@ export default function Locales() {
   const [submitting, setSubmitting] = useState(false);
   const { toast } = useToast();
   const { user } = useAuth();
+  const isMobile = useIsMobile();
 
   const fetchLocales = async () => {
     setLoading(true);
@@ -79,27 +81,25 @@ export default function Locales() {
   };
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="space-y-4 md:space-y-6">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Activos</h1>
-          <p className="text-sm text-muted-foreground">Gestiona los activos comerciales de tus centros</p>
+          <h1 className="text-xl md:text-2xl font-bold tracking-tight">Activos</h1>
+          <p className="text-xs md:text-sm text-muted-foreground">Gestiona los activos comerciales de tus centros</p>
         </div>
         <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
           <DialogTrigger asChild>
-            <Button className="bg-accent text-accent-foreground hover:bg-accent/90">
+            <Button className="bg-accent text-accent-foreground hover:bg-accent/90 w-full sm:w-auto">
               <Plus className="mr-2 h-4 w-4" /> Nuevo Activo
             </Button>
           </DialogTrigger>
           <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle>Crear Nuevo Activo</DialogTitle>
-            </DialogHeader>
+            <DialogHeader><DialogTitle>Crear Nuevo Activo</DialogTitle></DialogHeader>
             <form onSubmit={handleCreate} className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="c-nombre">Nombre *</Label>
-                  <Input id="c-nombre" name="nombre" placeholder="Local 12-A Parque Comercial" required />
+                  <Input id="c-nombre" name="nombre" placeholder="Local 12-A" required />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="c-ciudad">Ciudad *</Label>
@@ -110,7 +110,7 @@ export default function Locales() {
                 <Label htmlFor="c-dir">Dirección *</Label>
                 <Input id="c-dir" name="direccion" placeholder="Av. de Europa 23" required />
               </div>
-              <div className="grid grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="c-cp">Código Postal</Label>
                   <Input id="c-cp" name="codigo_postal" placeholder="28001" />
@@ -136,7 +136,7 @@ export default function Locales() {
               </div>
               <div className="space-y-2">
                 <Label htmlFor="c-desc">Descripción</Label>
-                <Textarea id="c-desc" name="descripcion" placeholder="Detalles adicionales del local..." rows={3} />
+                <Textarea id="c-desc" name="descripcion" placeholder="Detalles adicionales..." rows={3} />
               </div>
               <Button type="submit" className="w-full bg-accent text-accent-foreground hover:bg-accent/90" disabled={submitting}>
                 {submitting ? "Creando..." : "Crear Activo"}
@@ -146,22 +146,15 @@ export default function Locales() {
         </Dialog>
       </div>
 
-      <Card>
+      <Card className="shadow-sm">
         <CardHeader className="pb-3">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                placeholder="Buscar por nombre, dirección, ciudad o CP..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="pl-10"
-              />
+              <Input placeholder="Buscar por nombre, dirección..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-10" />
             </div>
             <Select value={filtroEstado} onValueChange={setFiltroEstado}>
-              <SelectTrigger className="w-[180px]">
-                <SelectValue placeholder="Estado" />
-              </SelectTrigger>
+              <SelectTrigger className="w-full sm:w-[180px]"><SelectValue placeholder="Estado" /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="todos">Todos los estados</SelectItem>
                 <SelectItem value="disponible">Disponible</SelectItem>
@@ -174,17 +167,40 @@ export default function Locales() {
         </CardHeader>
         <CardContent>
           {loading ? (
-            <div className="space-y-3">
-              {[1, 2, 3, 4].map((i) => <Skeleton key={i} className="h-14 w-full" />)}
-            </div>
+            <div className="space-y-3">{[1, 2, 3, 4].map((i) => <Skeleton key={i} className="h-14 w-full" />)}</div>
           ) : locales.length === 0 ? (
             <div className="py-12 text-center">
               <MapPin className="mx-auto mb-3 h-10 w-10 text-muted-foreground/40" />
-              <p className="text-muted-foreground">
-                {search || filtroEstado !== "todos" ? "No se encontraron activos con esos filtros." : "No hay activos. Crea el primero."}
-              </p>
+              <p className="text-muted-foreground text-sm">{search || filtroEstado !== "todos" ? "No se encontraron activos." : "No hay activos. Crea el primero."}</p>
+            </div>
+          ) : isMobile ? (
+            /* Mobile: card layout */
+            <div className="space-y-2">
+              {locales.map((l) => (
+                <Link key={l.id} to={`/activos/${l.id}`}>
+                  <Card className="hover:border-accent/40 transition-colors shadow-sm">
+                    <CardContent className="p-3 space-y-1.5">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0 flex-1">
+                          <p className="font-medium text-sm text-accent truncate">{l.nombre}</p>
+                          <p className="text-[11px] text-muted-foreground truncate">{l.direccion}</p>
+                        </div>
+                        <Badge variant="secondary" className={`shrink-0 text-[10px] ${estadoColors[l.estado] || ""}`}>
+                          {estadoLabels[l.estado] || l.estado}
+                        </Badge>
+                      </div>
+                      <div className="flex items-center gap-3 text-[11px] text-muted-foreground">
+                        <span>{l.ciudad}</span>
+                        <span>{Number(l.superficie_m2).toLocaleString("es-ES")} m²</span>
+                        <span className="ml-auto font-medium text-foreground">{Number(l.precio_renta).toLocaleString("es-ES")} €/mes</span>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </Link>
+              ))}
             </div>
           ) : (
+            /* Desktop: table */
             <Table>
               <TableHeader>
                 <TableRow>
@@ -199,9 +215,7 @@ export default function Locales() {
                 {locales.map((l) => (
                   <TableRow key={l.id} className="cursor-pointer hover:bg-muted/50">
                     <TableCell>
-                      <Link to={`/activos/${l.id}`} className="font-medium text-accent hover:underline">
-                        {l.nombre}
-                      </Link>
+                      <Link to={`/activos/${l.id}`} className="font-medium text-accent hover:underline">{l.nombre}</Link>
                       <p className="text-xs text-muted-foreground truncate max-w-[200px]">{l.direccion}</p>
                     </TableCell>
                     <TableCell>{l.ciudad}</TableCell>
@@ -218,7 +232,7 @@ export default function Locales() {
             </Table>
           )}
           {!loading && locales.length > 0 && (
-            <p className="mt-3 text-xs text-muted-foreground">{locales.length} activo{locales.length !== 1 ? "s" : ""} encontrado{locales.length !== 1 ? "s" : ""}</p>
+            <p className="mt-3 text-xs text-muted-foreground">{locales.length} activo{locales.length !== 1 ? "s" : ""}</p>
           )}
         </CardContent>
       </Card>
