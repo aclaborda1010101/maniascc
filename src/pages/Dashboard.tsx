@@ -164,7 +164,7 @@ export default function Dashboard() {
       {/* Header */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-xl md:text-2xl font-bold tracking-tight">Torre de Control</h1>
+          <h1 className="text-xl md:text-2xl font-bold tracking-tight">Dashboard</h1>
           <p className="text-xs md:text-sm text-muted-foreground">Visión general de la plataforma AVA</p>
         </div>
         <div className="flex gap-2 w-full sm:w-auto">
