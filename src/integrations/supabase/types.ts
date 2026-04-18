@@ -791,15 +791,60 @@ export type Database = {
         }
         Relationships: []
       }
+      document_links: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          documento_id: string
+          entity_id: string
+          entity_type: string
+          id: string
+          rol: string | null
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          documento_id: string
+          entity_id: string
+          entity_type: string
+          id?: string
+          rol?: string | null
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          documento_id?: string
+          entity_id?: string
+          entity_type?: string
+          id?: string
+          rol?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "document_links_documento_id_fkey"
+            columns: ["documento_id"]
+            isOneToOne: false
+            referencedRelation: "documentos_proyecto"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       documentos_proyecto: {
         Row: {
           contacto_id: string | null
           created_at: string | null
+          fase_rag: string
+          fecha_documento: string | null
+          hash_md5: string | null
           id: string
           metadata_extraida: Json | null
           mime_type: string | null
+          nivel_sensibilidad: string
           nombre: string
+          nombre_normalizado: string | null
           operador_id: string | null
+          origen: string
+          origen_external_id: string | null
           owner_id: string | null
           procesado_ia: boolean | null
           proyecto_id: string | null
@@ -807,17 +852,25 @@ export type Database = {
           storage_path: string
           subido_por: string | null
           tamano_bytes: number | null
+          taxonomia_id: string | null
           tipo_documento: string | null
           visibility: string
         }
         Insert: {
           contacto_id?: string | null
           created_at?: string | null
+          fase_rag?: string
+          fecha_documento?: string | null
+          hash_md5?: string | null
           id?: string
           metadata_extraida?: Json | null
           mime_type?: string | null
+          nivel_sensibilidad?: string
           nombre: string
+          nombre_normalizado?: string | null
           operador_id?: string | null
+          origen?: string
+          origen_external_id?: string | null
           owner_id?: string | null
           procesado_ia?: boolean | null
           proyecto_id?: string | null
@@ -825,17 +878,25 @@ export type Database = {
           storage_path: string
           subido_por?: string | null
           tamano_bytes?: number | null
+          taxonomia_id?: string | null
           tipo_documento?: string | null
           visibility?: string
         }
         Update: {
           contacto_id?: string | null
           created_at?: string | null
+          fase_rag?: string
+          fecha_documento?: string | null
+          hash_md5?: string | null
           id?: string
           metadata_extraida?: Json | null
           mime_type?: string | null
+          nivel_sensibilidad?: string
           nombre?: string
+          nombre_normalizado?: string | null
           operador_id?: string | null
+          origen?: string
+          origen_external_id?: string | null
           owner_id?: string | null
           procesado_ia?: boolean | null
           proyecto_id?: string | null
@@ -843,6 +904,7 @@ export type Database = {
           storage_path?: string
           subido_por?: string | null
           tamano_bytes?: number | null
+          taxonomia_id?: string | null
           tipo_documento?: string | null
           visibility?: string
         }
@@ -866,6 +928,60 @@ export type Database = {
             columns: ["proyecto_id"]
             isOneToOne: false
             referencedRelation: "proyectos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "documentos_proyecto_taxonomia_id_fkey"
+            columns: ["taxonomia_id"]
+            isOneToOne: false
+            referencedRelation: "documentos_taxonomia"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      documentos_taxonomia: {
+        Row: {
+          activo: boolean
+          codigo: string
+          color: string | null
+          created_at: string
+          descripcion: string | null
+          icono: string | null
+          id: string
+          nombre: string
+          orden: number | null
+          parent_id: string | null
+        }
+        Insert: {
+          activo?: boolean
+          codigo: string
+          color?: string | null
+          created_at?: string
+          descripcion?: string | null
+          icono?: string | null
+          id?: string
+          nombre: string
+          orden?: number | null
+          parent_id?: string | null
+        }
+        Update: {
+          activo?: boolean
+          codigo?: string
+          color?: string | null
+          created_at?: string
+          descripcion?: string | null
+          icono?: string | null
+          id?: string
+          nombre?: string
+          orden?: number | null
+          parent_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "documentos_taxonomia_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "documentos_taxonomia"
             referencedColumns: ["id"]
           },
         ]
@@ -974,6 +1090,60 @@ export type Database = {
           thread_external_id?: string | null
           updated_at?: string
           visibility?: string
+        }
+        Relationships: []
+      }
+      ingestion_jobs: {
+        Row: {
+          completado_en: string | null
+          config: Json
+          created_at: string
+          estado: string
+          failed_items: number
+          id: string
+          iniciado_en: string | null
+          job_type: string
+          processed_items: number
+          resumen: Json
+          skipped_items: number
+          total_items: number
+          ultimo_error: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          completado_en?: string | null
+          config?: Json
+          created_at?: string
+          estado?: string
+          failed_items?: number
+          id?: string
+          iniciado_en?: string | null
+          job_type: string
+          processed_items?: number
+          resumen?: Json
+          skipped_items?: number
+          total_items?: number
+          ultimo_error?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          completado_en?: string | null
+          config?: Json
+          created_at?: string
+          estado?: string
+          failed_items?: number
+          id?: string
+          iniciado_en?: string | null
+          job_type?: string
+          processed_items?: number
+          resumen?: Json
+          skipped_items?: number
+          total_items?: number
+          ultimo_error?: string | null
+          updated_at?: string
+          user_id?: string
         }
         Relationships: []
       }
@@ -1400,6 +1570,57 @@ export type Database = {
         }
         Relationships: []
       }
+      onedrive_sync_state: {
+        Row: {
+          archivos_indexados: number
+          config: Json
+          created_at: string
+          delta_token: string | null
+          drive_id: string | null
+          estado: string
+          root_folder_id: string | null
+          total_archivos: number
+          total_bytes: number
+          ultimo_backfill: string | null
+          ultimo_delta: string | null
+          ultimo_error: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          archivos_indexados?: number
+          config?: Json
+          created_at?: string
+          delta_token?: string | null
+          drive_id?: string | null
+          estado?: string
+          root_folder_id?: string | null
+          total_archivos?: number
+          total_bytes?: number
+          ultimo_backfill?: string | null
+          ultimo_delta?: string | null
+          ultimo_error?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          archivos_indexados?: number
+          config?: Json
+          created_at?: string
+          delta_token?: string | null
+          drive_id?: string | null
+          estado?: string
+          root_folder_id?: string | null
+          total_archivos?: number
+          total_bytes?: number
+          ultimo_backfill?: string | null
+          ultimo_delta?: string | null
+          ultimo_error?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       operador_subdivisiones: {
         Row: {
           created_at: string | null
@@ -1584,6 +1805,9 @@ export type Database = {
           imap_port: number | null
           imap_user: string | null
           nombre: string
+          onedrive_account: string | null
+          onedrive_connected: boolean
+          onedrive_root_path: string | null
           telefono: string | null
           updated_at: string
           user_id: string
@@ -1604,6 +1828,9 @@ export type Database = {
           imap_port?: number | null
           imap_user?: string | null
           nombre?: string
+          onedrive_account?: string | null
+          onedrive_connected?: boolean
+          onedrive_root_path?: string | null
           telefono?: string | null
           updated_at?: string
           user_id: string
@@ -1624,6 +1851,9 @@ export type Database = {
           imap_port?: number | null
           imap_user?: string | null
           nombre?: string
+          onedrive_account?: string | null
+          onedrive_connected?: boolean
+          onedrive_root_path?: string | null
           telefono?: string | null
           updated_at?: string
           user_id?: string
@@ -2134,6 +2364,74 @@ export type Database = {
           usuario_id?: string | null
         }
         Relationships: []
+      }
+      whatsapp_threads: {
+        Row: {
+          contact_id: string | null
+          contact_name: string | null
+          contact_phone: string | null
+          created_at: string
+          documento_id: string | null
+          first_date: string | null
+          id: string
+          key_topics: string[] | null
+          last_date: string | null
+          message_count: number
+          metadata: Json
+          origen: string
+          owner_id: string
+          sentiment: string | null
+          summary: string | null
+          updated_at: string
+          visibility: string
+        }
+        Insert: {
+          contact_id?: string | null
+          contact_name?: string | null
+          contact_phone?: string | null
+          created_at?: string
+          documento_id?: string | null
+          first_date?: string | null
+          id?: string
+          key_topics?: string[] | null
+          last_date?: string | null
+          message_count?: number
+          metadata?: Json
+          origen?: string
+          owner_id: string
+          sentiment?: string | null
+          summary?: string | null
+          updated_at?: string
+          visibility?: string
+        }
+        Update: {
+          contact_id?: string | null
+          contact_name?: string | null
+          contact_phone?: string | null
+          created_at?: string
+          documento_id?: string | null
+          first_date?: string | null
+          id?: string
+          key_topics?: string[] | null
+          last_date?: string | null
+          message_count?: number
+          metadata?: Json
+          origen?: string
+          owner_id?: string
+          sentiment?: string | null
+          summary?: string | null
+          updated_at?: string
+          visibility?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "whatsapp_threads_documento_id_fkey"
+            columns: ["documento_id"]
+            isOneToOne: false
+            referencedRelation: "documentos_proyecto"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Views: {
