@@ -289,6 +289,12 @@ IMPORTANTE: Aprende del feedback implícito — los fragmentos mejor posicionado
       search_method: ftsResults && ftsResults.length > 0 ? "hybrid" : "ilike",
       chunks_used: rankedChunks.length,
       latency_ms: latency,
+      team_knowledge: hasTeamKnowledge ? {
+        threads_count: teamKnowledge.threads.length,
+        entities_count: teamKnowledge.entities.length,
+        signals_count: teamKnowledge.signals.length,
+        interactions_count: teamKnowledge.interactions.length,
+      } : null,
     }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
   } catch (e) {
