@@ -24,9 +24,8 @@ const mainItems = [
 const directoryItems = [
   { title: "Activos", url: "/activos", icon: MapPin },
   { title: "Operadores", url: "/operadores", icon: Users },
-  { title: "Contactos", url: "/contactos", icon: UserCircle },
-  
-  
+  { title: "Contactos (Hub)", url: "/contactos", icon: UserCircle },
+  { title: "Documentos", url: "/documentos", icon: FileText },
 ];
 
 const aiToolsItems = [
