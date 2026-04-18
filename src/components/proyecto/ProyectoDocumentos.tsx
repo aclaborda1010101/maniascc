@@ -5,9 +5,10 @@ import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Upload, Download, File, Trash2, RefreshCw, Loader2, FileText } from "lucide-react";
+import { Upload, Download, File, Trash2, RefreshCw, Loader2, FileText, Sparkles, Tag } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { ingestDocument } from "@/services/ragService";
+import { classifyDocument, linkDocument } from "@/services/documentService";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 
@@ -22,8 +23,16 @@ export function ProyectoDocumentos({ proyectoId, docs, onRefresh }: Props) {
   const { user } = useAuth();
   const [uploading, setUploading] = useState(false);
   const [dragOver, setDragOver] = useState(false);
-  const [docTipo, setDocTipo] = useState("contrato");
+  const [docTipo, setDocTipo] = useState("auto");
   const [ingesting, setIngesting] = useState<string | null>(null);
+  const [classifying, setClassifying] = useState<string | null>(null);
+
+  const readSample = async (file: File): Promise<string> => {
+    if (file.type.startsWith("text/") || /\.(txt|md|csv|json|html|xml|eml)$/i.test(file.name)) {
+      try { return (await file.text()).slice(0, 4000); } catch { return ""; }
+    }
+    return "";
+  };
 
   const handleUpload = async (fileList: FileList | null) => {
     if (!fileList || fileList.length === 0 || !user) return;
@@ -35,16 +44,34 @@ export function ProyectoDocumentos({ proyectoId, docs, onRefresh }: Props) {
         if (uploadErr) throw uploadErr;
         const { data: docRow, error: insertErr } = await supabase.from("documentos_proyecto").insert({
           proyecto_id: proyectoId, nombre: file.name, storage_path: storagePath,
-          mime_type: file.type, tamano_bytes: file.size, tipo_documento: docTipo, subido_por: user.id,
+          mime_type: file.type, tamano_bytes: file.size,
+          tipo_documento: docTipo === "auto" ? null : docTipo,
+          subido_por: user.id, owner_id: user.id, origen: "upload", fase_rag: "pending",
         }).select("id").single();
         if (insertErr) throw insertErr;
         if (docRow) {
+          await linkDocument(docRow.id, "proyecto", proyectoId, "oportunidad").catch(() => {});
+
+          const sample = await readSample(file);
+          classifyDocument(docRow.id, sample).then((res: any) => {
+            if (res?.ok) {
+              toast({
+                title: `"${file.name}" catalogado`,
+                description: `Categoría: ${res.taxonomia_codigo} · Sensibilidad: ${res.nivel_sensibilidad}`,
+              });
+              onRefresh();
+            }
+          }).catch(() => {});
+
           ingestDocument(docRow.id).then((res) => {
-            if (res.success) { toast({ title: `"${file.name}" indexado (${res.chunks_created} fragmentos)`, description: `Dominio RAG: ${res.dominio || "general"}` }); onRefresh(); }
+            if (res.success) {
+              toast({ title: `"${file.name}" indexado`, description: `${res.chunks_created} fragmentos · ${res.dominio || "general"}` });
+              onRefresh();
+            }
           });
         }
       }
-      toast({ title: `${fileList.length} archivo(s) subido(s)` });
+      toast({ title: `${fileList.length} archivo(s) subido(s)`, description: "Catalogación IA e indexación en marcha…" });
       onRefresh();
     } catch (e: any) {
       toast({ title: "Error al subir", description: e.message, variant: "destructive" });
@@ -72,24 +99,43 @@ export function ProyectoDocumentos({ proyectoId, docs, onRefresh }: Props) {
     setIngesting(null);
   };
 
+  const handleReclassify = async (docId: string, nombre: string) => {
+    setClassifying(docId);
+    try {
+      const res: any = await classifyDocument(docId);
+      if (res?.ok) {
+        toast({ title: `Reclasificado: ${nombre}`, description: `Categoría: ${res.taxonomia_codigo}` });
+        onRefresh();
+      }
+    } catch (e: any) {
+      toast({ title: "Error al clasificar", description: e.message, variant: "destructive" });
+    }
+    setClassifying(null);
+  };
+
   return (
     <div className="space-y-4">
       <Card>
         <CardHeader className="pb-3"><CardTitle className="text-base flex items-center gap-2"><Upload className="h-4 w-4" /> Subir documentos</CardTitle></CardHeader>
         <CardContent className="space-y-4">
           <div className="flex items-center gap-3">
-            <Label className="text-sm whitespace-nowrap">Tipo:</Label>
+            <Label className="text-sm whitespace-nowrap">Categoría:</Label>
             <Select value={docTipo} onValueChange={setDocTipo}>
-              <SelectTrigger className="w-[200px]"><SelectValue /></SelectTrigger>
+              <SelectTrigger className="w-[240px]"><SelectValue /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="contrato">Contrato</SelectItem>
-                <SelectItem value="dossier">Dossier</SelectItem>
-                <SelectItem value="propuesta">Propuesta</SelectItem>
+                <SelectItem value="auto">🤖 Auto (clasificar con IA)</SelectItem>
+                <SelectItem value="contrato">Contrato / Legal</SelectItem>
+                <SelectItem value="financiero">Financiero</SelectItem>
+                <SelectItem value="dossier">Dossier / Presentación</SelectItem>
                 <SelectItem value="informe">Informe</SelectItem>
-                <SelectItem value="plano">Plano</SelectItem>
+                <SelectItem value="plano">Plano / Arquitectura</SelectItem>
+                <SelectItem value="correo">Correo histórico</SelectItem>
                 <SelectItem value="otro">Otro</SelectItem>
               </SelectContent>
             </Select>
+            <span className="text-xs text-muted-foreground flex items-center gap-1">
+              <Sparkles className="h-3 w-3" /> La IA detecta tipo, sensibilidad y normaliza el nombre
+            </span>
           </div>
           <div
             className={`flex flex-col items-center justify-center rounded-lg border-2 border-dashed p-8 transition-colors cursor-pointer ${dragOver ? "border-accent bg-accent/5" : "border-border"}`}
@@ -100,7 +146,7 @@ export function ProyectoDocumentos({ proyectoId, docs, onRefresh }: Props) {
           >
             <Upload className="mb-2 h-8 w-8 text-muted-foreground" />
             <p className="text-sm text-muted-foreground">{uploading ? "Subiendo..." : "Arrastra archivos aquí o haz clic"}</p>
-            <p className="text-xs text-muted-foreground mt-1">Se indexarán automáticamente en la base de conocimiento</p>
+            <p className="text-xs text-muted-foreground mt-1">Catalogación automática por taxonomía + indexación RAG</p>
             <input type="file" multiple className="hidden" id="doc-upload-input" onChange={(e) => { handleUpload(e.target.files); e.target.value = ""; }} />
           </div>
         </CardContent>
@@ -113,24 +159,45 @@ export function ProyectoDocumentos({ proyectoId, docs, onRefresh }: Props) {
             <div className="py-8 text-center"><FileText className="mx-auto mb-3 h-10 w-10 text-muted-foreground/30" /><p className="text-muted-foreground text-sm">No hay documentos aún.</p></div>
           ) : (
             <Table>
-              <TableHeader><TableRow><TableHead>Nombre</TableHead><TableHead>Tipo</TableHead><TableHead>Tamaño</TableHead><TableHead>Estado IA</TableHead><TableHead>Fecha</TableHead><TableHead className="text-right">Acciones</TableHead></TableRow></TableHeader>
+              <TableHeader><TableRow><TableHead>Nombre</TableHead><TableHead>Categoría IA</TableHead><TableHead>Sensibilidad</TableHead><TableHead>Tamaño</TableHead><TableHead>Estado</TableHead><TableHead>Fecha</TableHead><TableHead className="text-right">Acciones</TableHead></TableRow></TableHeader>
               <TableBody>
-                {docs.map((doc) => (
-                  <TableRow key={doc.id}>
-                    <TableCell className="font-medium"><div className="flex items-center gap-2"><File className="h-4 w-4 text-muted-foreground shrink-0" /><span className="truncate max-w-[200px]">{doc.nombre}</span></div></TableCell>
-                    <TableCell><Badge variant="outline" className="text-xs capitalize">{doc.tipo_documento || "—"}</Badge></TableCell>
-                    <TableCell className="text-xs text-muted-foreground">{doc.tamano_bytes ? `${(doc.tamano_bytes / 1024).toFixed(0)} KB` : "—"}</TableCell>
-                    <TableCell>{doc.procesado_ia ? <Badge variant="secondary" className="text-[10px] h-5">Indexado ✓</Badge> : <Badge variant="outline" className="text-[10px] h-5">Pendiente</Badge>}</TableCell>
-                    <TableCell className="text-xs text-muted-foreground">{doc.created_at ? new Date(doc.created_at).toLocaleDateString("es-ES") : "—"}</TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex justify-end gap-1">
-                        <Button variant="ghost" size="icon" onClick={() => handleDownload(doc.storage_path)} title="Descargar"><Download className="h-4 w-4" /></Button>
-                        {!doc.procesado_ia && <Button variant="ghost" size="icon" onClick={() => handleIngest(doc.id)} disabled={ingesting === doc.id} title="Indexar">{ingesting === doc.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}</Button>}
-                        <Button variant="ghost" size="icon" onClick={() => handleDelete(doc.id, doc.storage_path)} className="text-muted-foreground hover:text-destructive" title="Eliminar"><Trash2 className="h-4 w-4" /></Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
+                {docs.map((doc) => {
+                  const taxCodigo = doc.taxonomia?.codigo || doc.tipo_documento;
+                  const taxNombre = doc.taxonomia?.nombre || doc.tipo_documento || "Sin clasificar";
+                  const sens = doc.nivel_sensibilidad || "interno";
+                  const sensColor = sens === "confidencial" || sens === "restringido" ? "destructive" : sens === "publico" ? "default" : "secondary";
+                  return (
+                    <TableRow key={doc.id}>
+                      <TableCell className="font-medium">
+                        <div className="flex items-center gap-2"><File className="h-4 w-4 text-muted-foreground shrink-0" /><span className="truncate max-w-[200px]" title={doc.nombre_normalizado || doc.nombre}>{doc.nombre}</span></div>
+                        {doc.nombre_normalizado && doc.nombre_normalizado !== doc.nombre && (
+                          <div className="text-[10px] text-muted-foreground ml-6 truncate max-w-[200px]" title={doc.nombre_normalizado}>→ {doc.nombre_normalizado}</div>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        {taxCodigo ? (
+                          <Badge variant="outline" className="text-xs gap-1"><Tag className="h-3 w-3" />{taxNombre}</Badge>
+                        ) : (
+                          <Badge variant="outline" className="text-[10px] h-5 text-muted-foreground">Pendiente IA</Badge>
+                        )}
+                      </TableCell>
+                      <TableCell><Badge variant={sensColor as any} className="text-[10px] h-5 capitalize">{sens}</Badge></TableCell>
+                      <TableCell className="text-xs text-muted-foreground">{doc.tamano_bytes ? `${(doc.tamano_bytes / 1024).toFixed(0)} KB` : "—"}</TableCell>
+                      <TableCell>{doc.procesado_ia ? <Badge variant="secondary" className="text-[10px] h-5">Indexado ✓</Badge> : <Badge variant="outline" className="text-[10px] h-5">Pendiente</Badge>}</TableCell>
+                      <TableCell className="text-xs text-muted-foreground">{doc.created_at ? new Date(doc.created_at).toLocaleDateString("es-ES") : "—"}</TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex justify-end gap-1">
+                          <Button variant="ghost" size="icon" onClick={() => handleReclassify(doc.id, doc.nombre)} disabled={classifying === doc.id} title="Clasificar/Re-clasificar con IA">
+                            {classifying === doc.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+                          </Button>
+                          <Button variant="ghost" size="icon" onClick={() => handleDownload(doc.storage_path)} title="Descargar"><Download className="h-4 w-4" /></Button>
+                          {!doc.procesado_ia && <Button variant="ghost" size="icon" onClick={() => handleIngest(doc.id)} disabled={ingesting === doc.id} title="Indexar">{ingesting === doc.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}</Button>}
+                          <Button variant="ghost" size="icon" onClick={() => handleDelete(doc.id, doc.storage_path)} className="text-muted-foreground hover:text-destructive" title="Eliminar"><Trash2 className="h-4 w-4" /></Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
               </TableBody>
             </Table>
           )}
