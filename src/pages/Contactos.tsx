@@ -8,12 +8,13 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
 import {
-  Plus, Search, Star, MessageCircle, Mic, Users, Heart, Upload, Building2, Network, ArrowLeft,
+  Plus, Search, Star, MessageCircle, Mic, Users, Heart, Upload, Building2, Network, ArrowLeft, Mail,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { useIsMobile } from "@/hooks/use-mobile";
 import ImportContactosModal from "@/components/contactos/ImportContactosModal";
+import { ImportEmailsModal } from "@/components/contactos/ImportEmailsModal";
 import CreateContactForm from "@/components/contactos/CreateContactForm";
 import ContactDetailPanel from "@/components/contactos/ContactDetailPanel";
 
