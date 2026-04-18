@@ -104,13 +104,57 @@ serve(async (req) => {
       .sort((a, b) => b.relevance - a.relevance)
       .slice(0, 8);
 
-    if (rankedChunks.length === 0) {
+    // --- TEAM KNOWLEDGE LAYER (shared email intelligence) ---
+    // Resúmenes y señales agregadas del equipo (sin contenido literal)
+    const teamKnowledge: any = { threads: [], entities: [], signals: [], interactions: [] };
+    try {
+      const { data: teamThreads } = await admin
+        .from("email_threads")
+        .select("id, owner_id, subject, summary, key_topics, sentiment, last_date, message_count")
+        .or(`subject.ilike.%${question.replace(/[%_]/g, "")}%,summary.ilike.%${question.replace(/[%_]/g, "")}%`)
+        .limit(5);
+      teamKnowledge.threads = teamThreads || [];
+
+      // Entidades y señales por keyword
+      for (const kw of keywords.slice(0, 3)) {
+        const { data: ents } = await admin
+          .from("email_entities")
+          .select("entity_type, entity_name_raw, mention_count, confidence, thread_id")
+          .ilike("entity_name_raw", `%${kw}%`)
+          .limit(10);
+        if (ents) teamKnowledge.entities.push(...ents);
+
+        const { data: ints } = await admin
+          .from("contact_interactions")
+          .select("contact_email, contact_name, thread_count, last_interaction, topics")
+          .or(`contact_name.ilike.%${kw}%,contact_email.ilike.%${kw}%`)
+          .limit(5);
+        if (ints) teamKnowledge.interactions.push(...ints);
+      }
+
+      const threadIds = teamKnowledge.threads.map((t: any) => t.id);
+      if (threadIds.length > 0) {
+        const { data: signals } = await admin
+          .from("negotiation_signals")
+          .select("thread_id, signal_type, signal_value, numeric_value, unit, context_snippet")
+          .in("thread_id", threadIds)
+          .limit(20);
+        teamKnowledge.signals = signals || [];
+      }
+    } catch (e) {
+      console.error("team knowledge query error:", e);
+    }
+
+    const hasTeamKnowledge = teamKnowledge.threads.length + teamKnowledge.entities.length + teamKnowledge.interactions.length > 0;
+
+    if (rankedChunks.length === 0 && !hasTeamKnowledge) {
       return new Response(JSON.stringify({
-        answer: "No encontré información relevante en los documentos indexados para esta consulta. Intenta reformular la pregunta o verifica que los documentos estén indexados.",
+        answer: "No encontré información relevante en los documentos indexados ni en la inteligencia compartida del equipo para esta consulta. Intenta reformular la pregunta o verifica que los documentos estén indexados.",
         citations: [],
         confidence: 0.1,
         domain: filters?.dominio || "todos",
         search_method: "none",
+        team_knowledge: teamKnowledge,
       }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
@@ -133,10 +177,28 @@ IMPORTANTE: Aprende del feedback implícito — los fragmentos mejor posicionado
 
     const contextStr = rankedChunks.map((c, i) => {
       const meta = c.metadata || {};
-      return `[Fragmento ${i + 1}] (Dominio: ${c.dominio}, Relevancia: ${c.relevance.toFixed(2)}, Doc: ${meta.nombre || "?"}):\n${c.contenido}`;
+      const sourceTag = c.owner_id && c.visibility === "private" ? "[PRIVADO-TUYO]" : "[COMPARTIDO]";
+      return `[Fragmento ${i + 1}] ${sourceTag} (Dominio: ${c.dominio}, Relevancia: ${c.relevance.toFixed(2)}, Doc: ${meta.nombre || "?"}):\n${c.contenido}`;
     }).join("\n\n---\n\n");
 
-    const userPrompt = `FRAGMENTOS DE DOCUMENTOS (ordenados por relevancia):\n\n${contextStr}\n\nPREGUNTA: ${question}`;
+    let teamBlock = "";
+    if (hasTeamKnowledge) {
+      const threadsBlock = teamKnowledge.threads.map((t: any) =>
+        `- "${t.subject}" (${t.message_count} msgs, último: ${t.last_date?.slice(0, 10) || "?"}): ${t.summary || ""}`
+      ).join("\n");
+      const entitiesBlock = teamKnowledge.entities.slice(0, 10).map((e: any) =>
+        `- ${e.entity_type}: ${e.entity_name_raw} (${e.mention_count} menciones)`
+      ).join("\n");
+      const signalsBlock = teamKnowledge.signals.slice(0, 10).map((s: any) =>
+        `- ${s.signal_type}: ${s.signal_value || s.numeric_value || ""} ${s.unit || ""} — ${s.context_snippet || ""}`
+      ).join("\n");
+      const interactionsBlock = teamKnowledge.interactions.slice(0, 8).map((i: any) =>
+        `- ${i.contact_name || i.contact_email}: ${i.thread_count} hilos, último ${i.last_interaction?.slice(0, 10) || "?"}`
+      ).join("\n");
+      teamBlock = `\n\n=== INTELIGENCIA COMPARTIDA DEL EQUIPO (resúmenes, sin contenido literal) ===\n${threadsBlock ? "\nHILOS:\n" + threadsBlock : ""}${entitiesBlock ? "\n\nENTIDADES:\n" + entitiesBlock : ""}${signalsBlock ? "\n\nSEÑALES DE NEGOCIACIÓN:\n" + signalsBlock : ""}${interactionsBlock ? "\n\nINTERACCIONES DEL EQUIPO:\n" + interactionsBlock : ""}\n`;
+    }
+
+    const userPrompt = `FRAGMENTOS DE DOCUMENTOS (ordenados por relevancia):\n\n${contextStr}${teamBlock}\n\nPREGUNTA: ${question}\n\nINSTRUCCIONES: Si usas inteligencia compartida del equipo, indícalo (ej. "el equipo registra..."). Si citas fragmentos PRIVADO-TUYO, puedes citar literal. NUNCA cites texto literal de la inteligencia compartida.`;
 
     const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
@@ -227,6 +289,12 @@ IMPORTANTE: Aprende del feedback implícito — los fragmentos mejor posicionado
       search_method: ftsResults && ftsResults.length > 0 ? "hybrid" : "ilike",
       chunks_used: rankedChunks.length,
       latency_ms: latency,
+      team_knowledge: hasTeamKnowledge ? {
+        threads_count: teamKnowledge.threads.length,
+        entities_count: teamKnowledge.entities.length,
+        signals_count: teamKnowledge.signals.length,
+        interactions_count: teamKnowledge.interactions.length,
+      } : null,
     }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
   } catch (e) {

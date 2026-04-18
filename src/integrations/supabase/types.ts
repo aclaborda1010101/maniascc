@@ -533,6 +533,57 @@ export type Database = {
         }
         Relationships: []
       }
+      contact_interactions: {
+        Row: {
+          contact_email: string
+          contact_id: string | null
+          contact_name: string | null
+          created_at: string
+          first_interaction: string | null
+          id: string
+          last_interaction: string | null
+          message_count: number
+          owner_id: string
+          sentiment_avg: number | null
+          thread_count: number
+          topics: string[] | null
+          updated_at: string
+          visibility: string
+        }
+        Insert: {
+          contact_email: string
+          contact_id?: string | null
+          contact_name?: string | null
+          created_at?: string
+          first_interaction?: string | null
+          id?: string
+          last_interaction?: string | null
+          message_count?: number
+          owner_id: string
+          sentiment_avg?: number | null
+          thread_count?: number
+          topics?: string[] | null
+          updated_at?: string
+          visibility?: string
+        }
+        Update: {
+          contact_email?: string
+          contact_id?: string | null
+          contact_name?: string | null
+          created_at?: string
+          first_interaction?: string | null
+          id?: string
+          last_interaction?: string | null
+          message_count?: number
+          owner_id?: string
+          sentiment_avg?: number | null
+          thread_count?: number
+          topics?: string[] | null
+          updated_at?: string
+          visibility?: string
+        }
+        Relationships: []
+      }
       contactos: {
         Row: {
           activo_id: string | null
@@ -560,6 +611,7 @@ export type Database = {
           subdivision_id: string | null
           telefono: string | null
           updated_at: string | null
+          visibility: string
           wa_message_count: number | null
           whatsapp: string | null
         }
@@ -589,6 +641,7 @@ export type Database = {
           subdivision_id?: string | null
           telefono?: string | null
           updated_at?: string | null
+          visibility?: string
           wa_message_count?: number | null
           whatsapp?: string | null
         }
@@ -618,6 +671,7 @@ export type Database = {
           subdivision_id?: string | null
           telefono?: string | null
           updated_at?: string | null
+          visibility?: string
           wa_message_count?: number | null
           whatsapp?: string | null
         }
@@ -647,7 +701,9 @@ export type Database = {
           dominio: string
           id: string
           metadata: Json | null
+          owner_id: string | null
           proyecto_id: string | null
+          visibility: string
         }
         Insert: {
           chunk_index?: number
@@ -657,7 +713,9 @@ export type Database = {
           dominio?: string
           id?: string
           metadata?: Json | null
+          owner_id?: string | null
           proyecto_id?: string | null
+          visibility?: string
         }
         Update: {
           chunk_index?: number
@@ -667,7 +725,9 @@ export type Database = {
           dominio?: string
           id?: string
           metadata?: Json | null
+          owner_id?: string | null
           proyecto_id?: string | null
+          visibility?: string
         }
         Relationships: [
           {
@@ -740,6 +800,7 @@ export type Database = {
           mime_type: string | null
           nombre: string
           operador_id: string | null
+          owner_id: string | null
           procesado_ia: boolean | null
           proyecto_id: string | null
           resumen_ia: string | null
@@ -747,6 +808,7 @@ export type Database = {
           subido_por: string | null
           tamano_bytes: number | null
           tipo_documento: string | null
+          visibility: string
         }
         Insert: {
           contacto_id?: string | null
@@ -756,6 +818,7 @@ export type Database = {
           mime_type?: string | null
           nombre: string
           operador_id?: string | null
+          owner_id?: string | null
           procesado_ia?: boolean | null
           proyecto_id?: string | null
           resumen_ia?: string | null
@@ -763,6 +826,7 @@ export type Database = {
           subido_por?: string | null
           tamano_bytes?: number | null
           tipo_documento?: string | null
+          visibility?: string
         }
         Update: {
           contacto_id?: string | null
@@ -772,6 +836,7 @@ export type Database = {
           mime_type?: string | null
           nombre?: string
           operador_id?: string | null
+          owner_id?: string | null
           procesado_ia?: boolean | null
           proyecto_id?: string | null
           resumen_ia?: string | null
@@ -779,6 +844,7 @@ export type Database = {
           subido_por?: string | null
           tamano_bytes?: number | null
           tipo_documento?: string | null
+          visibility?: string
         }
         Relationships: [
           {
@@ -803,6 +869,113 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      email_entities: {
+        Row: {
+          confidence: number
+          context_snippet: string | null
+          created_at: string
+          entity_id: string | null
+          entity_name_raw: string
+          entity_type: string
+          id: string
+          mention_count: number
+          owner_id: string
+          thread_id: string
+          visibility: string
+        }
+        Insert: {
+          confidence?: number
+          context_snippet?: string | null
+          created_at?: string
+          entity_id?: string | null
+          entity_name_raw: string
+          entity_type: string
+          id?: string
+          mention_count?: number
+          owner_id: string
+          thread_id: string
+          visibility?: string
+        }
+        Update: {
+          confidence?: number
+          context_snippet?: string | null
+          created_at?: string
+          entity_id?: string | null
+          entity_name_raw?: string
+          entity_type?: string
+          id?: string
+          mention_count?: number
+          owner_id?: string
+          thread_id?: string
+          visibility?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "email_entities_thread_id_fkey"
+            columns: ["thread_id"]
+            isOneToOne: false
+            referencedRelation: "email_threads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      email_threads: {
+        Row: {
+          created_at: string
+          documento_id: string | null
+          first_date: string | null
+          id: string
+          key_topics: string[] | null
+          last_date: string | null
+          message_count: number
+          metadata: Json
+          owner_id: string
+          participants: Json
+          sentiment: string | null
+          subject: string | null
+          summary: string | null
+          thread_external_id: string | null
+          updated_at: string
+          visibility: string
+        }
+        Insert: {
+          created_at?: string
+          documento_id?: string | null
+          first_date?: string | null
+          id?: string
+          key_topics?: string[] | null
+          last_date?: string | null
+          message_count?: number
+          metadata?: Json
+          owner_id: string
+          participants?: Json
+          sentiment?: string | null
+          subject?: string | null
+          summary?: string | null
+          thread_external_id?: string | null
+          updated_at?: string
+          visibility?: string
+        }
+        Update: {
+          created_at?: string
+          documento_id?: string | null
+          first_date?: string | null
+          id?: string
+          key_topics?: string[] | null
+          last_date?: string | null
+          message_count?: number
+          metadata?: Json
+          owner_id?: string
+          participants?: Json
+          sentiment?: string | null
+          subject?: string | null
+          summary?: string | null
+          thread_external_id?: string | null
+          updated_at?: string
+          visibility?: string
+        }
+        Relationships: []
       }
       locales: {
         Row: {
@@ -1134,6 +1307,62 @@ export type Database = {
             columns: ["interlocutor_perfil_id"]
             isOneToOne: false
             referencedRelation: "perfiles_negociador"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      negotiation_signals: {
+        Row: {
+          confidence: number
+          context_snippet: string | null
+          extracted_at: string
+          id: string
+          numeric_value: number | null
+          owner_id: string
+          related_entity_id: string | null
+          related_entity_type: string | null
+          signal_type: string
+          signal_value: string | null
+          thread_id: string
+          unit: string | null
+          visibility: string
+        }
+        Insert: {
+          confidence?: number
+          context_snippet?: string | null
+          extracted_at?: string
+          id?: string
+          numeric_value?: number | null
+          owner_id: string
+          related_entity_id?: string | null
+          related_entity_type?: string | null
+          signal_type: string
+          signal_value?: string | null
+          thread_id: string
+          unit?: string | null
+          visibility?: string
+        }
+        Update: {
+          confidence?: number
+          context_snippet?: string | null
+          extracted_at?: string
+          id?: string
+          numeric_value?: number | null
+          owner_id?: string
+          related_entity_id?: string | null
+          related_entity_type?: string | null
+          signal_type?: string
+          signal_value?: string | null
+          thread_id?: string
+          unit?: string | null
+          visibility?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "negotiation_signals_thread_id_fkey"
+            columns: ["thread_id"]
+            isOneToOne: false
+            referencedRelation: "email_threads"
             referencedColumns: ["id"]
           },
         ]
@@ -1488,6 +1717,33 @@ export type Database = {
           usuario_id?: string
           variante_config?: Json
           variante_index?: number
+        }
+        Relationships: []
+      }
+      privacy_preferences: {
+        Row: {
+          default_contact_visibility: string
+          default_document_visibility: string
+          default_email_visibility: string
+          share_contacts_with_team: boolean
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          default_contact_visibility?: string
+          default_document_visibility?: string
+          default_email_visibility?: string
+          share_contacts_with_team?: boolean
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          default_contact_visibility?: string
+          default_document_visibility?: string
+          default_email_visibility?: string
+          share_contacts_with_team?: boolean
+          updated_at?: string
+          user_id?: string
         }
         Relationships: []
       }

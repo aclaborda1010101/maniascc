@@ -8,12 +8,13 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
 import {
-  Plus, Search, Star, MessageCircle, Mic, Users, Heart, Upload, Building2, Network, ArrowLeft,
+  Plus, Search, Star, MessageCircle, Mic, Users, Heart, Upload, Building2, Network, ArrowLeft, Mail,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { useIsMobile } from "@/hooks/use-mobile";
 import ImportContactosModal from "@/components/contactos/ImportContactosModal";
+import { ImportEmailsModal } from "@/components/contactos/ImportEmailsModal";
 import CreateContactForm from "@/components/contactos/CreateContactForm";
 import ContactDetailPanel from "@/components/contactos/ContactDetailPanel";
 
@@ -38,6 +39,7 @@ export default function Contactos() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
+  const [importEmailsOpen, setImportEmailsOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const { toast } = useToast();
   const { user } = useAuth();
@@ -139,8 +141,11 @@ export default function Contactos() {
         <div className="flex items-center justify-between">
           <h1 className="text-base md:text-lg font-bold tracking-tight">Red de Contactos</h1>
           <div className="flex gap-1">
-            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setImportOpen(true)}>
+            <Button variant="ghost" size="icon" className="h-8 w-8" title="Importar contactos" onClick={() => setImportOpen(true)}>
               <Upload className="h-4 w-4" />
+            </Button>
+            <Button variant="ghost" size="icon" className="h-8 w-8" title="Importar correos" onClick={() => setImportEmailsOpen(true)}>
+              <Mail className="h-4 w-4" />
             </Button>
             <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
               <DialogTrigger asChild>
@@ -247,6 +252,7 @@ export default function Contactos() {
           </SheetContent>
         </Sheet>
         <ImportContactosModal open={importOpen} onOpenChange={setImportOpen} onImported={fetchContactos} />
+        <ImportEmailsModal open={importEmailsOpen} onOpenChange={setImportEmailsOpen} onComplete={fetchContactos} />
       </div>
     );
   }
@@ -261,6 +267,7 @@ export default function Contactos() {
         {detailContent}
       </div>
       <ImportContactosModal open={importOpen} onOpenChange={setImportOpen} onImported={fetchContactos} />
+      <ImportEmailsModal open={importEmailsOpen} onOpenChange={setImportEmailsOpen} onComplete={fetchContactos} />
     </div>
   );
 }
