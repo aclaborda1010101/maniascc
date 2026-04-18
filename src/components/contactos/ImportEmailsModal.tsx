@@ -165,9 +165,9 @@ export function ImportEmailsModal({ open, onOpenChange, onComplete }: Props) {
           <div className="space-y-4 py-4">
             <div className="text-center">
               {result.failed === 0 ? (
-                <CheckCircle2 className="h-12 w-12 text-green-500 mx-auto" />
+                <CheckCircle2 className="h-12 w-12 text-primary mx-auto" />
               ) : (
-                <AlertCircle className="h-12 w-12 text-amber-500 mx-auto" />
+                <AlertCircle className="h-12 w-12 text-destructive mx-auto" />
               )}
               <p className="text-lg font-semibold mt-3">Importación completada</p>
               <p className="text-sm text-muted-foreground mt-1">
