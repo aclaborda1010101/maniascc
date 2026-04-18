@@ -1,97 +1,116 @@
 
-The user is asking about architecture for a massive email + attachment ingestion (48k emails, 100k attachments). They need to decide:
-1. Global RAG vs per-user RAG with sharing toggle
-2. How this integrates with contact sharing across users
 
-Let me think about the right architecture:
+The user has 48k emails from one user but they contain valuable cross-project intelligence (operators, contacts, negotiations, assets) that should benefit the whole team. They want a hybrid: raw personal content stays private, but extracted entities/patterns/insights are shared.
 
-**Current state:**
-- `document_chunks` has `proyecto_id` and `dominio` but NO `user_id` / `owner_id` / `shared` flags
-- `contactos` has `creado_por` but no sharing model
-- RAG search (rag-proxy-v4) filters by `proyecto_id` and `dominio` only
-- Storage bucket `documentos_contratos` is private but RLS on `document_chunks` is "Authenticated can view" (everyone sees everything)
+This is the classic "knowledge extraction vs raw data" architectural question. Right answer:
+- **Two layers**: raw chunks (private) + extracted entities/insights (shared)
+- During ingestion, an LLM extracts structured knowledge from each email/thread:
+  - Operators mentioned (linked to operadores table)
+  - People mentioned (linked/created in contactos)
+  - Negotiation signals (price discussions, conditions, dates)
+  - Assets/projects mentioned
+  - Sentiment, key facts, summary
+- The raw chunks stay `visibility='private'` (only the owner sees them in RAG search)
+- The extracted structured data goes to shared tables → all team sees it
+- AVA + RAG-proxy gets enhanced: when querying about "Zara", it pulls shared insights from ALL users who emailed Zara, but only quotes raw text from chunks the asking user owns
 
-**The right answer:** Per-owner with sharing flag. Reasons:
-1. Privacy/GDPR: personal emails between client and user are sensitive
-2. 48k emails × multiple chunks = massive data; needs scoping for relevance
-3. AVA's answers should reflect the asking user's network, not random users'
-4. Same model needed for contacts (toggle "compartir en red")
+This way the user keeps GDPR compliance + leverages the network effect.
 
-**Proposed model:**
-- Add `owner_id` (uuid) and `visibility` ('private' | 'shared' | 'global') to `document_chunks`, `documentos_proyecto`, and `contactos`
-- RLS: SELECT allowed when `visibility = 'shared'` OR `owner_id = auth.uid()` OR admin
-- RAG search filters: include chunks where owner=me OR visibility=shared
-- UI toggle in Contactos: "Compartir con mi equipo"
-- Email ingestion: bulk import per user, defaults to private, user can mark folders/threads as shared
+Let me design concretely. The infra (owner_id + visibility) is already in place from previous migration. Now I need to add the knowledge extraction layer.
 
-**Scope of work:**
-This is a big architectural change. I should present the plan and let user approve. Since they're asking a strategic question, I'll recommend the hybrid approach and lay out the implementation.
+Keep plan tight.
 
-Keep plan concise.
+## Plan: Capa de inteligencia compartida sobre RAG privado
 
----
+### Estrategia híbrida (lo que recomiendo)
 
-## Plan: Arquitectura RAG multi-tenant con visibilidad granular
+**Dos capas independientes** sobre los mismos correos:
 
-### Recomendación
-**Híbrido owner + shared**, no global puro. Cada documento/contacto/chunk tiene un `owner_id` y un nivel de `visibility`. El usuario decide qué comparte con la red de la aplicación.
+| Capa | Contenido | Visibilidad | Uso |
+|---|---|---|---|
+| **Raw chunks** (`document_chunks`) | Texto literal de correos/adjuntos | `private` (solo el dueño) | RAG textual cuando el dueño consulta |
+| **Knowledge graph** (nuevas tablas) | Entidades extraídas, hechos, señales | `shared` (todo el equipo) | Inteligencia colectiva de AVA |
 
-**Por qué no global**:
-- 48k correos privados entre cliente-usuario son sensibles (GDPR)
-- AVA debe responder con el contexto del usuario que pregunta, no mezclar redes
-- Contactos personales no deben filtrarse a otros usuarios sin consentimiento
+Así el correo personal nunca se filtra textualmente, pero el conocimiento útil sí circula.
 
-**Por qué no solo privado**:
-- Pierdes el efecto red (un contacto/contrato útil para todo el equipo se desperdicia)
-- F&G necesita inteligencia agregada (patrones, benchmarks, operadores conocidos)
+### Nuevas tablas (compartidas por defecto)
 
-### Modelo de visibilidad (3 niveles)
-| Nivel | Quién lo ve | Uso típico |
-|---|---|---|
-| `private` | Solo el owner + admins | Correos personales, notas internas |
-| `shared` | Todos los usuarios autenticados | Contactos de red, dossiers de operadores, contratos modelo |
-| `global` | Sistema (RAG entrena patrones agregados) | Benchmarks, normativa, mercado |
+1. **`email_threads`** — Un hilo de correo agregado (no cada mensaje)
+   - `id`, `owner_id`, `subject`, `participants[]`, `first_date`, `last_date`, `message_count`, `summary` (LLM), `key_topics[]`, `visibility='shared'`
+   - Solo metadatos + resumen IA, no contenido literal
 
-### Cambios en BBDD (migración)
-1. Añadir `owner_id uuid` y `visibility text default 'private'` a:
-   - `document_chunks`
-   - `documentos_proyecto`
-   - `contactos` (ya tiene `creado_por`, renombrar lógica → `owner_id`; añadir `visibility`)
-2. Backfill: registros existentes → `visibility='shared'` (mantener acceso actual)
-3. Actualizar RLS: `SELECT` permitido si `visibility IN ('shared','global') OR owner_id = auth.uid() OR has_role(admin)`
-4. Índices en `(owner_id, visibility)` para performance con 48k+ registros
+2. **`email_entities`** — Entidades detectadas en cada hilo
+   - `thread_id`, `entity_type` (`operador`|`contacto`|`activo`|`proyecto`), `entity_id` (FK opcional), `entity_name_raw`, `mention_count`, `confidence`
+   - Permite preguntar "¿quién ha hablado con Zara?" → aparece todo el equipo
 
-### Cambios en RAG
-- `rag-ingest`: capturar `owner_id = auth.uid()` y `visibility` desde el cliente (default `private`)
-- `rag-proxy-v4`: añadir filtro `visibility IN ('shared','global') OR owner_id = current_user` a la búsqueda FTS
-- AVA orchestrator: el `rag_search` tool ya pasa el JWT; respetará automáticamente el scope
+3. **`negotiation_signals`** — Señales extraídas (precio mencionado, condiciones, deadlines)
+   - `thread_id`, `signal_type`, `value`, `context_snippet` (solo 1 frase, no más), `extracted_at`
+   - Sirve a AVA y al sistema de patrones
 
-### Pipeline de ingesta de correos masivos
-1. **Importador batch dedicado** (nueva edge function `email-bulk-ingest`):
-   - Acepta archivo .mbox / .pst / carpeta IMAP
-   - Procesa por lotes de 100, agrupa por hilo (`thread_id`)
-   - Crea 1 documento por hilo (no por correo individual) → reduce 48k a ~5-10k docs
-   - Adjuntos: deduplicación por hash MD5 antes de subir a Storage
-2. **Default visibility**: `private` (el usuario decide después qué promover a `shared`)
-3. **Indexación**: chunks con `owner_id`, `dominio='emails'`, metadata con `from`, `to`, `subject`, `date`
+4. **`contact_interactions`** — Quién habló con quién, cuántas veces, último contacto
+   - `contact_email`, `owner_id`, `thread_count`, `last_interaction`, `sentiment_avg`, `visibility='shared'`
+   - Red de relaciones del equipo
 
-### UI: control de compartición
-1. **Pestaña "Privacidad" en Ajustes**: toggle global "Compartir mis contactos con la red" (afecta contactos nuevos)
-2. **En Contactos**: switch por contacto "Visible para el equipo"
-3. **En importador de correos**: paso final con 3 opciones — "Solo yo" / "Mi equipo" / "Solo metadatos compartidos (perfilado IA agregado)"
+### Pipeline de ingesta de correos (nueva edge function `email-bulk-ingest`)
 
-### Archivos afectados
+```
+.mbox/.pst/IMAP → parser → agrupar por thread_id
+  ↓
+Para cada hilo (lotes de 50):
+  ├─ Subir archivo a Storage (private, owner=user)
+  ├─ Crear documento_proyecto (visibility=private, owner_id=user)
+  ├─ Chunks del texto crudo → document_chunks (visibility=private)
+  └─ LLM extracción estructurada (gemini-2.5-flash):
+       ├─ resumen → email_threads (shared)
+       ├─ entidades → email_entities (shared, link a operadores/contactos)
+       ├─ señales negociación → negotiation_signals (shared)
+       └─ stats interlocutor → contact_interactions (shared, upsert)
+```
+
+Costo estimado: ~$0.0003/hilo × ~8.000 hilos ≈ $2-3 total para 48k correos.
+
+### AVA + RAG modificado
+
+`rag-proxy-v4` se actualiza para devolver dos fuentes:
+
+1. **Privado**: chunks del propio usuario (texto literal con citas)
+2. **Compartido**: hits en `email_threads` + `email_entities` + `negotiation_signals` (resúmenes y señales, no texto literal)
+
+Ejemplo: usuario pregunta "¿qué sabemos de Zara?"
+- AVA muestra: "El equipo tiene 47 hilos con Zara (Pedro: 30, Carlos: 17). Última interacción: hace 12 días. Señales recientes: piden 800m² zona prime, presupuesto €25k/mes, mencionaron Inditex consolidación. *(Tus 30 hilos: enlazar al detalle.)*"
+
+### Control del usuario
+
+En **Ajustes → Privacidad**:
+- Toggle global "Permitir extracción de inteligencia compartida de mis correos" (default ON, recomendado)
+- Lista de dominios excluidos (ej: `@gmail.com`, asuntos con "personal")
+- Botón "Borrar todas mis extracciones" (GDPR)
+
+### Adjuntos (los 100k)
+
+- Deduplicación por hash MD5 (esperable ~30-40% duplicados)
+- Solo se indexan adjuntos relevantes: PDFs/DOCXs/XLSXs (PPTX y planos a Storage sin indexar de momento)
+- Imágenes solo metadatos (nombre + EXIF)
+
+### Archivos a crear/modificar
+
 | Archivo | Cambio |
 |---|---|
-| `supabase/migrations/` (nueva) | Añadir owner_id + visibility, RLS, índices |
-| `supabase/functions/rag-ingest/index.ts` | Capturar owner_id + visibility |
-| `supabase/functions/rag-proxy-v4/index.ts` | Filtro de visibilidad en search |
-| `supabase/functions/email-bulk-ingest/` (nueva) | Pipeline batch correos |
-| `src/pages/Contactos.tsx` | Switch "compartir" por contacto |
-| `src/pages/Ajustes.tsx` | Pestaña Privacidad + toggle global |
-| `src/components/contactos/ImportContactosModal.tsx` | Selector visibilidad al importar |
+| `supabase/migrations/` (nueva) | Crear `email_threads`, `email_entities`, `negotiation_signals`, `contact_interactions` con RLS |
+| `supabase/functions/email-bulk-ingest/index.ts` (nuevo) | Pipeline batch correos + extracción IA |
+| `supabase/functions/rag-proxy-v4/index.ts` | Devolver dos capas (privado + compartido) |
+| `supabase/functions/ava-orchestrator/index.ts` | Nueva tool `team_knowledge_search` que consulta tablas compartidas |
+| `src/components/contactos/ImportContactosModal.tsx` | Nueva pestaña "Importar correos masivos" (.mbox/.pst) con barra de progreso |
+| `src/pages/Ajustes.tsx` | Pestaña "Privacidad" con toggle de extracción + dominios excluidos |
+| `src/pages/Contactos.tsx` | Mostrar `contact_interactions` agregadas (badge "El equipo: X interacciones") |
 
-### Decisión que necesito de ti
-Antes de implementar, confirma una cosa: los **48k correos** ¿son de **un solo usuario** (su histórico personal de Outlook/Gmail) o son **correos compartidos del equipo F&G** (ej. buzón comercial común)? Esto cambia si el default debe ser `private` o `shared`.
+### Decisión rápida que necesito de ti
 
-Si confirmas el enfoque híbrido, procedo con la migración + cambios de RAG + UI en una única implementación.
+¿En qué formato vas a darme los 48k correos para empezar?
+- **A)** Archivo `.mbox` exportado de Gmail/Thunderbird (más fácil de procesar)
+- **B)** `.pst` de Outlook (requiere conversión previa, te indico cómo)
+- **C)** Conexión IMAP en vivo (más lento pero sincronizable)
+- **D)** Dump CSV con campos `from, to, date, subject, body, attachments`
+
+Cuando confirmes el formato, implemento la migración + edge function + UI en una sola tanda.
+
