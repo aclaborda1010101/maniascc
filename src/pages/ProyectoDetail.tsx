@@ -92,7 +92,7 @@ export default function ProyectoDetail() {
   const fetchDocs = async () => {
     if (!id) return;
     const { data } = await supabase.from("documentos_proyecto")
-      .select("id, nombre, procesado_ia, created_at, mime_type, tipo_documento, tamano_bytes, storage_path")
+      .select("id, nombre, nombre_normalizado, nivel_sensibilidad, procesado_ia, created_at, mime_type, tipo_documento, tamano_bytes, storage_path, taxonomia_id, taxonomia:taxonomia_id(id,codigo,nombre,icono,color)")
       .eq("proyecto_id", id).order("created_at", { ascending: false });
     setDocs(data || []);
   };
