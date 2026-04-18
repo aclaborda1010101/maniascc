@@ -104,13 +104,57 @@ serve(async (req) => {
       .sort((a, b) => b.relevance - a.relevance)
       .slice(0, 8);
 
-    if (rankedChunks.length === 0) {
+    // --- TEAM KNOWLEDGE LAYER (shared email intelligence) ---
+    // Resúmenes y señales agregadas del equipo (sin contenido literal)
+    const teamKnowledge: any = { threads: [], entities: [], signals: [], interactions: [] };
+    try {
+      const { data: teamThreads } = await admin
+        .from("email_threads")
+        .select("id, owner_id, subject, summary, key_topics, sentiment, last_date, message_count")
+        .or(`subject.ilike.%${question.replace(/[%_]/g, "")}%,summary.ilike.%${question.replace(/[%_]/g, "")}%`)
+        .limit(5);
+      teamKnowledge.threads = teamThreads || [];
+
+      // Entidades y señales por keyword
+      for (const kw of keywords.slice(0, 3)) {
+        const { data: ents } = await admin
+          .from("email_entities")
+          .select("entity_type, entity_name_raw, mention_count, confidence, thread_id")
+          .ilike("entity_name_raw", `%${kw}%`)
+          .limit(10);
+        if (ents) teamKnowledge.entities.push(...ents);
+
+        const { data: ints } = await admin
+          .from("contact_interactions")
+          .select("contact_email, contact_name, thread_count, last_interaction, topics")
+          .or(`contact_name.ilike.%${kw}%,contact_email.ilike.%${kw}%`)
+          .limit(5);
+        if (ints) teamKnowledge.interactions.push(...ints);
+      }
+
+      const threadIds = teamKnowledge.threads.map((t: any) => t.id);
+      if (threadIds.length > 0) {
+        const { data: signals } = await admin
+          .from("negotiation_signals")
+          .select("thread_id, signal_type, signal_value, numeric_value, unit, context_snippet")
+          .in("thread_id", threadIds)
+          .limit(20);
+        teamKnowledge.signals = signals || [];
+      }
+    } catch (e) {
+      console.error("team knowledge query error:", e);
+    }
+
+    const hasTeamKnowledge = teamKnowledge.threads.length + teamKnowledge.entities.length + teamKnowledge.interactions.length > 0;
+
+    if (rankedChunks.length === 0 && !hasTeamKnowledge) {
       return new Response(JSON.stringify({
-        answer: "No encontré información relevante en los documentos indexados para esta consulta. Intenta reformular la pregunta o verifica que los documentos estén indexados.",
+        answer: "No encontré información relevante en los documentos indexados ni en la inteligencia compartida del equipo para esta consulta. Intenta reformular la pregunta o verifica que los documentos estén indexados.",
         citations: [],
         confidence: 0.1,
         domain: filters?.dominio || "todos",
         search_method: "none",
+        team_knowledge: teamKnowledge,
       }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
