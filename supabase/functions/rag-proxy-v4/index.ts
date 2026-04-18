@@ -177,10 +177,28 @@ IMPORTANTE: Aprende del feedback implícito — los fragmentos mejor posicionado
 
     const contextStr = rankedChunks.map((c, i) => {
       const meta = c.metadata || {};
-      return `[Fragmento ${i + 1}] (Dominio: ${c.dominio}, Relevancia: ${c.relevance.toFixed(2)}, Doc: ${meta.nombre || "?"}):\n${c.contenido}`;
+      const sourceTag = c.owner_id && c.visibility === "private" ? "[PRIVADO-TUYO]" : "[COMPARTIDO]";
+      return `[Fragmento ${i + 1}] ${sourceTag} (Dominio: ${c.dominio}, Relevancia: ${c.relevance.toFixed(2)}, Doc: ${meta.nombre || "?"}):\n${c.contenido}`;
     }).join("\n\n---\n\n");
 
-    const userPrompt = `FRAGMENTOS DE DOCUMENTOS (ordenados por relevancia):\n\n${contextStr}\n\nPREGUNTA: ${question}`;
+    let teamBlock = "";
+    if (hasTeamKnowledge) {
+      const threadsBlock = teamKnowledge.threads.map((t: any) =>
+        `- "${t.subject}" (${t.message_count} msgs, último: ${t.last_date?.slice(0, 10) || "?"}): ${t.summary || ""}`
+      ).join("\n");
+      const entitiesBlock = teamKnowledge.entities.slice(0, 10).map((e: any) =>
+        `- ${e.entity_type}: ${e.entity_name_raw} (${e.mention_count} menciones)`
+      ).join("\n");
+      const signalsBlock = teamKnowledge.signals.slice(0, 10).map((s: any) =>
+        `- ${s.signal_type}: ${s.signal_value || s.numeric_value || ""} ${s.unit || ""} — ${s.context_snippet || ""}`
+      ).join("\n");
+      const interactionsBlock = teamKnowledge.interactions.slice(0, 8).map((i: any) =>
+        `- ${i.contact_name || i.contact_email}: ${i.thread_count} hilos, último ${i.last_interaction?.slice(0, 10) || "?"}`
+      ).join("\n");
+      teamBlock = `\n\n=== INTELIGENCIA COMPARTIDA DEL EQUIPO (resúmenes, sin contenido literal) ===\n${threadsBlock ? "\nHILOS:\n" + threadsBlock : ""}${entitiesBlock ? "\n\nENTIDADES:\n" + entitiesBlock : ""}${signalsBlock ? "\n\nSEÑALES DE NEGOCIACIÓN:\n" + signalsBlock : ""}${interactionsBlock ? "\n\nINTERACCIONES DEL EQUIPO:\n" + interactionsBlock : ""}\n`;
+    }
+
+    const userPrompt = `FRAGMENTOS DE DOCUMENTOS (ordenados por relevancia):\n\n${contextStr}${teamBlock}\n\nPREGUNTA: ${question}\n\nINSTRUCCIONES: Si usas inteligencia compartida del equipo, indícalo (ej. "el equipo registra..."). Si citas fragmentos PRIVADO-TUYO, puedes citar literal. NUNCA cites texto literal de la inteligencia compartida.`;
 
     const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
