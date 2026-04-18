@@ -23,8 +23,16 @@ export function ProyectoDocumentos({ proyectoId, docs, onRefresh }: Props) {
   const { user } = useAuth();
   const [uploading, setUploading] = useState(false);
   const [dragOver, setDragOver] = useState(false);
-  const [docTipo, setDocTipo] = useState("contrato");
+  const [docTipo, setDocTipo] = useState("auto");
   const [ingesting, setIngesting] = useState<string | null>(null);
+  const [classifying, setClassifying] = useState<string | null>(null);
+
+  const readSample = async (file: File): Promise<string> => {
+    if (file.type.startsWith("text/") || /\.(txt|md|csv|json|html|xml|eml)$/i.test(file.name)) {
+      try { return (await file.text()).slice(0, 4000); } catch { return ""; }
+    }
+    return "";
+  };
 
   const handleUpload = async (fileList: FileList | null) => {
     if (!fileList || fileList.length === 0 || !user) return;
@@ -36,16 +44,34 @@ export function ProyectoDocumentos({ proyectoId, docs, onRefresh }: Props) {
         if (uploadErr) throw uploadErr;
         const { data: docRow, error: insertErr } = await supabase.from("documentos_proyecto").insert({
           proyecto_id: proyectoId, nombre: file.name, storage_path: storagePath,
-          mime_type: file.type, tamano_bytes: file.size, tipo_documento: docTipo, subido_por: user.id,
+          mime_type: file.type, tamano_bytes: file.size,
+          tipo_documento: docTipo === "auto" ? null : docTipo,
+          subido_por: user.id, owner_id: user.id, origen: "upload", fase_rag: "pending",
         }).select("id").single();
         if (insertErr) throw insertErr;
         if (docRow) {
+          await linkDocument(docRow.id, "proyecto", proyectoId, "oportunidad").catch(() => {});
+
+          const sample = await readSample(file);
+          classifyDocument(docRow.id, sample).then((res: any) => {
+            if (res?.ok) {
+              toast({
+                title: `"${file.name}" catalogado`,
+                description: `Categoría: ${res.taxonomia_codigo} · Sensibilidad: ${res.nivel_sensibilidad}`,
+              });
+              onRefresh();
+            }
+          }).catch(() => {});
+
           ingestDocument(docRow.id).then((res) => {
-            if (res.success) { toast({ title: `"${file.name}" indexado (${res.chunks_created} fragmentos)`, description: `Dominio RAG: ${res.dominio || "general"}` }); onRefresh(); }
+            if (res.success) {
+              toast({ title: `"${file.name}" indexado`, description: `${res.chunks_created} fragmentos · ${res.dominio || "general"}` });
+              onRefresh();
+            }
           });
         }
       }
-      toast({ title: `${fileList.length} archivo(s) subido(s)` });
+      toast({ title: `${fileList.length} archivo(s) subido(s)`, description: "Catalogación IA e indexación en marcha…" });
       onRefresh();
     } catch (e: any) {
       toast({ title: "Error al subir", description: e.message, variant: "destructive" });
@@ -71,6 +97,20 @@ export function ProyectoDocumentos({ proyectoId, docs, onRefresh }: Props) {
     if (result.success) { toast({ title: `Indexado: ${result.chunks_created} fragmentos`, description: `Dominio: ${result.dominio || "general"}` }); onRefresh(); }
     else toast({ title: "Error al indexar", description: result.error, variant: "destructive" });
     setIngesting(null);
+  };
+
+  const handleReclassify = async (docId: string, nombre: string) => {
+    setClassifying(docId);
+    try {
+      const res: any = await classifyDocument(docId);
+      if (res?.ok) {
+        toast({ title: `Reclasificado: ${nombre}`, description: `Categoría: ${res.taxonomia_codigo}` });
+        onRefresh();
+      }
+    } catch (e: any) {
+      toast({ title: "Error al clasificar", description: e.message, variant: "destructive" });
+    }
+    setClassifying(null);
   };
 
   return (
