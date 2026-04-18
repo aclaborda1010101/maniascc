@@ -5,9 +5,10 @@ import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Upload, Download, File, Trash2, RefreshCw, Loader2, FileText } from "lucide-react";
+import { Upload, Download, File, Trash2, RefreshCw, Loader2, FileText, Sparkles, Tag } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { ingestDocument } from "@/services/ragService";
+import { classifyDocument, linkDocument } from "@/services/documentService";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 
