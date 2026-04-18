@@ -159,24 +159,45 @@ export function ProyectoDocumentos({ proyectoId, docs, onRefresh }: Props) {
             <div className="py-8 text-center"><FileText className="mx-auto mb-3 h-10 w-10 text-muted-foreground/30" /><p className="text-muted-foreground text-sm">No hay documentos aún.</p></div>
           ) : (
             <Table>
-              <TableHeader><TableRow><TableHead>Nombre</TableHead><TableHead>Tipo</TableHead><TableHead>Tamaño</TableHead><TableHead>Estado IA</TableHead><TableHead>Fecha</TableHead><TableHead className="text-right">Acciones</TableHead></TableRow></TableHeader>
+              <TableHeader><TableRow><TableHead>Nombre</TableHead><TableHead>Categoría IA</TableHead><TableHead>Sensibilidad</TableHead><TableHead>Tamaño</TableHead><TableHead>Estado</TableHead><TableHead>Fecha</TableHead><TableHead className="text-right">Acciones</TableHead></TableRow></TableHeader>
               <TableBody>
-                {docs.map((doc) => (
-                  <TableRow key={doc.id}>
-                    <TableCell className="font-medium"><div className="flex items-center gap-2"><File className="h-4 w-4 text-muted-foreground shrink-0" /><span className="truncate max-w-[200px]">{doc.nombre}</span></div></TableCell>
-                    <TableCell><Badge variant="outline" className="text-xs capitalize">{doc.tipo_documento || "—"}</Badge></TableCell>
-                    <TableCell className="text-xs text-muted-foreground">{doc.tamano_bytes ? `${(doc.tamano_bytes / 1024).toFixed(0)} KB` : "—"}</TableCell>
-                    <TableCell>{doc.procesado_ia ? <Badge variant="secondary" className="text-[10px] h-5">Indexado ✓</Badge> : <Badge variant="outline" className="text-[10px] h-5">Pendiente</Badge>}</TableCell>
-                    <TableCell className="text-xs text-muted-foreground">{doc.created_at ? new Date(doc.created_at).toLocaleDateString("es-ES") : "—"}</TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex justify-end gap-1">
-                        <Button variant="ghost" size="icon" onClick={() => handleDownload(doc.storage_path)} title="Descargar"><Download className="h-4 w-4" /></Button>
-                        {!doc.procesado_ia && <Button variant="ghost" size="icon" onClick={() => handleIngest(doc.id)} disabled={ingesting === doc.id} title="Indexar">{ingesting === doc.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}</Button>}
-                        <Button variant="ghost" size="icon" onClick={() => handleDelete(doc.id, doc.storage_path)} className="text-muted-foreground hover:text-destructive" title="Eliminar"><Trash2 className="h-4 w-4" /></Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
+                {docs.map((doc) => {
+                  const taxCodigo = doc.taxonomia?.codigo || doc.tipo_documento;
+                  const taxNombre = doc.taxonomia?.nombre || doc.tipo_documento || "Sin clasificar";
+                  const sens = doc.nivel_sensibilidad || "interno";
+                  const sensColor = sens === "confidencial" || sens === "restringido" ? "destructive" : sens === "publico" ? "default" : "secondary";
+                  return (
+                    <TableRow key={doc.id}>
+                      <TableCell className="font-medium">
+                        <div className="flex items-center gap-2"><File className="h-4 w-4 text-muted-foreground shrink-0" /><span className="truncate max-w-[200px]" title={doc.nombre_normalizado || doc.nombre}>{doc.nombre}</span></div>
+                        {doc.nombre_normalizado && doc.nombre_normalizado !== doc.nombre && (
+                          <div className="text-[10px] text-muted-foreground ml-6 truncate max-w-[200px]" title={doc.nombre_normalizado}>→ {doc.nombre_normalizado}</div>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        {taxCodigo ? (
+                          <Badge variant="outline" className="text-xs gap-1"><Tag className="h-3 w-3" />{taxNombre}</Badge>
+                        ) : (
+                          <Badge variant="outline" className="text-[10px] h-5 text-muted-foreground">Pendiente IA</Badge>
+                        )}
+                      </TableCell>
+                      <TableCell><Badge variant={sensColor as any} className="text-[10px] h-5 capitalize">{sens}</Badge></TableCell>
+                      <TableCell className="text-xs text-muted-foreground">{doc.tamano_bytes ? `${(doc.tamano_bytes / 1024).toFixed(0)} KB` : "—"}</TableCell>
+                      <TableCell>{doc.procesado_ia ? <Badge variant="secondary" className="text-[10px] h-5">Indexado ✓</Badge> : <Badge variant="outline" className="text-[10px] h-5">Pendiente</Badge>}</TableCell>
+                      <TableCell className="text-xs text-muted-foreground">{doc.created_at ? new Date(doc.created_at).toLocaleDateString("es-ES") : "—"}</TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex justify-end gap-1">
+                          <Button variant="ghost" size="icon" onClick={() => handleReclassify(doc.id, doc.nombre)} disabled={classifying === doc.id} title="Clasificar/Re-clasificar con IA">
+                            {classifying === doc.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+                          </Button>
+                          <Button variant="ghost" size="icon" onClick={() => handleDownload(doc.storage_path)} title="Descargar"><Download className="h-4 w-4" /></Button>
+                          {!doc.procesado_ia && <Button variant="ghost" size="icon" onClick={() => handleIngest(doc.id)} disabled={ingesting === doc.id} title="Indexar">{ingesting === doc.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}</Button>}
+                          <Button variant="ghost" size="icon" onClick={() => handleDelete(doc.id, doc.storage_path)} className="text-muted-foreground hover:text-destructive" title="Eliminar"><Trash2 className="h-4 w-4" /></Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
               </TableBody>
             </Table>
           )}
