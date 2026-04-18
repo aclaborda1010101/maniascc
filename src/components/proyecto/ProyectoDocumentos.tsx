@@ -119,18 +119,23 @@ export function ProyectoDocumentos({ proyectoId, docs, onRefresh }: Props) {
         <CardHeader className="pb-3"><CardTitle className="text-base flex items-center gap-2"><Upload className="h-4 w-4" /> Subir documentos</CardTitle></CardHeader>
         <CardContent className="space-y-4">
           <div className="flex items-center gap-3">
-            <Label className="text-sm whitespace-nowrap">Tipo:</Label>
+            <Label className="text-sm whitespace-nowrap">Categoría:</Label>
             <Select value={docTipo} onValueChange={setDocTipo}>
-              <SelectTrigger className="w-[200px]"><SelectValue /></SelectTrigger>
+              <SelectTrigger className="w-[240px]"><SelectValue /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="contrato">Contrato</SelectItem>
-                <SelectItem value="dossier">Dossier</SelectItem>
-                <SelectItem value="propuesta">Propuesta</SelectItem>
+                <SelectItem value="auto">🤖 Auto (clasificar con IA)</SelectItem>
+                <SelectItem value="contrato">Contrato / Legal</SelectItem>
+                <SelectItem value="financiero">Financiero</SelectItem>
+                <SelectItem value="dossier">Dossier / Presentación</SelectItem>
                 <SelectItem value="informe">Informe</SelectItem>
-                <SelectItem value="plano">Plano</SelectItem>
+                <SelectItem value="plano">Plano / Arquitectura</SelectItem>
+                <SelectItem value="correo">Correo histórico</SelectItem>
                 <SelectItem value="otro">Otro</SelectItem>
               </SelectContent>
             </Select>
+            <span className="text-xs text-muted-foreground flex items-center gap-1">
+              <Sparkles className="h-3 w-3" /> La IA detecta tipo, sensibilidad y normaliza el nombre
+            </span>
           </div>
           <div
             className={`flex flex-col items-center justify-center rounded-lg border-2 border-dashed p-8 transition-colors cursor-pointer ${dragOver ? "border-accent bg-accent/5" : "border-border"}`}
@@ -141,7 +146,7 @@ export function ProyectoDocumentos({ proyectoId, docs, onRefresh }: Props) {
           >
             <Upload className="mb-2 h-8 w-8 text-muted-foreground" />
             <p className="text-sm text-muted-foreground">{uploading ? "Subiendo..." : "Arrastra archivos aquí o haz clic"}</p>
-            <p className="text-xs text-muted-foreground mt-1">Se indexarán automáticamente en la base de conocimiento</p>
+            <p className="text-xs text-muted-foreground mt-1">Catalogación automática por taxonomía + indexación RAG</p>
             <input type="file" multiple className="hidden" id="doc-upload-input" onChange={(e) => { handleUpload(e.target.files); e.target.value = ""; }} />
           </div>
         </CardContent>
