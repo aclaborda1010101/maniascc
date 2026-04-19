@@ -888,6 +888,60 @@ export type Database = {
           },
         ]
       }
+      documentos_generados: {
+        Row: {
+          contexto: string | null
+          created_at: string
+          documento_proyecto_id: string | null
+          id: string
+          latencia_ms: number | null
+          mode: string
+          mode_label: string
+          modelo: string | null
+          owner_id: string
+          proyecto_id: string | null
+          storage_path: string | null
+          structured_data: Json
+          titulo: string | null
+          updated_at: string
+          visibility: string
+        }
+        Insert: {
+          contexto?: string | null
+          created_at?: string
+          documento_proyecto_id?: string | null
+          id?: string
+          latencia_ms?: number | null
+          mode: string
+          mode_label: string
+          modelo?: string | null
+          owner_id: string
+          proyecto_id?: string | null
+          storage_path?: string | null
+          structured_data?: Json
+          titulo?: string | null
+          updated_at?: string
+          visibility?: string
+        }
+        Update: {
+          contexto?: string | null
+          created_at?: string
+          documento_proyecto_id?: string | null
+          id?: string
+          latencia_ms?: number | null
+          mode?: string
+          mode_label?: string
+          modelo?: string | null
+          owner_id?: string
+          proyecto_id?: string | null
+          storage_path?: string | null
+          structured_data?: Json
+          titulo?: string | null
+          updated_at?: string
+          visibility?: string
+        }
+        Relationships: []
+      }
       documentos_proyecto: {
         Row: {
           contacto_id: string | null
