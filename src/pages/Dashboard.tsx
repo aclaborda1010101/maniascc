@@ -19,14 +19,27 @@ import {
 
 const PIE_COLORS = ["hsl(142,71%,45%)", "hsl(38,92%,50%)", "hsl(0,84%,60%)", "hsl(217,91%,60%)", "hsl(262,83%,58%)", "hsl(180,70%,45%)"];
 
+// Tarifas oficiales en USD por 1M tokens. El factor 0.92 (USD→EUR) se aplica en estimateCostFromTokens.
 const MODEL_PRICING: Record<string, { input: number; output: number }> = {
+  // Pro tier
   "google/gemini-3.1-pro-preview": { input: 1.25, output: 10.0 },
   "google/gemini-2.5-pro": { input: 1.25, output: 10.0 },
-  "google/gemini-2.5-flash": { input: 0.15, output: 0.60 },
-  "google/gemini-2.5-flash-lite": { input: 0.10, output: 0.40 },
+  "gemini-3.1-pro-preview": { input: 1.25, output: 10.0 },
   "gemini-2.5-pro": { input: 1.25, output: 10.0 },
+  // Flash tier
+  "google/gemini-2.5-flash": { input: 0.15, output: 0.60 },
   "gemini-2.5-flash": { input: 0.15, output: 0.60 },
+  // Flash-lite / 3.x flash (más baratos)
+  "google/gemini-2.5-flash-lite": { input: 0.10, output: 0.40 },
+  "gemini-2.5-flash-lite": { input: 0.10, output: 0.40 },
+  "google/gemini-3-flash-preview": { input: 0.10, output: 0.40 },
+  "gemini-3-flash-preview": { input: 0.10, output: 0.40 },
+  "google/gemini-3.1-flash": { input: 0.10, output: 0.40 },
+  "gemini-3.1-flash": { input: 0.10, output: 0.40 },
+  // Expert Forge MoE (estimación basada en Flash)
+  "expert-forge-moe": { input: 0.10, output: 0.40 },
 };
+// Por defecto asumimos Flash (no Pro) para no inflar costes desconocidos.
 const DEFAULT_PRICING = { input: 0.15, output: 0.60 };
 
 function estimateCostFromTokens(modelo: string, tokensIn: number, tokensOut: number): number {
