@@ -626,10 +626,40 @@ serve(async (req) => {
     const systemPrompt = `${SYSTEM_BASE}\n\n═══ INSTRUCCIONES DEL MODO "${mode}" ═══\n${MODE_INSTRUCTIONS[mode]}`;
     const userMessage = `CONTEXTO / INSTRUCCIONES DEL USUARIO:\n${context}${ragContext}`;
 
-    const tryModels = ["google/gemini-3.1-pro-preview", "google/gemini-2.5-pro", "google/gemini-3-flash-preview"];
+    // Orden de modelos: el más fiable con tool calling complejo primero.
+    const tryModels = ["google/gemini-2.5-pro", "google/gemini-3.1-pro-preview", "google/gemini-2.5-flash", "google/gemini-3-flash-preview"];
+
+    // Helper: intenta parsear arguments del tool_call con saneo defensivo.
+    const tryParseStructured = (msg: any): any | null => {
+      const toolCall = msg?.tool_calls?.[0];
+      const args = toolCall?.function?.arguments;
+      if (args) {
+        if (typeof args === "object") return args;
+        if (typeof args === "string") {
+          try { return JSON.parse(args); } catch (_) {
+            // Saneo: a veces el modelo añade ```json ... ```
+            const cleaned = args.replace(/```json\s*/gi, "").replace(/```\s*/g, "").trim();
+            try { return JSON.parse(cleaned); } catch (_e) { /* sigue */ }
+          }
+        }
+      }
+      // fallback: contenido de texto con JSON
+      const txt = msg?.content;
+      if (typeof txt === "string" && txt.trim()) {
+        const cleaned = txt.replace(/```json\s*/gi, "").replace(/```\s*/g, "").trim();
+        const start = cleaned.search(/[\{\[]/);
+        const end = Math.max(cleaned.lastIndexOf("}"), cleaned.lastIndexOf("]"));
+        if (start !== -1 && end > start) {
+          try { return JSON.parse(cleaned.substring(start, end + 1)); } catch (_) { /* nada */ }
+        }
+      }
+      return null;
+    };
 
     let aiData: any = null;
     let modelUsed = "";
+    let structured: any = null;
+    let markdownContent = "";
     const startMs = Date.now();
     let lastErr = "";
 
@@ -652,12 +682,12 @@ serve(async (req) => {
         body: JSON.stringify(body),
       });
 
-      if (aiResp.status === 429 || aiResp.status === 402) {
-        if (aiResp.status === 429) {
-          return new Response(JSON.stringify({ error: "Límite de peticiones excedido. Inténtalo en unos segundos." }), {
-            status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
-          });
-        }
+      if (aiResp.status === 429) {
+        return new Response(JSON.stringify({ error: "Límite de peticiones excedido. Inténtalo en unos segundos." }), {
+          status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      if (aiResp.status === 402) {
         return new Response(JSON.stringify({ error: "Créditos de IA agotados." }), {
           status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
@@ -665,44 +695,45 @@ serve(async (req) => {
 
       if (!aiResp.ok) {
         lastErr = await aiResp.text();
-        console.error(`FORGE model ${model} failed:`, aiResp.status, lastErr);
+        console.error(`FORGE model ${model} HTTP ${aiResp.status}:`, lastErr.slice(0, 500));
         continue;
       }
 
-      aiData = await aiResp.json();
-      modelUsed = model;
-      break;
+      const data = await aiResp.json();
+      const message = data.choices?.[0]?.message;
+
+      if (wantStructured) {
+        const parsed = tryParseStructured(message);
+        if (parsed) {
+          aiData = data;
+          structured = parsed;
+          modelUsed = model;
+          break;
+        }
+        // No vino structured: log y prueba el siguiente modelo.
+        console.error(`FORGE model ${model} returned no structured output. Message preview:`, JSON.stringify(message).slice(0, 400));
+        lastErr = `Modelo ${model} no devolvió tool_call válido`;
+        continue;
+      } else {
+        aiData = data;
+        markdownContent = message?.content || "";
+        modelUsed = model;
+        break;
+      }
     }
 
-    if (!aiData) throw new Error(`All models failed. Last error: ${lastErr}`);
-
     const latency = Date.now() - startMs;
-    const message = aiData.choices?.[0]?.message;
 
-    let structured: any = null;
-    let markdownContent = "";
+    if (!aiData) {
+      return new Response(JSON.stringify({
+        error: `No se pudo generar el documento. Todos los modelos fallaron. ${lastErr ? `Detalle: ${lastErr}` : ""}`.trim(),
+      }), { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
 
-    if (wantStructured) {
-      const toolCall = message?.tool_calls?.[0];
-      if (toolCall?.function?.arguments) {
-        try {
-          structured = JSON.parse(toolCall.function.arguments);
-        } catch (e) {
-          console.error("Failed to parse tool args:", e);
-        }
-      }
-      if (!structured) {
-        // fallback: respuesta vino como texto, intenta parsearla
-        const txt = message?.content || "";
-        try { structured = JSON.parse(txt); } catch { /* ignore */ }
-      }
-      if (!structured) {
-        return new Response(JSON.stringify({ error: "El modelo no devolvió la estructura esperada." }), {
-          status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-    } else {
-      markdownContent = message?.content || "";
+    if (wantStructured && !structured) {
+      return new Response(JSON.stringify({
+        error: "El modelo no devolvió la estructura esperada después de varios intentos. Prueba a simplificar el contexto o vuelve a intentarlo.",
+      }), { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
     await admin.from("auditoria_ia").insert({
