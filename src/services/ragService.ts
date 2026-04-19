@@ -58,14 +58,17 @@ export interface StructuredForgeOutput {
 /**
  * Generate a document using FORGE agent — structured JSON output by default.
  */
+export type EmailVariant = "teaser" | "negociacion" | "cierre";
+
 export async function generateForgeDocument(
   mode: ForgeMode,
   context: string,
   proyectoId?: string,
-  format: "structured" | "markdown" = "structured"
+  format: "structured" | "markdown" = "structured",
+  emailVariant?: EmailVariant
 ): Promise<StructuredForgeOutput> {
   const { data, error } = await supabase.functions.invoke("ai-forge", {
-    body: { mode, context, proyecto_id: proyectoId, format },
+    body: { mode, context, proyecto_id: proyectoId, format, email_variant: emailVariant },
   });
   if (error) {
     return { content: "", structured: null, mode, model: "", latency_ms: 0, tokens: { input: 0, output: 0 }, error: error.message };

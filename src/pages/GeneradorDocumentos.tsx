@@ -5,7 +5,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Hammer, Loader2, Save, CheckCircle2 } from "lucide-react";
-import { generateForgeDocument, FORGE_MODES, ForgeMode } from "@/services/ragService";
+import { generateForgeDocument, FORGE_MODES, ForgeMode, type EmailVariant } from "@/services/ragService";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -24,6 +24,7 @@ export default function GeneradorDocumentos() {
   const [savedId, setSavedId] = useState<string | null>(null);
   const [meta, setMeta] = useState<{ model: string; latency_ms: number } | null>(null);
   const [selectedProyecto, setSelectedProyecto] = useState<string>("");
+  const [emailVariant, setEmailVariant] = useState<EmailVariant>("teaser");
 
   const { data: proyectos } = useQuery({
     queryKey: ["proyectos-selector"],
@@ -40,7 +41,8 @@ export default function GeneradorDocumentos() {
     setMeta(null);
     setSavedId(null);
     const proyectoId = selectedProyecto && selectedProyecto !== "none" ? selectedProyecto : undefined;
-    const res = await generateForgeDocument(mode, context, proyectoId, "structured");
+    const variant = mode === "email_comunicacion" ? emailVariant : undefined;
+    const res = await generateForgeDocument(mode, context, proyectoId, "structured", variant);
     if (res.error) {
       toast({ title: "Error FORGE", description: res.error, variant: "destructive" });
       setLoading(false);
@@ -133,13 +135,27 @@ export default function GeneradorDocumentos() {
                   </SelectContent>
                 </Select>
               </div>
-              <div className="space-y-2 flex flex-col justify-end">
-                {meta && (
-                  <span className="text-xs text-muted-foreground">
-                    Último: {meta.model} · {meta.latency_ms}ms
-                  </span>
-                )}
-              </div>
+              {mode === "email_comunicacion" ? (
+                <div className="space-y-2">
+                  <Label>Variante de email</Label>
+                  <Select value={emailVariant} onValueChange={(v) => setEmailVariant(v as EmailVariant)}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="teaser">Teaser · Aproximación inicial</SelectItem>
+                      <SelectItem value="negociacion">Negociación · Seguimiento</SelectItem>
+                      <SelectItem value="cierre">Cierre · Formalización</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              ) : (
+                <div className="space-y-2 flex flex-col justify-end">
+                  {meta && (
+                    <span className="text-xs text-muted-foreground">
+                      Último: {meta.model} · {meta.latency_ms}ms
+                    </span>
+                  )}
+                </div>
+              )}
             </div>
 
             <div className="space-y-2">
