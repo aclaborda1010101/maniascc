@@ -178,8 +178,24 @@ const COVER_SCHEMA = {
     title: { type: "string" },
     subtitle: { type: "string" },
     tagline: { type: "string" },
+    hero_prompt: { type: "string" },
   },
   required: ["title", "subtitle"],
+};
+
+// Mirmidons-friendly optional blocks (the model can fill them when relevant — graceful fallback if absent).
+const ASSET_SCHEMA = {
+  type: "object",
+  properties: {
+    name: { type: "string" }, city: { type: "string" }, province: { type: "string" },
+    typology: { type: "string" }, gla: { type: "string" }, year_built: { type: "string" },
+  },
+};
+const OPERATOR_SCHEMA = {
+  type: "object",
+  properties: {
+    name: { type: "string" }, brand: { type: "string" }, category: { type: "string" }, sector: { type: "string" },
+  },
 };
 
 const KPI_SCHEMA = {
