@@ -29,7 +29,6 @@ const DossierValidation = lazy(() => import("./pages/DossierValidation"));
 const TenantMixOptimizer = lazy(() => import("./pages/TenantMixOptimizer"));
 const NegotiationBriefing = lazy(() => import("./pages/NegotiationBriefing"));
 const AsistenteIA = lazy(() => import("./pages/AsistenteIA"));
-const Aba = lazy(() => import("./pages/Aba"));
 const Patrones = lazy(() => import("./pages/Patrones"));
 const Admin = lazy(() => import("./pages/Admin"));
 const Playground = lazy(() => import("./pages/Playground"));
@@ -78,7 +77,6 @@ const App = () => (
                   <Route path="/tenant-mix" element={<TenantMixOptimizer />} />
                   <Route path="/negociacion-ia" element={<NegotiationBriefing />} />
                   <Route path="/asistente" element={<AsistenteIA />} />
-                  <Route path="/aba" element={<Aba />} />
                   <Route path="/patrones" element={<Patrones />} />
                   <Route path="/playground" element={<Playground />} />
                   <Route path="/consumo" element={<Consumo />} />
