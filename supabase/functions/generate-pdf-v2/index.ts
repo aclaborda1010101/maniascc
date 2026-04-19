@@ -1289,18 +1289,17 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Decks (presentacion + plan) → landscape A4 with deck dimensions
-    const isDeck = mode === "presentacion_comercial" || mode === "plan_estrategico";
-    const isWarRoom = mode === "informe_war_room";
+    // Decks 16:9 (presentacion + plan + war room dashboard) → landscape
+    const isDeck = mode === "presentacion_comercial" || mode === "plan_estrategico" || mode === "informe_war_room";
     const isEmail = mode === "email_comunicacion";
 
     const pdfPayload: any = {
       html,
       apiKey: HTML2PDF_KEY,
       use_print: true,
-      // For decks: landscape A4 (297×210). For email/warroom: portrait but no margins.
+      // Decks → landscape A4. Email/dossier/contrato → portrait.
       orientation: isDeck ? "landscape" : "portrait",
-      page_size: isDeck ? "A4" : isEmail ? "A4" : isWarRoom ? "A3" : "A4",
+      page_size: "A4",
       margin_top: isEmail ? "0" : "0",
       margin_bottom: isEmail ? "0" : "0",
       margin_left: isEmail ? "0" : "0",
