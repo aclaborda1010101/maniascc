@@ -1,116 +1,127 @@
 
+El usuario quiere transformar el Generador de Documentos (FORGE) para que produzca documentos verdaderamente profesionales — no markdown plano renderizado a PDF como ahora, sino plantillas con identidad visual fuerte, layout editorial, portada, índice, gráficos donde proceda, y maquetación de consultoría real.
 
-The user has 48k emails from one user but they contain valuable cross-project intelligence (operators, contacts, negotiations, assets) that should benefit the whole team. They want a hybrid: raw personal content stays private, but extracted entities/patterns/insights are shared.
+## Estado actual (revisado)
 
-This is the classic "knowledge extraction vs raw data" architectural question. Right answer:
-- **Two layers**: raw chunks (private) + extracted entities/insights (shared)
-- During ingestion, an LLM extracts structured knowledge from each email/thread:
-  - Operators mentioned (linked to operadores table)
-  - People mentioned (linked/created in contactos)
-  - Negotiation signals (price discussions, conditions, dates)
-  - Assets/projects mentioned
-  - Sentiment, key facts, summary
-- The raw chunks stay `visibility='private'` (only the owner sees them in RAG search)
-- The extracted structured data goes to shared tables → all team sees it
-- AVA + RAG-proxy gets enhanced: when querying about "Zara", it pulls shared insights from ALL users who emailed Zara, but only quotes raw text from chunks the asking user owns
+- `generate-pdf` ya existe y usa `html2pdf.app` con un template HTML que tiene portada + TOC + estilos navy/gold McKinsey. Es decente pero genérico para todos los modos.
+- `ai-forge` genera markdown plano con prompts cortos (10-15 líneas por modo). Modelo: `gemini-3-flash-preview`. Sin estructura JSON, sin secciones tipadas.
+- `pdfService.ts` empaqueta markdown → llama a `generate-pdf` → descarga.
+- 6 modos: dossier_operador, presentacion_comercial, borrador_contrato, plan_estrategico, informe_war_room, email_comunicacion.
 
-This way the user keeps GDPR compliance + leverages the network effect.
+## Diagnóstico
 
-Let me design concretely. The infra (owner_id + visibility) is already in place from previous migration. Now I need to add the knowledge extraction layer.
+Tres problemas reales:
+1. **Prompts pobres**: 10-15 líneas no producen un dossier de consultoría real.
+2. **Salida sin estructura**: markdown libre → PDF no puede maquetar bloques específicos (KPIs, tablas comparativas, hero stats, callouts).
+3. **Plantilla HTML única**: el mismo template para un email que para un plan estratégico de 30 páginas. Absurdo.
 
-Keep plan tight.
+## Solución propuesta
 
-## Plan: Capa de inteligencia compartida sobre RAG privado
+### Arquitectura nueva
 
-### Estrategia híbrida (lo que recomiendo)
+```text
+ai-forge (rediseñada)
+  ├── prompt maestro por modo (200-400 líneas, nivel consultoría)
+  ├── modelo: google/gemini-3.1-pro-preview (motor más potente)
+  ├── salida: JSON estructurado vía tool calling
+  │     { meta, cover, sections[], kpis[], tables[], callouts[], appendix }
+  └── opcional: generar imágenes hero con nano-banana-pro
 
-**Dos capas independientes** sobre los mismos correos:
-
-| Capa | Contenido | Visibilidad | Uso |
-|---|---|---|---|
-| **Raw chunks** (`document_chunks`) | Texto literal de correos/adjuntos | `private` (solo el dueño) | RAG textual cuando el dueño consulta |
-| **Knowledge graph** (nuevas tablas) | Entidades extraídas, hechos, señales | `shared` (todo el equipo) | Inteligencia colectiva de AVA |
-
-Así el correo personal nunca se filtra textualmente, pero el conocimiento útil sí circula.
-
-### Nuevas tablas (compartidas por defecto)
-
-1. **`email_threads`** — Un hilo de correo agregado (no cada mensaje)
-   - `id`, `owner_id`, `subject`, `participants[]`, `first_date`, `last_date`, `message_count`, `summary` (LLM), `key_topics[]`, `visibility='shared'`
-   - Solo metadatos + resumen IA, no contenido literal
-
-2. **`email_entities`** — Entidades detectadas en cada hilo
-   - `thread_id`, `entity_type` (`operador`|`contacto`|`activo`|`proyecto`), `entity_id` (FK opcional), `entity_name_raw`, `mention_count`, `confidence`
-   - Permite preguntar "¿quién ha hablado con Zara?" → aparece todo el equipo
-
-3. **`negotiation_signals`** — Señales extraídas (precio mencionado, condiciones, deadlines)
-   - `thread_id`, `signal_type`, `value`, `context_snippet` (solo 1 frase, no más), `extracted_at`
-   - Sirve a AVA y al sistema de patrones
-
-4. **`contact_interactions`** — Quién habló con quién, cuántas veces, último contacto
-   - `contact_email`, `owner_id`, `thread_count`, `last_interaction`, `sentiment_avg`, `visibility='shared'`
-   - Red de relaciones del equipo
-
-### Pipeline de ingesta de correos (nueva edge function `email-bulk-ingest`)
-
-```
-.mbox/.pst/IMAP → parser → agrupar por thread_id
-  ↓
-Para cada hilo (lotes de 50):
-  ├─ Subir archivo a Storage (private, owner=user)
-  ├─ Crear documento_proyecto (visibility=private, owner_id=user)
-  ├─ Chunks del texto crudo → document_chunks (visibility=private)
-  └─ LLM extracción estructurada (gemini-2.5-flash):
-       ├─ resumen → email_threads (shared)
-       ├─ entidades → email_entities (shared, link a operadores/contactos)
-       ├─ señales negociación → negotiation_signals (shared)
-       └─ stats interlocutor → contact_interactions (shared, upsert)
+generate-pdf-v2 (nueva edge function)
+  ├── recibe el JSON estructurado + mode
+  ├── selecciona plantilla HTML específica por modo
+  ├── renderiza con componentes: KpiGrid, ComparisonTable, Callout, Quote, Timeline
+  ├── tipografía editorial: Playfair Display (titulares) + Inter (cuerpo)
+  └── html2pdf.app → PDF A4 perfecto
 ```
 
-Costo estimado: ~$0.0003/hilo × ~8.000 hilos ≈ $2-3 total para 48k correos.
+### Plantillas por modo (6 templates HTML diferentes)
 
-### AVA + RAG modificado
+| Modo | Estética | Componentes clave |
+|---|---|---|
+| dossier_operador | Ficha consultoría navy/gold | Portada con logo+sector, hero stats, perfil financiero, tabla histórico negociaciones, mapa presencia, recomendaciones en callouts |
+| presentacion_comercial | Estilo deck inmobiliario premium | Cover con hero image generada IA, KPI grid, tenant mix donut, proyecciones tabla, CTA final |
+| borrador_contrato | Documento legal serio | Portada sobria, TOC clausulado, numeración jerárquica, footer "borrador no vinculante" en cada página |
+| plan_estrategico | Informe McKinsey clásico | Executive summary, DAFO 2×2, roadmap timeline, tabla acciones, proyección financiera con gráfico |
+| informe_war_room | Dashboard ejecutivo impreso | Hero KPIs, semáforos de estado, tabla operaciones, alertas en callouts rojos |
+| email_comunicacion | Plantilla email profesional | NO PDF — preview HTML email + opción copiar HTML/texto |
 
-`rag-proxy-v4` se actualiza para devolver dos fuentes:
+### Cambios concretos
 
-1. **Privado**: chunks del propio usuario (texto literal con citas)
-2. **Compartido**: hits en `email_threads` + `email_entities` + `negotiation_signals` (resúmenes y señales, no texto literal)
+**1. `supabase/functions/ai-forge/index.ts`**
+- Subir a `gemini-3.1-pro-preview` (con fallback a flash si 429).
+- Reescribir los 6 prompts: cada uno 200-400 líneas, con ejemplos few-shot, tono consultoría.
+- Añadir tool calling para output JSON estructurado por modo.
+- Mantener compat: si el cliente pide `format=markdown` devuelve string como hoy; si `format=structured` devuelve JSON.
 
-Ejemplo: usuario pregunta "¿qué sabemos de Zara?"
-- AVA muestra: "El equipo tiene 47 hilos con Zara (Pedro: 30, Carlos: 17). Última interacción: hace 12 días. Señales recientes: piden 800m² zona prime, presupuesto €25k/mes, mencionaron Inditex consolidación. *(Tus 30 hilos: enlazar al detalle.)*"
+**2. `supabase/functions/generate-pdf-v2/index.ts` (nueva)**
+- 6 funciones `renderTemplate_<mode>(structuredData)` → HTML.
+- CSS compartido base + overrides por modo.
+- Importa Google Fonts: Playfair Display, Inter, JetBrains Mono.
+- Mantiene html2pdf.app como motor.
 
-### Control del usuario
+**3. `src/services/pdfService.ts`**
+- Nueva función `generateForgeDocumentPdf(mode, structuredData)` que llama a `generate-pdf-v2`.
+- Mantener `generateProfessionalPdf` para uso genérico de AVA.
 
-En **Ajustes → Privacidad**:
-- Toggle global "Permitir extracción de inteligencia compartida de mis correos" (default ON, recomendado)
-- Lista de dominios excluidos (ej: `@gmail.com`, asuntos con "personal")
-- Botón "Borrar todas mis extracciones" (GDPR)
+**4. `src/pages/GeneradorDocumentos.tsx` y `src/components/proyecto/ProyectoForge.tsx`**
+- El flujo de generación pide JSON estructurado.
+- Preview en pantalla: render HTML real (no markdown) usando un iframe con la misma plantilla.
+- Botón "Exportar PDF" envía el JSON a `generate-pdf-v2`.
+- Para `email_comunicacion`: tabs "Vista previa email" + "HTML" + "Texto plano", sin botón PDF.
 
-### Adjuntos (los 100k)
+**5. Imágenes hero (opcional, solo `presentacion_comercial`)**
+- Tras generar el JSON, llamada extra a `google/gemini-3-pro-image-preview` con prompt derivado del título.
+- Imagen base64 embebida en la portada del PDF.
+- Toggle "Generar imagen de portada" para no consumir créditos siempre.
 
-- Deduplicación por hash MD5 (esperable ~30-40% duplicados)
-- Solo se indexan adjuntos relevantes: PDFs/DOCXs/XLSXs (PPTX y planos a Storage sin indexar de momento)
-- Imágenes solo metadatos (nombre + EXIF)
+## Nano Banana / NotebookLM
 
-### Archivos a crear/modificar
+- **NotebookLM**: no tiene API pública, descartado.
+- **Nano Banana Pro 2** (`gemini-3.1-flash-image-preview`): sí, lo uso para portadas de presentación comercial cuando el toggle esté activo. Buena calidad, rápido.
 
-| Archivo | Cambio |
-|---|---|
-| `supabase/migrations/` (nueva) | Crear `email_threads`, `email_entities`, `negotiation_signals`, `contact_interactions` con RLS |
-| `supabase/functions/email-bulk-ingest/index.ts` (nuevo) | Pipeline batch correos + extracción IA |
-| `supabase/functions/rag-proxy-v4/index.ts` | Devolver dos capas (privado + compartido) |
-| `supabase/functions/ava-orchestrator/index.ts` | Nueva tool `team_knowledge_search` que consulta tablas compartidas |
-| `src/components/contactos/ImportContactosModal.tsx` | Nueva pestaña "Importar correos masivos" (.mbox/.pst) con barra de progreso |
-| `src/pages/Ajustes.tsx` | Pestaña "Privacidad" con toggle de extracción + dominios excluidos |
-| `src/pages/Contactos.tsx` | Mostrar `contact_interactions` agregadas (badge "El equipo: X interacciones") |
+## Alcance entregable
 
-### Decisión rápida que necesito de ti
+Fase única, 4 archivos modificados + 1 nueva edge function:
+- `ai-forge/index.ts` (reescrito)
+- `generate-pdf-v2/index.ts` (nuevo, 6 plantillas)
+- `pdfService.ts` (nueva función)
+- `ragService.ts` (tipo `StructuredForgeOutput` + opción format)
+- `GeneradorDocumentos.tsx` y `ProyectoForge.tsx` (preview HTML + nuevo flujo PDF)
 
-¿En qué formato vas a darme los 48k correos para empezar?
-- **A)** Archivo `.mbox` exportado de Gmail/Thunderbird (más fácil de procesar)
-- **B)** `.pst` de Outlook (requiere conversión previa, te indico cómo)
-- **C)** Conexión IMAP en vivo (más lento pero sincronizable)
-- **D)** Dump CSV con campos `from, to, date, subject, body, attachments`
+## Lo que NO hago en esta fase
+- No toco la rotación de keys ni el worker de ingesta (separado).
+- No toco el resto del rediseño Claude/tokens (separado, ya pendiente).
+- No genero PPTX nativo (los modos "presentacion" salen como PDF apaisado tipo deck, no como .pptx).
 
-Cuando confirmes el formato, implemento la migración + edge function + UI en una sola tanda.
+## Decisiones que necesito confirmar
+
+Solo dos cosas antes de implementar:
+
+---
+
+# Plan: Generador de Documentos profesional v2
+
+## Qué cambia
+
+1. **Motor más potente**: Gemini 3.1 Pro Preview con prompts de nivel consultoría (200-400 líneas por modo).
+2. **Salida estructurada**: JSON con secciones tipadas (KPIs, tablas, callouts, timeline) en vez de markdown plano.
+3. **6 plantillas HTML profesionales**, una por tipo de documento, con tipografía editorial (Playfair + Inter), portada con identidad fuerte, TOC, numeración, footer corporativo.
+4. **Preview real en pantalla**: ves el documento maquetado, no el markdown.
+5. **Imagen de portada con IA** (nano-banana-pro) opcional para presentaciones comerciales.
+
+## Componentes nuevos
+
+- Edge function `generate-pdf-v2` con renderers por modo.
+- Edge function `ai-forge` reescrita con tool calling estructurado.
+- Preview HTML embebido en `GeneradorDocumentos` y `ProyectoForge`.
+
+## Estética
+
+- Mantenemos línea McKinsey/consultoría (navy + gold) para informes — coherente con tu memoria de `report-aesthetic`.
+- Cada modo con su personalidad: dossier=ficha, presentación=deck, contrato=legal sobrio, plan=informe ejecutivo, war room=dashboard impreso, email=HTML mail.
+
+## Trabajo estimado
+
+~45 min. Una sola fase.
 
