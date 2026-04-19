@@ -163,7 +163,7 @@ export default function GeneradorDocumentos() {
                 </span>
               )}
               {savedId && !saving && (
-                <span className="text-xs text-emerald-600 flex items-center gap-1">
+                <span className="text-xs text-success flex items-center gap-1">
                   <CheckCircle2 className="h-3 w-3" /> Guardado en histórico
                 </span>
               )}
