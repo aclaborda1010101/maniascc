@@ -44,3 +44,6 @@ verify_jwt = false
 
 [functions.generate-pdf]
 verify_jwt = false
+
+[functions._temp_echo_service_key]
+verify_jwt = false
