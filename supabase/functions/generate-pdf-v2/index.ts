@@ -1248,12 +1248,27 @@ function renderTemplate(mode: ForgeMode, data: any, modeLabel: string, date: str
 function buildHtmlDocument(mode: ForgeMode, data: any, modeLabel: string, heroImage?: string, forPrint = false): string {
   const date = new Date().toLocaleDateString("es-ES", { day: "2-digit", month: "long", year: "numeric" });
   const body = renderTemplate(mode, data, modeLabel, date, heroImage);
+
+  // Force page orientation/size at CSS level (html2pdf.app honours @page)
+  const isDeck = mode === "presentacion_comercial" || mode === "plan_estrategico" || mode === "informe_war_room";
+  const pageCss = forPrint
+    ? (isDeck
+      ? `@page { size: A4 landscape; margin: 0; }
+         .slide { width: 100% !important; height: 100vh !important; box-shadow: none !important; margin: 0 !important; padding: 32px 48px !important; page-break-after: always; }
+         .deck-wrap { width: 100% !important; padding: 0 !important; background: #fff !important; }
+         .deck-stage { gap: 0 !important; }`
+      : `@page { size: A4 portrait; margin: 0; }
+         .doc-a4 { max-width: 100% !important; margin: 0 !important; box-shadow: none !important; }
+         .page { width: 100% !important; min-height: 100vh !important; }`)
+    : "";
+
   return `<!DOCTYPE html>
 <html lang="es"><head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
 <title>${esc(modeLabel)} · Mirmidons Retail</title>
-<style>${MIRMIDONS_TOKENS}</style>
+<style>${MIRMIDONS_TOKENS}
+${pageCss}</style>
 </head>
 <body class="${forPrint ? 'print-mode' : ''}">${body}</body></html>`;
 }
