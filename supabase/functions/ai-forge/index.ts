@@ -565,6 +565,8 @@ const TOOLS: Record<ForgeMode, any> = {
           },
           plain_text_version: { type: "string" },
           tone: { type: "string", enum: ["cordial", "formal", "directo", "negociador"] },
+          emailVariant: { type: "string", enum: ["teaser", "negociacion", "cierre"], description: "Variante visual de la plantilla email" },
+          refCode: { type: "string", description: "Código de referencia interno opcional, p.ej. AP-2026-014" },
         },
         required: ["subject", "preheader", "greeting", "body_paragraphs", "signature", "plain_text_version", "tone"],
       },
@@ -598,11 +600,12 @@ serve(async (req) => {
       return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: corsHeaders });
     }
 
-    const { mode, context, proyecto_id, format } = await req.json() as {
+    const { mode, context, proyecto_id, format, email_variant } = await req.json() as {
       mode: ForgeMode;
       context: string;
       proyecto_id?: string;
       format?: "structured" | "markdown";
+      email_variant?: "teaser" | "negociacion" | "cierre";
     };
 
     if (!mode || !MODE_INSTRUCTIONS[mode]) {
@@ -639,7 +642,16 @@ serve(async (req) => {
       }
     }
 
-    const systemPrompt = `${SYSTEM_BASE}\n\n═══ INSTRUCCIONES DEL MODO "${mode}" ═══\n${MODE_INSTRUCTIONS[mode]}`;
+    let modeExtra = "";
+    if (mode === "email_comunicacion" && email_variant) {
+      const variantBrief: Record<string, string> = {
+        teaser: "VARIANTE: TEASER de aproximación inicial. Tono cordial-formal, presentar oportunidad, sin presión, CTA = solicitar reunión exploratoria. emailVariant='teaser'.",
+        negociacion: "VARIANTE: NEGOCIACIÓN en curso. Tono directo-negociador, referencia oferta previa, condiciones concretas, CTA = respuesta con fecha. emailVariant='negociacion'.",
+        cierre: "VARIANTE: CIERRE / FORMALIZACIÓN. Tono formal jurídico, confirmar acuerdo, próximos hitos firma, adjuntos previstos. emailVariant='cierre'.",
+      };
+      modeExtra = `\n\n═══ SUB-VARIANTE EMAIL ═══\n${variantBrief[email_variant]}\nIncluye además 'refCode' (formato 'AP-YYYY-NNN', 'NG-YYYY-NNN' o 'CL-YYYY-NNN' según corresponda).`;
+    }
+    const systemPrompt = `${SYSTEM_BASE}\n\n═══ INSTRUCCIONES DEL MODO "${mode}" ═══\n${MODE_INSTRUCTIONS[mode]}${modeExtra}`;
     const userMessage = `CONTEXTO / INSTRUCCIONES DEL USUARIO:\n${context}${ragContext}`;
 
     // Orden de modelos: el más fiable con tool calling complejo primero.
