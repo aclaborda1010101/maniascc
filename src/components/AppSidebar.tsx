@@ -71,22 +71,19 @@ export function AppSidebar() {
     ));
 
   return (
-    <Sidebar collapsible="icon" className="border-r-0 bg-sidebar/70 backdrop-blur-glass">
+    <Sidebar collapsible="icon">
       <SidebarContent>
-        {/* Brand — iridescent conic logo */}
+        {/* Logo */}
         <SidebarGroup>
-          <SidebarGroupLabel className="!h-auto !p-2">
-            <div className="flex items-center gap-2.5 py-1">
-              <div className="relative h-8 w-8 rounded-[10px] gradient-conic grid place-items-center text-[#0a0a0b] font-bold text-sm shadow-[0_0_24px_-6px_hsl(var(--acc-2)/0.6),inset_0_1px_0_hsl(0_0%_100%/0.6)] shrink-0">
-                A
-              </div>
-              {!collapsed && (
-                <div className="flex flex-col min-w-0">
-                  <span className="font-display text-[15px] font-semibold leading-tight tracking-tight text-sidebar-foreground">AVA</span>
-                  <span className="text-[10.5px] text-sidebar-foreground/55 leading-tight">Real Estate Intelligence</span>
-                </div>
-              )}
-            </div>
+          <SidebarGroupLabel>
+            {!collapsed ? (
+              <span className="flex items-center gap-2 text-lg font-bold tracking-tight">
+                <Sparkles className="h-5 w-5 text-sidebar-primary" />
+                AVA
+              </span>
+            ) : (
+              <Sparkles className="h-5 w-5 text-sidebar-primary" />
+            )}
           </SidebarGroupLabel>
         </SidebarGroup>
 
