@@ -80,7 +80,11 @@ NUNCA respondas en texto plano sin formato. NUNCA digas "no tengo datos suficien
 
 Responde siempre en español. Sé profesional, detallada y estratégica.
 
-IMPORTANTE SOBRE INFORMES PDF: Cuando el usuario te pida explícitamente que generes un informe, documento, dossier o reporte, usa la herramienta generate_pdf_report. NO uses esta herramienta para respuestas normales de chat.`;
+IMPORTANTE SOBRE GENERACIÓN DE DOCUMENTOS:
+- Usa **generate_forge_document** (modo correcto entre los 6 disponibles) cuando el usuario pida: dossier de operador/marca, presentación comercial / teaser de un activo, borrador de contrato de arrendamiento, plan estratégico, informe war room semanal, o un email profesional. Esta tool produce un PDF maquetado profesional (estilo McKinsey/Cushman) que se descarga automáticamente.
+- Usa **generate_pdf_report** SOLO para reportes ad-hoc que no encajen en ningún modo FORGE.
+- Cuando el usuario te referencie un documento por su nombre o lo cite implícitamente ("según el contrato de Mercadona", "mira el dossier de la Milla"), usa **read_system_document** para localizarlo y leer su contenido antes de responder.
+- Si el usuario adjunta un archivo en el chat, su contenido aparecerá en la sección "DOCUMENTOS ADJUNTOS POR EL USUARIO". Trátalo como fuente prioritaria.`;
 
 const TOOLS = [
   {
@@ -218,7 +222,7 @@ const TOOLS = [
     type: "function",
     function: {
       name: "generate_pdf_report",
-      description: "Genera un informe/documento profesional en formato PDF. Úsalo SOLO cuando el usuario pida explícitamente un informe, documento, dossier o reporte.",
+      description: "Genera un informe en PDF con plantilla GENÉRICA (markdown→PDF). Úsalo solo para reportes simples cuando NO encaje ninguno de los 6 modos FORGE.",
       parameters: {
         type: "object",
         properties: {
@@ -226,6 +230,40 @@ const TOOLS = [
           content: { type: "string", description: "Contenido completo del informe en formato Markdown con secciones bien estructuradas" },
         },
         required: ["title", "content"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "generate_forge_document",
+      description: "Genera un documento PROFESIONAL premium con plantilla FORGE (maquetación tipo McKinsey/Cushman). PREFERIDO sobre generate_pdf_report cuando el usuario pida: dossier de operador, presentación comercial / teaser, borrador de contrato de arrendamiento, plan estratégico, informe war room semanal, o un email profesional. Detecta el modo correcto según el intent.",
+      parameters: {
+        type: "object",
+        properties: {
+          mode: {
+            type: "string",
+            enum: ["dossier_operador", "presentacion_comercial", "borrador_contrato", "plan_estrategico", "informe_war_room", "email_comunicacion"],
+            description: "Modo FORGE: dossier_operador (perfil de marca/retailer), presentacion_comercial (teaser de activo), borrador_contrato (arrendamiento), plan_estrategico (plan McKinsey-style), informe_war_room (dashboard semanal), email_comunicacion (email profesional)",
+          },
+          context: { type: "string", description: "Instrucciones y contexto detallado para FORGE: a quién va dirigido, qué activo/operador, qué objetivo, datos clave a incluir." },
+          proyecto_id: { type: "string", description: "UUID del proyecto si aplica (opcional, mejora el contexto RAG)." },
+        },
+        required: ["mode", "context"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "read_system_document",
+      description: "Localiza y lee documentos ya almacenados en el sistema (tabla documentos_proyecto). Búsqueda por nombre, devuelve nombre + resumen IA + texto extraído de los chunks RAG si existen. Úsalo cuando el usuario mencione un documento por su nombre ('mira el contrato de Mercadona', 'según el dossier de la Milla')",
+      parameters: {
+        type: "object",
+        properties: {
+          query: { type: "string", description: "Texto a buscar en el nombre del documento" },
+          documento_id: { type: "string", description: "UUID exacto si ya se conoce (opcional)" },
+        },
       },
     },
   },
@@ -347,7 +385,7 @@ serve(async (req) => {
         status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
-    const { message, history } = body;
+    const { message, history, attachments_context } = body;
     if (!message) {
       return new Response(JSON.stringify({ error: "Mensaje requerido" }), {
         status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -395,8 +433,12 @@ serve(async (req) => {
       console.warn("Could not load learned patterns:", e);
     }
 
+    const attachmentsBlock = attachments_context
+      ? `\n\n## DOCUMENTOS ADJUNTOS POR EL USUARIO EN ESTA PETICIÓN\nUsa SIEMPRE este contenido como fuente prioritaria. NO ignores ningún dato del adjunto.\n\n${attachments_context}`
+      : "";
+
     const messages: Array<{ role: string; content: string; tool_call_id?: string }> = [
-      { role: "system", content: SYSTEM_PROMPT + lessonsBlock },
+      { role: "system", content: SYSTEM_PROMPT + lessonsBlock + attachmentsBlock },
     ];
 
     // Build context with cumulative summary for long conversations
@@ -707,6 +749,113 @@ serve(async (req) => {
         } else if (fnName === "generate_pdf_report") {
           toolLabel = "generate_pdf_report";
           result = { success: true, title: args.title, content: args.content };
+        } else if (fnName === "generate_forge_document") {
+          toolLabel = "generate_forge_document:" + (args.mode || "");
+          try {
+            const forgeUrl = Deno.env.get("SUPABASE_URL") + "/functions/v1/ai-forge";
+            const forgeResp = await fetch(forgeUrl, {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                Authorization: authHeader,
+                apikey: anonKey,
+              },
+              body: JSON.stringify({
+                mode: args.mode,
+                context: args.context,
+                proyecto_id: args.proyecto_id,
+                format: "structured",
+              }),
+            });
+            const forgeData = await forgeResp.json();
+            if (!forgeResp.ok || forgeData?.error || !forgeData?.structured) {
+              result = { success: false, error: forgeData?.error || "FORGE no devolvió estructura válida" };
+            } else {
+              // Now render PDF via generate-pdf-v2 (returns binary PDF). Save to documentos_generados bucket.
+              const pdfUrl = Deno.env.get("SUPABASE_URL") + "/functions/v1/generate-pdf-v2";
+              const pdfResp = await fetch(pdfUrl, {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                  Authorization: authHeader,
+                  apikey: anonKey,
+                },
+                body: JSON.stringify({
+                  mode: args.mode,
+                  data: forgeData.structured,
+                  mode_label: args.mode,
+                  output: "pdf",
+                }),
+              });
+              if (!pdfResp.ok) {
+                result = { success: false, error: `PDF render failed (${pdfResp.status})`, structured: forgeData.structured };
+              } else {
+                const pdfBlob = await pdfResp.arrayBuffer();
+                const pdfBytes = new Uint8Array(pdfBlob);
+                const fileName = `ava_${args.mode}_${Date.now()}.pdf`;
+                const storagePath = `${user.id}/${fileName}`;
+                const { error: upErr } = await admin.storage
+                  .from("documentos_generados")
+                  .upload(storagePath, pdfBytes, { contentType: "application/pdf", upsert: false });
+                if (upErr) {
+                  result = { success: false, error: "Upload PDF failed: " + upErr.message };
+                } else {
+                  const { data: signed } = await admin.storage
+                    .from("documentos_generados")
+                    .createSignedUrl(storagePath, 60 * 60 * 24); // 24h
+                  result = {
+                    success: true,
+                    mode: args.mode,
+                    file_name: fileName,
+                    storage_path: storagePath,
+                    download_url: signed?.signedUrl || null,
+                    title: forgeData.structured?.cover?.title || args.mode,
+                  };
+                }
+              }
+            }
+          } catch (e) {
+            result = { success: false, error: e instanceof Error ? e.message : "Error FORGE" };
+          }
+        } else if (fnName === "read_system_document") {
+          toolLabel = "read_system_document";
+          try {
+            let docs: any[] = [];
+            if (args.documento_id) {
+              const { data } = await admin.from("documentos_proyecto")
+                .select("id, nombre, resumen_ia, storage_path, mime_type")
+                .eq("id", args.documento_id).limit(1);
+              docs = data || [];
+            } else if (args.query) {
+              const { data } = await admin.from("documentos_proyecto")
+                .select("id, nombre, resumen_ia, storage_path, mime_type")
+                .ilike("nombre", `%${args.query}%`).limit(3);
+              docs = data || [];
+            }
+            if (docs.length === 0) {
+              result = { found: false, message: "No se encontró ningún documento con ese nombre." };
+            } else {
+              // Fetch chunks for each doc
+              const enriched = [];
+              for (const d of docs) {
+                const { data: chunks } = await admin.from("document_chunks")
+                  .select("contenido")
+                  .eq("documento_id", d.id)
+                  .order("chunk_index", { ascending: true })
+                  .limit(20);
+                const fullText = (chunks || []).map((c: any) => c.contenido).join("\n\n").slice(0, 12000);
+                enriched.push({
+                  id: d.id,
+                  nombre: d.nombre,
+                  resumen_ia: d.resumen_ia,
+                  contenido: fullText || "(sin chunks indexados, usa rag_search)",
+                });
+              }
+              result = { found: true, documents: enriched };
+            }
+          } catch (e) {
+            result = { error: e instanceof Error ? e.message : "Error leyendo documento" };
+          }
         } else {
           result = { error: "Tool no reconocida" };
         }
@@ -730,7 +879,7 @@ serve(async (req) => {
 
     // Build synthesis messages with cumulative summary + lessons
     const synthesisMessages: Array<{ role: string; content: string }> = [
-      { role: "system", content: SYSTEM_PROMPT + lessonsBlock },
+      { role: "system", content: SYSTEM_PROMPT + lessonsBlock + attachmentsBlock },
     ];
     
     if (cumulativeSummary) {
@@ -823,14 +972,23 @@ serve(async (req) => {
       metadata: { tools_used: toolResults.map(tr => tr.tool), message: message?.slice(0, 200) },
     });
 
-    // Check if generate_pdf_report was used
+    // Check if generate_pdf_report or generate_forge_document was used
     const pdfTool = toolResults.find(tr => tr.tool === "generate_pdf_report" && tr.result?.success);
+    const forgeTool = toolResults.find(tr => typeof tr.tool === "string" && tr.tool.startsWith("generate_forge_document") && tr.result?.success);
 
     return new Response(JSON.stringify({
       answer: finalAnswer,
       tools_used: toolResults.map(tr => tr.tool),
       latency_ms: latencyMs,
       ...(pdfTool ? { pdf_content: pdfTool.result.content, pdf_title: pdfTool.result.title } : {}),
+      ...(forgeTool ? {
+        forge_pdf: {
+          mode: forgeTool.result.mode,
+          file_name: forgeTool.result.file_name,
+          download_url: forgeTool.result.download_url,
+          title: forgeTool.result.title,
+        },
+      } : {}),
     }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });

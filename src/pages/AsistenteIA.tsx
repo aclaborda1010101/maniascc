@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useEffect } from "react";
-import { Send, Trash2, Sparkles, User, Plus, Pencil, Check, X as XIcon, MessageSquare, FileDown, Loader2, PanelLeftOpen, PanelLeftClose } from "lucide-react";
+import { Send, Trash2, Sparkles, User, Plus, Pencil, Check, X as XIcon, MessageSquare, FileDown, Loader2, PanelLeftOpen, PanelLeftClose, Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -14,6 +14,7 @@ import { generateProfessionalPdf, downloadBlob } from "@/services/pdfService";
 import { useToast } from "@/hooks/use-toast";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { AvaMessageFeedback } from "@/components/AvaMessageFeedback";
+import { AvaAttachmentBar } from "@/components/AvaAttachmentBar";
 
 function PdfDownloadButton({ content, title }: { content: string; title?: string }) {
   const { toast } = useToast();
@@ -34,6 +35,21 @@ function PdfDownloadButton({ content, title }: { content: string; title?: string
     <Button variant="outline" size="sm" className="mt-2 gap-1.5 text-xs h-7 px-3 border-accent text-accent" onClick={handleClick} disabled={exporting}>
       {exporting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <FileDown className="h-3.5 w-3.5" />} Descargar informe PDF
     </Button>
+  );
+}
+
+function ForgePdfBlock({ forgePdf }: { forgePdf: { mode: string; file_name: string; download_url: string | null; title: string } }) {
+  if (!forgePdf.download_url) return null;
+  return (
+    <a
+      href={forgePdf.download_url}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="mt-2 inline-flex items-center gap-1.5 px-3 h-7 rounded-md border border-accent text-accent hover:bg-accent/10 transition-colors text-xs font-medium"
+      download={forgePdf.file_name}
+    >
+      <Download className="h-3.5 w-3.5" /> Descargar {forgePdf.title || forgePdf.file_name}
+    </a>
   );
 }
 
@@ -103,6 +119,7 @@ export default function AsistenteIA() {
     conversations, activeConversationId, messages, input, setInput,
     loading, sendMessage, clearChat, scrollRef,
     createConversation, switchConversation, renameConversation, deleteConversation,
+    pendingAttachments, addAttachments, removeAttachment,
   } = useChatMessages();
 
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -227,6 +244,9 @@ export default function AsistenteIA() {
                     {msg.meta?.pdf_content && (
                       <PdfDownloadButton content={msg.meta.pdf_content} title={msg.meta.pdf_title} />
                     )}
+                    {msg.meta?.forge_pdf && (
+                      <ForgePdfBlock forgePdf={msg.meta.forge_pdf} />
+                    )}
                   </div>
                 ) : (
                   <p className="text-xs md:text-sm">{msg.content}</p>
@@ -267,17 +287,28 @@ export default function AsistenteIA() {
         </div>
 
         {/* Input */}
-        <div className="border-t border-border px-3 md:px-6 py-3 md:py-4 shrink-0">
-          <div className="flex gap-2">
+        <div className="border-t border-border px-3 md:px-6 py-3 md:py-4 shrink-0 space-y-2">
+          {pendingAttachments.length > 0 && (
+            <AvaAttachmentBar attachments={pendingAttachments} onAdd={addAttachments} onRemove={removeAttachment} disabled={loading} />
+          )}
+          <div className="flex gap-2 items-end">
+            {pendingAttachments.length === 0 && (
+              <AvaAttachmentBar attachments={[]} onAdd={addAttachments} onRemove={removeAttachment} disabled={loading} />
+            )}
             <Input
-              placeholder="Pregúntame lo que necesites..."
+              placeholder="Pregúntame o adjunta un documento..."
               value={input}
               onChange={e => setInput(e.target.value)}
               onKeyDown={e => e.key === "Enter" && !e.shiftKey && sendMessage()}
               disabled={loading}
               className="flex-1 text-sm"
             />
-            <Button onClick={sendMessage} disabled={loading || !input.trim()} size="icon" className="bg-accent text-accent-foreground hover:bg-accent/90 h-9 w-9 md:h-10 md:w-10">
+            <Button
+              onClick={sendMessage}
+              disabled={loading || (!input.trim() && pendingAttachments.filter(a => a.status === "ready").length === 0) || pendingAttachments.some(a => a.status === "uploading" || a.status === "processing")}
+              size="icon"
+              className="bg-accent text-accent-foreground hover:bg-accent/90 h-9 w-9 md:h-10 md:w-10"
+            >
               <Send className="h-4 w-4" />
             </Button>
           </div>
