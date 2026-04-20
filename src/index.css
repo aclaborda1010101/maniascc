@@ -187,45 +187,39 @@
     z-index: 0;
     pointer-events: none;
     overflow: hidden;
+    contain: strict;
   }
   .ambient::before,
   .ambient::after {
     content: "";
     position: absolute;
     border-radius: 50%;
-    filter: blur(100px);
-    will-change: transform;
+    filter: blur(60px);
   }
   .ambient::before {
     width: 640px; height: 640px; left: -80px; top: -100px;
     background: radial-gradient(circle, hsl(var(--acc-1) / 0.55), transparent 60%);
-    animation: floatA 14s ease-in-out infinite alternate;
   }
   .ambient::after {
     width: 620px; height: 620px; right: -80px; bottom: -120px;
     background: radial-gradient(circle, hsl(var(--acc-2) / 0.5), transparent 60%);
-    animation: floatB 16s ease-in-out infinite alternate;
   }
   .ambient-blob {
     position: absolute;
     border-radius: 50%;
-    filter: blur(110px);
-    will-change: transform;
+    filter: blur(60px);
   }
   .ambient-blob.b3 {
     width: 520px; height: 520px; left: 35%; top: 20%;
     background: radial-gradient(circle, hsl(var(--acc-3) / 0.4), transparent 65%);
-    animation: floatC 18s ease-in-out infinite alternate;
   }
   .ambient-blob.b4 {
     width: 440px; height: 440px; right: 18%; top: 4%;
     background: radial-gradient(circle, hsl(var(--acc-4) / 0.4), transparent 65%);
-    animation: floatD 20s ease-in-out infinite alternate;
   }
   .ambient-blob.b5 {
     width: 400px; height: 400px; left: 12%; bottom: 8%;
     background: radial-gradient(circle, hsl(var(--acc-5) / 0.35), transparent 65%);
-    animation: floatE 15s ease-in-out infinite alternate;
   }
 
   .light .ambient::before { opacity: 0.55; }
@@ -235,8 +229,8 @@
   /* Glass surface utility */
   .glass {
     background: hsl(var(--glass-surface) / 0.04);
-    backdrop-filter: blur(var(--glass-blur)) saturate(1.8);
-    -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(1.8);
+    backdrop-filter: blur(16px) saturate(1.4);
+    -webkit-backdrop-filter: blur(16px) saturate(1.4);
     border: 1px solid hsl(var(--glass-border) / 0.10);
     box-shadow: var(--shadow-md);
   }
@@ -306,7 +300,7 @@
     border-bottom-left-radius: 0.375rem;
     border: 1px solid hsl(var(--border) / 0.6);
     background: hsl(var(--secondary) / 0.6);
-    backdrop-filter: blur(12px);
+    backdrop-filter: blur(8px);
     color: hsl(var(--foreground));
     font-size: 0.875rem;
   }
@@ -327,7 +321,7 @@
     border-radius: 1rem;
     border: 1px solid hsl(var(--border) / 0.6);
     background: hsl(var(--card) / 0.7);
-    backdrop-filter: blur(32px);
+    backdrop-filter: blur(16px);
     overflow: hidden;
   }
   .list-glass > * + * {
@@ -365,8 +359,8 @@
     height: 4rem;
     border-radius: 26px;
     border: 1px solid hsl(var(--border) / 0.6);
-    backdrop-filter: blur(32px) saturate(1.8);
-    -webkit-backdrop-filter: blur(32px) saturate(1.8);
+    backdrop-filter: blur(16px) saturate(1.4);
+    -webkit-backdrop-filter: blur(16px) saturate(1.4);
     background: hsl(var(--card) / 0.75);
     box-shadow: 0 -4px 30px hsl(0 0% 0% / 0.25), inset 0 0 0 0.5px hsl(0 0% 100% / 0.05);
     padding-bottom: env(safe-area-inset-bottom);

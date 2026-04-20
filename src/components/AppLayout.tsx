@@ -33,12 +33,14 @@ export function AppLayout() {
 
   return (
     <SidebarProvider>
-      {/* Ambient iridescent background — visionOS aesthetic */}
-      <div className="ambient" aria-hidden="true">
-        <div className="ambient-blob b3" />
-        <div className="ambient-blob b4" />
-        <div className="ambient-blob b5" />
-      </div>
+      {/* Ambient iridescent background — desktop only */}
+      {!isMobile && (
+        <div className="ambient" aria-hidden="true">
+          <div className="ambient-blob b3" />
+          <div className="ambient-blob b4" />
+          <div className="ambient-blob b5" />
+        </div>
+      )}
 
       <div className="relative z-10 min-h-screen flex w-full overflow-x-hidden">
         {/* Sidebar — desktop only */}
