@@ -1,5 +1,5 @@
 import { useState, useRef } from "react";
-import { Paperclip, X, Loader2, FileText, ImageIcon, Sheet, File } from "lucide-react";
+import { Paperclip, X, Loader2, FileText, ImageIcon, Sheet, File, CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import type { AvaAttachment } from "@/services/avaAttachmentService";
@@ -51,14 +51,17 @@ export function AvaAttachmentBar({ attachments, onAdd, onRemove, disabled, compa
               <div
                 key={a.id}
                 className={cn(
-                  "flex items-center gap-1.5 px-2 py-1 rounded border bg-muted/50 max-w-[200px]",
+                  "flex items-center gap-1.5 px-2 py-1 rounded border bg-muted/50 max-w-[220px]",
                   compact ? "text-[10px]" : "text-xs",
                   a.status === "error" && "border-destructive bg-destructive/10",
+                  a.status === "ready" && "border-accent/40 bg-accent/5",
                 )}
-                title={a.error || a.file_name}
+                title={a.status === "ready" && a.summary ? a.summary : (a.error || a.file_name)}
               >
                 {a.status === "uploading" || a.status === "processing" ? (
                   <Loader2 className="h-3 w-3 animate-spin text-muted-foreground shrink-0" />
+                ) : a.status === "ready" ? (
+                  <CheckCircle2 className="h-3 w-3 text-accent shrink-0" />
                 ) : (
                   <Icon className="h-3 w-3 text-muted-foreground shrink-0" />
                 )}
