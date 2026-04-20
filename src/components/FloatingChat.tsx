@@ -1,25 +1,29 @@
-import { useState } from "react";
-import { Send, X, Trash2, Sparkles, Plus, ChevronDown } from "lucide-react";
+import { useState, useRef } from "react";
+import { Send, X, Trash2, Sparkles, Plus, ChevronDown, Paperclip, FileText, Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useChatMessages, toolLabel } from "@/hooks/useChatMessages";
 import { AvaMessageFeedback } from "@/components/AvaMessageFeedback";
+import { AvaAttachmentBar } from "@/components/AvaAttachmentBar";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 
 export function FloatingChat() {
   const [open, setOpen] = useState(false);
   const [showConvList, setShowConvList] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const {
     conversations, activeConversationId, messages, input, setInput,
     loading, sendMessage, clearChat, scrollRef,
     createConversation, switchConversation,
+    pendingAttachments, addAttachments, removeAttachment,
   } = useChatMessages();
 
   const activeConv = conversations.find(c => c.id === activeConversationId);
   const sortedConvs = [...conversations].sort((a, b) => b.updatedAt - a.updatedAt);
+  const processing = pendingAttachments.some(a => a.status === "uploading" || a.status === "processing");
 
   return (
     <div className="fixed bottom-6 right-6 z-50 flex flex-col items-end gap-3">
@@ -89,8 +93,43 @@ export function FloatingChat() {
                       <ReactMarkdown remarkPlugins={[remarkGfm]}>{msg.content}</ReactMarkdown>
                     </div>
                   ) : (
-                    <p className="text-xs">{msg.content}</p>
+                    <p className="text-xs whitespace-pre-wrap">{msg.content}</p>
                   )}
+
+                  {/* Attachments badges (user messages) */}
+                  {msg.meta?.attachments && msg.meta.attachments.length > 0 && (
+                    <div className="mt-1 flex flex-wrap gap-1">
+                      {msg.meta.attachments.map((a, i) => (
+                        <Badge key={i} variant="outline" className="text-[9px] px-1 py-0 gap-1">
+                          <FileText className="h-2.5 w-2.5" /> {a.file_name}
+                        </Badge>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Forge PDF download block */}
+                  {msg.meta?.forge_pdf && (
+                    <div className="mt-2 p-2 rounded-lg border border-border bg-background">
+                      <div className="flex items-center gap-2 mb-1.5">
+                        <FileText className="h-3.5 w-3.5 text-accent" />
+                        <span className="text-[10px] font-semibold truncate flex-1">{msg.meta.forge_pdf.title}</span>
+                      </div>
+                      {msg.meta.forge_pdf.download_url ? (
+                        <a
+                          href={msg.meta.forge_pdf.download_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          download={msg.meta.forge_pdf.file_name}
+                          className="inline-flex items-center gap-1 text-[10px] text-accent hover:underline"
+                        >
+                          <Download className="h-3 w-3" /> Descargar PDF
+                        </a>
+                      ) : (
+                        <span className="text-[10px] text-muted-foreground">Generación pendiente</span>
+                      )}
+                    </div>
+                  )}
+
                   {msg.meta?.tools_used && msg.meta.tools_used.length > 0 && (
                     <div className="mt-1 flex flex-wrap gap-1">
                       {msg.meta.tools_used.map((t, i) => {
@@ -118,18 +157,52 @@ export function FloatingChat() {
             )}
           </div>
 
+          {/* Attachment bar */}
+          {pendingAttachments.length > 0 && (
+            <div className="px-3 pt-2">
+              <AvaAttachmentBar attachments={pendingAttachments} onRemove={removeAttachment} />
+            </div>
+          )}
+
           {/* Input */}
           <div className="border-t p-3">
+            <input
+              ref={fileInputRef}
+              type="file"
+              multiple
+              className="hidden"
+              accept=".pdf,.png,.jpg,.jpeg,.webp,.xlsx,.xls,.docx,.doc,.txt,.csv,.md"
+              onChange={(e) => {
+                const files = Array.from(e.target.files || []);
+                if (files.length > 0) addAttachments(files);
+                if (fileInputRef.current) fileInputRef.current.value = "";
+              }}
+            />
             <div className="flex gap-2">
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 shrink-0"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={loading}
+                title="Adjuntar archivo"
+              >
+                <Paperclip className="h-3.5 w-3.5 text-muted-foreground" />
+              </Button>
               <Input
-                placeholder="Pregúntame lo que necesites..."
+                placeholder={processing ? "Procesando adjuntos..." : "Pregúntame lo que necesites..."}
                 value={input}
                 onChange={e => setInput(e.target.value)}
                 onKeyDown={e => e.key === "Enter" && !e.shiftKey && sendMessage()}
                 disabled={loading}
                 className="flex-1 h-8 text-xs"
               />
-              <Button onClick={sendMessage} disabled={loading || !input.trim()} size="icon" className="h-8 w-8 bg-accent text-accent-foreground hover:bg-accent/90">
+              <Button
+                onClick={sendMessage}
+                disabled={loading || processing || (!input.trim() && pendingAttachments.length === 0)}
+                size="icon"
+                className="h-8 w-8 bg-accent text-accent-foreground hover:bg-accent/90"
+              >
                 <Send className="h-3.5 w-3.5" />
               </Button>
             </div>
