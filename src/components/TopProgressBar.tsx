@@ -6,15 +6,14 @@ import { useEffect, useState } from "react";
  * Mantiene el contenido anterior visible (no oculta layout).
  */
 export function TopProgressBar() {
-  const [progress, setProgress] = useState(0);
+  const [progress, setProgress] = useState(10);
   const [visible, setVisible] = useState(true);
 
   useEffect(() => {
-    let raf: number;
-    let start = performance.now();
+    let raf = 0;
+    const start = performance.now();
     const tick = (now: number) => {
       const elapsed = now - start;
-      // Curva asintótica: avanza rápido al inicio, se frena cerca del 90%
       const next = Math.min(90, (elapsed / 8) * (1 - elapsed / 2000));
       setProgress(Math.max(next, 10));
       if (elapsed < 1500) raf = requestAnimationFrame(tick);
@@ -24,8 +23,7 @@ export function TopProgressBar() {
     return () => {
       cancelAnimationFrame(raf);
       setProgress(100);
-      const t = setTimeout(() => setVisible(false), 200);
-      return () => clearTimeout(t);
+      setTimeout(() => setVisible(false), 200);
     };
   }, []);
 
