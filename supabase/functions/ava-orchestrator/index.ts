@@ -338,7 +338,16 @@ serve(async (req) => {
     }
 
     const admin = createClient(supabaseUrl, serviceKey);
-    const { message, history } = await req.json();
+    let body: any = {};
+    try {
+      const raw = await req.text();
+      body = raw ? JSON.parse(raw) : {};
+    } catch (e) {
+      return new Response(JSON.stringify({ error: "Body JSON inválido" }), {
+        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    const { message, history } = body;
     if (!message) {
       return new Response(JSON.stringify({ error: "Mensaje requerido" }), {
         status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
