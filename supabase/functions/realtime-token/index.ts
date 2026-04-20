@@ -11,7 +11,7 @@ const corsHeaders = {
  *
  * Returns: { client_secret: { value, expires_at }, model, voice }
  */
-serve(async (req) => {
+Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
