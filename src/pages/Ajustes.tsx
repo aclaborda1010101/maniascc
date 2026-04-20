@@ -10,13 +10,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   MessageSquare, Mail, CheckCircle2, Loader2, QrCode, Settings,
-  Shield, Wifi, WifiOff, Sparkles, CheckCircle, Link2, User,
+  Shield, Sparkles, CheckCircle, Link2, User,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
-import { queryExpertForge, healthCheckExpertForge, EXPERT_SPECIALISTS } from "@/services/expertForge";
-import { useToast } from "@/hooks/use-toast";
 
 /* ═══════════════════════════════════════════════════
    TAB: Conexiones (WhatsApp + Email)
@@ -186,119 +184,10 @@ function TabConexiones() {
 }
 
 /* ═══════════════════════════════════════════════════
-   TAB: Conexión IA
+   TAB: Conexión IA — RETIRADO (Expert Forge MoE externo desactivado)
+   El sistema usa exclusivamente RAG interno (rag-proxy + document_chunks)
+   y Lovable AI Gateway. Ver pestaña "Configuración" para arquitectura.
    ═══════════════════════════════════════════════════ */
-function TabConexionIA() {
-  const [connectionStatus, setConnectionStatus] = useState<"idle" | "testing" | "ok" | "error">("idle");
-  const [pingLatency, setPingLatency] = useState<number | null>(null);
-  const [logs, setLogs] = useState<any[]>([]);
-  const [logsLoading, setLogsLoading] = useState(true);
-  const { toast } = useToast();
-
-  useEffect(() => {
-    supabase.from("auditoria_ia").select("*").order("created_at", { ascending: false }).limit(10)
-      .then(({ data }) => { setLogs(data || []); setLogsLoading(false); });
-  }, []);
-
-  const testConnection = async () => {
-    setConnectionStatus("testing");
-    const res = await healthCheckExpertForge();
-    setPingLatency(res.latency_ms);
-    if (res.status === "error") {
-      setConnectionStatus("error");
-      toast({ title: "Conexión fallida", description: res.error || "Error desconocido", variant: "destructive" });
-    } else {
-      setConnectionStatus("ok");
-      toast({ title: "Conexión activa", description: `Latencia: ${res.latency_ms}ms` });
-    }
-  };
-
-  const statusColor = connectionStatus === "ok"
-    ? (pingLatency && pingLatency > 5000 ? "bg-yellow-500" : "bg-chart-2")
-    : connectionStatus === "error" ? "bg-destructive"
-    : connectionStatus === "testing" ? "bg-yellow-500 animate-pulse"
-    : "bg-muted-foreground/30";
-
-  const SPECIALISTS_INFO = [
-    { name: "ATLAS", id: EXPERT_SPECIALISTS.ATLAS, desc: "Localización y análisis geoespacial" },
-    { name: "FORGE7", id: EXPERT_SPECIALISTS.FORGE7, desc: "Generación de documentos estratégicos" },
-    { name: "MATCHING", id: EXPERT_SPECIALISTS.MATCHING, desc: "Matching operador-local" },
-    { name: "AUDITORIA", id: EXPERT_SPECIALISTS.AUDITORIA, desc: "Auditoría y validación" },
-    { name: "SCRAPING", id: EXPERT_SPECIALISTS.SCRAPING, desc: "Recopilación de datos externos" },
-    { name: "COORDINADOR", id: EXPERT_SPECIALISTS.COORDINADOR, desc: "Coordinador MoE" },
-    { name: "NEGOCIACION", id: EXPERT_SPECIALISTS.NEGOCIACION, desc: "Negociación y briefings" },
-  ];
-
-  const RAGS_INFO = [
-    "Centros Comerciales España", "Normativa Retail", "Benchmarks Mercado", "Operadores Nacionales",
-    "Demografía y Zonas", "Negociación Inmobiliaria", "Documentos Internos", "Histórico Transacciones",
-  ];
-
-  return (
-    <div className="space-y-4">
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            {connectionStatus === "ok" ? <Wifi className="h-5 w-5 text-chart-2" /> :
-             connectionStatus === "error" ? <WifiOff className="h-5 w-5 text-destructive" /> :
-             <Wifi className="h-5 w-5 text-muted-foreground" />}
-            Estado de Conexión
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid gap-4 sm:grid-cols-3">
-            <div><Label className="text-xs text-muted-foreground">Estado</Label><div className="flex items-center gap-2 mt-1"><div className={`w-3 h-3 rounded-full ${statusColor}`} /><span className="text-sm font-medium">{connectionStatus === "ok" ? (pingLatency && pingLatency > 5000 ? "Lento" : "Conectado") : connectionStatus === "error" ? "Error" : connectionStatus === "testing" ? "Probando..." : "Sin probar"}</span></div></div>
-            <div><Label className="text-xs text-muted-foreground">Última latencia</Label><p className="text-sm font-medium mt-1">{pingLatency ? `${pingLatency}ms` : "—"}</p></div>
-            <div><Label className="text-xs text-muted-foreground">Gateway</Label><p className="text-sm font-medium mt-1 truncate">expert-forge-proxy</p></div>
-          </div>
-          <Button onClick={testConnection} disabled={connectionStatus === "testing"} variant="outline" className="gap-1">
-            {connectionStatus === "testing" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
-            Probar conexión
-          </Button>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader><CardTitle>Especialistas disponibles</CardTitle></CardHeader>
-        <CardContent>
-          <Table>
-            <TableHeader><TableRow><TableHead>Nombre</TableHead><TableHead>Descripción</TableHead><TableHead>UUID</TableHead><TableHead>Estado</TableHead></TableRow></TableHeader>
-            <TableBody>
-              {SPECIALISTS_INFO.map(s => (
-                <TableRow key={s.name}><TableCell className="font-medium">{s.name}</TableCell><TableCell className="text-sm text-muted-foreground">{s.desc}</TableCell><TableCell className="font-mono text-xs">{s.id.substring(0, 8)}...</TableCell><TableCell><CheckCircle className="h-4 w-4 text-chart-2" /></TableCell></TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader><CardTitle>RAGs conectados</CardTitle></CardHeader>
-        <CardContent>
-          <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
-            {RAGS_INFO.map(r => <div key={r} className="rounded-lg border p-3 flex items-center gap-2"><div className="w-2 h-2 rounded-full bg-chart-2" /><span className="text-sm">{r}</span></div>)}
-          </div>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader><CardTitle className="text-base">Últimas consultas</CardTitle></CardHeader>
-        <CardContent>
-          {logsLoading ? <div className="space-y-3">{[1, 2, 3].map(i => <Skeleton key={i} className="h-12 w-full" />)}</div> : (
-            <Table>
-              <TableHeader><TableRow><TableHead>Función</TableHead><TableHead>Modelo</TableHead><TableHead>Latencia</TableHead><TableHead>Estado</TableHead><TableHead>Fecha</TableHead></TableRow></TableHeader>
-              <TableBody>
-                {logs.map(l => (
-                  <TableRow key={l.id}><TableCell className="font-medium">{l.funcion_ia || "—"}</TableCell><TableCell className="text-xs">{l.modelo}</TableCell><TableCell>{l.latencia_ms ? `${l.latencia_ms}ms` : "—"}</TableCell><TableCell><Badge variant="secondary" className={l.exito ? "bg-chart-2/10 text-chart-2" : "bg-destructive/10 text-destructive"}>{l.exito ? "OK" : "Error"}</Badge></TableCell><TableCell className="text-xs text-muted-foreground">{new Date(l.created_at).toLocaleString("es-ES")}</TableCell></TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          )}
-        </CardContent>
-      </Card>
-    </div>
-  );
-}
 
 /* ═══════════════════════════════════════════════════
    TAB: Auditoría
@@ -370,9 +259,9 @@ function TabConfiguracion() {
         <CardContent className="space-y-3">
           <div className="grid gap-4 sm:grid-cols-2">
             <div><Label className="text-xs text-muted-foreground">Orquestador</Label><p className="text-sm font-mono mt-1">ava-orchestrator</p></div>
-            <div><Label className="text-xs text-muted-foreground">Gateway IA</Label><p className="text-sm font-mono mt-1">expert-forge-proxy</p></div>
-            <div><Label className="text-xs text-muted-foreground">Project ID Expert Forge</Label><p className="text-sm font-mono mt-1">5123d6ea</p></div>
-            <div><Label className="text-xs text-muted-foreground">Modelo Orquestador</Label><p className="text-sm font-mono mt-1">gemini-3.1-flash</p></div>
+            <div><Label className="text-xs text-muted-foreground">RAG interno</Label><p className="text-sm font-mono mt-1">rag-proxy + document_chunks</p></div>
+            <div><Label className="text-xs text-muted-foreground">Gateway IA</Label><p className="text-sm font-mono mt-1">Lovable AI Gateway</p></div>
+            <div><Label className="text-xs text-muted-foreground">Modelo principal</Label><p className="text-sm font-mono mt-1">google/gemini-2.5-flash</p></div>
           </div>
         </CardContent>
       </Card>
@@ -386,6 +275,8 @@ function TabConfiguracion() {
               { name: "Tenant Mix", fn: "ai-tenant-mix-avanzado" },
               { name: "Validación Dossier", fn: "ai-validacion-retorno" },
               { name: "Perfil Negociador", fn: "ai-perfil-negociador" },
+              { name: "Forge Documentos", fn: "ai-forge" },
+              { name: "Clasificación Documental", fn: "document-classify" },
             ].map(f => (
               <div key={f.fn} className="rounded-lg border p-3 flex items-center justify-between">
                 <div><p className="text-sm font-medium">{f.name}</p><p className="text-xs text-muted-foreground font-mono">{f.fn}</p></div>
