@@ -968,14 +968,23 @@ serve(async (req) => {
       metadata: { tools_used: toolResults.map(tr => tr.tool), message: message?.slice(0, 200) },
     });
 
-    // Check if generate_pdf_report was used
+    // Check if generate_pdf_report or generate_forge_document was used
     const pdfTool = toolResults.find(tr => tr.tool === "generate_pdf_report" && tr.result?.success);
+    const forgeTool = toolResults.find(tr => typeof tr.tool === "string" && tr.tool.startsWith("generate_forge_document") && tr.result?.success);
 
     return new Response(JSON.stringify({
       answer: finalAnswer,
       tools_used: toolResults.map(tr => tr.tool),
       latency_ms: latencyMs,
       ...(pdfTool ? { pdf_content: pdfTool.result.content, pdf_title: pdfTool.result.title } : {}),
+      ...(forgeTool ? {
+        forge_pdf: {
+          mode: forgeTool.result.mode,
+          file_name: forgeTool.result.file_name,
+          download_url: forgeTool.result.download_url,
+          title: forgeTool.result.title,
+        },
+      } : {}),
     }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
