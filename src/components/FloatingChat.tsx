@@ -220,7 +220,7 @@ export function FloatingChat() {
       {/* FAB */}
       <button
         onClick={() => setOpen(o => !o)}
-        className="h-14 w-14 rounded-full bg-accent text-accent-foreground shadow-[0_8px_24px_-4px_hsl(var(--accent)/0.5)] border border-white/20 flex items-center justify-center hover:bg-accent/90 transition-transform hover:scale-105"
+        className="h-14 w-14 rounded-full bg-accent/90 text-accent-foreground shadow-[0_8px_32px_-4px_hsl(var(--accent)/0.55)] backdrop-blur-md border border-white/20 flex items-center justify-center hover:bg-accent transition-transform hover:scale-105"
       >
         {open ? <X className="h-6 w-6" /> : <Sparkles className="h-6 w-6" />}
       </button>
