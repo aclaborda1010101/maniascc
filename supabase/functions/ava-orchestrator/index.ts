@@ -975,6 +975,7 @@ serve(async (req) => {
     // Check if generate_pdf_report or generate_forge_document was used
     const pdfTool = toolResults.find(tr => tr.tool === "generate_pdf_report" && tr.result?.success);
     const forgeTool = toolResults.find(tr => typeof tr.tool === "string" && tr.tool.startsWith("generate_forge_document") && tr.result?.success);
+    const proposedAction = toolResults.find(tr => typeof tr.tool === "string" && tr.tool.startsWith("propose_action") && tr.result?.proposed);
 
     return new Response(JSON.stringify({
       answer: finalAnswer,
@@ -987,6 +988,15 @@ serve(async (req) => {
           file_name: forgeTool.result.file_name,
           download_url: forgeTool.result.download_url,
           title: forgeTool.result.title,
+        },
+      } : {}),
+      ...(proposedAction ? {
+        pending_action: {
+          table: proposedAction.result.table,
+          action: proposedAction.result.action,
+          data: proposedAction.result.data,
+          match: proposedAction.result.match,
+          summary: proposedAction.result.summary,
         },
       } : {}),
     }), {
