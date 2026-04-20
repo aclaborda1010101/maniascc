@@ -318,3 +318,123 @@ function getBudgetRange(rent: number): string {
   if (rent < 10000) return "5000-10000";
   return "10000+";
 }
+
+/**
+ * Process feedback on AVA chat messages.
+ * Extracts topic from tools used or message content, then learns success/failure patterns.
+ */
+async function processAvaMessageFeedback(admin: any, messageId: string): Promise<number> {
+  // Get all feedback for this message
+  const { data: feedback } = await admin
+    .from("ai_feedback")
+    .select("*")
+    .eq("entidad_tipo", "ava_message")
+    .eq("entidad_id", messageId);
+
+  if (!feedback || feedback.length === 0) return 0;
+
+  // Get the AVA message itself for topic inference
+  const { data: msg } = await admin
+    .from("ava_messages")
+    .select("content, meta, conversation_id")
+    .eq("id", messageId)
+    .maybeSingle();
+
+  // Get the previous user message in the conversation (the question that led to this answer)
+  let userQuestion = "";
+  if (msg?.conversation_id) {
+    const { data: prevMsgs } = await admin
+      .from("ava_messages")
+      .select("role, content, created_at")
+      .eq("conversation_id", msg.conversation_id)
+      .order("created_at", { ascending: false })
+      .limit(10);
+    const idx = (prevMsgs || []).findIndex((m: any) => m.content === msg.content);
+    const userMsg = (prevMsgs || []).slice(idx + 1).find((m: any) => m.role === "user");
+    userQuestion = userMsg?.content || "";
+  }
+
+  const toolsUsed: string[] = (msg?.meta?.tools_used || feedback[0]?.contexto?.tools_used || []) as string[];
+  const topic = inferTopic(userQuestion, toolsUsed);
+
+  let patternsUpdated = 0;
+
+  for (const fb of feedback) {
+    const isPositive = fb.feedback_tipo === "thumbs_up";
+    const isNegative = fb.feedback_tipo === "thumbs_down" || fb.feedback_tipo === "correction";
+    const correction = (fb.correccion_sugerida || "").toString().slice(0, 500);
+
+    if (!isPositive && !isNegative) continue;
+
+    // Pattern 1: topic-level (positive or negative reinforcement)
+    patternsUpdated += await updatePattern(admin, {
+      patron_tipo: "ava_topic",
+      patron_key: `topic:${topic}`,
+      patron_descripcion: `Respuestas sobre "${topic}"`,
+      isPositive,
+      matchScore: isPositive ? 80 : 20,
+    });
+
+    // Pattern 2: explicit correction stored as actionable lesson
+    if (correction) {
+      const correctionKey = `correction:${topic}:${hashShort(correction)}`;
+      await admin.from("ai_learned_patterns").upsert({
+        patron_tipo: "ava_correction",
+        patron_key: correctionKey,
+        patron_descripcion: `Sobre "${topic}": ${correction}`,
+        score_ajuste: -3,
+        confianza: 0.75,
+        num_observaciones: 1,
+        tasa_exito: 0,
+        ejemplos_recientes: [{
+          timestamp: new Date().toISOString(),
+          user_question: userQuestion.slice(0, 300),
+          correction,
+        }],
+        updated_at: new Date().toISOString(),
+        activo: true,
+      }, { onConflict: "patron_tipo,patron_key" });
+      patternsUpdated++;
+    }
+
+    // Pattern 3: tools combination effectiveness
+    if (toolsUsed.length > 0) {
+      const toolKey = toolsUsed.map(t => t.split(":")[0]).sort().join("+");
+      patternsUpdated += await updatePattern(admin, {
+        patron_tipo: "ava_tool_combo",
+        patron_key: `tools:${toolKey}`,
+        patron_descripcion: `Combinación de herramientas: ${toolKey}`,
+        isPositive,
+        matchScore: isPositive ? 75 : 25,
+      });
+    }
+  }
+
+  return patternsUpdated;
+}
+
+function inferTopic(userQuestion: string, toolsUsed: string[]): string {
+  const q = (userQuestion || "").toLowerCase();
+  // Keyword matching
+  if (/centro comercial|cc |mall|parque comercial|tenant mix|sba|gla/i.test(q)) return "centro_comercial";
+  if (/operador|marca|expansi[óo]n|inquilino/i.test(q)) return "operador";
+  if (/local|activo|inmueble|nave|parcela/i.test(q)) return "activo";
+  if (/contrato|cl[áa]usula|renta|alquiler/i.test(q)) return "contrato";
+  if (/negocia|propuesta|carta de intenci/i.test(q)) return "negociacion";
+  if (/match|compatibil|encaja/i.test(q)) return "matching";
+  if (/informe|dossier|pdf|reporte/i.test(q)) return "informe";
+  if (/contacto|persona|interlocutor/i.test(q)) return "contacto";
+  // Fallback to dominant tool
+  if (toolsUsed.some(t => t.startsWith("nearby_search"))) return "ubicacion";
+  if (toolsUsed.some(t => t.startsWith("rag_search"))) return "documental";
+  if (toolsUsed.some(t => t.startsWith("db_query"))) return "base_datos";
+  // Last resort: first 3 significant words
+  const words = q.split(/\s+/).filter(w => w.length > 4).slice(0, 3).join("_");
+  return words || "general";
+}
+
+function hashShort(s: string): string {
+  let h = 0;
+  for (let i = 0; i < s.length; i++) h = ((h << 5) - h + s.charCodeAt(i)) | 0;
+  return Math.abs(h).toString(36).slice(0, 8);
+}
