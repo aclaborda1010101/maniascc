@@ -443,14 +443,12 @@ export default function Ajustes() {
         <TabsList>
           <TabsTrigger value="perfil" className="gap-1"><User className="h-3 w-3" /> Perfil</TabsTrigger>
           <TabsTrigger value="conexiones" className="gap-1"><Link2 className="h-3 w-3" /> Conexiones</TabsTrigger>
-          <TabsTrigger value="conexion-ia" className="gap-1"><Sparkles className="h-3 w-3" /> Conexión IA</TabsTrigger>
           <TabsTrigger value="auditoria" className="gap-1"><Shield className="h-3 w-3" /> Auditoría</TabsTrigger>
           <TabsTrigger value="config" className="gap-1"><Settings className="h-3 w-3" /> Configuración</TabsTrigger>
         </TabsList>
 
         <TabsContent value="perfil"><TabPerfil /></TabsContent>
         <TabsContent value="conexiones"><TabConexiones /></TabsContent>
-        <TabsContent value="conexion-ia"><TabConexionIA /></TabsContent>
         <TabsContent value="auditoria"><TabAuditoria /></TabsContent>
         <TabsContent value="config"><TabConfiguracion /></TabsContent>
       </Tabs>
