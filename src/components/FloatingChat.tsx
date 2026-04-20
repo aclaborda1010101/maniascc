@@ -9,12 +9,14 @@ import { AvaMessageFeedback } from "@/components/AvaMessageFeedback";
 import { AvaAttachmentBar } from "@/components/AvaAttachmentBar";
 import { AvaPendingActionCard } from "@/components/AvaPendingActionCard";
 import { AvaVoiceControls } from "@/components/AvaVoiceControls";
+import { AvaRealtimeOverlay, AvaCallButton } from "@/components/AvaRealtimeOverlay";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 
 export function FloatingChat() {
   const [open, setOpen] = useState(false);
   const [showConvList, setShowConvList] = useState(false);
+  const [callOpen, setCallOpen] = useState(false);
   const {
     conversations, activeConversationId, messages, input, setInput,
     loading, sendMessage, clearChat, scrollRef,
@@ -193,6 +195,7 @@ export function FloatingChat() {
                 disabled={loading}
                 compact
               />
+              <AvaCallButton onClick={() => setCallOpen(true)} compact />
               <Input
                 placeholder={processing ? "Procesando adjuntos..." : "Pregúntame o dicta..."}
                 value={input}
@@ -221,6 +224,8 @@ export function FloatingChat() {
       >
         {open ? <X className="h-6 w-6" /> : <Sparkles className="h-6 w-6" />}
       </button>
+
+      <AvaRealtimeOverlay open={callOpen} onClose={() => setCallOpen(false)} />
     </div>
   );
 }
