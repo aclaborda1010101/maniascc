@@ -119,7 +119,7 @@ export default function AsistenteIA() {
     conversations, activeConversationId, messages, input, setInput,
     loading, sendMessage, clearChat, scrollRef,
     createConversation, switchConversation, renameConversation, deleteConversation,
-    pendingAttachments, addAttachments, removeAttachment,
+    pendingAttachments, addAttachments, removeAttachment, resolvePendingAction,
   } = useChatMessages();
 
   const [editingId, setEditingId] = useState<string | null>(null);
