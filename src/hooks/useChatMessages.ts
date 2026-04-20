@@ -41,9 +41,19 @@ export function useChatMessages() {
   const [activeConversationId, setActiveConversationId] = useState("");
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
-  const [loading, setLoading] = useState(false);
+  const [loadingConvs, setLoadingConvs] = useState<Set<string>>(new Set());
   const [initialLoading, setInitialLoading] = useState(true);
   const scrollRef = useRef<HTMLDivElement>(null);
+
+  const loading = loadingConvs.has(activeConversationId);
+
+  const markLoading = (convId: string, on: boolean) => {
+    setLoadingConvs(prev => {
+      const next = new Set(prev);
+      if (on) next.add(convId); else next.delete(convId);
+      return next;
+    });
+  };
 
   // Load conversations from DB
   useEffect(() => {
