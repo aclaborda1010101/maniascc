@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { Send, Trash2, Sparkles, User, Plus, Pencil, Check, X as XIcon, MessageSquare, FileDown, Loader2, PanelLeftOpen } from "lucide-react";
+import { useEffect } from "react";
+import { Send, Trash2, Sparkles, User, Plus, Pencil, Check, X as XIcon, MessageSquare, FileDown, Loader2, PanelLeftOpen, PanelLeftClose } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -106,6 +107,14 @@ export default function AsistenteIA() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editTitle, setEditTitle] = useState("");
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [desktopSidebarOpen, setDesktopSidebarOpen] = useState(() => {
+    if (typeof window === "undefined") return true;
+    const v = localStorage.getItem("ava-conv-sidebar");
+    return v === null ? true : v === "1";
+  });
+  useEffect(() => {
+    localStorage.setItem("ava-conv-sidebar", desktopSidebarOpen ? "1" : "0");
+  }, [desktopSidebarOpen]);
   const isMobile = useIsMobile();
 
   const startRename = (id: string, currentTitle: string) => {
@@ -138,10 +147,15 @@ export default function AsistenteIA() {
 
   return (
     <div className="flex h-[calc(100vh-6.5rem)] md:h-[calc(100vh-6.5rem)] gap-0 -mx-4 md:-mx-0 -mt-4 md:-mt-0">
-      {/* Desktop sidebar */}
+      {/* Desktop sidebar (collapsible) */}
       {!isMobile && (
-        <div className="w-64 shrink-0 border-r border-border bg-muted/30">
-          <ConversationList {...convListProps} />
+        <div className={cn(
+          "shrink-0 border-r border-border bg-muted/30 overflow-hidden transition-all duration-200",
+          desktopSidebarOpen ? "w-64" : "w-0"
+        )}>
+          <div className="w-64 h-full">
+            <ConversationList {...convListProps} />
+          </div>
         </div>
       )}
 
@@ -159,9 +173,13 @@ export default function AsistenteIA() {
         {/* Header */}
         <div className="flex items-center justify-between px-3 md:px-6 py-2.5 md:py-3 border-b border-border shrink-0">
           <div className="flex items-center gap-2">
-            {isMobile && (
+            {isMobile ? (
               <Button variant="ghost" size="icon" className="h-9 w-9" onClick={() => setSidebarOpen(true)}>
                 <PanelLeftOpen className="h-4 w-4" />
+              </Button>
+            ) : (
+              <Button variant="ghost" size="icon" className="h-9 w-9" onClick={() => setDesktopSidebarOpen(v => !v)} title={desktopSidebarOpen ? "Ocultar conversaciones" : "Mostrar conversaciones"}>
+                {desktopSidebarOpen ? <PanelLeftClose className="h-4 w-4" /> : <PanelLeftOpen className="h-4 w-4" />}
               </Button>
             )}
             <div>
