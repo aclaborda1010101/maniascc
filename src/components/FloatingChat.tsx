@@ -32,7 +32,7 @@ export function FloatingChat() {
   return (
     <div className="fixed bottom-6 right-6 z-50 flex flex-col items-end gap-3">
       {open && (
-        <div className="w-96 h-[500px] bg-card border border-border rounded-2xl shadow-2xl flex flex-col animate-in fade-in slide-in-from-bottom-4 duration-200">
+        <div className="glass-strong glass-highlight w-96 h-[500px] rounded-2xl flex flex-col animate-in fade-in slide-in-from-bottom-4 duration-200">
           {/* Header */}
           <div className="flex items-center justify-between px-4 py-3 border-b relative">
             <button
@@ -59,7 +59,7 @@ export function FloatingChat() {
 
             {/* Conversation dropdown */}
             {showConvList && (
-              <div className="absolute top-full left-0 right-0 bg-card border border-border rounded-b-xl shadow-lg max-h-48 overflow-y-auto z-10">
+              <div className="glass-strong absolute top-full left-0 right-0 rounded-b-xl max-h-48 overflow-y-auto z-10">
                 {sortedConvs.map(conv => (
                   <button
                     key={conv.id}
@@ -220,7 +220,7 @@ export function FloatingChat() {
       {/* FAB */}
       <button
         onClick={() => setOpen(o => !o)}
-        className="h-14 w-14 rounded-full bg-accent text-accent-foreground shadow-lg flex items-center justify-center hover:bg-accent/90 transition-transform hover:scale-105"
+        className="h-14 w-14 rounded-full bg-accent/90 text-accent-foreground shadow-[0_8px_32px_-4px_hsl(var(--accent)/0.55)] backdrop-blur-md border border-white/20 flex items-center justify-center hover:bg-accent transition-transform hover:scale-105"
       >
         {open ? <X className="h-6 w-6" /> : <Sparkles className="h-6 w-6" />}
       </button>

@@ -37,7 +37,7 @@ export function AppLayout() {
       <div className="min-h-screen flex w-full overflow-x-hidden">
         <AppSidebar />
         <div className="flex-1 flex flex-col min-w-0">
-          <header className="h-14 flex items-center border-b bg-card px-3 md:px-4 gap-2 md:gap-4 shrink-0">
+          <header className="glass glass-highlight sticky top-0 z-40 h-14 flex items-center px-3 md:px-4 gap-2 md:gap-4 shrink-0 rounded-none border-x-0 border-t-0">
             <SidebarTrigger className="h-9 w-9 flex items-center justify-center" />
             <h2 className="hidden md:block text-sm font-semibold tracking-tight text-foreground">AVA</h2>
 
