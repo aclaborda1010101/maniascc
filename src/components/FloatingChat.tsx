@@ -156,38 +156,16 @@ export function FloatingChat() {
             )}
           </div>
 
-          {/* Attachment bar */}
-          {pendingAttachments.length > 0 && (
-            <div className="px-3 pt-2">
-              <AvaAttachmentBar attachments={pendingAttachments} onRemove={removeAttachment} />
-            </div>
-          )}
-
           {/* Input */}
           <div className="border-t p-3">
-            <input
-              ref={fileInputRef}
-              type="file"
-              multiple
-              className="hidden"
-              accept=".pdf,.png,.jpg,.jpeg,.webp,.xlsx,.xls,.docx,.doc,.txt,.csv,.md"
-              onChange={(e) => {
-                const files = Array.from(e.target.files || []);
-                if (files.length > 0) addAttachments(files);
-                if (fileInputRef.current) fileInputRef.current.value = "";
-              }}
-            />
-            <div className="flex gap-2">
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-8 w-8 shrink-0"
-                onClick={() => fileInputRef.current?.click()}
+            <div className="flex gap-2 items-end">
+              <AvaAttachmentBar
+                attachments={pendingAttachments}
+                onAdd={addAttachments}
+                onRemove={removeAttachment}
+                compact
                 disabled={loading}
-                title="Adjuntar archivo"
-              >
-                <Paperclip className="h-3.5 w-3.5 text-muted-foreground" />
-              </Button>
+              />
               <Input
                 placeholder={processing ? "Procesando adjuntos..." : "Pregúntame lo que necesites..."}
                 value={input}
