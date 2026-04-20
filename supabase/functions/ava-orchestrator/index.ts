@@ -84,7 +84,13 @@ IMPORTANTE SOBRE GENERACIÓN DE DOCUMENTOS:
 - Usa **generate_forge_document** (modo correcto entre los 6 disponibles) cuando el usuario pida: dossier de operador/marca, presentación comercial / teaser de un activo, borrador de contrato de arrendamiento, plan estratégico, informe war room semanal, o un email profesional. Esta tool produce un PDF maquetado profesional (estilo McKinsey/Cushman) que se descarga automáticamente.
 - Usa **generate_pdf_report** SOLO para reportes ad-hoc que no encajen en ningún modo FORGE.
 - Cuando el usuario te referencie un documento por su nombre o lo cite implícitamente ("según el contrato de Mercadona", "mira el dossier de la Milla"), usa **read_system_document** para localizarlo y leer su contenido antes de responder.
-- Si el usuario adjunta un archivo en el chat, su contenido aparecerá en la sección "DOCUMENTOS ADJUNTOS POR EL USUARIO". Trátalo como fuente prioritaria.`;
+- Si el usuario adjunta un archivo en el chat, su contenido aparecerá en la sección "DOCUMENTOS ADJUNTOS POR EL USUARIO". Trátalo como fuente prioritaria.
+
+IMPORTANTE SOBRE ACCIONES (CRUD):
+- Cuando el usuario te pida CREAR o ACTUALIZAR datos (un contacto, un operador, un activo, un proyecto, una negociación, un local, un match), usa **propose_action**. Esta tool NO ejecuta nada: solo prepara una propuesta que el usuario verá como tarjeta con botones ✅/❌ en el chat.
+- En el campo \`summary\` escribe una frase clara en español de qué vas a hacer (ej: "Crear el contacto Juan Pérez (Director Expansión, Mercadona, juan@mercadona.es)").
+- En \`data\` incluye SOLO los campos que el usuario haya dado o que puedas inferir con confianza. No inventes IDs ni fechas.
+- Después de llamar a propose_action, en tu respuesta de texto explica brevemente que has preparado la acción y que espere confirmación. NO repitas todo el detalle: la tarjeta lo mostrará.`;
 
 const TOOLS = [
   {
@@ -121,17 +127,18 @@ const TOOLS = [
   {
     type: "function",
     function: {
-      name: "db_mutate",
-      description: "Modifica datos en la base de datos. Acciones: insert o update",
+      name: "propose_action",
+      description: "PROPONE una acción de creación o actualización de datos (insert/update). NO la ejecuta: el usuario debe confirmarla con un botón en el chat. Úsalo SIEMPRE que el usuario te pida crear/editar contactos, operadores, activos, locales, proyectos o negociaciones. Devuelve un resumen para que el usuario confirme.",
       parameters: {
         type: "object",
         properties: {
-          table: { type: "string", description: "Tabla a modificar" },
-          action: { type: "string", enum: ["insert", "update"] },
-          data: { type: "object", description: "Datos a insertar o actualizar" },
-          match: { type: "object", description: "Filtros para update (ej: {id: '...'})" },
+          table: { type: "string", description: "Tabla destino: contactos, operadores, activos, locales, proyectos, negociaciones, matches" },
+          action: { type: "string", enum: ["insert", "update"], description: "Tipo de operación" },
+          data: { type: "object", description: "Datos a insertar o actualizar (solo campos relevantes, no incluir id, created_at, etc.)" },
+          match: { type: "object", description: "Para update: filtros (ej: {id: '...'})" },
+          summary: { type: "string", description: "Resumen breve en lenguaje natural de lo que se va a hacer (ej: 'Crear el contacto Juan Pérez de Mercadona como Director de Expansión'). Lo verá el usuario antes de confirmar." },
         },
-        required: ["table", "action", "data"],
+        required: ["table", "action", "data", "summary"],
       },
     },
   },
@@ -588,26 +595,25 @@ serve(async (req) => {
             const { data, error } = await query;
             result = error ? { error: error.message } : data;
           }
-        } else if (fnName === "db_mutate") {
-          toolLabel = "db_mutate:" + (args.table || "") + ":" + (args.action || "");
-          if (!ALLOWED_TABLES.includes(args.table)) {
-            result = { error: "Tabla no permitida: " + args.table };
-          } else if (args.action === "insert") {
-            const { data, error } = await admin.from(args.table).insert({ ...args.data, created_by: user.id }).select();
-            result = error ? { error: error.message } : data;
-          } else if (args.action === "update") {
-            if (!args.match || !args.match.id) {
-              result = { error: "Se requiere match.id para update" };
-            } else {
-              let query = admin.from(args.table).update(args.data);
-              for (const [k, v] of Object.entries(args.match)) {
-                query = query.eq(k, v as string);
-              }
-              const { data, error } = await query.select();
-              result = error ? { error: error.message } : data;
-            }
-          } else {
+        } else if (fnName === "propose_action") {
+          toolLabel = "propose_action:" + (args.table || "") + ":" + (args.action || "");
+          const ALLOWED_MUTATE = ["contactos", "operadores", "activos", "locales", "proyectos", "negociaciones", "matches"];
+          if (!ALLOWED_MUTATE.includes(args.table)) {
+            result = { error: "Tabla no permitida para acciones: " + args.table };
+          } else if (!["insert", "update"].includes(args.action)) {
             result = { error: "Acción no soportada" };
+          } else if (args.action === "update" && (!args.match || !args.match.id)) {
+            result = { error: "Update requiere match.id" };
+          } else {
+            // NO se ejecuta. Devuelve un payload que el cliente convertirá en tarjeta de confirmación.
+            result = {
+              proposed: true,
+              table: args.table,
+              action: args.action,
+              data: args.data || {},
+              match: args.match || null,
+              summary: args.summary || `${args.action} en ${args.table}`,
+            };
           }
         } else if (fnName === "expert_forge") {
           toolLabel = "expert_forge";
@@ -975,6 +981,7 @@ serve(async (req) => {
     // Check if generate_pdf_report or generate_forge_document was used
     const pdfTool = toolResults.find(tr => tr.tool === "generate_pdf_report" && tr.result?.success);
     const forgeTool = toolResults.find(tr => typeof tr.tool === "string" && tr.tool.startsWith("generate_forge_document") && tr.result?.success);
+    const proposedAction = toolResults.find(tr => typeof tr.tool === "string" && tr.tool.startsWith("propose_action") && tr.result?.proposed);
 
     return new Response(JSON.stringify({
       answer: finalAnswer,
@@ -987,6 +994,15 @@ serve(async (req) => {
           file_name: forgeTool.result.file_name,
           download_url: forgeTool.result.download_url,
           title: forgeTool.result.title,
+        },
+      } : {}),
+      ...(proposedAction ? {
+        pending_action: {
+          table: proposedAction.result.table,
+          action: proposedAction.result.action,
+          data: proposedAction.result.data,
+          match: proposedAction.result.match,
+          summary: proposedAction.result.summary,
         },
       } : {}),
     }), {

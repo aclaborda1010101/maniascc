@@ -7,6 +7,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useChatMessages, toolLabel } from "@/hooks/useChatMessages";
 import { AvaMessageFeedback } from "@/components/AvaMessageFeedback";
 import { AvaAttachmentBar } from "@/components/AvaAttachmentBar";
+import { AvaPendingActionCard } from "@/components/AvaPendingActionCard";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 
@@ -17,7 +18,7 @@ export function FloatingChat() {
     conversations, activeConversationId, messages, input, setInput,
     loading, sendMessage, clearChat, scrollRef,
     createConversation, switchConversation,
-    pendingAttachments, addAttachments, removeAttachment,
+    pendingAttachments, addAttachments, removeAttachment, resolvePendingAction,
   } = useChatMessages();
 
   const activeConv = conversations.find(c => c.id === activeConversationId);
@@ -126,6 +127,22 @@ export function FloatingChat() {
                       ) : (
                         <span className="text-[10px] text-muted-foreground">Generación pendiente</span>
                       )}
+                    </div>
+                  )}
+
+                  {msg.meta?.pending_action && !msg.meta?.action_resolved && (
+                    <AvaPendingActionCard
+                      action={msg.meta.pending_action}
+                      onResolved={(r) => resolvePendingAction(msg.id, r)}
+                    />
+                  )}
+                  {msg.meta?.action_resolved && (
+                    <div className="mt-1 text-[9px] text-muted-foreground">
+                      {msg.meta.action_resolved.confirmed
+                        ? msg.meta.action_resolved.success
+                          ? "✅ Ejecutada"
+                          : `❌ Falló: ${msg.meta.action_resolved.error || "error"}`
+                        : "✖️ Cancelada"}
                     </div>
                   )}
 

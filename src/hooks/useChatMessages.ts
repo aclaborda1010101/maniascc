@@ -20,6 +20,19 @@ export interface ChatMessage {
       title: string;
     };
     attachments?: Array<{ file_name: string; mime_type: string; size?: number }>;
+    pending_action?: {
+      table: string;
+      action: "insert" | "update";
+      data: Record<string, any>;
+      match: { id?: string } | null;
+      summary: string;
+    };
+    action_resolved?: {
+      confirmed: boolean;
+      success?: boolean;
+      error?: string;
+      at: number;
+    };
   };
 }
 
@@ -33,6 +46,7 @@ export interface Conversation {
 function toolLabel(tool: string): { emoji: string; label: string } {
   if (tool.startsWith("db_query")) return { emoji: "🔍", label: "Consultando datos" };
   if (tool.startsWith("db_mutate")) return { emoji: "✏️", label: "Modificando datos" };
+  if (tool.startsWith("propose_action")) return { emoji: "🛡️", label: "Acción propuesta" };
   if (tool === "expert_forge") return { emoji: "🧠", label: "Preguntando a especialista" };
   if (tool.startsWith("run_intelligence")) return { emoji: "📊", label: "Ejecutando análisis" };
   if (tool === "search_data") return { emoji: "🔎", label: "Buscando datos" };
@@ -351,6 +365,7 @@ export function useChatMessages() {
         latency_ms: data?.latency_ms,
         ...(data?.pdf_content ? { pdf_content: data.pdf_content, pdf_title: data.pdf_title } : {}),
         ...(data?.forge_pdf ? { forge_pdf: data.forge_pdf } : {}),
+        ...(data?.pending_action ? { pending_action: data.pending_action } : {}),
       } : {};
 
       const { data: asstInserted } = await supabase
@@ -388,6 +403,21 @@ export function useChatMessages() {
     setMessages([]);
   };
 
+  const resolvePendingAction = useCallback(async (
+    messageId: string,
+    resolution: { confirmed: boolean; success?: boolean; error?: string }
+  ) => {
+    const resolved = { ...resolution, at: Date.now() };
+    setMessages(prev => prev.map(m => {
+      if (m.id !== messageId) return m;
+      const newMeta = { ...(m.meta || {}), action_resolved: resolved };
+      return { ...m, meta: newMeta };
+    }));
+    const target = messages.find(m => m.id === messageId);
+    const newMeta = { ...(target?.meta || {}), action_resolved: resolved };
+    await supabase.from("ava_messages").update({ meta: newMeta as any }).eq("id", messageId);
+  }, [messages]);
+
   return {
     conversations,
     activeConversationId,
@@ -405,5 +435,6 @@ export function useChatMessages() {
     pendingAttachments,
     addAttachments,
     removeAttachment,
+    resolvePendingAction,
   };
 }

@@ -15,6 +15,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { AvaMessageFeedback } from "@/components/AvaMessageFeedback";
 import { AvaAttachmentBar } from "@/components/AvaAttachmentBar";
+import { AvaPendingActionCard } from "@/components/AvaPendingActionCard";
 
 function PdfDownloadButton({ content, title }: { content: string; title?: string }) {
   const { toast } = useToast();
@@ -119,7 +120,7 @@ export default function AsistenteIA() {
     conversations, activeConversationId, messages, input, setInput,
     loading, sendMessage, clearChat, scrollRef,
     createConversation, switchConversation, renameConversation, deleteConversation,
-    pendingAttachments, addAttachments, removeAttachment,
+    pendingAttachments, addAttachments, removeAttachment, resolvePendingAction,
   } = useChatMessages();
 
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -246,6 +247,21 @@ export default function AsistenteIA() {
                     )}
                     {msg.meta?.forge_pdf && (
                       <ForgePdfBlock forgePdf={msg.meta.forge_pdf} />
+                    )}
+                    {msg.meta?.pending_action && !msg.meta?.action_resolved && (
+                      <AvaPendingActionCard
+                        action={msg.meta.pending_action}
+                        onResolved={(r) => resolvePendingAction(msg.id, r)}
+                      />
+                    )}
+                    {msg.meta?.action_resolved && (
+                      <div className="mt-2 text-[10px] text-muted-foreground">
+                        {msg.meta.action_resolved.confirmed
+                          ? msg.meta.action_resolved.success
+                            ? "✅ Acción confirmada y ejecutada"
+                            : `❌ Confirmada pero falló: ${msg.meta.action_resolved.error || "error"}`
+                          : "✖️ Acción cancelada por el usuario"}
+                      </div>
                     )}
                   </div>
                 ) : (
