@@ -589,26 +589,25 @@ serve(async (req) => {
             const { data, error } = await query;
             result = error ? { error: error.message } : data;
           }
-        } else if (fnName === "db_mutate") {
-          toolLabel = "db_mutate:" + (args.table || "") + ":" + (args.action || "");
-          if (!ALLOWED_TABLES.includes(args.table)) {
-            result = { error: "Tabla no permitida: " + args.table };
-          } else if (args.action === "insert") {
-            const { data, error } = await admin.from(args.table).insert({ ...args.data, created_by: user.id }).select();
-            result = error ? { error: error.message } : data;
-          } else if (args.action === "update") {
-            if (!args.match || !args.match.id) {
-              result = { error: "Se requiere match.id para update" };
-            } else {
-              let query = admin.from(args.table).update(args.data);
-              for (const [k, v] of Object.entries(args.match)) {
-                query = query.eq(k, v as string);
-              }
-              const { data, error } = await query.select();
-              result = error ? { error: error.message } : data;
-            }
-          } else {
+        } else if (fnName === "propose_action") {
+          toolLabel = "propose_action:" + (args.table || "") + ":" + (args.action || "");
+          const ALLOWED_MUTATE = ["contactos", "operadores", "activos", "locales", "proyectos", "negociaciones", "matches"];
+          if (!ALLOWED_MUTATE.includes(args.table)) {
+            result = { error: "Tabla no permitida para acciones: " + args.table };
+          } else if (!["insert", "update"].includes(args.action)) {
             result = { error: "Acción no soportada" };
+          } else if (args.action === "update" && (!args.match || !args.match.id)) {
+            result = { error: "Update requiere match.id" };
+          } else {
+            // NO se ejecuta. Devuelve un payload que el cliente convertirá en tarjeta de confirmación.
+            result = {
+              proposed: true,
+              table: args.table,
+              action: args.action,
+              data: args.data || {},
+              match: args.match || null,
+              summary: args.summary || `${args.action} en ${args.table}`,
+            };
           }
         } else if (fnName === "expert_forge") {
           toolLabel = "expert_forge";
