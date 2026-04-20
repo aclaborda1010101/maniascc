@@ -2,93 +2,131 @@
 @tailwind components;
 @tailwind utilities;
 
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;450;500;550;600;700;800&family=Inter+Tight:wght@500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+
+/* ============================================================
+   AVA Design System — visionOS / Apple-ish glass aesthetic
+   Dark-first with light fallback. All colors HSL for shadcn.
+   ============================================================ */
 
 @layer base {
   :root {
-    --background: 210 40% 98%;
-    --foreground: 222 47% 11%;
+    /* Surfaces — light theme */
+    --background: 222 16% 91%;
+    --foreground: 220 20% 5%;
 
     --card: 0 0% 100%;
-    --card-foreground: 222 47% 11%;
+    --card-foreground: 220 20% 5%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 222 47% 11%;
+    --popover-foreground: 220 20% 5%;
 
-    --primary: 222 47% 11%;
-    --primary-foreground: 210 40% 98%;
+    /* Brand: iridescent blue/violet primary */
+    --primary: 218 100% 71%;
+    --primary-foreground: 0 0% 100%;
 
-    --secondary: 210 40% 96%;
-    --secondary-foreground: 222 47% 11%;
+    --secondary: 220 15% 95%;
+    --secondary-foreground: 220 20% 12%;
 
-    --muted: 210 40% 96%;
-    --muted-foreground: 215 16% 47%;
+    --muted: 220 15% 94%;
+    --muted-foreground: 220 10% 38%;
 
-    --accent: 217 91% 60%;
+    --accent: 218 100% 71%;
     --accent-foreground: 0 0% 100%;
 
-    --destructive: 0 84% 60%;
-    --destructive-foreground: 210 40% 98%;
+    --destructive: 0 89% 71%;
+    --destructive-foreground: 0 0% 100%;
 
-    --border: 214 32% 91%;
-    --input: 214 32% 91%;
-    --ring: 217 91% 60%;
+    --border: 220 13% 84%;
+    --input: 220 13% 84%;
+    --ring: 218 100% 71%;
 
-    --radius: 0.5rem;
+    --radius: 0.875rem;
 
-    --sidebar-background: 222 47% 11%;
-    --sidebar-foreground: 210 40% 96%;
-    --sidebar-primary: 217 91% 60%;
+    /* Sidebar — light glass */
+    --sidebar-background: 0 0% 100%;
+    --sidebar-foreground: 220 20% 18%;
+    --sidebar-primary: 218 100% 71%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 217 33% 17%;
-    --sidebar-accent-foreground: 210 40% 96%;
-    --sidebar-border: 217 33% 17%;
-    --sidebar-ring: 217 91% 60%;
+    --sidebar-accent: 220 15% 95%;
+    --sidebar-accent-foreground: 220 20% 12%;
+    --sidebar-border: 220 13% 88%;
+    --sidebar-ring: 218 100% 71%;
 
-    --chart-1: 217 91% 60%;
-    --chart-2: 142 71% 45%;
-    --chart-3: 38 92% 50%;
-    --chart-4: 0 84% 60%;
-    --chart-5: 262 83% 58%;
+    /* Iridescent accent palette (used for charts, gradients, ambient) */
+    --acc-1: 218 100% 71%;  /* blue   #6ea8ff */
+    --acc-2: 265 100% 77%;  /* violet #b98cff */
+    --acc-3: 330 100% 74%;  /* pink   #ff7ab6 */
+    --acc-4: 167 73% 64%;   /* mint   #5eead4 */
+    --acc-5: 42 100% 70%;   /* amber  #ffd166 */
+
+    --success: 158 64% 52%;
+    --warning: 43 96% 56%;
+    --info: 218 100% 71%;
+
+    --chart-1: 218 100% 71%;
+    --chart-2: 265 100% 77%;
+    --chart-3: 330 100% 74%;
+    --chart-4: 167 73% 64%;
+    --chart-5: 42 100% 70%;
+
+    /* Glass tokens */
+    --glass-surface: 0 0% 100%;
+    --glass-border: 220 13% 84%;
+    --glass-blur: 32px;
+
+    --shadow-sm: 0 1px 2px hsl(220 30% 10% / 0.06);
+    --shadow-md: 0 10px 28px -8px hsl(220 30% 10% / 0.18), 0 1px 3px hsl(220 30% 10% / 0.06);
+    --shadow-lg: 0 30px 80px -20px hsl(220 30% 10% / 0.25);
+    --shadow-glow: 0 0 60px -10px hsl(var(--acc-1) / 0.45);
   }
 
   .dark {
-    --background: 222 47% 6%;
-    --foreground: 210 40% 98%;
+    /* Surfaces — visionOS dark */
+    --background: 225 30% 4%;
+    --foreground: 0 0% 96%;
 
-    --card: 222 47% 9%;
-    --card-foreground: 210 40% 98%;
+    --card: 225 25% 8%;
+    --card-foreground: 0 0% 96%;
 
-    --popover: 222 47% 9%;
-    --popover-foreground: 210 40% 98%;
+    --popover: 225 25% 8%;
+    --popover-foreground: 0 0% 96%;
 
-    --primary: 217 91% 60%;
-    --primary-foreground: 0 0% 100%;
+    --primary: 218 100% 71%;
+    --primary-foreground: 225 30% 4%;
 
-    --secondary: 217 33% 17%;
-    --secondary-foreground: 210 40% 98%;
+    --secondary: 225 20% 14%;
+    --secondary-foreground: 0 0% 96%;
 
-    --muted: 217 33% 17%;
-    --muted-foreground: 215 20% 65%;
+    --muted: 225 20% 12%;
+    --muted-foreground: 0 0% 62%;
 
-    --accent: 217 91% 60%;
-    --accent-foreground: 0 0% 100%;
+    --accent: 218 100% 71%;
+    --accent-foreground: 225 30% 4%;
 
-    --destructive: 0 63% 31%;
-    --destructive-foreground: 210 40% 98%;
+    --destructive: 0 89% 71%;
+    --destructive-foreground: 0 0% 100%;
 
-    --border: 217 33% 17%;
-    --input: 217 33% 17%;
-    --ring: 217 91% 60%;
+    --border: 225 15% 18%;
+    --input: 225 15% 18%;
+    --ring: 218 100% 71%;
 
-    --sidebar-background: 222 47% 6%;
-    --sidebar-foreground: 210 40% 96%;
-    --sidebar-primary: 217 91% 60%;
-    --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 217 33% 17%;
-    --sidebar-accent-foreground: 210 40% 96%;
-    --sidebar-border: 217 33% 17%;
-    --sidebar-ring: 217 91% 60%;
+    --sidebar-background: 225 28% 6%;
+    --sidebar-foreground: 0 0% 88%;
+    --sidebar-primary: 218 100% 71%;
+    --sidebar-primary-foreground: 225 30% 4%;
+    --sidebar-accent: 225 20% 12%;
+    --sidebar-accent-foreground: 0 0% 96%;
+    --sidebar-border: 225 15% 16%;
+    --sidebar-ring: 218 100% 71%;
+
+    --glass-surface: 0 0% 100%;
+    --glass-border: 0 0% 100%;
+
+    --shadow-sm: 0 1px 0 hsl(0 0% 100% / 0.04) inset, 0 1px 2px hsl(0 0% 0% / 0.5);
+    --shadow-md: 0 1px 0 hsl(0 0% 100% / 0.06) inset, 0 10px 30px -8px hsl(0 0% 0% / 0.6);
+    --shadow-lg: 0 30px 80px -20px hsl(0 0% 0% / 0.7), 0 0 0 1px hsl(0 0% 100% / 0.04) inset;
+    --shadow-glow: 0 0 80px -20px hsl(var(--acc-1) / 0.55);
   }
 }
 
@@ -97,20 +135,147 @@
     @apply border-border;
   }
 
+  html, body, #root {
+    @apply bg-background text-foreground;
+  }
+
   body {
-    @apply bg-background text-foreground font-sans;
-    font-family: 'Inter', system-ui, sans-serif;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'SF Pro Display', system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    letter-spacing: -0.005em;
     overflow-x: hidden;
   }
 
   #root {
     overflow-x: hidden;
+    min-height: 100vh;
+    position: relative;
+  }
+
+  *:focus-visible {
+    outline: 2px solid hsl(var(--ring));
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
+
+  ::selection {
+    background: hsl(var(--acc-1) / 0.35);
+  }
+
+  ::-webkit-scrollbar { width: 8px; height: 8px; }
+  ::-webkit-scrollbar-thumb {
+    background: hsl(var(--foreground) / 0.14);
+    border-radius: 4px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: hsl(var(--foreground) / 0.22);
+  }
+  ::-webkit-scrollbar-track { background: transparent; }
+
+  h1, h2, h3, h4, .font-display {
+    font-family: 'Inter Tight', 'Inter', -apple-system, system-ui, sans-serif;
+    letter-spacing: -0.022em;
   }
 }
 
+/* ── Ambient iridescent background blobs ── */
+@layer components {
+  .ambient {
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+    overflow: hidden;
+  }
+  .ambient::before,
+  .ambient::after {
+    content: "";
+    position: absolute;
+    border-radius: 50%;
+    filter: blur(100px);
+    will-change: transform;
+  }
+  .ambient::before {
+    width: 640px; height: 640px; left: -80px; top: -100px;
+    background: radial-gradient(circle, hsl(var(--acc-1) / 0.55), transparent 60%);
+    animation: floatA 14s ease-in-out infinite alternate;
+  }
+  .ambient::after {
+    width: 620px; height: 620px; right: -80px; bottom: -120px;
+    background: radial-gradient(circle, hsl(var(--acc-2) / 0.5), transparent 60%);
+    animation: floatB 16s ease-in-out infinite alternate;
+  }
+  .ambient-blob {
+    position: absolute;
+    border-radius: 50%;
+    filter: blur(110px);
+    will-change: transform;
+  }
+  .ambient-blob.b3 {
+    width: 520px; height: 520px; left: 35%; top: 20%;
+    background: radial-gradient(circle, hsl(var(--acc-3) / 0.4), transparent 65%);
+    animation: floatC 18s ease-in-out infinite alternate;
+  }
+  .ambient-blob.b4 {
+    width: 440px; height: 440px; right: 18%; top: 4%;
+    background: radial-gradient(circle, hsl(var(--acc-4) / 0.4), transparent 65%);
+    animation: floatD 20s ease-in-out infinite alternate;
+  }
+  .ambient-blob.b5 {
+    width: 400px; height: 400px; left: 12%; bottom: 8%;
+    background: radial-gradient(circle, hsl(var(--acc-5) / 0.35), transparent 65%);
+    animation: floatE 15s ease-in-out infinite alternate;
+  }
+
+  .light .ambient::before { opacity: 0.55; }
+  .light .ambient::after { opacity: 0.5; }
+  .light .ambient-blob { opacity: 0.6; }
+
+  /* Glass surface utility */
+  .glass {
+    background: hsl(var(--glass-surface) / 0.04);
+    backdrop-filter: blur(var(--glass-blur)) saturate(1.8);
+    -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(1.8);
+    border: 1px solid hsl(var(--glass-border) / 0.10);
+    box-shadow: var(--shadow-md);
+  }
+  :root .glass {
+    background: hsl(0 0% 100% / 0.7);
+    border-color: hsl(220 13% 84% / 0.7);
+  }
+  .dark .glass {
+    background: hsl(0 0% 100% / 0.04);
+    border-color: hsl(0 0% 100% / 0.10);
+  }
+
+  /* Iridescent gradient accents */
+  .gradient-iridescent {
+    background: linear-gradient(135deg, hsl(var(--acc-1)), hsl(var(--acc-2)));
+  }
+  .gradient-iridescent-text {
+    background: linear-gradient(135deg, hsl(var(--acc-1)), hsl(var(--acc-2)) 50%, hsl(var(--acc-3)));
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+  .gradient-conic {
+    background: conic-gradient(from 180deg at 50% 50%,
+      hsl(var(--acc-1)), hsl(var(--acc-2)), hsl(var(--acc-3)),
+      hsl(var(--acc-4)), hsl(var(--acc-5)), hsl(var(--acc-1)));
+  }
+}
+
+@keyframes floatA { 0%{transform:translate(0,0) scale(1);} 50%{transform:translate(260px,180px) scale(1.25);} 100%{transform:translate(120px,260px) scale(0.85);} }
+@keyframes floatB { 0%{transform:translate(0,0) scale(1);} 50%{transform:translate(-220px,-140px) scale(1.2);} 100%{transform:translate(-100px,-220px) scale(0.9);} }
+@keyframes floatC { 0%{transform:translate(-50%,-50%) scale(1);} 50%{transform:translate(20%,-90%) scale(1.3);} 100%{transform:translate(-90%,-10%) scale(0.8);} }
+@keyframes floatD { 0%{transform:translate(0,0) scale(1);} 50%{transform:translate(-200px,140px) scale(1.2);} 100%{transform:translate(100px,220px) scale(0.9);} }
+@keyframes floatE { 0%{transform:translate(0,0) scale(1);} 50%{transform:translate(180px,-120px) scale(1.25);} 100%{transform:translate(-140px,-200px) scale(0.85);} }
+@keyframes spin-slow { to { transform: rotate(360deg); } }
+
 /* ── Prose / Markdown styling ── */
-.prose h1 { @apply text-xl font-bold mt-6 mb-3 text-foreground; }
-.prose h2 { @apply text-lg font-semibold mt-5 mb-2 text-foreground; }
+.prose h1 { @apply text-xl font-semibold mt-6 mb-3 text-foreground tracking-tight; font-family: 'Inter Tight', sans-serif; }
+.prose h2 { @apply text-lg font-semibold mt-5 mb-2 text-foreground tracking-tight; font-family: 'Inter Tight', sans-serif; }
 .prose h3 { @apply text-base font-semibold mt-4 mb-2 text-foreground; }
 .prose h4 { @apply text-sm font-semibold mt-3 mb-1 text-foreground; }
 
@@ -128,14 +293,16 @@
 }
 
 .prose code:not(pre code) {
-  @apply bg-muted text-accent px-1.5 py-0.5 rounded text-xs font-mono;
+  @apply bg-muted text-accent px-1.5 py-0.5 rounded text-xs;
+  font-family: 'JetBrains Mono', 'SF Mono', monospace;
 }
 
 .prose pre {
   @apply bg-muted rounded-lg p-4 my-3 overflow-x-auto;
 }
 .prose pre code {
-  @apply bg-transparent p-0 text-xs font-mono text-foreground;
+  @apply bg-transparent p-0 text-xs text-foreground;
+  font-family: 'JetBrains Mono', 'SF Mono', monospace;
 }
 
 .prose table {
@@ -163,9 +330,7 @@
 .ava-report h2 {
   @apply text-sm font-bold mt-4 mb-1.5 pb-1 border-b border-border/60 tracking-wide uppercase text-foreground;
 }
-.ava-report h2:first-child {
-  @apply mt-0;
-}
+.ava-report h2:first-child { @apply mt-0; }
 .ava-report h3 {
   @apply text-sm font-semibold mt-3 mb-1 text-accent;
 }
@@ -182,21 +347,9 @@
 .ava-report tbody td {
   @apply px-2.5 py-1.5 text-xs border-border/40;
 }
-.ava-report ul, .ava-report ol {
-  @apply my-1.5 space-y-0.5;
-}
-.ava-report li {
-  @apply text-xs;
-}
-.ava-report hr {
-  @apply my-3 border-border/40;
-}
-.ava-report p {
-  @apply my-1.5 text-xs leading-relaxed;
-}
-.ava-report strong {
-  @apply font-semibold text-foreground;
-}
-.ava-report code:not(pre code) {
-  @apply text-[10px];
-}
+.ava-report ul, .ava-report ol { @apply my-1.5 space-y-0.5; }
+.ava-report li { @apply text-xs; }
+.ava-report hr { @apply my-3 border-border/40; }
+.ava-report p { @apply my-1.5 text-xs leading-relaxed; }
+.ava-report strong { @apply font-semibold text-foreground; }
+.ava-report code:not(pre code) { @apply text-[10px]; }

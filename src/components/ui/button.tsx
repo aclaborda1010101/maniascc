@@ -5,22 +5,29 @@ import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "@/lib/utils";
 
 const buttonVariants = cva(
-  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0",
+  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-[10px] text-[13px] font-medium ring-offset-background transition-all duration-200 ease-out-soft focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0",
   {
     variants: {
       variant: {
-        default: "bg-primary text-primary-foreground hover:bg-primary/90",
-        destructive: "bg-destructive text-destructive-foreground hover:bg-destructive/90",
-        outline: "border border-input bg-background hover:bg-accent hover:text-accent-foreground",
-        secondary: "bg-secondary text-secondary-foreground hover:bg-secondary/80",
-        ghost: "hover:bg-accent hover:text-accent-foreground",
-        link: "text-primary underline-offset-4 hover:underline",
+        default:
+          "text-white border-0 shadow-[0_6px_20px_-6px_hsl(var(--acc-2)/0.5),inset_0_1px_0_hsl(0_0%_100%/0.35)] bg-[linear-gradient(135deg,hsl(var(--acc-1)),hsl(var(--acc-2)))] hover:-translate-y-px hover:shadow-[0_10px_28px_-6px_hsl(var(--acc-2)/0.6),inset_0_1px_0_hsl(0_0%_100%/0.4)]",
+        destructive:
+          "bg-destructive text-destructive-foreground hover:bg-destructive/90 shadow-sm",
+        outline:
+          "border border-border/80 bg-background/40 backdrop-blur-md text-foreground hover:bg-secondary/60 hover:border-border",
+        secondary:
+          "bg-secondary text-secondary-foreground border border-border/60 hover:bg-secondary/80",
+        ghost:
+          "text-foreground hover:bg-secondary/70",
+        link: "text-accent underline-offset-4 hover:underline",
+        accent:
+          "text-[#013220] border-0 font-semibold bg-[hsl(var(--acc-4))] shadow-[0_6px_20px_-6px_hsl(var(--acc-4)/0.6),inset_0_1px_0_hsl(0_0%_100%/0.3)] hover:-translate-y-px",
       },
       size: {
-        default: "h-10 px-4 py-2",
-        sm: "h-9 rounded-md px-3",
-        lg: "h-11 rounded-md px-8",
-        icon: "h-10 w-10",
+        default: "h-9 px-3.5 py-2",
+        sm: "h-8 rounded-lg px-3 text-xs",
+        lg: "h-11 rounded-xl px-5 text-sm",
+        icon: "h-9 w-9",
       },
     },
     defaultVariants: {

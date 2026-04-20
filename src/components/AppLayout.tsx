@@ -34,20 +34,26 @@ export function AppLayout() {
 
   return (
     <SidebarProvider>
-      <div className="min-h-screen flex w-full overflow-x-hidden">
+      {/* Ambient iridescent background — visionOS aesthetic */}
+      <div className="ambient" aria-hidden="true">
+        <div className="ambient-blob b3" />
+        <div className="ambient-blob b4" />
+        <div className="ambient-blob b5" />
+      </div>
+
+      <div className="relative z-10 min-h-screen flex w-full overflow-x-hidden">
         <AppSidebar />
         <div className="flex-1 flex flex-col min-w-0">
-          <header className="h-14 flex items-center border-b bg-card px-3 md:px-4 gap-2 md:gap-4 shrink-0">
-            <SidebarTrigger className="h-9 w-9 flex items-center justify-center" />
-            <h2 className="hidden md:block text-sm font-semibold tracking-tight text-foreground">AVA</h2>
+          <header className="h-14 flex items-center border-b border-border/60 bg-background/40 backdrop-blur-glass px-3 md:px-4 gap-2 md:gap-4 shrink-0">
+            <SidebarTrigger className="h-9 w-9 flex items-center justify-center rounded-lg hover:bg-secondary/70 text-muted-foreground hover:text-foreground transition-colors" />
 
             {/* Desktop search */}
             {!isMobile && (
-              <div className="flex-1 mx-4 max-w-md relative">
+              <div className="flex-1 mx-2 max-w-md relative">
                 <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                 <Input
-                  className="pl-10 h-9"
-                  placeholder="Buscar locales, operadores..."
+                  className="pl-10 h-9 bg-secondary/40 border-border/60"
+                  placeholder="Buscar activos, operadores, contactos…"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   onKeyDown={handleSearch}
@@ -86,13 +92,15 @@ export function AppLayout() {
               <NotificationCenter />
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <button className="flex items-center gap-2 rounded-full focus:outline-none focus:ring-2 focus:ring-ring">
-                    <Avatar className="h-8 w-8">
-                      <AvatarFallback className="bg-accent text-accent-foreground text-xs">{initials}</AvatarFallback>
+                  <button className="flex items-center gap-2 rounded-full focus:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                    <Avatar className="h-8 w-8 ring-1 ring-border/60">
+                      <AvatarFallback className="bg-[linear-gradient(135deg,hsl(var(--acc-2)),hsl(var(--acc-3)))] text-[#0a0a0b] text-[11px] font-semibold">
+                        {initials}
+                      </AvatarFallback>
                     </Avatar>
                   </button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
+                <DropdownMenuContent align="end" className="bg-popover/90 backdrop-blur-glass">
                   <DropdownMenuItem className="text-xs text-muted-foreground" disabled>{user?.email}</DropdownMenuItem>
                   <DropdownMenuItem onClick={() => signOut()}>Cerrar sesión</DropdownMenuItem>
                 </DropdownMenuContent>

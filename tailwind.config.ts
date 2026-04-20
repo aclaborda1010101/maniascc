@@ -8,13 +8,13 @@ export default {
     container: {
       center: true,
       padding: "2rem",
-      screens: {
-        "2xl": "1400px",
-      },
+      screens: { "2xl": "1400px" },
     },
     extend: {
       fontFamily: {
-        sans: ["Inter", "system-ui", "sans-serif"],
+        sans: ["Inter", "-apple-system", "BlinkMacSystemFont", "SF Pro Display", "system-ui", "sans-serif"],
+        display: ["Inter Tight", "Inter", "-apple-system", "system-ui", "sans-serif"],
+        mono: ["JetBrains Mono", "SF Mono", "ui-monospace", "Menlo", "monospace"],
       },
       colors: {
         border: "hsl(var(--border))",
@@ -67,11 +67,35 @@ export default {
           "4": "hsl(var(--chart-4))",
           "5": "hsl(var(--chart-5))",
         },
+        // Iridescent named accents (use sparingly via gradients)
+        iris: {
+          blue: "hsl(var(--acc-1))",
+          violet: "hsl(var(--acc-2))",
+          pink: "hsl(var(--acc-3))",
+          mint: "hsl(var(--acc-4))",
+          amber: "hsl(var(--acc-5))",
+        },
+        success: "hsl(var(--success))",
+        warning: "hsl(var(--warning))",
+        info: "hsl(var(--info))",
       },
       borderRadius: {
         lg: "var(--radius)",
-        md: "calc(var(--radius) - 2px)",
-        sm: "calc(var(--radius) - 4px)",
+        md: "calc(var(--radius) - 4px)",
+        sm: "calc(var(--radius) - 6px)",
+        xl: "calc(var(--radius) + 6px)",
+        "2xl": "calc(var(--radius) + 14px)",
+      },
+      boxShadow: {
+        sm: "var(--shadow-sm)",
+        DEFAULT: "var(--shadow-md)",
+        md: "var(--shadow-md)",
+        lg: "var(--shadow-lg)",
+        glow: "var(--shadow-glow)",
+      },
+      backdropBlur: {
+        xs: "8px",
+        glass: "32px",
       },
       keyframes: {
         "accordion-down": {
@@ -82,10 +106,20 @@ export default {
           from: { height: "var(--radix-accordion-content-height)" },
           to: { height: "0" },
         },
+        "fade-in": {
+          from: { opacity: "0", transform: "translateY(6px)" },
+          to: { opacity: "1", transform: "none" },
+        },
+        "spin-slow": { to: { transform: "rotate(360deg)" } },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
         "accordion-up": "accordion-up 0.2s ease-out",
+        "fade-in": "fade-in 400ms cubic-bezier(.2,.8,.2,1)",
+        "spin-slow": "spin-slow 4s linear infinite",
+      },
+      transitionTimingFunction: {
+        "out-soft": "cubic-bezier(.2,.8,.2,1)",
       },
     },
   },
