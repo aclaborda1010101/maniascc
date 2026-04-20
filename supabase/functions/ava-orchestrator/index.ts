@@ -269,7 +269,7 @@ async function summarizeOlderHistory(
   ).join("\n\n");
 
   try {
-    const resp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    const resp = await fetchAIWithRetry("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
       headers: {
         Authorization: `Bearer ${lovableKey}`,
@@ -380,7 +380,7 @@ serve(async (req) => {
     messages.push({ role: "user", content: message });
 
     // First AI call: determine intent and tools
-    const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    const aiResponse = await fetchAIWithRetry("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
       headers: {
         Authorization: `Bearer ${lovableKey}`,
@@ -398,16 +398,22 @@ serve(async (req) => {
       const errText = await aiResponse.text();
       console.error("AI gateway error:", aiResponse.status, errText);
       if (aiResponse.status === 429) {
-        return new Response(JSON.stringify({ error: "Límite de peticiones excedido, intenta más tarde." }), {
+        return new Response(JSON.stringify({ error: "Límite de peticiones excedido, intenta de nuevo en unos segundos." }), {
           status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
       if (aiResponse.status === 402) {
-        return new Response(JSON.stringify({ error: "Créditos agotados." }), {
+        return new Response(JSON.stringify({ error: "Créditos de IA agotados." }), {
           status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
-      throw new Error("Error del gateway IA");
+      // Transient upstream (502/503/504) after retries → friendly message
+      return new Response(JSON.stringify({
+        error: "El servicio de IA está temporalmente saturado. Por favor, vuelve a intentarlo en unos segundos.",
+        transient: true,
+      }), {
+        status: 503, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
     const aiData = await aiResponse.json();
@@ -705,7 +711,7 @@ serve(async (req) => {
     
     // Try synthesis up to 2 times
     for (let attempt = 0; attempt < 2; attempt++) {
-      const synthesisResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      const synthesisResponse = await fetchAIWithRetry("https://ai.gateway.lovable.dev/v1/chat/completions", {
         method: "POST",
         headers: {
           Authorization: `Bearer ${lovableKey}`,
