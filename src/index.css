@@ -136,7 +136,7 @@
     position: relative;
   }
 
-  /* Ambient gradient blobs (justify the blur) */
+  /* Static ambient gradient (no blur filter to avoid GPU cost) */
   body::before {
     content: "";
     position: fixed;
@@ -144,21 +144,18 @@
     z-index: -1;
     pointer-events: none;
     background:
-      radial-gradient(60% 50% at 15% 20%, hsl(217 91% 60% / 0.22) 0%, transparent 60%),
-      radial-gradient(50% 50% at 85% 15%, hsl(262 83% 65% / 0.18) 0%, transparent 60%),
-      radial-gradient(55% 55% at 75% 85%, hsl(190 90% 55% / 0.18) 0%, transparent 60%),
-      radial-gradient(40% 40% at 25% 90%, hsl(330 85% 65% / 0.14) 0%, transparent 60%);
-    filter: blur(80px) saturate(140%);
-    opacity: 0.9;
+      radial-gradient(60% 50% at 15% 20%, hsl(217 91% 60% / 0.10) 0%, transparent 55%),
+      radial-gradient(50% 50% at 85% 15%, hsl(262 83% 65% / 0.08) 0%, transparent 55%),
+      radial-gradient(55% 55% at 75% 85%, hsl(190 90% 55% / 0.08) 0%, transparent 55%);
+    opacity: 1;
   }
 
   .dark body::before {
     background:
-      radial-gradient(60% 50% at 15% 20%, hsl(217 91% 55% / 0.28) 0%, transparent 60%),
-      radial-gradient(50% 50% at 85% 15%, hsl(262 83% 60% / 0.24) 0%, transparent 60%),
-      radial-gradient(55% 55% at 75% 85%, hsl(190 90% 50% / 0.22) 0%, transparent 60%),
-      radial-gradient(40% 40% at 25% 90%, hsl(330 85% 55% / 0.18) 0%, transparent 60%);
-    opacity: 0.7;
+      radial-gradient(60% 50% at 15% 20%, hsl(217 91% 55% / 0.14) 0%, transparent 55%),
+      radial-gradient(50% 50% at 85% 15%, hsl(262 83% 60% / 0.12) 0%, transparent 55%),
+      radial-gradient(55% 55% at 75% 85%, hsl(190 90% 50% / 0.10) 0%, transparent 55%);
+    opacity: 1;
   }
 
   #root {
