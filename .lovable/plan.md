@@ -1,99 +1,129 @@
 
 
-# Plan: Catalogación documental masiva + retirada de Expert Forge MoE externo
+# Análisis: Cómo está integrada la RAG hoy
 
-## Respuesta rápida a tus tres preguntas
+## 1) Arquitectura actual (interna, sin dependencias externas)
 
-### 1. ¿Qué hace el botón "Clasificar/Reclasificar con IA" (✨)?
-Llama a la edge function `document-classify`, que con Gemini 2.5 Flash:
-- Lee nombre + mime + muestra de contenido
-- Asigna **categoría** (taxonomía: 12 disponibles en BD)
-- Asigna **nivel de sensibilidad** (público/interno/confidencial/restringido)
-- Genera **nombre normalizado** (`2026-04-20_legal_contrato_arrendamiento.pdf`)
-- Detecta **fecha del documento** y un **resumen de 1 frase**
+```text
+┌─────────────────────────────────────────────────────────────────┐
+│                       SUBIDA DE DOCUMENTO                       │
+│  UploadZone → Storage (bucket: documentos_contratos, privado)   │
+│             → INSERT documentos_proyecto (procesado_ia=false)   │
+└──────────────────────────┬──────────────────────────────────────┘
+                           │
+        ┌──────────────────┴──────────────────┐
+        ▼                                     ▼
+┌──────────────────┐              ┌────────────────────────┐
+│ document-classify│              │       rag-ingest        │
+│ Gemini 2.5 Flash │              │ Gemini 2.5 Flash multi │
+│ → taxonomía      │              │ → texto extraído        │
+│ → sensibilidad   │              │ → chunks (2000 chars,   │
+│ → resumen 1ª     │              │    overlap 200)         │
+│ → fecha doc      │              │ → INSERT document_chunks│
+│ UPDATE doc       │              │ + dominio inferido      │
+└──────────────────┘              │ UPDATE procesado_ia=true│
+                                  └──────────┬─────────────┘
+                                             │
+                                             ▼
+                              ┌────────────────────────────┐
+                              │     document_chunks (315k) │
+                              │  Postgres FTS español      │
+                              │  + columna `dominio`       │
+                              │  RLS por visibility/owner  │
+                              └────────────┬───────────────┘
+                                           │
+        ┌──────────────────────────────────┼──────────────────┐
+        ▼                                  ▼                  ▼
+┌──────────────────┐       ┌────────────────────┐   ┌──────────────────┐
+│   rag-proxy      │       │  rag-proxy-v4      │   │ ava-orchestrator │
+│ (UI ProyectoRAG) │       │ (no usado en UI)   │   │ tool: rag_search │
+│ FTS+ILIKE→Gemini │       │ +team knowledge    │   │ → llama rag-proxy│
+│ tool-call JSON   │       │ +signals/threads   │   │                  │
+└──────────────────┘       └────────────────────┘   └──────────────────┘
+```
 
-Al subir un archivo ya se dispara automáticamente. El botón sirve para **reclasificar** uno suelto si la IA se equivocó o si quieres refrescar metadatos.
+**Componentes vivos:**
+- `rag-ingest` (chunking + extracción multimodal Gemini)
+- `rag-proxy` (consulta principal: FTS español + fallback ILIKE + Gemini con tool-call estructurado)
+- `rag-proxy-v4` (versión enriquecida con email_threads/signals; **desplegada pero no llamada desde UI ni orquestador**)
+- `document_chunks` con columna `dominio` (sin embeddings vectoriales reales)
+- `document_embeddings` (tabla creada pero **vacía / sin uso real**)
+- AVA → tool `rag_search` → llama `rag-proxy`
 
-### 2. ¿Falta un botón "Clasificar TODO automáticamente"?
-**Sí, falta.** Ahora mismo no existe acción masiva. Si subes 50 docs antes de que existiera la IA, hay que clicar uno a uno.
+## 2) Estado real en BD (datos en producción)
 
-### 3. ¿Son suficientes las 7 categorías del selector?
-**No.** El selector de upload muestra 7 (`contrato, financiero, dossier, informe, plano, correo, otro`) pero la BD ya tiene **12 taxonomías**: activo, operador, operacion, legal, financiero, presentacion, correo, whatsapp, plano, multimedia, investigacion, sin_clasificar. Está desincronizado.
+| Métrica | Valor |
+|---|---|
+| Documentos totales | **39.814** |
+| Documentos indexados (`procesado_ia=true`) | 39.641 (99,6%) |
+| Documentos clasificados (`taxonomia_id`) | **1** ❗ |
+| Chunks totales | 315.238 |
+| Embeddings reales | 0 útiles (tabla `document_embeddings` no se rellena) |
+| Taxonomías activas | 15 (las 12 + las 3 nuevas que añadimos) |
 
-### 4. Arquitectura RAG: ¿interna o externa (MoE Expert Forge)?
-La aplicación tiene **dos sistemas paralelos**:
-- **RAG interno** (lo que usamos hoy): `rag-proxy` + `rag-ingest` + tabla `document_chunks` + Gemini 2.5 Flash. Funciona, está integrado en AVA, ProyectoRAG, Documentos, etc.
-- **Expert Forge externo MoE**: `expert-forge-proxy` apuntando a `nhfocnjtgwuamelovncq.supabase.co` con 7 specialists (ATLAS, FORGE7, MATCHING, AUDITORIA, SCRAPING, COORDINADOR, NEGOCIACION). Solo se usa en 4 sitios marginales: pestaña "Auditoría externa" de `/auditoria`, tarjeta de health-check en `/ajustes` y `/admin`, y como tool `expert_forge` del orquestador AVA (que casi nunca elige porque el RAG interno es más rápido).
+**Distribución por dominio:**
+- `comunicaciones` (emails) — 237.682 chunks / 35.535 docs
+- `centros_comerciales` — 72.759 / 4.112
+- `activos` — 2.725 / 6
+- `general` — 2.072 / 54
 
-**Conclusión**: Expert Forge ya no aporta valor (duplica capacidades del RAG interno + Lovable AI). Lo desactivamos.
+**Llamadas últimos 14 días:** `ava-orchestrator` 57, `rag-proxy:centros_comerciales` solo **2**. La RAG se está usando muy poco directamente.
 
----
+## 3) Hallazgos importantes
 
-## Lo que vamos a hacer
+### 🟢 Lo que funciona bien
+- Extracción multimodal Gemini para PDF/imagen/PPTX/email — operativa.
+- Chunking + dominios + RLS por owner/visibility — correcto.
+- AVA puede consultar la RAG vía tool `rag_search`.
+- Fallback ILIKE cuando FTS no encuentra nada.
 
-### A) Catalogación documental — mejoras
+### 🟡 Problemas reales detectados
+1. **Casi nada está clasificado** (1/39.814). El botón "Clasificar todo" existe pero no se ha lanzado masivamente sobre el histórico.
+2. **`rag-proxy-v4` está desplegada y muerta** — duplica `rag-proxy` con extras (team knowledge, signals) pero nadie la invoca. Es deuda técnica.
+3. **`document_embeddings` existe vacía** — diseñada para búsqueda semántica vectorial nunca implementada. Hoy todo es FTS textual + LLM.
+4. **Búsqueda solo léxica (FTS)**: si preguntas con sinónimos o conceptos no presentes literalmente, no encuentra nada hasta que el ILIKE rescata por una palabra. No hay similitud semántica real.
+5. **Chunks "pobres" de 1 sola fila** (12.455 docs tienen solo 1 chunk, muchos <250 caracteres) — extracción de PDFs muy ligera o imágenes con poco texto. Son documentos que están "indexados" pero aportan poco al RAG.
+6. **AVA dispara `rag_search` pocas veces** porque su system-prompt favorece otras tools y porque las respuestas FTS llegan vacías a menudo.
+7. **Sin reranking ni control de relevancia** — devuelve los 10 primeros hits FTS sin ordenar por score real.
 
-**A1. Sincronizar las 12 categorías en el selector de upload**
-En `ProyectoDocumentos.tsx`, sustituir las 7 opciones hard-codeadas por las 12 reales de `documentos_taxonomia` (cargadas con `fetchTaxonomias()` que ya existe). Mostrar icono + nombre.
+## 4) Cómo accedes hoy a la RAG (recorrido usuario)
 
-**A2. Botón "Clasificar todo lo pendiente"**
-Nuevo botón en el header de la tabla de documentos (página de Oportunidad → Documentos, y también en `/documentos` global):
-- Detecta documentos sin `taxonomia_id` o con `procesado_ia = false`
-- Muestra contador: *"23 documentos sin clasificar"*
-- Al pulsar, lanza `classifyDocument()` en lote (paralelo controlado: 3 a la vez) con barra de progreso
-- Al terminar, también lanza `ingestDocument()` para los no indexados
-- Toast final: *"23 clasificados · 18 indexados"*
+- **Por proyecto**: pestaña "Conocimiento" en `/oportunidades/:id` → `ProyectoRAG` (selector de dominio + caja de pregunta + lista de docs indexados con botón reindexar).
+- **Global desde AVA**: pregunta a AVA, el orquestador decide si llamar `rag_search` (filtro automático por dominio).
+- **Nada más**. No hay buscador global de RAG fuera de proyecto.
 
-**A3. Propuesta de categorías adicionales (opcional, te las dejo a decisión)**
+## 5) Plan propuesto (qué arreglar y mejorar)
 
-Las 12 actuales cubren bien el caso inmobiliario. Pero podríamos añadir:
-- **`due_diligence`** — informes técnicos de DD (separar de "legal")
-- **`urbanismo`** — licencias, certificados energéticos, cédulas
-- **`fiscal`** — IBI, IVA, facturas tributarias (separar de "financiero")
-- **`marketing`** — campañas, branding del centro (separar de "presentacion")
-- **`acta_reunion`** — minutas de reuniones (hoy van a "correo" u "otro")
+### A. Higiene inmediata (sin cambios de modelo)
+- **A1** Borrar `rag-proxy-v4` (desplegada y huérfana) y la tabla/columna `document_embeddings` si confirmamos no usarla.
+- **A2** Lanzar **clasificación retroactiva** de los ~39.800 documentos sin taxonomía vía un job de batch (botón en `/admin` "Reclasificar todo el histórico" con barra de progreso, en chunks de 5 docs paralelos).
+- **A3** Añadir **buscador RAG global** en el menú lateral (`/conocimiento`) — actualmente solo se accede dentro de cada oportunidad.
 
-Mi recomendación: añadir **due_diligence**, **urbanismo** y **acta_reunion**. Las otras dos son matiz fino que se pueden vivir como subtipo de los existentes.
+### B. Calidad de la RAG (alto impacto)
+- **B1 Embeddings semánticos reales**: rellenar `document_embeddings` con `text-embedding-3-small` (OpenAI, ya tienes `OPENAI_API_KEY`) o usar Gemini embeddings. Modificar `rag-proxy` para hacer **búsqueda híbrida**: FTS + cosine similarity con `pgvector` y rerank.
+- **B2 Reranker**: tras recuperar 20 candidatos (10 FTS + 10 vectorial), rerankear con un Gemini Flash dedicado a "rate relevance 0-10 for question X".
+- **B3 Chunk smarter**: en `rag-ingest`, detectar documentos cuyo texto extraído sea <300 chars y marcarlos `fase_rag='low_quality'` para reprocesarlos con un prompt Gemini más agresivo.
+- **B4 Citas con enlace**: que `rag-proxy` devuelva `documento_id` en cada cita y la UI permita abrir el PDF original directamente desde la respuesta.
 
-### B) Retirada de Expert Forge MoE externo
+### C. Integración con AVA
+- **C1** Mejorar el system-prompt del orquestador para que **siempre pruebe `rag_search` primero** cuando la pregunta menciona "documento", "contrato", "informe", nombres de operadores o de proyectos.
+- **C2** Cachear en `aba_messages.meta` los chunks usados para que el feedback del usuario alimente `ai_learned_patterns` (ya existe el patrón en V4).
 
-**B1. Eliminar tool `expert_forge` del orquestador AVA**
-Quitar la definición de la tool y el branch `if (fnName === "expert_forge")` en `supabase/functions/ava-orchestrator/index.ts`. AVA seguirá funcionando con sus tools internas (db_query, rag_search, run_intelligence, generate_pdf, etc.).
+### D. Documentación interna
+- **D1** Actualizar `mem://features/ai/rag` (hoy describe "8 dominios", la BD solo tiene 4 activos).
+- **D2** Crear `mem://features/ai/rag-architecture` con el diagrama de arriba.
 
-**B2. Eliminar página/sección de Expert Forge en UI**
-- `src/pages/Auditoria.tsx`: quitar el bloque "Expert Forge — Especialista Auditoría" (textarea + botón consultar)
-- `src/pages/Ajustes.tsx`: quitar tarjeta "Conexión Expert Forge" (status + ping + lista specialists)
-- `src/pages/Admin.tsx`: quitar pestaña/sección "Conexión IA externa", lista SPECIALISTS_INFO y botón testConnection
-
-**B3. Eliminar código muerto**
-- Borrar `supabase/functions/expert-forge-proxy/index.ts` (al borrar la función, Lovable la desregistra del deploy)
-- Borrar `src/services/expertForge.ts`
-- Limpiar imports huérfanos
-
-**B4. Secrets a desactivar (te los digo, los borras tú desde Cloud)**
-- `EXPERT_FORGE_API_KEY`
-- `JARVIS_PATTERNS_API_KEY`
-- `JARVIS_PATTERNS_URL`
-Una vez no quede código que los lea, son seguros de eliminar.
-
-**B5. Actualizar memoria del proyecto**
-Eliminar `mem://integrations/expert-forge` y referencia en el index, añadir constraint: *"Expert Forge MoE externo retirado: usar solo RAG interno (rag-proxy + document_chunks)"*.
-
----
-
-## Detalles técnicos (sección para repasar luego)
-
-- `document-classify` ya persiste `taxonomia_id`, `nombre_normalizado`, `nivel_sensibilidad`, `fecha_documento`, `resumen_ia`, `procesado_ia` en `documentos_proyecto`. No requiere cambios de schema.
-- El batch usará `Promise.allSettled` en chunks de 3 con `setProgress` para feedback visual.
-- Para añadir las 3 nuevas taxonomías (B if approved), se hace con una migración INSERT en `documentos_taxonomia`.
-- El orquestador AVA tras quitar `expert_forge` mantiene 9 tools, suficientes.
-- Las páginas `/auditoria` y `/admin` quedan más limpias mostrando solo el sistema interno.
-
----
+## Detalles técnicos
+- Bucket: `documentos_contratos` (privado), `ava_attachments` (privado).
+- Chunking actual: 2000 chars + 200 overlap, sin estructura semántica.
+- FTS: `to_tsvector('spanish', contenido)` implícito en `textSearch(..., {config:'spanish'})`.
+- Para B1 hace falta migración: `CREATE EXTENSION pgvector` (si no está) + columna `embedding vector(1536)` en `document_chunks` con índice ivfflat o hnsw.
+- Modelo extracción: `google/gemini-2.5-flash` (16k tokens, multimodal).
+- Modelo respuesta RAG: `google/gemini-3-flash-preview`.
 
 ## Preguntas antes de implementar
-
-1. ¿Añado las 3 categorías nuevas (**due_diligence**, **urbanismo**, **acta_reunion**) o dejamos las 12 actuales?
-2. ¿Confirmas la retirada COMPLETA de Expert Forge (frontend + backend + secrets)? ¿O prefieres dejar `expert-forge-proxy` desplegado por si vuelve a hacer falta?
-3. El botón "Clasificar todo" ¿lo quieres solo en la pestaña Documentos de cada Oportunidad, o también en la página global `/documentos`?
+1. ¿Lanzo ya la **clasificación retroactiva masiva** (39.800 docs, ~3-4h en background, coste estimado <5€)?
+2. ¿Activamos **embeddings semánticos reales** (B1+B2) o de momento mantenemos solo FTS textual?
+3. ¿Borro `rag-proxy-v4` y `document_embeddings` huérfanas, o prefieres conservarlas por si reaprovechamos?
+4. ¿Quieres un **buscador RAG global** en el menú lateral (`/conocimiento`) o seguimos solo dentro de cada oportunidad?
 
