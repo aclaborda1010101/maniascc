@@ -745,6 +745,113 @@ serve(async (req) => {
         } else if (fnName === "generate_pdf_report") {
           toolLabel = "generate_pdf_report";
           result = { success: true, title: args.title, content: args.content };
+        } else if (fnName === "generate_forge_document") {
+          toolLabel = "generate_forge_document:" + (args.mode || "");
+          try {
+            const forgeUrl = Deno.env.get("SUPABASE_URL") + "/functions/v1/ai-forge";
+            const forgeResp = await fetch(forgeUrl, {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                Authorization: authHeader,
+                apikey: anonKey,
+              },
+              body: JSON.stringify({
+                mode: args.mode,
+                context: args.context,
+                proyecto_id: args.proyecto_id,
+                format: "structured",
+              }),
+            });
+            const forgeData = await forgeResp.json();
+            if (!forgeResp.ok || forgeData?.error || !forgeData?.structured) {
+              result = { success: false, error: forgeData?.error || "FORGE no devolvió estructura válida" };
+            } else {
+              // Now render PDF via generate-pdf-v2 (returns binary PDF). Save to documentos_generados bucket.
+              const pdfUrl = Deno.env.get("SUPABASE_URL") + "/functions/v1/generate-pdf-v2";
+              const pdfResp = await fetch(pdfUrl, {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                  Authorization: authHeader,
+                  apikey: anonKey,
+                },
+                body: JSON.stringify({
+                  mode: args.mode,
+                  data: forgeData.structured,
+                  mode_label: args.mode,
+                  output: "pdf",
+                }),
+              });
+              if (!pdfResp.ok) {
+                result = { success: false, error: `PDF render failed (${pdfResp.status})`, structured: forgeData.structured };
+              } else {
+                const pdfBlob = await pdfResp.arrayBuffer();
+                const pdfBytes = new Uint8Array(pdfBlob);
+                const fileName = `ava_${args.mode}_${Date.now()}.pdf`;
+                const storagePath = `${user.id}/${fileName}`;
+                const { error: upErr } = await admin.storage
+                  .from("documentos_generados")
+                  .upload(storagePath, pdfBytes, { contentType: "application/pdf", upsert: false });
+                if (upErr) {
+                  result = { success: false, error: "Upload PDF failed: " + upErr.message };
+                } else {
+                  const { data: signed } = await admin.storage
+                    .from("documentos_generados")
+                    .createSignedUrl(storagePath, 60 * 60 * 24); // 24h
+                  result = {
+                    success: true,
+                    mode: args.mode,
+                    file_name: fileName,
+                    storage_path: storagePath,
+                    download_url: signed?.signedUrl || null,
+                    title: forgeData.structured?.cover?.title || args.mode,
+                  };
+                }
+              }
+            }
+          } catch (e) {
+            result = { success: false, error: e instanceof Error ? e.message : "Error FORGE" };
+          }
+        } else if (fnName === "read_system_document") {
+          toolLabel = "read_system_document";
+          try {
+            let docs: any[] = [];
+            if (args.documento_id) {
+              const { data } = await admin.from("documentos_proyecto")
+                .select("id, nombre, resumen_ia, storage_path, mime_type")
+                .eq("id", args.documento_id).limit(1);
+              docs = data || [];
+            } else if (args.query) {
+              const { data } = await admin.from("documentos_proyecto")
+                .select("id, nombre, resumen_ia, storage_path, mime_type")
+                .ilike("nombre", `%${args.query}%`).limit(3);
+              docs = data || [];
+            }
+            if (docs.length === 0) {
+              result = { found: false, message: "No se encontró ningún documento con ese nombre." };
+            } else {
+              // Fetch chunks for each doc
+              const enriched = [];
+              for (const d of docs) {
+                const { data: chunks } = await admin.from("document_chunks")
+                  .select("contenido")
+                  .eq("documento_id", d.id)
+                  .order("chunk_index", { ascending: true })
+                  .limit(20);
+                const fullText = (chunks || []).map((c: any) => c.contenido).join("\n\n").slice(0, 12000);
+                enriched.push({
+                  id: d.id,
+                  nombre: d.nombre,
+                  resumen_ia: d.resumen_ia,
+                  contenido: fullText || "(sin chunks indexados, usa rag_search)",
+                });
+              }
+              result = { found: true, documents: enriched };
+            }
+          } catch (e) {
+            result = { error: e instanceof Error ? e.message : "Error leyendo documento" };
+          }
         } else {
           result = { error: "Tool no reconocida" };
         }
