@@ -1,70 +1,58 @@
 
 
-## Diagnóstico del problema de autoaprendizaje
+El usuario pregunta dos cosas concretas, no pide implementación todavía. Es una consulta de investigación/decisión técnica. Aun así conviene presentar un mini-plan porque la respuesta implica decisiones que cambiarán código (qué proveedor usar para STT y para Realtime).
 
-He auditado el sistema y hay **3 fallos graves que rompen el ciclo de aprendizaje**:
+## Resumen de la pregunta
+1. ¿Es mejor el tiempo real con OpenAI Realtime que con lo que tenemos (Gemini TTS browser)?
+2. ¿Cuál es más rápido para transcripción: Groq, OpenAI Whisper o Gemini?
 
-### 1. Las 412 tareas de aprendizaje nunca se ejecutan ❌
-- `ai_feedback` tiene **412 registros**.
-- `ai_agent_tasks` tiene **412 tareas pending** del agregador.
-- `ai_learned_patterns` tiene **0 filas**.
+## Análisis
 
-Causa: nadie invoca `ai-learning-aggregator`. No hay cron, no hay trigger, no hay llamada desde cliente. La función existe pero está huérfana.
+### Tiempo real (conversación bidireccional con voz)
 
-### 2. AVA chat no captura feedback (ni explícito ni implícito)
-- `FeedbackWidget` solo está en `MatchCard`, `ProyectoRAG` y `ProyectoInsights`.
-- En `AsistenteIA.tsx` y `FloatingChat.tsx` **no hay forma de marcar 👍/👎** una respuesta.
-- Las correcciones del usuario en lenguaje natural ("te has olvidado de Rivas Centro", "no hay superficie para Obramat") se pierden: no se detectan como señal negativa.
+| Opción | Latencia | Calidad voz | Interrupciones | Coste | Setup |
+|---|---|---|---|---|---|
+| **OpenAI Realtime API (gpt-realtime / gpt-4o-realtime)** | 300–800 ms voz→voz | Muy natural, prosodia humana | Sí, nativo (VAD server-side) | ~$0.06/min in + $0.24/min out audio | Requiere `OPENAI_API_KEY`, WebRTC + token efímero |
+| **Lo actual (Gemini transcribe + SpeechSynthesis browser)** | 2–4 s por turno | Voz robótica del navegador | No, turnos rígidos | Solo coste Gemini | Ya funciona, sin keys extra |
+| **Gemini Live API (2.5 Flash Live)** | ~500–900 ms | Buena, menos natural que OpenAI | Sí | Incluido en Lovable AI Gateway si se expone | Aún no expuesto en Lovable AI Gateway de forma estable |
 
-### 3. AVA orquestador no usa los patrones aprendidos
-- `ava-orchestrator/index.ts` solo lista `ai_feedback` como tabla consultable, pero **nunca inyecta `ai_learned_patterns` en el system prompt**. Aunque el agregador funcionara, AVA no se enteraría.
+**Conclusión**: Sí, OpenAI Realtime es claramente superior para conversación fluida tipo "llamada". Lo que tienes ahora es un loop por turnos, no tiempo real de verdad. Merece la pena para el modo "📞 conversación".
 
----
+### Transcripción (STT puro, dictado)
 
-## Plan de solución
+Benchmarks públicos recientes (2025) y mi experiencia:
 
-### A. Disparar el agregador automáticamente
-**`supabase/functions/ai-learning-aggregator/index.ts`** + **nueva migración**:
-- Programar `pg_cron` cada 5 minutos para invocar la función vía `net.http_post` (o llamar directamente desde el cliente tras registrar feedback). Opción más simple y robusta: añadir invocación inmediata desde `triggerPatternLearning` en `feedbackService.ts` con `supabase.functions.invoke('ai-learning-aggregator')` (fire-and-forget) además de mantener la tarea en cola.
-- Procesar también las **412 tareas atrasadas** (ya entran en el flujo en cuanto se invoque la función).
-- Soportar `entidad_tipo: 'ava_message'` en el aggregator (hoy solo procesa `match` y `rag_response`).
+| Proveedor | Modelo | Latencia típica (audio 10s) | WER español | Coste |
+|---|---|---|---|---|
+| **Groq** | `whisper-large-v3-turbo` | **~0.3–0.6 s** ⚡ (hasta 200x realtime) | ~5% | $0.04/h |
+| **OpenAI** | `gpt-4o-transcribe` / `whisper-1` | ~1.5–3 s | ~4–5% | $0.006/min ($0.36/h) |
+| **Gemini** (lo actual) | `gemini-2.5-flash` multimodal | ~2–4 s | ~6–8% (no es STT dedicado) | Incluido Lovable AI |
 
-### B. Capturar feedback en AVA chat
-**`src/components/AvaMessageFeedback.tsx`** (nuevo, derivado de FeedbackWidget pero adaptado):
-- Botones 👍 / 👎 / corregir bajo cada respuesta del asistente en `AsistenteIA.tsx` y `FloatingChat.tsx`.
-- `entidadTipo: 'ava_message'`, `entidadId: <ava_messages.id>` (ya devuelto por `insertedMsg`).
-- En `useChatMessages.ts`: detectar **señales implícitas de corrección** en el siguiente mensaje del usuario (regex sobre patrones tipo "te has olvidado", "no es correcto", "está mal", "no hay", "revisa", "corrige") y registrar `feedback_tipo: 'thumbs_down'` automáticamente sobre el mensaje anterior del asistente, con el texto de corrección en `correccion_sugerida`.
+**Conclusión**: **Groq Whisper Large v3 Turbo** es el ganador absoluto en velocidad (5–10x más rápido que OpenAI, ~10x más rápido que Gemini) y además el más barato. Calidad muy similar a OpenAI Whisper. Gemini es el más lento porque no es un modelo STT dedicado, es un multimodal genérico.
 
-### C. Que AVA use lo aprendido
-**`supabase/functions/ava-orchestrator/index.ts`**:
-- Antes de la primera llamada IA, hacer SELECT de `ai_learned_patterns WHERE activo AND confianza >= 0.6 ORDER BY num_observaciones DESC LIMIT 30`.
-- Inyectar bloque `## LECCIONES APRENDIDAS` al final de `SYSTEM_PROMPT` con cada patrón formateado (`patron_descripcion` + tasa de éxito + nota si es positivo/negativo).
-- También inyectar las últimas **5 correcciones explícitas** del usuario sobre mensajes AVA (de `ai_feedback` con `correccion_sugerida IS NOT NULL`) como ejemplos concretos a evitar/replicar.
+## Recomendación
 
-### D. Extender el aggregator a `ava_message`
-- Nueva función `processAvaMessageFeedback()` que registra patrones tipo `ava_topic:<tema_inferido>` y `ava_correction:<keyword>` con score negativo si hubo corrección.
-- Tema inferido a partir de `contexto.tools_used` o primeras palabras del mensaje original.
+- **Dictado (STT)**: cambiar `ava-transcribe` para usar **Groq Whisper Large v3 Turbo** → respuesta casi instantánea. Necesita `GROQ_API_KEY` (gratis tier generoso, plan pago barato).
+- **Conversación tiempo real**: usar **OpenAI Realtime API** (modelo `gpt-realtime` o `gpt-4o-realtime-preview`) con WebRTC + token efímero. Necesita `OPENAI_API_KEY`.
+- Mantener Gemini sólo como fallback si las dos keys no están.
 
----
+## Plan de implementación (cuando apruebes)
 
-## Archivos a modificar/crear
+1. **Pedir secrets**: `GROQ_API_KEY` y `OPENAI_API_KEY` (en mensajes separados, una vez confirmes).
+2. **Migrar `ava-transcribe`** a Groq:
+   - Endpoint `https://api.groq.com/openai/v1/audio/transcriptions`
+   - Modelo `whisper-large-v3-turbo`, `language: "es"`, `response_format: "json"`
+   - Fallback a Gemini si Groq falla / no hay key.
+3. **Crear `realtime-token`** edge function que emita tokens efímeros de OpenAI Realtime (`POST https://api.openai.com/v1/realtime/sessions`).
+4. **Crear `AvaRealtimeOverlay.tsx`**: overlay full-screen estilo "llamada" con WebRTC peer connection a OpenAI, visualizador de onda, botón colgar. Sustituye al modo conversación actual cuando OPENAI_API_KEY esté configurada.
+5. **Mantener el modo conversación actual** (Gemini + browser TTS) como fallback si OpenAI no está disponible.
+6. **Botón "📞 Llamar a AVA"** en `AsistenteIA` y `FloatingChat` para abrir el overlay realtime. El botón mic actual queda para dictado puntual con Groq.
 
-| Archivo | Cambio |
-|---|---|
-| `src/services/feedbackService.ts` | Añadir `'ava_message'` al `EntityType`. Llamar a `supabase.functions.invoke('ai-learning-aggregator')` tras encolar tarea. |
-| `src/hooks/useChatMessages.ts` | Detectar correcciones implícitas en siguiente input del usuario y registrar feedback negativo sobre el último msg del asistente. |
-| `src/pages/AsistenteIA.tsx` | Renderizar `<FeedbackWidget entidadTipo="ava_message" entidadId={msg.id} />` bajo cada respuesta del asistente. |
-| `src/components/FloatingChat.tsx` | Mismo widget. |
-| `supabase/functions/ai-learning-aggregator/index.ts` | Soportar `entidad_tipo='ava_message'`, procesar lote más grande, no exigir 10 tareas para `aggregateMatchPatterns`. |
-| `supabase/functions/ava-orchestrator/index.ts` | Cargar patrones e inyectarlos en el system prompt antes de cada llamada IA. |
-| Nueva migración SQL | (Opcional) `pg_cron` cada 5 min como red de seguridad. |
+## Lo que NO cambia
+- Toda la lógica de tools, attachments, Forge, CRUD confirmación → intacta.
+- El orquestador AVA sigue siendo el mismo (recibe el texto transcrito por Groq o el texto de la sesión Realtime al final del turno).
 
----
+## Preguntas antes de programar
 
-## Resultado esperado
-
-- Cuando el usuario corrige a AVA ("te olvidaste de Rivas Centro", "no hay SBA para Obramat"), esa corrección queda registrada como **patrón negativo** asociado al tema, con confianza creciente cada vez que se repita.
-- En la siguiente consulta similar, AVA recibe en su prompt: *"PATRÓN APRENDIDO: para análisis comerciales en Arganda incluir SIEMPRE Rivas Centro. No proponer Obramat por falta de SBA. (5 correcciones, confianza 0.75)"*.
-- 👍 explícitos refuerzan el patrón positivo del enfoque usado (herramientas + tipo de respuesta).
-- Las 412 tareas pendientes se procesarán en el primer disparo y empezarán a generar patrones de matches inmediatamente.
+¿Quieres las dos cosas (Groq + OpenAI Realtime) o solo migrar transcripción a Groq de momento y dejar OpenAI Realtime para más adelante?
 
