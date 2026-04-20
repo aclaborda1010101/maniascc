@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useChatMessages, toolLabel } from "@/hooks/useChatMessages";
+import { AvaMessageFeedback } from "@/components/AvaMessageFeedback";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 
@@ -96,6 +97,11 @@ export function FloatingChat() {
                         const tl = toolLabel(t);
                         return <Badge key={i} variant="outline" className="text-[9px] px-1 py-0">{tl.emoji} {tl.label}</Badge>;
                       })}
+                    </div>
+                  )}
+                  {msg.role === "assistant" && (
+                    <div className="mt-1">
+                      <AvaMessageFeedback messageId={msg.id} toolsUsed={msg.meta?.tools_used} />
                     </div>
                   )}
                 </div>

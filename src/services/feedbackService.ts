@@ -2,7 +2,7 @@ import { supabase } from "@/integrations/supabase/client";
 
 export type FeedbackType = 'thumbs_up' | 'thumbs_down' | 'star_rating' | 'correction';
 export type FeedbackAction = 'viewed' | 'clicked' | 'approved' | 'rejected' | 'exported' | 'copied' | 'ignored' | 'selected';
-export type EntityType = 'match' | 'rag_response' | 'forge_document' | 'suggestion' | 'insight';
+export type EntityType = 'match' | 'rag_response' | 'forge_document' | 'suggestion' | 'insight' | 'ava_message';
 
 interface ExplicitFeedback {
   entidadTipo: EntityType;
@@ -146,6 +146,10 @@ async function triggerPatternLearning(entidadTipo: string, entidadId: string, so
       entidad_tipo: entidadTipo,
       entidad_id: entidadId,
       parametros: { source, timestamp: new Date().toISOString() },
+    });
+    // Fire-and-forget: trigger the aggregator immediately so the task doesn't sit in queue
+    supabase.functions.invoke('ai-learning-aggregator', { body: {} }).catch(() => {
+      // Silent fail: cron/manual run will pick it up later
     });
   } catch (e) {
     console.error('Failed to trigger pattern learning:', e);
