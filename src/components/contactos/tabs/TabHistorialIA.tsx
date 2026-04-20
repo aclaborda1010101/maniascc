@@ -40,16 +40,15 @@ export default function TabHistorialIA({ contacto: c, operador, negociaciones }:
         ).join("\n")
         : "\nSin negociaciones previas.";
 
-      const { data, error } = await supabase.functions.invoke("expert-forge-proxy", {
+      const { data, error } = await supabase.functions.invoke("ai-perfil-negociador", {
         body: {
-          action: "chat",
-          question: "Genera un brief de negociación profesional para la próxima reunión con este contacto. Incluye: resumen del perfil, puntos clave, estrategia recomendada, riesgos, y tácticas sugeridas. Sé específico y accionable.",
-          context: `${context}${negsCtx}`,
+          contexto: `${context}${negsCtx}`,
+          objetivo: "Genera un brief de negociación profesional para la próxima reunión con este contacto. Incluye: resumen del perfil, puntos clave, estrategia recomendada, riesgos, y tácticas sugeridas. Sé específico y accionable.",
         },
       });
 
       if (error) throw error;
-      const reply = data?.response || data?.answer || data?.result?.answer || data?.message || "No se pudo generar.";
+      const reply = data?.brief || data?.response || data?.answer || data?.message || "No se pudo generar.";
       setBrief(reply);
     } catch (err: any) {
       toast({ title: "Error al generar brief", description: err.message, variant: "destructive" });
