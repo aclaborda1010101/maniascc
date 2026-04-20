@@ -193,7 +193,7 @@ export default function Consumo() {
           </CardHeader>
           <CardContent>
             {isLoading ? <Skeleton className="h-8 w-20" /> : (
-              <p className="text-3xl font-bold">{totals.cost.toFixed(4)} €</p>
+              <p className="text-3xl font-bold">{totals.cost.toLocaleString('es-ES', { minimumFractionDigits: 4, maximumFractionDigits: 4 })} €</p>
             )}
           </CardContent>
         </Card>
