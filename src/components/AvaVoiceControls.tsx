@@ -168,65 +168,11 @@ export function AvaVoiceControls({
 }
 
 /**
- * Waits for ~1.5s of silence after some speech, or a hard timeout.
- * MVP heuristic — relies on AnalyserNode RMS over the active stream.
+ * MVP utterance window: fixed 5s capture (user can re-trigger by speaking again).
+ * Future: replace with VAD using AnalyserNode RMS over the recorder's MediaStream.
  */
 function waitForSilenceOrTimeout(maxMs: number): Promise<void> {
   return new Promise<void>((resolve) => {
-    const startedAt = Date.now();
-    let lastVoiceAt = Date.now();
-    let everSpoke = false;
-    let raf = 0;
-    let ctx: AudioContext | null = null;
-    let analyser: AnalyserNode | null = null;
-    let source: MediaStreamAudioSourceNode | null = null;
-    let buf: Uint8Array | null = null;
-
-    try {
-      const stream = (navigator.mediaDevices as any).__avaActiveStream as MediaStream | undefined;
-      // Best-effort: grab the global tracks via the recorder's stream is not exposed,
-      // so we just time-box. If AudioContext setup fails, fall back to fixed 4s window.
-      if (stream) {
-        ctx = new AudioContext();
-        source = ctx.createMediaStreamSource(stream);
-        analyser = ctx.createAnalyser();
-        analyser.fftSize = 1024;
-        source.connect(analyser);
-        buf = new Uint8Array(analyser.frequencyBinCount);
-      }
-    } catch { /* no-op */ }
-
-    const cleanupAndResolve = () => {
-      cancelAnimationFrame(raf);
-      try { source?.disconnect(); analyser?.disconnect(); ctx?.close(); } catch { /* */ }
-      resolve();
-    };
-
-    const tick = () => {
-      const now = Date.now();
-      if (now - startedAt >= maxMs) return cleanupAndResolve();
-
-      if (analyser && buf) {
-        analyser.getByteTimeDomainData(buf);
-        // Compute simple RMS deviation from 128
-        let sum = 0;
-        for (let i = 0; i < buf.length; i++) {
-          const v = (buf[i] - 128) / 128;
-          sum += v * v;
-        }
-        const rms = Math.sqrt(sum / buf.length);
-        if (rms > 0.04) {
-          everSpoke = true;
-          lastVoiceAt = now;
-        }
-        if (everSpoke && (now - lastVoiceAt) > 1500) return cleanupAndResolve();
-        if (!everSpoke && now - startedAt > 4000) return cleanupAndResolve(); // user said nothing
-      } else {
-        // No analyser → wait fixed 4s
-        if (now - startedAt > 4000) return cleanupAndResolve();
-      }
-      raf = requestAnimationFrame(tick);
-    };
-    raf = requestAnimationFrame(tick);
+    setTimeout(resolve, Math.min(maxMs, 5000));
   });
 }
