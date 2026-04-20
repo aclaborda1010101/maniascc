@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useEffect } from "react";
-import { Send, Trash2, Sparkles, User, Plus, Pencil, Check, X as XIcon, MessageSquare, FileDown, Loader2, PanelLeftOpen, PanelLeftClose } from "lucide-react";
+import { Send, Trash2, Sparkles, User, Plus, Pencil, Check, X as XIcon, MessageSquare, FileDown, Loader2, PanelLeftOpen, PanelLeftClose, Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -14,6 +14,7 @@ import { generateProfessionalPdf, downloadBlob } from "@/services/pdfService";
 import { useToast } from "@/hooks/use-toast";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { AvaMessageFeedback } from "@/components/AvaMessageFeedback";
+import { AvaAttachmentBar } from "@/components/AvaAttachmentBar";
 
 function PdfDownloadButton({ content, title }: { content: string; title?: string }) {
   const { toast } = useToast();
@@ -34,6 +35,21 @@ function PdfDownloadButton({ content, title }: { content: string; title?: string
     <Button variant="outline" size="sm" className="mt-2 gap-1.5 text-xs h-7 px-3 border-accent text-accent" onClick={handleClick} disabled={exporting}>
       {exporting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <FileDown className="h-3.5 w-3.5" />} Descargar informe PDF
     </Button>
+  );
+}
+
+function ForgePdfBlock({ forgePdf }: { forgePdf: { mode: string; file_name: string; download_url: string | null; title: string } }) {
+  if (!forgePdf.download_url) return null;
+  return (
+    <a
+      href={forgePdf.download_url}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="mt-2 inline-flex items-center gap-1.5 px-3 h-7 rounded-md border border-accent text-accent hover:bg-accent/10 transition-colors text-xs font-medium"
+      download={forgePdf.file_name}
+    >
+      <Download className="h-3.5 w-3.5" /> Descargar {forgePdf.title || forgePdf.file_name}
+    </a>
   );
 }
 
