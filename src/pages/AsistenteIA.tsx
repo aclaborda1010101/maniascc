@@ -15,6 +15,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { AvaMessageFeedback } from "@/components/AvaMessageFeedback";
 import { AvaAttachmentBar } from "@/components/AvaAttachmentBar";
+import { AvaPendingActionCard } from "@/components/AvaPendingActionCard";
 
 function PdfDownloadButton({ content, title }: { content: string; title?: string }) {
   const { toast } = useToast();
