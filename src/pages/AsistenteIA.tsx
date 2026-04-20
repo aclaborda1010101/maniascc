@@ -154,6 +154,18 @@ export default function AsistenteIA() {
         </div>
       )}
 
+      {/* Desktop sidebar (collapsible) */}
+      {!isMobile && (
+        <div className={cn(
+          "shrink-0 border-r border-border bg-muted/30 overflow-hidden transition-all duration-200",
+          desktopSidebarOpen ? "w-64" : "w-0"
+        )}>
+          <div className="w-64 h-full">
+            <ConversationList {...convListProps} />
+          </div>
+        </div>
+      )}
+
       {/* Mobile sidebar as Sheet */}
       {isMobile && (
         <Sheet open={sidebarOpen} onOpenChange={setSidebarOpen}>
@@ -168,9 +180,13 @@ export default function AsistenteIA() {
         {/* Header */}
         <div className="flex items-center justify-between px-3 md:px-6 py-2.5 md:py-3 border-b border-border shrink-0">
           <div className="flex items-center gap-2">
-            {isMobile && (
+            {isMobile ? (
               <Button variant="ghost" size="icon" className="h-9 w-9" onClick={() => setSidebarOpen(true)}>
                 <PanelLeftOpen className="h-4 w-4" />
+              </Button>
+            ) : (
+              <Button variant="ghost" size="icon" className="h-9 w-9" onClick={() => setDesktopSidebarOpen(v => !v)} title={desktopSidebarOpen ? "Ocultar conversaciones" : "Mostrar conversaciones"}>
+                {desktopSidebarOpen ? <PanelLeftClose className="h-4 w-4" /> : <PanelLeftOpen className="h-4 w-4" />}
               </Button>
             )}
             <div>
