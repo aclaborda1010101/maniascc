@@ -355,8 +355,48 @@ serve(async (req) => {
     }
 
     const startTime = Date.now();
+
+    // Load learned patterns + recent corrections to inject as system context
+    let lessonsBlock = "";
+    try {
+      const { data: patterns } = await admin
+        .from("ai_learned_patterns")
+        .select("patron_tipo, patron_key, patron_descripcion, tasa_exito, num_observaciones, score_ajuste, confianza")
+        .eq("activo", true)
+        .gte("confianza", 0.6)
+        .order("num_observaciones", { ascending: false })
+        .limit(30);
+
+      const { data: corrections } = await admin
+        .from("ai_feedback")
+        .select("correccion_sugerida, comentario, contexto, created_at")
+        .eq("entidad_tipo", "ava_message")
+        .not("correccion_sugerida", "is", null)
+        .order("created_at", { ascending: false })
+        .limit(5);
+
+      const lessons: string[] = [];
+      for (const p of patterns || []) {
+        const sign = (p.score_ajuste ?? 0) >= 0 ? "✅" : "⚠️";
+        const tasa = p.tasa_exito != null ? ` (éxito ${(p.tasa_exito * 100).toFixed(0)}%, n=${p.num_observaciones})` : "";
+        lessons.push(`${sign} ${p.patron_descripcion}${tasa}`);
+      }
+      const corrLines: string[] = [];
+      for (const c of corrections || []) {
+        if (c.correccion_sugerida) corrLines.push(`- "${(c.correccion_sugerida as string).slice(0, 250)}"`);
+      }
+      if (lessons.length > 0 || corrLines.length > 0) {
+        lessonsBlock = `\n\n## LECCIONES APRENDIDAS DEL FEEDBACK DEL USUARIO\nAplica SIEMPRE estas lecciones cuando el contexto lo permita. Son aprendizajes acumulados de interacciones reales.\n\n${lessons.join("\n")}`;
+        if (corrLines.length > 0) {
+          lessonsBlock += `\n\n### Correcciones recientes que NO debes repetir:\n${corrLines.join("\n")}`;
+        }
+      }
+    } catch (e) {
+      console.warn("Could not load learned patterns:", e);
+    }
+
     const messages: Array<{ role: string; content: string; tool_call_id?: string }> = [
-      { role: "system", content: SYSTEM_PROMPT },
+      { role: "system", content: SYSTEM_PROMPT + lessonsBlock },
     ];
 
     // Build context with cumulative summary for long conversations
