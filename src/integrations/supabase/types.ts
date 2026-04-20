@@ -758,6 +758,7 @@ export type Database = {
           created_at: string | null
           documento_id: string | null
           dominio: string
+          embedding: string | null
           id: string
           metadata: Json | null
           owner_id: string | null
@@ -770,6 +771,7 @@ export type Database = {
           created_at?: string | null
           documento_id?: string | null
           dominio?: string
+          embedding?: string | null
           id?: string
           metadata?: Json | null
           owner_id?: string | null
@@ -782,6 +784,7 @@ export type Database = {
           created_at?: string | null
           documento_id?: string | null
           dominio?: string
+          embedding?: string | null
           id?: string
           metadata?: Json | null
           owner_id?: string | null
@@ -2278,6 +2281,47 @@ export type Database = {
           },
         ]
       }
+      rag_reprocess_queue: {
+        Row: {
+          created_at: string
+          documento_id: string
+          error_msg: string | null
+          estado: string
+          id: string
+          intentos: number
+          task_type: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          documento_id: string
+          error_msg?: string | null
+          estado?: string
+          id?: string
+          intentos?: number
+          task_type: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          documento_id?: string
+          error_msg?: string | null
+          estado?: string
+          id?: string
+          intentos?: number
+          task_type?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "rag_reprocess_queue_documento_id_fkey"
+            columns: ["documento_id"]
+            isOneToOne: false
+            referencedRelation: "documentos_proyecto"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       sinergias_operadores: {
         Row: {
           coeficiente_sinergia: number | null
@@ -2557,6 +2601,26 @@ export type Database = {
           _user_id: string
         }
         Returns: boolean
+      }
+      rag_hybrid_search: {
+        Args: {
+          p_dominio?: string
+          p_limit?: number
+          p_proyecto_id?: string
+          p_query_embedding: string
+          p_question: string
+        }
+        Returns: {
+          contenido: string
+          documento_id: string
+          dominio: string
+          fts_rank: number
+          hybrid_score: number
+          id: string
+          metadata: Json
+          proyecto_id: string
+          vec_distance: number
+        }[]
       }
     }
     Enums: {
