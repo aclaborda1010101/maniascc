@@ -6,6 +6,30 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+// Fetch with retry on transient gateway errors (502/503/504) + network errors
+async function fetchAIWithRetry(url: string, init: RequestInit, maxAttempts = 3): Promise<Response> {
+  let lastErr: unknown = null;
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      const resp = await fetch(url, init);
+      if (resp.ok) return resp;
+      // Retry only on transient upstream errors
+      if ([502, 503, 504].includes(resp.status) && attempt < maxAttempts) {
+        const body = await resp.text().catch(() => "");
+        console.warn(`AI gateway transient ${resp.status} (attempt ${attempt}/${maxAttempts}): ${body.slice(0, 200)}`);
+        await new Promise(r => setTimeout(r, 500 * attempt));
+        continue;
+      }
+      return resp;
+    } catch (e) {
+      lastErr = e;
+      console.warn(`AI gateway network error (attempt ${attempt}/${maxAttempts}):`, e);
+      if (attempt < maxAttempts) await new Promise(r => setTimeout(r, 500 * attempt));
+    }
+  }
+  throw lastErr ?? new Error("AI gateway unreachable");
+}
+
 const SYSTEM_PROMPT = `Eres AVA, la asistente estratégica de F&G Real Estate especializada en retail e inmobiliario comercial. Tienes acceso a:
 1. BASE DE DATOS interna: locales, operadores, contactos, activos, proyectos/oportunidades, matches, negociaciones, documentos
 2. RAG (Retrieval-Augmented Generation): documentos indexados segmentados por dominio (contratos, operadores, activos, mercado, personas)
