@@ -728,9 +728,9 @@ serve(async (req) => {
       `[Resultado de ${tr.tool}]:\n${JSON.stringify(tr.result).substring(0, 6000)}`
     ).join("\n\n");
 
-    // Build synthesis messages with cumulative summary
+    // Build synthesis messages with cumulative summary + lessons
     const synthesisMessages: Array<{ role: string; content: string }> = [
-      { role: "system", content: SYSTEM_PROMPT },
+      { role: "system", content: SYSTEM_PROMPT + lessonsBlock },
     ];
     
     if (cumulativeSummary) {
