@@ -279,9 +279,11 @@ h2.slide-sec em { font-style: italic; color: var(--gold-600); font-weight: 400; 
   --wr-border:#1C2940; --wr-ink:#E8E1D2; --wr-ink-dim:#8692AB;
   --wr-gold:#D4A95C; --wr-green:#4FB369; --wr-amber:#E8A93C;
   --wr-red:#D1483F; --wr-blue:#5A8AB8;
-  background: var(--wr-bg); color: var(--wr-ink); padding: 28px; min-height: 100vh;
+  background: var(--wr-bg); color: var(--wr-ink); padding: 24px 28px; min-height: 100vh;
   font-family: var(--sans);
 }
+.wr .panel { page-break-inside: avoid; break-inside: avoid; }
+.wr .alert-row, .wr .semaforo-row, .wr table tr { page-break-inside: avoid; break-inside: avoid; }
 .wr .topbar { display: grid; grid-template-columns: auto 1fr auto; gap: 24px; align-items: center; padding-bottom: 16px; border-bottom: 1px solid var(--wr-border); margin-bottom: 18px; }
 .wr .topbar .brand { display: flex; align-items: center; gap: 12px; font-weight: 700; letter-spacing: 0.26em; text-transform: uppercase; font-size: 11px; }
 .wr .topbar .brand .mk { width: 16px; height: 16px; border: 1.5px solid var(--wr-ink); position: relative; }
@@ -1254,9 +1256,15 @@ function buildHtmlDocument(mode: ForgeMode, data: any, modeLabel: string, heroIm
   const pageCss = forPrint
     ? (isDeck
       ? `@page { size: A4 landscape; margin: 0; }
+         html, body { background: #05080F !important; }
          .slide { width: 100% !important; height: 100vh !important; box-shadow: none !important; margin: 0 !important; padding: 32px 48px !important; page-break-after: always; }
          .deck-wrap { width: 100% !important; padding: 0 !important; background: #fff !important; }
-         .deck-stage { gap: 0 !important; }`
+         .deck-stage { gap: 0 !important; }
+         /* War Room dashboard: continuous flow without forced full-page height, smart breaks */
+         .wr { min-height: auto !important; padding: 18px 24px !important; }
+         .wr .strip-wr { margin-bottom: 12px !important; }
+         .wr .panel { margin-bottom: 8px !important; padding: 12px 14px !important; }
+         .wr .wrfooter { margin-top: 12px !important; }`
       : `@page { size: A4 portrait; margin: 0; }
          .doc-a4 { max-width: 100% !important; margin: 0 !important; box-shadow: none !important; }
          .page { width: 100% !important; min-height: 100vh !important; }`)
