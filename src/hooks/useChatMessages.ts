@@ -418,12 +418,28 @@ export function useChatMessages() {
     await supabase.from("ava_messages").update({ meta: newMeta as any }).eq("id", messageId);
   }, [messages]);
 
+  const appendInput = useCallback((text: string) => {
+    if (!text) return;
+    setInput(prev => {
+      const sep = prev && !prev.endsWith(" ") ? " " : "";
+      return prev + sep + text;
+    });
+  }, []);
+
+  const lastAssistantContent = (() => {
+    for (let i = messages.length - 1; i >= 0; i--) {
+      if (messages[i].role === "assistant") return messages[i].content;
+    }
+    return null;
+  })();
+
   return {
     conversations,
     activeConversationId,
     messages,
     input,
     setInput,
+    appendInput,
     loading: loading || initialLoading,
     sendMessage,
     clearChat,
@@ -436,5 +452,6 @@ export function useChatMessages() {
     addAttachments,
     removeAttachment,
     resolvePendingAction,
+    lastAssistantContent,
   };
 }
