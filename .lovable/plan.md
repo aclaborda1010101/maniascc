@@ -1,58 +1,99 @@
 
 
-El usuario pregunta dos cosas concretas, no pide implementación todavía. Es una consulta de investigación/decisión técnica. Aun así conviene presentar un mini-plan porque la respuesta implica decisiones que cambiarán código (qué proveedor usar para STT y para Realtime).
+# Plan: Catalogación documental masiva + retirada de Expert Forge MoE externo
 
-## Resumen de la pregunta
-1. ¿Es mejor el tiempo real con OpenAI Realtime que con lo que tenemos (Gemini TTS browser)?
-2. ¿Cuál es más rápido para transcripción: Groq, OpenAI Whisper o Gemini?
+## Respuesta rápida a tus tres preguntas
 
-## Análisis
+### 1. ¿Qué hace el botón "Clasificar/Reclasificar con IA" (✨)?
+Llama a la edge function `document-classify`, que con Gemini 2.5 Flash:
+- Lee nombre + mime + muestra de contenido
+- Asigna **categoría** (taxonomía: 12 disponibles en BD)
+- Asigna **nivel de sensibilidad** (público/interno/confidencial/restringido)
+- Genera **nombre normalizado** (`2026-04-20_legal_contrato_arrendamiento.pdf`)
+- Detecta **fecha del documento** y un **resumen de 1 frase**
 
-### Tiempo real (conversación bidireccional con voz)
+Al subir un archivo ya se dispara automáticamente. El botón sirve para **reclasificar** uno suelto si la IA se equivocó o si quieres refrescar metadatos.
 
-| Opción | Latencia | Calidad voz | Interrupciones | Coste | Setup |
-|---|---|---|---|---|---|
-| **OpenAI Realtime API (gpt-realtime / gpt-4o-realtime)** | 300–800 ms voz→voz | Muy natural, prosodia humana | Sí, nativo (VAD server-side) | ~$0.06/min in + $0.24/min out audio | Requiere `OPENAI_API_KEY`, WebRTC + token efímero |
-| **Lo actual (Gemini transcribe + SpeechSynthesis browser)** | 2–4 s por turno | Voz robótica del navegador | No, turnos rígidos | Solo coste Gemini | Ya funciona, sin keys extra |
-| **Gemini Live API (2.5 Flash Live)** | ~500–900 ms | Buena, menos natural que OpenAI | Sí | Incluido en Lovable AI Gateway si se expone | Aún no expuesto en Lovable AI Gateway de forma estable |
+### 2. ¿Falta un botón "Clasificar TODO automáticamente"?
+**Sí, falta.** Ahora mismo no existe acción masiva. Si subes 50 docs antes de que existiera la IA, hay que clicar uno a uno.
 
-**Conclusión**: Sí, OpenAI Realtime es claramente superior para conversación fluida tipo "llamada". Lo que tienes ahora es un loop por turnos, no tiempo real de verdad. Merece la pena para el modo "📞 conversación".
+### 3. ¿Son suficientes las 7 categorías del selector?
+**No.** El selector de upload muestra 7 (`contrato, financiero, dossier, informe, plano, correo, otro`) pero la BD ya tiene **12 taxonomías**: activo, operador, operacion, legal, financiero, presentacion, correo, whatsapp, plano, multimedia, investigacion, sin_clasificar. Está desincronizado.
 
-### Transcripción (STT puro, dictado)
+### 4. Arquitectura RAG: ¿interna o externa (MoE Expert Forge)?
+La aplicación tiene **dos sistemas paralelos**:
+- **RAG interno** (lo que usamos hoy): `rag-proxy` + `rag-ingest` + tabla `document_chunks` + Gemini 2.5 Flash. Funciona, está integrado en AVA, ProyectoRAG, Documentos, etc.
+- **Expert Forge externo MoE**: `expert-forge-proxy` apuntando a `nhfocnjtgwuamelovncq.supabase.co` con 7 specialists (ATLAS, FORGE7, MATCHING, AUDITORIA, SCRAPING, COORDINADOR, NEGOCIACION). Solo se usa en 4 sitios marginales: pestaña "Auditoría externa" de `/auditoria`, tarjeta de health-check en `/ajustes` y `/admin`, y como tool `expert_forge` del orquestador AVA (que casi nunca elige porque el RAG interno es más rápido).
 
-Benchmarks públicos recientes (2025) y mi experiencia:
+**Conclusión**: Expert Forge ya no aporta valor (duplica capacidades del RAG interno + Lovable AI). Lo desactivamos.
 
-| Proveedor | Modelo | Latencia típica (audio 10s) | WER español | Coste |
-|---|---|---|---|---|
-| **Groq** | `whisper-large-v3-turbo` | **~0.3–0.6 s** ⚡ (hasta 200x realtime) | ~5% | $0.04/h |
-| **OpenAI** | `gpt-4o-transcribe` / `whisper-1` | ~1.5–3 s | ~4–5% | $0.006/min ($0.36/h) |
-| **Gemini** (lo actual) | `gemini-2.5-flash` multimodal | ~2–4 s | ~6–8% (no es STT dedicado) | Incluido Lovable AI |
+---
 
-**Conclusión**: **Groq Whisper Large v3 Turbo** es el ganador absoluto en velocidad (5–10x más rápido que OpenAI, ~10x más rápido que Gemini) y además el más barato. Calidad muy similar a OpenAI Whisper. Gemini es el más lento porque no es un modelo STT dedicado, es un multimodal genérico.
+## Lo que vamos a hacer
 
-## Recomendación
+### A) Catalogación documental — mejoras
 
-- **Dictado (STT)**: cambiar `ava-transcribe` para usar **Groq Whisper Large v3 Turbo** → respuesta casi instantánea. Necesita `GROQ_API_KEY` (gratis tier generoso, plan pago barato).
-- **Conversación tiempo real**: usar **OpenAI Realtime API** (modelo `gpt-realtime` o `gpt-4o-realtime-preview`) con WebRTC + token efímero. Necesita `OPENAI_API_KEY`.
-- Mantener Gemini sólo como fallback si las dos keys no están.
+**A1. Sincronizar las 12 categorías en el selector de upload**
+En `ProyectoDocumentos.tsx`, sustituir las 7 opciones hard-codeadas por las 12 reales de `documentos_taxonomia` (cargadas con `fetchTaxonomias()` que ya existe). Mostrar icono + nombre.
 
-## Plan de implementación (cuando apruebes)
+**A2. Botón "Clasificar todo lo pendiente"**
+Nuevo botón en el header de la tabla de documentos (página de Oportunidad → Documentos, y también en `/documentos` global):
+- Detecta documentos sin `taxonomia_id` o con `procesado_ia = false`
+- Muestra contador: *"23 documentos sin clasificar"*
+- Al pulsar, lanza `classifyDocument()` en lote (paralelo controlado: 3 a la vez) con barra de progreso
+- Al terminar, también lanza `ingestDocument()` para los no indexados
+- Toast final: *"23 clasificados · 18 indexados"*
 
-1. **Pedir secrets**: `GROQ_API_KEY` y `OPENAI_API_KEY` (en mensajes separados, una vez confirmes).
-2. **Migrar `ava-transcribe`** a Groq:
-   - Endpoint `https://api.groq.com/openai/v1/audio/transcriptions`
-   - Modelo `whisper-large-v3-turbo`, `language: "es"`, `response_format: "json"`
-   - Fallback a Gemini si Groq falla / no hay key.
-3. **Crear `realtime-token`** edge function que emita tokens efímeros de OpenAI Realtime (`POST https://api.openai.com/v1/realtime/sessions`).
-4. **Crear `AvaRealtimeOverlay.tsx`**: overlay full-screen estilo "llamada" con WebRTC peer connection a OpenAI, visualizador de onda, botón colgar. Sustituye al modo conversación actual cuando OPENAI_API_KEY esté configurada.
-5. **Mantener el modo conversación actual** (Gemini + browser TTS) como fallback si OpenAI no está disponible.
-6. **Botón "📞 Llamar a AVA"** en `AsistenteIA` y `FloatingChat` para abrir el overlay realtime. El botón mic actual queda para dictado puntual con Groq.
+**A3. Propuesta de categorías adicionales (opcional, te las dejo a decisión)**
 
-## Lo que NO cambia
-- Toda la lógica de tools, attachments, Forge, CRUD confirmación → intacta.
-- El orquestador AVA sigue siendo el mismo (recibe el texto transcrito por Groq o el texto de la sesión Realtime al final del turno).
+Las 12 actuales cubren bien el caso inmobiliario. Pero podríamos añadir:
+- **`due_diligence`** — informes técnicos de DD (separar de "legal")
+- **`urbanismo`** — licencias, certificados energéticos, cédulas
+- **`fiscal`** — IBI, IVA, facturas tributarias (separar de "financiero")
+- **`marketing`** — campañas, branding del centro (separar de "presentacion")
+- **`acta_reunion`** — minutas de reuniones (hoy van a "correo" u "otro")
 
-## Preguntas antes de programar
+Mi recomendación: añadir **due_diligence**, **urbanismo** y **acta_reunion**. Las otras dos son matiz fino que se pueden vivir como subtipo de los existentes.
 
-¿Quieres las dos cosas (Groq + OpenAI Realtime) o solo migrar transcripción a Groq de momento y dejar OpenAI Realtime para más adelante?
+### B) Retirada de Expert Forge MoE externo
+
+**B1. Eliminar tool `expert_forge` del orquestador AVA**
+Quitar la definición de la tool y el branch `if (fnName === "expert_forge")` en `supabase/functions/ava-orchestrator/index.ts`. AVA seguirá funcionando con sus tools internas (db_query, rag_search, run_intelligence, generate_pdf, etc.).
+
+**B2. Eliminar página/sección de Expert Forge en UI**
+- `src/pages/Auditoria.tsx`: quitar el bloque "Expert Forge — Especialista Auditoría" (textarea + botón consultar)
+- `src/pages/Ajustes.tsx`: quitar tarjeta "Conexión Expert Forge" (status + ping + lista specialists)
+- `src/pages/Admin.tsx`: quitar pestaña/sección "Conexión IA externa", lista SPECIALISTS_INFO y botón testConnection
+
+**B3. Eliminar código muerto**
+- Borrar `supabase/functions/expert-forge-proxy/index.ts` (al borrar la función, Lovable la desregistra del deploy)
+- Borrar `src/services/expertForge.ts`
+- Limpiar imports huérfanos
+
+**B4. Secrets a desactivar (te los digo, los borras tú desde Cloud)**
+- `EXPERT_FORGE_API_KEY`
+- `JARVIS_PATTERNS_API_KEY`
+- `JARVIS_PATTERNS_URL`
+Una vez no quede código que los lea, son seguros de eliminar.
+
+**B5. Actualizar memoria del proyecto**
+Eliminar `mem://integrations/expert-forge` y referencia en el index, añadir constraint: *"Expert Forge MoE externo retirado: usar solo RAG interno (rag-proxy + document_chunks)"*.
+
+---
+
+## Detalles técnicos (sección para repasar luego)
+
+- `document-classify` ya persiste `taxonomia_id`, `nombre_normalizado`, `nivel_sensibilidad`, `fecha_documento`, `resumen_ia`, `procesado_ia` en `documentos_proyecto`. No requiere cambios de schema.
+- El batch usará `Promise.allSettled` en chunks de 3 con `setProgress` para feedback visual.
+- Para añadir las 3 nuevas taxonomías (B if approved), se hace con una migración INSERT en `documentos_taxonomia`.
+- El orquestador AVA tras quitar `expert_forge` mantiene 9 tools, suficientes.
+- Las páginas `/auditoria` y `/admin` quedan más limpias mostrando solo el sistema interno.
+
+---
+
+## Preguntas antes de implementar
+
+1. ¿Añado las 3 categorías nuevas (**due_diligence**, **urbanismo**, **acta_reunion**) o dejamos las 12 actuales?
+2. ¿Confirmas la retirada COMPLETA de Expert Forge (frontend + backend + secrets)? ¿O prefieres dejar `expert-forge-proxy` desplegado por si vuelve a hacer falta?
+3. El botón "Clasificar todo" ¿lo quieres solo en la pestaña Documentos de cada Oportunidad, o también en la página global `/documentos`?
 
