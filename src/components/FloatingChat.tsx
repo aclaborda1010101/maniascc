@@ -130,6 +130,22 @@ export function FloatingChat() {
                     </div>
                   )}
 
+                  {msg.meta?.pending_action && !msg.meta?.action_resolved && (
+                    <AvaPendingActionCard
+                      action={msg.meta.pending_action}
+                      onResolved={(r) => resolvePendingAction(msg.id, r)}
+                    />
+                  )}
+                  {msg.meta?.action_resolved && (
+                    <div className="mt-1 text-[9px] text-muted-foreground">
+                      {msg.meta.action_resolved.confirmed
+                        ? msg.meta.action_resolved.success
+                          ? "✅ Ejecutada"
+                          : `❌ Falló: ${msg.meta.action_resolved.error || "error"}`
+                        : "✖️ Cancelada"}
+                    </div>
+                  )}
+
                   {msg.meta?.tools_used && msg.meta.tools_used.length > 0 && (
                     <div className="mt-1 flex flex-wrap gap-1">
                       {msg.meta.tools_used.map((t, i) => {
