@@ -17,6 +17,7 @@ import { AvaMessageFeedback } from "@/components/AvaMessageFeedback";
 import { AvaAttachmentBar } from "@/components/AvaAttachmentBar";
 import { AvaPendingActionCard } from "@/components/AvaPendingActionCard";
 import { AvaVoiceControls } from "@/components/AvaVoiceControls";
+import { AvaRealtimeOverlay, AvaCallButton } from "@/components/AvaRealtimeOverlay";
 
 function PdfDownloadButton({ content, title }: { content: string; title?: string }) {
   const { toast } = useToast();
@@ -128,6 +129,7 @@ export default function AsistenteIA() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editTitle, setEditTitle] = useState("");
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [callOpen, setCallOpen] = useState(false);
   const [desktopSidebarOpen, setDesktopSidebarOpen] = useState(() => {
     if (typeof window === "undefined") return true;
     const v = localStorage.getItem("ava-conv-sidebar");
@@ -320,6 +322,7 @@ export default function AsistenteIA() {
               loading={loading}
               disabled={loading}
             />
+            <AvaCallButton onClick={() => setCallOpen(true)} />
             <Input
               placeholder="Pregúntame, dicta o adjunta un documento..."
               value={input}
@@ -339,6 +342,8 @@ export default function AsistenteIA() {
           </div>
         </div>
       </div>
+
+      <AvaRealtimeOverlay open={callOpen} onClose={() => setCallOpen(false)} />
     </div>
   );
 }
