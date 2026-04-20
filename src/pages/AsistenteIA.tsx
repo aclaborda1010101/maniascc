@@ -16,6 +16,7 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import { AvaMessageFeedback } from "@/components/AvaMessageFeedback";
 import { AvaAttachmentBar } from "@/components/AvaAttachmentBar";
 import { AvaPendingActionCard } from "@/components/AvaPendingActionCard";
+import { AvaVoiceControls } from "@/components/AvaVoiceControls";
 
 function PdfDownloadButton({ content, title }: { content: string; title?: string }) {
   const { toast } = useToast();
@@ -121,6 +122,7 @@ export default function AsistenteIA() {
     loading, sendMessage, clearChat, scrollRef,
     createConversation, switchConversation, renameConversation, deleteConversation,
     pendingAttachments, addAttachments, removeAttachment, resolvePendingAction,
+    appendInput, lastAssistantContent,
   } = useChatMessages();
 
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -311,8 +313,15 @@ export default function AsistenteIA() {
             {pendingAttachments.length === 0 && (
               <AvaAttachmentBar attachments={[]} onAdd={addAttachments} onRemove={removeAttachment} disabled={loading} />
             )}
+            <AvaVoiceControls
+              onTranscript={appendInput}
+              onAutoSend={sendMessage}
+              latestAssistantReply={lastAssistantContent}
+              loading={loading}
+              disabled={loading}
+            />
             <Input
-              placeholder="Pregúntame o adjunta un documento..."
+              placeholder="Pregúntame, dicta o adjunta un documento..."
               value={input}
               onChange={e => setInput(e.target.value)}
               onKeyDown={e => e.key === "Enter" && !e.shiftKey && sendMessage()}

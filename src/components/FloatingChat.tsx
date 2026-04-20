@@ -8,6 +8,7 @@ import { useChatMessages, toolLabel } from "@/hooks/useChatMessages";
 import { AvaMessageFeedback } from "@/components/AvaMessageFeedback";
 import { AvaAttachmentBar } from "@/components/AvaAttachmentBar";
 import { AvaPendingActionCard } from "@/components/AvaPendingActionCard";
+import { AvaVoiceControls } from "@/components/AvaVoiceControls";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 
@@ -19,6 +20,7 @@ export function FloatingChat() {
     loading, sendMessage, clearChat, scrollRef,
     createConversation, switchConversation,
     pendingAttachments, addAttachments, removeAttachment, resolvePendingAction,
+    appendInput, lastAssistantContent,
   } = useChatMessages();
 
   const activeConv = conversations.find(c => c.id === activeConversationId);
@@ -175,7 +177,7 @@ export function FloatingChat() {
 
           {/* Input */}
           <div className="border-t p-3">
-            <div className="flex gap-2 items-end">
+            <div className="flex gap-1.5 items-end">
               <AvaAttachmentBar
                 attachments={pendingAttachments}
                 onAdd={addAttachments}
@@ -183,8 +185,16 @@ export function FloatingChat() {
                 compact
                 disabled={loading}
               />
+              <AvaVoiceControls
+                onTranscript={appendInput}
+                onAutoSend={sendMessage}
+                latestAssistantReply={lastAssistantContent}
+                loading={loading}
+                disabled={loading}
+                compact
+              />
               <Input
-                placeholder={processing ? "Procesando adjuntos..." : "Pregúntame lo que necesites..."}
+                placeholder={processing ? "Procesando adjuntos..." : "Pregúntame o dicta..."}
                 value={input}
                 onChange={e => setInput(e.target.value)}
                 onKeyDown={e => e.key === "Enter" && !e.shiftKey && sendMessage()}
