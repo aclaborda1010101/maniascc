@@ -121,17 +121,18 @@ const TOOLS = [
   {
     type: "function",
     function: {
-      name: "db_mutate",
-      description: "Modifica datos en la base de datos. Acciones: insert o update",
+      name: "propose_action",
+      description: "PROPONE una acción de creación o actualización de datos (insert/update). NO la ejecuta: el usuario debe confirmarla con un botón en el chat. Úsalo SIEMPRE que el usuario te pida crear/editar contactos, operadores, activos, locales, proyectos o negociaciones. Devuelve un resumen para que el usuario confirme.",
       parameters: {
         type: "object",
         properties: {
-          table: { type: "string", description: "Tabla a modificar" },
-          action: { type: "string", enum: ["insert", "update"] },
-          data: { type: "object", description: "Datos a insertar o actualizar" },
-          match: { type: "object", description: "Filtros para update (ej: {id: '...'})" },
+          table: { type: "string", description: "Tabla destino: contactos, operadores, activos, locales, proyectos, negociaciones, matches" },
+          action: { type: "string", enum: ["insert", "update"], description: "Tipo de operación" },
+          data: { type: "object", description: "Datos a insertar o actualizar (solo campos relevantes, no incluir id, created_at, etc.)" },
+          match: { type: "object", description: "Para update: filtros (ej: {id: '...'})" },
+          summary: { type: "string", description: "Resumen breve en lenguaje natural de lo que se va a hacer (ej: 'Crear el contacto Juan Pérez de Mercadona como Director de Expansión'). Lo verá el usuario antes de confirmar." },
         },
-        required: ["table", "action", "data"],
+        required: ["table", "action", "data", "summary"],
       },
     },
   },
