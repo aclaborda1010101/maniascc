@@ -7,6 +7,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useChatMessages, toolLabel } from "@/hooks/useChatMessages";
 import { AvaMessageFeedback } from "@/components/AvaMessageFeedback";
 import { AvaAttachmentBar } from "@/components/AvaAttachmentBar";
+import { AvaPendingActionCard } from "@/components/AvaPendingActionCard";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 
