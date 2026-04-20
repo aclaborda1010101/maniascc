@@ -147,13 +147,6 @@ export default function AsistenteIA() {
 
   return (
     <div className="flex h-[calc(100vh-6.5rem)] md:h-[calc(100vh-6.5rem)] gap-0 -mx-4 md:-mx-0 -mt-4 md:-mt-0">
-      {/* Desktop sidebar */}
-      {!isMobile && (
-        <div className="w-64 shrink-0 border-r border-border bg-muted/30">
-          <ConversationList {...convListProps} />
-        </div>
-      )}
-
       {/* Desktop sidebar (collapsible) */}
       {!isMobile && (
         <div className={cn(
