@@ -1,7 +1,7 @@
 import {
   LayoutDashboard, Users, Sparkles, LogOut, FileText,
   FolderKanban, UserCircle, MapPin, Brain, Hammer,
-  Compass, FileSearch, Layers, MessageSquare, Moon, Sun, Settings, Network, FlaskConical, DollarSign,
+  Compass, FileSearch, Layers, MessageSquare, Moon, Sun, Settings, Network, FlaskConical, DollarSign, BookOpen,
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useLocation } from "react-router-dom";
@@ -26,6 +26,7 @@ const directoryItems = [
   { title: "Operadores", url: "/operadores", icon: Users },
   { title: "Contactos (Hub)", url: "/contactos", icon: UserCircle },
   { title: "Documentos", url: "/documentos", icon: FileText },
+  { title: "Conocimiento", url: "/conocimiento", icon: BookOpen },
 ];
 
 const aiToolsItems = [

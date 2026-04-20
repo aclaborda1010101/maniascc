@@ -7,13 +7,31 @@ const corsHeaders = {
 };
 
 const DOMAIN_SYSTEM_PROMPTS: Record<string, string> = {
-  contratos: `Eres un experto legal en contratos de arrendamiento inmobiliario comercial. Analiza clausulado, condiciones, precios y plazos con precisión jurídica.`,
-  operadores: `Eres un analista especializado en operadores retail. Conoces perfiles de expansión, criterios de búsqueda, rangos de precio y patrones de negociación.`,
-  activos: `Eres un experto en activos inmobiliarios comerciales. Valoras locales, centros comerciales, analizas métricas de superficie, precio/m² y benchmarks de mercado.`,
-  mercado: `Eres un analista de mercado inmobiliario retail. Interpretas informes sectoriales, tendencias, datos demográficos y señales de mercado.`,
-  personas: `Eres un experto en inteligencia relacional y perfiles de negociación. Analizas estilos comunicativos, preferencias y patrones de decisión.`,
-  general: `Eres un asistente experto en el sector inmobiliario comercial (retail real estate).`,
+  contratos: `Eres un experto legal en contratos de arrendamiento inmobiliario comercial.`,
+  operadores: `Eres un analista especializado en operadores retail.`,
+  activos: `Eres un experto en activos inmobiliarios comerciales.`,
+  centros_comerciales: `Eres un experto en centros y parques comerciales.`,
+  comunicaciones: `Eres un analista de comunicaciones y emails de negociación.`,
+  mercado: `Eres un analista de mercado inmobiliario retail.`,
+  personas: `Eres un experto en perfiles de negociación.`,
+  general: `Eres un asistente experto en el sector inmobiliario comercial.`,
 };
+
+async function embedQuery(question: string, openaiKey: string): Promise<number[] | null> {
+  if (!openaiKey) return null;
+  try {
+    const r = await fetch("https://api.openai.com/v1/embeddings", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${openaiKey}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ model: "text-embedding-3-small", input: question.slice(0, 8000) }),
+    });
+    if (!r.ok) return null;
+    const d = await r.json();
+    return d.data?.[0]?.embedding ?? null;
+  } catch {
+    return null;
+  }
+}
 
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
@@ -23,18 +41,16 @@ serve(async (req) => {
     const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+    const OPENAI_KEY = Deno.env.get("OPENAI_API_KEY") || "";
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY not configured");
 
-    // Auth
     const authHeader = req.headers.get("Authorization");
     if (!authHeader?.startsWith("Bearer ")) {
       return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: corsHeaders });
     }
-    const userClient = createClient(SUPABASE_URL, ANON_KEY, {
-      global: { headers: { Authorization: authHeader } },
-    });
-    const { data: claims, error: claimsErr } = await userClient.auth.getUser();
-    if (claimsErr || !claims.user) {
+    const userClient = createClient(SUPABASE_URL, ANON_KEY, { global: { headers: { Authorization: authHeader } } });
+    const { data: claims } = await userClient.auth.getUser();
+    if (!claims.user) {
       return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: corsHeaders });
     }
 
@@ -45,89 +61,101 @@ serve(async (req) => {
 
     const admin = createClient(SUPABASE_URL, SERVICE_KEY);
     const proyectoId = filters?.proyecto_id;
-    const dominio = filters?.dominio; // Optional: filter by specific domain
+    const dominio = filters?.dominio && filters.dominio !== "todos" ? filters.dominio : null;
 
-    // Full-text search for relevant chunks
-    let query = admin
-      .from("document_chunks")
-      .select("id, contenido, chunk_index, metadata, documento_id, dominio")
-      .textSearch("contenido", question, { type: "websearch", config: "spanish" })
-      .limit(10);
+    // 1) HYBRID SEARCH (FTS + vector si hay embedding de query)
+    let contextChunks: any[] = [];
+    const queryEmbedding = await embedQuery(question, OPENAI_KEY);
 
-    if (proyectoId) query = query.eq("proyecto_id", proyectoId);
-    if (dominio && dominio !== "todos") query = query.eq("dominio", dominio);
+    if (queryEmbedding) {
+      const { data: hybrid } = await admin.rpc("rag_hybrid_search", {
+        p_question: question,
+        p_query_embedding: queryEmbedding as never,
+        p_dominio: dominio,
+        p_proyecto_id: proyectoId || null,
+        p_limit: 20,
+      });
+      contextChunks = hybrid || [];
+    }
 
-    const { data: chunks } = await query;
+    // 2) Fallback FTS clásico si la híbrida no devuelve nada
+    if (contextChunks.length === 0) {
+      let q = admin
+        .from("document_chunks")
+        .select("id, contenido, chunk_index, metadata, documento_id, dominio")
+        .textSearch("contenido", question, { type: "websearch", config: "spanish" })
+        .limit(15);
+      if (proyectoId) q = q.eq("proyecto_id", proyectoId);
+      if (dominio) q = q.eq("dominio", dominio);
+      const { data } = await q;
+      contextChunks = data || [];
+    }
 
-    // Fallback: ILIKE
-    let contextChunks = chunks || [];
+    // 3) Fallback ILIKE
     if (contextChunks.length === 0) {
       const words = question.split(/\s+/).filter((w: string) => w.length > 3).slice(0, 3);
       if (words.length > 0) {
-        let fallback = admin
+        let fb = admin
           .from("document_chunks")
           .select("id, contenido, chunk_index, metadata, documento_id, dominio")
+          .ilike("contenido", `%${words[0]}%`)
           .limit(10);
-
-        if (proyectoId) fallback = fallback.eq("proyecto_id", proyectoId);
-        if (dominio && dominio !== "todos") fallback = fallback.eq("dominio", dominio);
-        fallback = fallback.ilike("contenido", `%${words[0]}%`);
-
-        const { data: fbData } = await fallback;
-        contextChunks = fbData || [];
+        if (proyectoId) fb = fb.eq("proyecto_id", proyectoId);
+        if (dominio) fb = fb.eq("dominio", dominio);
+        const { data } = await fb;
+        contextChunks = data || [];
       }
     }
 
     if (contextChunks.length === 0) {
       return new Response(JSON.stringify({
-        answer: "No se encontraron documentos relevantes para responder esta pregunta. Asegúrate de haber subido e indexado documentos en el proyecto.",
+        answer: "No se encontraron documentos relevantes. Asegúrate de haber subido e indexado documentos.",
         citations: [],
         confidence: 0,
-        domains_searched: dominio || "todos",
       }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
-    // Determine dominant domain for specialized system prompt
+    // Top-10 por hybrid_score (si viene) o tal cual
+    contextChunks = contextChunks.slice(0, 10);
+
+    // Resolver nombres de documentos
+    const docIds = [...new Set(contextChunks.map((c: any) => c.documento_id).filter(Boolean))];
+    const { data: docs } = docIds.length > 0
+      ? await admin.from("documentos_proyecto").select("id, nombre").in("id", docIds)
+      : { data: [] as { id: string; nombre: string }[] };
+    const docName = new Map((docs || []).map((d: any) => [d.id, d.nombre]));
+
     const domainCounts: Record<string, number> = {};
     for (const c of contextChunks) {
-      const d = (c as any).dominio || "general";
+      const d = c.dominio || "general";
       domainCounts[d] = (domainCounts[d] || 0) + 1;
     }
     const dominantDomain = Object.entries(domainCounts).sort((a, b) => b[1] - a[1])[0]?.[0] || "general";
-    const domainSystemPrompt = DOMAIN_SYSTEM_PROMPTS[dominantDomain] || DOMAIN_SYSTEM_PROMPTS.general;
+    const sysPrompt = DOMAIN_SYSTEM_PROMPTS[dominantDomain] || DOMAIN_SYSTEM_PROMPTS.general;
 
-    // Build context
     const context = contextChunks.map((c: any, i: number) => {
-      const docName = c.metadata?.nombre || "Documento";
-      const dom = c.dominio || "general";
-      return `[Fuente ${i + 1}: "${docName}", dominio: ${dom}, fragmento ${c.chunk_index}]\n${c.contenido}`;
+      const name = docName.get(c.documento_id) || c.metadata?.nombre || "Documento";
+      return `[Fuente ${i + 1}: "${name}", fragmento ${c.chunk_index ?? "?"}]\n${c.contenido}`;
     }).join("\n\n---\n\n");
 
-    const systemPrompt = `${domainSystemPrompt}
-Responde SIEMPRE en español. Basa tu respuesta ÚNICAMENTE en los fragmentos de documentos proporcionados.
-Si la información no está en los documentos, dilo claramente.
-Al final de tu respuesta, lista las fuentes que utilizaste en formato: [Fuente X: "nombre_doc", fragmento N].
-Sé conciso, profesional y preciso.`;
+    const systemPrompt = `${sysPrompt}
+Responde SIEMPRE en español. Basa tu respuesta ÚNICAMENTE en los fragmentos proporcionados.
+Si no está en los documentos, dilo claramente. Sé conciso y profesional.`;
 
-    const userPrompt = `CONTEXTO DE DOCUMENTOS (dominio principal: ${dominantDomain}):
+    const userPrompt = `CONTEXTO (${dominantDomain}):
 
 ${context}
 
 ---
 
-PREGUNTA DEL USUARIO: ${question}
-
-Responde basándote en los documentos anteriores. Cita las fuentes utilizadas.`;
+PREGUNTA: ${question}`;
 
     const startMs = Date.now();
     const aiResp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
-      headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
-        "Content-Type": "application/json",
-      },
+      headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
       body: JSON.stringify({
-        model: "google/gemini-3-flash-preview",
+        model: "google/gemini-2.5-flash",
         messages: [
           { role: "system", content: systemPrompt },
           { role: "user", content: userPrompt },
@@ -136,22 +164,19 @@ Responde basándote en los documentos anteriores. Cita las fuentes utilizadas.`;
           type: "function",
           function: {
             name: "rag_response",
-            description: "Structured RAG response with answer, citations, and confidence",
+            description: "Respuesta RAG estructurada",
             parameters: {
               type: "object",
               properties: {
-                answer: { type: "string", description: "The answer in Spanish based on the documents" },
-                citations: {
+                answer: { type: "string" },
+                cited_sources: {
                   type: "array",
-                  items: { type: "string" },
-                  description: "List of source references used",
+                  items: { type: "integer" },
+                  description: "Índices (1-based) de las fuentes realmente usadas",
                 },
-                confidence: {
-                  type: "number",
-                  description: "Confidence score 0-1",
-                },
+                confidence: { type: "number" },
               },
-              required: ["answer", "citations", "confidence"],
+              required: ["answer", "cited_sources", "confidence"],
             },
           },
         }],
@@ -161,45 +186,40 @@ Responde basándote en los documentos anteriores. Cita las fuentes utilizadas.`;
 
     if (!aiResp.ok) {
       const status = aiResp.status;
-      if (status === 429) {
-        return new Response(JSON.stringify({ error: "Límite de peticiones excedido, inténtalo en unos segundos." }), {
-          status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-      if (status === 402) {
-        return new Response(JSON.stringify({ error: "Créditos de IA agotados." }), {
-          status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-      const body = await aiResp.text();
-      console.error("AI error:", status, body);
-      throw new Error("AI gateway error");
+      if (status === 429) return new Response(JSON.stringify({ error: "Límite de peticiones excedido." }), { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      if (status === 402) return new Response(JSON.stringify({ error: "Créditos de IA agotados." }), { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      throw new Error(`AI gateway ${status}`);
     }
 
     const aiData = await aiResp.json();
     const latency = Date.now() - startMs;
-
-    let result: { answer: string; citations: string[]; confidence: number };
-    const toolCall = aiData.choices?.[0]?.message?.tool_calls?.[0];
-    if (toolCall?.function?.arguments) {
-      const args = typeof toolCall.function.arguments === "string"
-        ? JSON.parse(toolCall.function.arguments)
-        : toolCall.function.arguments;
-      result = args;
+    const tc = aiData.choices?.[0]?.message?.tool_calls?.[0];
+    let parsed: { answer: string; cited_sources: number[]; confidence: number };
+    if (tc?.function?.arguments) {
+      const args = typeof tc.function.arguments === "string" ? JSON.parse(tc.function.arguments) : tc.function.arguments;
+      parsed = { answer: args.answer || "", cited_sources: args.cited_sources || [], confidence: args.confidence ?? 0.5 };
     } else {
-      result = {
-        answer: aiData.choices?.[0]?.message?.content || "No se pudo generar una respuesta.",
-        citations: contextChunks.map((c: any) => c.metadata?.nombre || "Documento").filter(
-          (v: string, i: number, a: string[]) => a.indexOf(v) === i
-        ),
-        confidence: 0.5,
-      };
+      parsed = { answer: aiData.choices?.[0]?.message?.content || "", cited_sources: [], confidence: 0.4 };
     }
 
-    // Audit
+    // Construir citas con documento_id
+    const citations = (parsed.cited_sources.length > 0 ? parsed.cited_sources : contextChunks.map((_, i) => i + 1))
+      .map((idx) => {
+        const c = contextChunks[idx - 1];
+        if (!c) return null;
+        return {
+          documento_id: c.documento_id,
+          nombre: docName.get(c.documento_id) || c.metadata?.nombre || "Documento",
+          chunk_index: c.chunk_index,
+        };
+      })
+      .filter(Boolean)
+      // dedup por documento_id
+      .filter((v: any, i: number, a: any[]) => a.findIndex((x) => x.documento_id === v.documento_id) === i);
+
     await admin.from("auditoria_ia").insert({
       funcion_ia: `rag-proxy:${dominantDomain}`,
-      modelo: "google/gemini-3-flash-preview",
+      modelo: "google/gemini-2.5-flash",
       tokens_entrada: aiData.usage?.prompt_tokens || 0,
       tokens_salida: aiData.usage?.completion_tokens || 0,
       latencia_ms: latency,
@@ -208,12 +228,13 @@ Responde basándote en los documentos anteriores. Cita las fuentes utilizadas.`;
     });
 
     return new Response(JSON.stringify({
-      ...result,
+      answer: parsed.answer,
+      citations,
+      confidence: parsed.confidence,
       domain: dominantDomain,
       domains_found: Object.keys(domainCounts),
-    }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+      hybrid: !!queryEmbedding,
+    }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
   } catch (e) {
     console.error("rag-proxy error:", e);
     return new Response(JSON.stringify({ error: e instanceof Error ? e.message : "Unknown error" }), {
