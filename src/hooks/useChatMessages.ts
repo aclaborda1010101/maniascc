@@ -365,6 +365,7 @@ export function useChatMessages() {
         latency_ms: data?.latency_ms,
         ...(data?.pdf_content ? { pdf_content: data.pdf_content, pdf_title: data.pdf_title } : {}),
         ...(data?.forge_pdf ? { forge_pdf: data.forge_pdf } : {}),
+        ...(data?.pending_action ? { pending_action: data.pending_action } : {}),
       } : {};
 
       const { data: asstInserted } = await supabase
