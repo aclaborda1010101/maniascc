@@ -107,6 +107,14 @@ export default function AsistenteIA() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editTitle, setEditTitle] = useState("");
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [desktopSidebarOpen, setDesktopSidebarOpen] = useState(() => {
+    if (typeof window === "undefined") return true;
+    const v = localStorage.getItem("ava-conv-sidebar");
+    return v === null ? true : v === "1";
+  });
+  useEffect(() => {
+    localStorage.setItem("ava-conv-sidebar", desktopSidebarOpen ? "1" : "0");
+  }, [desktopSidebarOpen]);
   const isMobile = useIsMobile();
 
   const startRename = (id: string, currentTitle: string) => {
