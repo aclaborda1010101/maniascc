@@ -145,22 +145,6 @@ const TOOLS = [
   {
     type: "function",
     function: {
-      name: "expert_forge",
-      description: "Consulta al sistema Expert Forge MoE+RAG para obtener respuestas especializadas de los 7 agentes IA",
-      parameters: {
-        type: "object",
-        properties: {
-          question: { type: "string", description: "Pregunta en lenguaje natural" },
-          specialist_id: { type: "string", description: "UUID del especialista (opcional, el MoE Router decide si no se especifica)" },
-          context: { type: "string", description: "Contexto adicional" },
-        },
-        required: ["question"],
-      },
-    },
-  },
-  {
-    type: "function",
-    function: {
       name: "run_intelligence",
       description: "Ejecuta una función de inteligencia avanzada: análisis de localización, optimización tenant mix, validación de dossier, o perfil de negociación",
       parameters: {
@@ -615,23 +599,6 @@ serve(async (req) => {
               summary: args.summary || `${args.action} en ${args.table}`,
             };
           }
-        } else if (fnName === "expert_forge") {
-          toolLabel = "expert_forge";
-          const efUrl = Deno.env.get("SUPABASE_URL") + "/functions/v1/expert-forge-proxy";
-          const efResp = await fetch(efUrl, {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: authHeader,
-              apikey: anonKey,
-            },
-            body: JSON.stringify({
-              question: args.question,
-              specialist_id: args.specialist_id,
-              context: args.context,
-            }),
-          });
-          result = await efResp.json();
         } else if (fnName === "run_intelligence") {
           toolLabel = "run_intelligence:" + (args.function_name || "");
           const funcName = INTELLIGENCE_FUNCTIONS[args.function_name];

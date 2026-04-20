@@ -11,7 +11,7 @@ import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   FileText, Image as ImageIcon, FolderOpen, Cloud, Search, Tags, Sparkles,
-  RefreshCw, Lock, Globe2, Users as UsersIcon, AlertCircle, CheckCircle2, Loader2, Upload, Database,
+  RefreshCw, Lock, Globe2, Users as UsersIcon, AlertCircle, CheckCircle2, Loader2, Upload, Database, Wand2,
 } from "lucide-react";
 import { toast } from "sonner";
 import { UploadZone } from "@/components/UploadZone";
@@ -20,6 +20,7 @@ import {
   fetchOneDriveState, startOneDriveSync, fetchIngestionJobs,
   type DocumentoExt, type Taxonomia,
 } from "@/services/documentService";
+import { ingestDocument } from "@/services/ragService";
 
 const SENSIBILIDAD_STYLES: Record<string, string> = {
   publico: "bg-chart-2/10 text-chart-2 border-chart-2/30",
@@ -61,6 +62,9 @@ export default function Documentos() {
   const [odSyncing, setOdSyncing] = useState(false);
   const [jobs, setJobs] = useState<any[]>([]);
 
+  const [bulkRunning, setBulkRunning] = useState(false);
+  const [bulkProgress, setBulkProgress] = useState({ done: 0, total: 0, classified: 0, indexed: 0 });
+
   const loadAll = useCallback(async () => {
     setLoading(true);
     const [docs, tax, c, m] = await Promise.all([
@@ -95,6 +99,41 @@ export default function Documentos() {
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Error clasificando");
     }
+  };
+
+  const runBulk = async () => {
+    const pendientes = documentos.filter((d) => !d.taxonomia_id || !d.procesado_ia);
+    if (pendientes.length === 0) { toast.info("No hay documentos pendientes"); return; }
+    setBulkRunning(true);
+    const total = pendientes.length;
+    setBulkProgress({ done: 0, total, classified: 0, indexed: 0 });
+    let classified = 0, indexed = 0;
+    const CHUNK = 3;
+    for (let i = 0; i < pendientes.length; i += CHUNK) {
+      const slice = pendientes.slice(i, i + CHUNK);
+      const results = await Promise.allSettled(
+        slice.map(async (d) => {
+          const r = { c: false, i: false };
+          if (!d.taxonomia_id) {
+            try { await classifyDocument(d.id); r.c = true; } catch {}
+          }
+          if (!d.procesado_ia) {
+            try { const res = await ingestDocument(d.id); if (res.success) r.i = true; } catch {}
+          }
+          return r;
+        })
+      );
+      for (const r of results) {
+        if (r.status === "fulfilled") {
+          if (r.value.c) classified++;
+          if (r.value.i) indexed++;
+        }
+      }
+      setBulkProgress({ done: Math.min(i + CHUNK, total), total, classified, indexed });
+    }
+    setBulkRunning(false);
+    toast.success(`${classified} clasificados · ${indexed} indexados de ${total}`);
+    loadAll();
   };
 
   const handleOneDriveSync = async (mode: "backfill" | "delta") => {
@@ -155,8 +194,8 @@ export default function Documentos() {
 
         {/* === CATÁLOGO === */}
         <TabsContent value="catalogo" className="space-y-4">
-          {/* Filtros */}
-          <div className="flex flex-wrap gap-2">
+          {/* Filtros + bulk action */}
+          <div className="flex flex-wrap gap-2 items-center">
             <div className="relative flex-1 min-w-[200px]">
               <Search className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Buscar por nombre..." className="pl-9" />
@@ -181,7 +220,23 @@ export default function Documentos() {
                 <SelectItem value="plaud">Plaud</SelectItem>
               </SelectContent>
             </Select>
+            {(stats.pendingClassify > 0 || stats.queued > 0) && (
+              <Button onClick={runBulk} disabled={bulkRunning} className="gap-2">
+                {bulkRunning ? <Loader2 className="h-4 w-4 animate-spin" /> : <Wand2 className="h-4 w-4" />}
+                {bulkRunning
+                  ? `Procesando ${bulkProgress.done}/${bulkProgress.total}…`
+                  : `Clasificar todo (${stats.pendingClassify + stats.queued} pend.)`}
+              </Button>
+            )}
           </div>
+          {bulkRunning && (
+            <div className="space-y-1">
+              <Progress value={(bulkProgress.done / Math.max(1, bulkProgress.total)) * 100} className="h-2" />
+              <p className="text-xs text-muted-foreground">
+                {bulkProgress.classified} clasificados · {bulkProgress.indexed} indexados
+              </p>
+            </div>
+          )}
 
           {/* Tabla */}
           <Card>
