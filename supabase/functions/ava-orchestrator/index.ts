@@ -80,7 +80,11 @@ NUNCA respondas en texto plano sin formato. NUNCA digas "no tengo datos suficien
 
 Responde siempre en español. Sé profesional, detallada y estratégica.
 
-IMPORTANTE SOBRE INFORMES PDF: Cuando el usuario te pida explícitamente que generes un informe, documento, dossier o reporte, usa la herramienta generate_pdf_report. NO uses esta herramienta para respuestas normales de chat.`;
+IMPORTANTE SOBRE GENERACIÓN DE DOCUMENTOS:
+- Usa **generate_forge_document** (modo correcto entre los 6 disponibles) cuando el usuario pida: dossier de operador/marca, presentación comercial / teaser de un activo, borrador de contrato de arrendamiento, plan estratégico, informe war room semanal, o un email profesional. Esta tool produce un PDF maquetado profesional (estilo McKinsey/Cushman) que se descarga automáticamente.
+- Usa **generate_pdf_report** SOLO para reportes ad-hoc que no encajen en ningún modo FORGE.
+- Cuando el usuario te referencie un documento por su nombre o lo cite implícitamente ("según el contrato de Mercadona", "mira el dossier de la Milla"), usa **read_system_document** para localizarlo y leer su contenido antes de responder.
+- Si el usuario adjunta un archivo en el chat, su contenido aparecerá en la sección "DOCUMENTOS ADJUNTOS POR EL USUARIO". Trátalo como fuente prioritaria.`;
 
 const TOOLS = [
   {
