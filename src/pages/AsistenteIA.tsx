@@ -247,6 +247,21 @@ export default function AsistenteIA() {
                     {msg.meta?.forge_pdf && (
                       <ForgePdfBlock forgePdf={msg.meta.forge_pdf} />
                     )}
+                    {msg.meta?.pending_action && !msg.meta?.action_resolved && (
+                      <AvaPendingActionCard
+                        action={msg.meta.pending_action}
+                        onResolved={(r) => resolvePendingAction(msg.id, r)}
+                      />
+                    )}
+                    {msg.meta?.action_resolved && (
+                      <div className="mt-2 text-[10px] text-muted-foreground">
+                        {msg.meta.action_resolved.confirmed
+                          ? msg.meta.action_resolved.success
+                            ? "✅ Acción confirmada y ejecutada"
+                            : `❌ Confirmada pero falló: ${msg.meta.action_resolved.error || "error"}`
+                          : "✖️ Acción cancelada por el usuario"}
+                      </div>
+                    )}
                   </div>
                 ) : (
                   <p className="text-xs md:text-sm">{msg.content}</p>
