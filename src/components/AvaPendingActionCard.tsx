@@ -114,7 +114,7 @@ export function AvaPendingActionCard({ action, onResolved }: Props) {
       )}
 
       {status === "done" && (
-        <div className="flex items-center gap-2 text-xs text-emerald-600 dark:text-emerald-400">
+        <div className="flex items-center gap-2 text-xs text-primary">
           <CheckCircle2 className="h-3 w-3" /> Acción ejecutada correctamente
         </div>
       )}
