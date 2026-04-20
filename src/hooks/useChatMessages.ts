@@ -261,10 +261,13 @@ export function useChatMessages() {
     const q = input.trim();
     if (!q || loading || !user) return;
 
+    // Capture conversation ID at send time to isolate state per conversation
+    const convId = activeConversationId;
+
     // Insert user message to DB
     const { data: insertedMsg } = await supabase
       .from("ava_messages")
-      .insert({ conversation_id: activeConversationId, role: "user", content: q, meta: {} })
+      .insert({ conversation_id: convId, role: "user", content: q, meta: {} })
       .select("id, created_at")
       .single();
 
@@ -277,20 +280,19 @@ export function useChatMessages() {
     const updatedMessages = [...messages, userMsg];
     setMessages(updatedMessages);
     setInput("");
-    setLoading(true);
+    markLoading(convId, true);
 
     // Auto-title on first message
     if (messages.length === 0) {
       const autoTitle = q.length > 40 ? q.slice(0, 40) + "…" : q;
-      await supabase.from("ava_conversations").update({ title: autoTitle, updated_at: new Date().toISOString() }).eq("id", activeConversationId);
-      setConversations(prev => prev.map(c => c.id === activeConversationId ? { ...c, title: autoTitle, updatedAt: Date.now() } : c));
+      await supabase.from("ava_conversations").update({ title: autoTitle, updated_at: new Date().toISOString() }).eq("id", convId);
+      setConversations(prev => prev.map(c => c.id === convId ? { ...c, title: autoTitle, updatedAt: Date.now() } : c));
     } else {
-      await supabase.from("ava_conversations").update({ updated_at: new Date().toISOString() }).eq("id", activeConversationId);
-      setConversations(prev => prev.map(c => c.id === activeConversationId ? { ...c, updatedAt: Date.now() } : c));
+      await supabase.from("ava_conversations").update({ updated_at: new Date().toISOString() }).eq("id", convId);
+      setConversations(prev => prev.map(c => c.id === convId ? { ...c, updatedAt: Date.now() } : c));
     }
 
     try {
-      // Build recent history from current conversation
       const recentMessages = updatedMessages.slice(-20).map(m => ({
         role: m.role,
         content: m.content,
@@ -315,10 +317,9 @@ export function useChatMessages() {
         ...(data?.pdf_content ? { pdf_content: data.pdf_content, pdf_title: data.pdf_title } : {}),
       } : {};
 
-      // Insert assistant message to DB
       const { data: asstInserted } = await supabase
         .from("ava_messages")
-        .insert({ conversation_id: activeConversationId, role: "assistant", content: assistantContent, meta })
+        .insert({ conversation_id: convId, role: "assistant", content: assistantContent, meta })
         .select("id, created_at")
         .single();
 
@@ -329,19 +330,20 @@ export function useChatMessages() {
         timestamp: asstInserted ? new Date(asstInserted.created_at).getTime() : Date.now(),
         meta: meta && Object.keys(meta).length > 0 ? meta as any : undefined,
       };
-      setMessages(prev => [...prev, assistantMsg]);
+      // Only update visible messages if user is still on the same conversation
+      setMessages(prev => convId === activeConversationId ? [...prev, assistantMsg] : prev);
     } catch (e) {
       const errContent = `❌ Error de conexión: ${e instanceof Error ? e.message : "Error desconocido"}`;
-      await supabase.from("ava_messages").insert({ conversation_id: activeConversationId, role: "assistant", content: errContent, meta: {} });
+      await supabase.from("ava_messages").insert({ conversation_id: convId, role: "assistant", content: errContent, meta: {} });
       const errMsg: ChatMessage = {
         id: crypto.randomUUID(),
         role: "assistant",
         content: errContent,
         timestamp: Date.now(),
       };
-      setMessages(prev => [...prev, errMsg]);
+      setMessages(prev => convId === activeConversationId ? [...prev, errMsg] : prev);
     }
-    setLoading(false);
+    markLoading(convId, false);
   }, [input, loading, messages, activeConversationId, user]);
 
   const clearChat = async () => {
