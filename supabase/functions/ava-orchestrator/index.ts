@@ -6,6 +6,30 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+// Fetch with retry on transient gateway errors (502/503/504) + network errors
+async function fetchAIWithRetry(url: string, init: RequestInit, maxAttempts = 3): Promise<Response> {
+  let lastErr: unknown = null;
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      const resp = await fetch(url, init);
+      if (resp.ok) return resp;
+      // Retry only on transient upstream errors
+      if ([502, 503, 504].includes(resp.status) && attempt < maxAttempts) {
+        const body = await resp.text().catch(() => "");
+        console.warn(`AI gateway transient ${resp.status} (attempt ${attempt}/${maxAttempts}): ${body.slice(0, 200)}`);
+        await new Promise(r => setTimeout(r, 500 * attempt));
+        continue;
+      }
+      return resp;
+    } catch (e) {
+      lastErr = e;
+      console.warn(`AI gateway network error (attempt ${attempt}/${maxAttempts}):`, e);
+      if (attempt < maxAttempts) await new Promise(r => setTimeout(r, 500 * attempt));
+    }
+  }
+  throw lastErr ?? new Error("AI gateway unreachable");
+}
+
 const SYSTEM_PROMPT = `Eres AVA, la asistente estratégica de F&G Real Estate especializada en retail e inmobiliario comercial. Tienes acceso a:
 1. BASE DE DATOS interna: locales, operadores, contactos, activos, proyectos/oportunidades, matches, negociaciones, documentos
 2. RAG (Retrieval-Augmented Generation): documentos indexados segmentados por dominio (contratos, operadores, activos, mercado, personas)
@@ -245,7 +269,7 @@ async function summarizeOlderHistory(
   ).join("\n\n");
 
   try {
-    const resp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    const resp = await fetchAIWithRetry("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
       headers: {
         Authorization: `Bearer ${lovableKey}`,
@@ -356,7 +380,7 @@ serve(async (req) => {
     messages.push({ role: "user", content: message });
 
     // First AI call: determine intent and tools
-    const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    const aiResponse = await fetchAIWithRetry("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
       headers: {
         Authorization: `Bearer ${lovableKey}`,
@@ -374,16 +398,22 @@ serve(async (req) => {
       const errText = await aiResponse.text();
       console.error("AI gateway error:", aiResponse.status, errText);
       if (aiResponse.status === 429) {
-        return new Response(JSON.stringify({ error: "Límite de peticiones excedido, intenta más tarde." }), {
+        return new Response(JSON.stringify({ error: "Límite de peticiones excedido, intenta de nuevo en unos segundos." }), {
           status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
       if (aiResponse.status === 402) {
-        return new Response(JSON.stringify({ error: "Créditos agotados." }), {
+        return new Response(JSON.stringify({ error: "Créditos de IA agotados." }), {
           status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
-      throw new Error("Error del gateway IA");
+      // Transient upstream (502/503/504) after retries → friendly message
+      return new Response(JSON.stringify({
+        error: "El servicio de IA está temporalmente saturado. Por favor, vuelve a intentarlo en unos segundos.",
+        transient: true,
+      }), {
+        status: 503, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
     const aiData = await aiResponse.json();
@@ -681,7 +711,7 @@ serve(async (req) => {
     
     // Try synthesis up to 2 times
     for (let attempt = 0; attempt < 2; attempt++) {
-      const synthesisResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      const synthesisResponse = await fetchAIWithRetry("https://ai.gateway.lovable.dev/v1/chat/completions", {
         method: "POST",
         headers: {
           Authorization: `Bearer ${lovableKey}`,
