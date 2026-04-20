@@ -381,7 +381,7 @@ serve(async (req) => {
         status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
-    const { message, history } = body;
+    const { message, history, attachments_context } = body;
     if (!message) {
       return new Response(JSON.stringify({ error: "Mensaje requerido" }), {
         status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -429,8 +429,12 @@ serve(async (req) => {
       console.warn("Could not load learned patterns:", e);
     }
 
+    const attachmentsBlock = attachments_context
+      ? `\n\n## DOCUMENTOS ADJUNTOS POR EL USUARIO EN ESTA PETICIÓN\nUsa SIEMPRE este contenido como fuente prioritaria. NO ignores ningún dato del adjunto.\n\n${attachments_context}`
+      : "";
+
     const messages: Array<{ role: string; content: string; tool_call_id?: string }> = [
-      { role: "system", content: SYSTEM_PROMPT + lessonsBlock },
+      { role: "system", content: SYSTEM_PROMPT + lessonsBlock + attachmentsBlock },
     ];
 
     // Build context with cumulative summary for long conversations
