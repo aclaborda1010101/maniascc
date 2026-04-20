@@ -875,7 +875,7 @@ serve(async (req) => {
 
     // Build synthesis messages with cumulative summary + lessons
     const synthesisMessages: Array<{ role: string; content: string }> = [
-      { role: "system", content: SYSTEM_PROMPT + lessonsBlock },
+      { role: "system", content: SYSTEM_PROMPT + lessonsBlock + attachmentsBlock },
     ];
     
     if (cumulativeSummary) {
