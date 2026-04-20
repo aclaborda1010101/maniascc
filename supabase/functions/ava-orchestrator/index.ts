@@ -218,7 +218,7 @@ const TOOLS = [
     type: "function",
     function: {
       name: "generate_pdf_report",
-      description: "Genera un informe/documento profesional en formato PDF. Úsalo SOLO cuando el usuario pida explícitamente un informe, documento, dossier o reporte.",
+      description: "Genera un informe en PDF con plantilla GENÉRICA (markdown→PDF). Úsalo solo para reportes simples cuando NO encaje ninguno de los 6 modos FORGE.",
       parameters: {
         type: "object",
         properties: {
@@ -226,6 +226,40 @@ const TOOLS = [
           content: { type: "string", description: "Contenido completo del informe en formato Markdown con secciones bien estructuradas" },
         },
         required: ["title", "content"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "generate_forge_document",
+      description: "Genera un documento PROFESIONAL premium con plantilla FORGE (maquetación tipo McKinsey/Cushman). PREFERIDO sobre generate_pdf_report cuando el usuario pida: dossier de operador, presentación comercial / teaser, borrador de contrato de arrendamiento, plan estratégico, informe war room semanal, o un email profesional. Detecta el modo correcto según el intent.",
+      parameters: {
+        type: "object",
+        properties: {
+          mode: {
+            type: "string",
+            enum: ["dossier_operador", "presentacion_comercial", "borrador_contrato", "plan_estrategico", "informe_war_room", "email_comunicacion"],
+            description: "Modo FORGE: dossier_operador (perfil de marca/retailer), presentacion_comercial (teaser de activo), borrador_contrato (arrendamiento), plan_estrategico (plan McKinsey-style), informe_war_room (dashboard semanal), email_comunicacion (email profesional)",
+          },
+          context: { type: "string", description: "Instrucciones y contexto detallado para FORGE: a quién va dirigido, qué activo/operador, qué objetivo, datos clave a incluir." },
+          proyecto_id: { type: "string", description: "UUID del proyecto si aplica (opcional, mejora el contexto RAG)." },
+        },
+        required: ["mode", "context"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "read_system_document",
+      description: "Localiza y lee documentos ya almacenados en el sistema (tabla documentos_proyecto). Búsqueda por nombre, devuelve nombre + resumen IA + texto extraído de los chunks RAG si existen. Úsalo cuando el usuario mencione un documento por su nombre ('mira el contrato de Mercadona', 'según el dossier de la Milla')",
+      parameters: {
+        type: "object",
+        properties: {
+          query: { type: "string", description: "Texto a buscar en el nombre del documento" },
+          documento_id: { type: "string", description: "UUID exacto si ya se conoce (opcional)" },
+        },
       },
     },
   },
