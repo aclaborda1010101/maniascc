@@ -1,89 +1,72 @@
 
 
-# Plan: Rediseño Glassmorphism global (claro + oscuro)
+# Plan: Acelerar la navegación entre secciones del menú lateral
 
-> ⚠️ Sigo sin ver imagen adjunta. Avanzo con un sistema glass "Apple Vision / macOS Big Sur" de intensidad media. Si luego me pasas la referencia, ajusto paleta y gradientes en una segunda iteración.
+## Diagnóstico
 
-## Sistema de diseño glass
+Cuatro causas combinadas hacen que cada clic se sienta lento:
 
-### Tokens nuevos en `src/index.css`
-Añado variables HSL + alpha para superficies translúcidas:
+1. **Lazy loading sin prefetch**: cada página se descarga la primera vez que entras, mostrando el spinner global.
+2. **Sin caché de datos**: el 95 % de las páginas usa `useState + useEffect` con varias queries Supabase en paralelo. Volver a una sección ya visitada vuelve a pedirlo todo desde cero.
+3. **`PageLoader` a pantalla completa**: oculta el contenido anterior y se percibe como "se ha quedado en blanco" aunque tarde 200 ms.
+4. **Coste del glassmorphism**: `backdrop-filter: blur(16-24px) saturate(180%)` en sidebar + header + cards + dialogs + tabs + inputs, sumado a los blobs gradientes `fixed` de fondo, fuerza al navegador a recomponer una capa muy cara en cada navegación.
 
-```text
---glass-bg            : superficie translúcida principal
---glass-bg-strong     : variante para popovers/diálogos
---glass-border        : borde con brillo sutil (white/black con alpha)
---glass-highlight     : línea superior brillante (1px)
---glass-shadow        : sombra suave azulada/oscura
---glass-blur          : 16px (mediano)
---glass-saturate      : 180%
-```
+## Cambios propuestos
 
-- **Modo claro**: `--glass-bg: 0 0% 100% / 0.5`, borde `255 255 255 / 0.6`, highlight blanco.
-- **Modo oscuro**: `--glass-bg: 222 47% 9% / 0.5`, borde `255 255 255 / 0.08`, highlight blanco 10%.
+### 1. Prefetch de páginas al pasar el ratón (impacto alto, riesgo bajo)
+- Convertir cada `lazy(() => import(...))` en una constante con su importador reutilizable y exponer una función `prefetch()`.
+- En `AppSidebar.tsx`, añadir `onMouseEnter` / `onFocus` al `NavLink` para disparar `prefetch()` del chunk de la ruta destino. Cuando el usuario hace clic, el JS ya está descargado → navegación casi instantánea.
 
-### Fondo de la app (capa base que justifica el blur)
-En `body` añado un fondo con **3 blobs gradientes** fijos (azul accent + violeta + cian) muy difuminados y baja opacidad. Sin animación pesada — solo `position: fixed`, `filter: blur(120px)`, `opacity: 0.35`. En claro los blobs son pastel; en oscuro saturados.
+### 2. Mantener el contenido anterior visible durante la transición (UX)
+- Sustituir el `PageLoader` global por una **barra de progreso superior** (estilo NProgress, 2 px) cuando `Suspense` está cargando.
+- El layout (sidebar, header) permanece visible y el contenido anterior se mantiene hasta que llega el nuevo. Sensación de "instantáneo".
 
-### Utilidades Tailwind nuevas
-En `@layer components` de `index.css`:
+### 3. Migrar el fetching de páginas críticas a React Query (caché real)
+Páginas con más impacto en navegación repetida:
+- `Dashboard`, `Proyectos`, `Operadores`, `Contactos`, `Locales`, `Documentos`, `Conocimiento`.
 
-```text
-.glass            → bg-[hsl(var(--glass-bg))] backdrop-blur-[16px] backdrop-saturate-[180%] border border-[hsl(var(--glass-border))] shadow-[var(--glass-shadow)]
-.glass-strong     → variante con más opacidad para modales
-.glass-hover      → hover:bg-white/10 (dark) / hover:bg-white/70 (light)
-.glass-highlight  → ::before con línea blanca 1px arriba (efecto cristal)
-```
+Para cada una:
+- Reemplazar `useState + useEffect + supabase.from` por `useQuery({ queryKey, queryFn, staleTime: 60_000 })`.
+- Configurar `QueryClient` con `staleTime: 30_000`, `gcTime: 5 * 60_000`, `refetchOnWindowFocus: false`.
 
-## Componentes a tocar
+Resultado: volver a una sección visitada en los últimos 30-60 s **no dispara ninguna petición** y la página aparece instantánea.
 
-### 1. Sidebar (`src/components/ui/sidebar.tsx` + `AppSidebar.tsx`)
-- Sustituir `bg-sidebar` por `glass` translúcido con `backdrop-blur-2xl`.
-- Borde derecho con gradiente sutil.
-- Items activos: `bg-white/10` (dark) o `bg-white/60` (light) en lugar del color sólido.
-- En mobile (Sheet): mantener glass para el drawer.
+### 4. Reducir el coste del glassmorphism sin perder el look
+- Bajar `--glass-blur` de `16px` → `12px` y `--glass-blur-strong` de `24px` → `18px`.
+- Bajar `--glass-saturate` de `180%` → `140%`.
+- En `body::before`, bajar `filter: blur(80px)` → `blur(60px)` y opacidad de `0.9` → `0.6` (claro) / `0.7` → `0.5` (oscuro).
+- En `.glass-input` quitar `backdrop-filter` (los inputs no necesitan blur propio, basta con el del card que los contiene).
+- Añadir `will-change: backdrop-filter` solo al sidebar y header (las superficies fijas), para que el navegador las promueva a capa propia y no las recomponga al cambiar de ruta.
+- Mantener el fallback `@supports not (backdrop-filter)` ya existente.
 
-### 2. Header global (`src/components/AppLayout.tsx`)
-- `<header>` pasa de `bg-card` a `.glass` con `sticky top-0 z-40`.
-- Buscador con fondo `bg-white/40 dark:bg-white/5` y borde glass.
-- Avatar y notificaciones sin cambios estructurales, solo redondeo y brillo.
-
-### 3. Cards (`src/components/ui/card.tsx`)
-- Variante por defecto: `.glass` en lugar de `bg-card`.
-- Mantener variante sólida opcional (`<Card variant="solid">`) por si en algún sitio rompe la legibilidad (ej. tablas densas tipo Conocimiento).
-
-### 4. Diálogos / Sheets / Popovers / Dropdowns
-- `dialog.tsx`, `sheet.tsx`, `popover.tsx`, `dropdown-menu.tsx`, `command.tsx`: aplicar `.glass-strong` (más opaco, blur 24px) para asegurar legibilidad sobre cualquier fondo.
-- Overlay: pasar de `bg-black/80` a `bg-black/40 backdrop-blur-sm`.
-
-### 5. Tabs, Inputs, Buttons
-- `tabs.tsx`: `TabsList` con glass + indicador activo brillante.
-- `input.tsx` y `textarea.tsx`: fondo `bg-white/40 dark:bg-white/5`, borde glass, focus con ring accent + glow.
-- `button.tsx`: variante `outline` y `ghost` con glass; `default` se mantiene sólido para que el CTA destaque.
-
-### 6. AVA chat (`AsistenteIA.tsx`, `FloatingChat.tsx`, `AvaRealtimeOverlay.tsx`)
-- Burbujas de mensaje: glass con borde brillante.
-- Overlay de llamada: `bg-black/30 backdrop-blur-3xl` con orbe central manteniendo gradientes actuales.
-- `FloatingChat`: cápsula glass flotante.
-
-### 7. KPI Cards y gráficos (Dashboard, Conocimiento, Patrones)
-- Cards glass.
-- Recharts: backgrounds transparentes (ya lo son), tooltip con glass.
+### 5. Memoizar el sidebar
+- Envolver `AppSidebar` en `React.memo`. Hoy se vuelve a renderizar en cada cambio de ruta porque `useLocation` cambia, pero los items son estáticos: separar el cálculo de `isActive` en un subcomponente memoizado por item para evitar re-render del árbol entero.
 
 ## Detalles técnicos
 
-- **Performance**: `backdrop-filter` puede pesar en móviles antiguos. Añado fallback `@supports not (backdrop-filter: blur(1px))` que usa fondo sólido.
-- **Accesibilidad / contraste**: opacidad mínima 50% para garantizar AA en texto. Diálogos suben a 75%.
-- **Dark mode**: variables ya separadas en `:root` y `.dark` — solo añadir las `--glass-*` nuevas en ambos bloques.
-- **Sin librerías nuevas**: todo con Tailwind + CSS vars existentes.
-- **Scope**: cambios concentrados en `src/index.css`, `tailwind.config.ts` (nada nuevo realmente, uso arbitrary values), y los 8-10 componentes UI listados. Las páginas no necesitan cambios porque heredan de `Card`, `Dialog`, `Tabs`, etc.
+- React Query ya está instalado (`@tanstack/react-query`) y `QueryClientProvider` montado en `App.tsx` — solo hay que ajustar defaults y migrar páginas.
+- Patrón de prefetch:
+  ```ts
+  const importDashboard = () => import("./pages/Dashboard");
+  const Dashboard = lazy(importDashboard);
+  // en sidebar: onMouseEnter={() => importDashboard()}
+  ```
+  Vite cachea el módulo, así que llamarlo dos veces no descarga dos veces.
+- Barra de progreso: componente propio de 30 líneas que escucha el estado de `Suspense` vía un wrapper, sin librería externa.
+- Para las páginas migradas a React Query, mantener la firma de los componentes igual: solo cambia el interior del `useEffect`.
 
 ## Entregables
-1. Variables glass en `src/index.css` (claro + oscuro) + utilidades `.glass`, `.glass-strong`, `.glass-highlight`.
-2. Capa de blobs gradientes fija en `body`.
-3. Refactor de `card.tsx`, `dialog.tsx`, `sheet.tsx`, `popover.tsx`, `dropdown-menu.tsx`, `tabs.tsx`, `input.tsx`, `textarea.tsx`, `command.tsx`, `sidebar.tsx`.
-4. `AppLayout.tsx` header sticky glass + sidebar translúcido.
-5. Ajuste fino en `FloatingChat.tsx` y burbujas de `AsistenteIA.tsx`.
 
-Tras aplicar, revisamos juntos en `/oportunidades/:id`, `/dashboard`, `/asistente` y `/conocimiento` para validar contraste y, si subes la referencia, hago una pasada de afinado de colores/blobs.
+1. `src/App.tsx`: importadores nombrados + `QueryClient` con `staleTime`/`gcTime` ajustados + `TopProgressBar` reemplazando `PageLoader`.
+2. `src/components/TopProgressBar.tsx`: nuevo, barra superior animada para Suspense.
+3. `src/components/AppSidebar.tsx`: `onMouseEnter` con prefetch + `React.memo` + items memoizados.
+4. `src/index.css`: tuning de variables glass (`--glass-blur`, `--glass-saturate`, opacidad blobs) + `will-change` en `.glass-sidebar` y header.
+5. Migración a React Query de: `Dashboard.tsx`, `Proyectos.tsx`, `Operadores.tsx`, `Contactos.tsx`, `Locales.tsx`, `Documentos.tsx`, `Conocimiento.tsx`.
+
+## Resultado esperado
+
+- **1ª visita** a una sección: ~200-400 ms más rápido (chunk ya prefetched al hover).
+- **2ª visita** dentro de 30-60 s: **instantánea** (datos en caché, sin petición).
+- **Glassmorphism**: misma estética, ~30-40 % menos coste de pintado por frame.
+- **Sin spinner a pantalla completa**: barra fina arriba, contenido anterior visible.
 
