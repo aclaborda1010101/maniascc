@@ -46,6 +46,7 @@ export interface Conversation {
 function toolLabel(tool: string): { emoji: string; label: string } {
   if (tool.startsWith("db_query")) return { emoji: "🔍", label: "Consultando datos" };
   if (tool.startsWith("db_mutate")) return { emoji: "✏️", label: "Modificando datos" };
+  if (tool.startsWith("propose_action")) return { emoji: "🛡️", label: "Acción propuesta" };
   if (tool === "expert_forge") return { emoji: "🧠", label: "Preguntando a especialista" };
   if (tool.startsWith("run_intelligence")) return { emoji: "📊", label: "Ejecutando análisis" };
   if (tool === "search_data") return { emoji: "🔎", label: "Buscando datos" };
