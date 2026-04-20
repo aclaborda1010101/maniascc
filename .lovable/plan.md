@@ -1,41 +1,30 @@
 
 
-# Plan: arreglar la preview rota por orden de `@import` en `src/index.css`
+# Plan: eliminar la animación del fondo para arreglar la lentitud
 
 ## Causa
-Vite está fallando al compilar `src/index.css` con el error:
+Los 5 "blobs" animados con `filter: blur(100–110px)` en el fondo (`.ambient`) están causando que el navegador recompute blur en cada frame. Combinado con `backdrop-filter` en headers/sidebar/cards glass, esto satura la GPU y hace que cada navegación se sienta lenta.
 
-```
-[vite:css] @import must precede all other statements (besides @charset or empty @layer)
-```
+## Cambio (2 archivos)
 
-El archivo tiene este orden:
-```
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+### 1) `src/index.css`
+- **Eliminar las animaciones** `floatA`, `floatB`, `floatC`, `floatD`, `floatE` de los blobs `.ambient::before`, `.ambient::after`, `.ambient-blob.b3/b4/b5`. Los blobs siguen ahí (estáticos) para mantener el look iridescente, pero sin movimiento.
+- **Reducir blur** de `100–110px` a `60px` (visualmente idéntico, mucho menos coste).
+- **Reducir backdrop-filter** de `blur(32px) saturate(1.8)` a `blur(16px) saturate(1.4)` en `.glass`, `.list-glass`, `.bubble-ava`, `.tab-bar-mobile`.
+- **Mantener** la animación del orbe AVA (`spin-slow` en `.ava-orb::before`) — es pequeña y aislada, no afecta rendimiento.
+- Añadir `contain: strict` a `.ambient` para aislar repintados.
 
-@import url('https://fonts.googleapis.com/css2?family=Inter...');
-```
+### 2) `src/components/AppLayout.tsx`
+- **Desactivar el `.ambient` en mobile** (`isMobile`). En móvil ya hay poca pantalla y el coste GPU es proporcionalmente mayor.
 
-El `@import` debe ir **antes** de los `@tailwind`. Por eso la preview no carga estilos correctamente.
+## Lo que NO cambio
+- Paleta, tipografía, glass effect (solo se reduce blur, sigue viéndose translúcido).
+- Orbe AVA (sigue girando el ring iridescente, bloque negro y estrella fijos).
+- Ninguna lógica, ruta, hook, edge function.
 
-## Cambio (1 archivo, 1 commit)
-
-En `src/index.css`, mover la línea `@import url('https://fonts.googleapis.com/...')` al principio del archivo, antes de los tres `@tailwind`. Resultado:
-
-```css
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;450;500;550;600;700;800&family=Inter+Tight:wght@500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
-
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
-
-/* …resto del archivo intacto… */
-```
-
-Sin más cambios. No se toca ningún token, ni componente, ni tailwind config.
-
-## Bonus opcional (no bloqueante)
-La consola muestra dos warnings de React (no errores) por refs en `AvaVoiceControls` y `AvaCallButton` dentro de `FloatingChat` — son ruido, no rompen la preview. Lo dejo como mejora futura envolviendo esos componentes con `React.forwardRef` si quieres limpiarlos.
+## Resultado esperado
+- Navegación instantánea entre páginas.
+- Scroll fluido en `/consumo`, `/contactos`, `/dashboard`.
+- El fondo iridescente se mantiene visible (estático) en desktop; mobile sin fondo decorativo.
+- Menos consumo de batería.
 
