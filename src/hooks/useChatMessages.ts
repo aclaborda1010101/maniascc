@@ -264,6 +264,35 @@ export function useChatMessages() {
     // Capture conversation ID at send time to isolate state per conversation
     const convId = activeConversationId;
 
+    // Implicit feedback: detect if user is correcting the previous assistant message
+    const lastAssistant = [...messages].reverse().find(m => m.role === "assistant");
+    if (lastAssistant) {
+      const correctionRegex = /\b(te (has |)olvidad|no es correcto|no es cierto|est[áa]s? mal|incorrecto|equivocad|revisa|corrige|err[óo]neo|me ment[íi]ste|falso|en realidad|no tienes raz[óo]n|no hay( superficie| sitio)?|no existe|fall(o|aste)|no me has tenido en cuenta|no has tenido en cuenta|te falt[óo]|te has saltado|olvidaste)\b/i;
+      if (correctionRegex.test(q)) {
+        // Fire-and-forget negative feedback with the correction text
+        supabase.from("ai_feedback" as any).insert({
+          entidad_tipo: "ava_message",
+          entidad_id: lastAssistant.id,
+          usuario_id: user.id,
+          feedback_tipo: "thumbs_down",
+          correccion_sugerida: q.slice(0, 2000),
+          contexto: { source: "implicit_correction", tools_used: lastAssistant.meta?.tools_used || [] },
+        } as any).then(() => {
+          // Trigger aggregator
+          supabase.from("ai_agent_tasks" as any).insert({
+            agente_tipo: "learning_aggregator",
+            estado: "pending",
+            prioridad: 8,
+            entidad_tipo: "ava_message",
+            entidad_id: lastAssistant.id,
+            parametros: { source: "implicit", timestamp: new Date().toISOString() },
+          } as any).then(() => {
+            supabase.functions.invoke("ai-learning-aggregator", { body: {} }).catch(() => {});
+          });
+        });
+      }
+    }
+
     // Insert user message to DB
     const { data: insertedMsg } = await supabase
       .from("ava_messages")

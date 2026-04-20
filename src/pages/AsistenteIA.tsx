@@ -13,6 +13,7 @@ import { cn } from "@/lib/utils";
 import { generateProfessionalPdf, downloadBlob } from "@/services/pdfService";
 import { useToast } from "@/hooks/use-toast";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { AvaMessageFeedback } from "@/components/AvaMessageFeedback";
 
 function PdfDownloadButton({ content, title }: { content: string; title?: string }) {
   const { toast } = useToast();
@@ -239,6 +240,11 @@ export default function AsistenteIA() {
                     {msg.meta.latency_ms && (
                       <Badge variant="outline" className="text-[9px] md:text-[10px]">⏱ {msg.meta.latency_ms}ms</Badge>
                     )}
+                  </div>
+                )}
+                {msg.role === "assistant" && (
+                  <div className="mt-1.5 -ml-1">
+                    <AvaMessageFeedback messageId={msg.id} toolsUsed={msg.meta?.tools_used} />
                   </div>
                 )}
               </div>
