@@ -164,35 +164,32 @@
   }
 }
 
-/* ── Glass utilities ── */
+/* ── Glass utilities (lightweight: solid translucent, no per-frame blur) ── */
 @layer components {
+  /* Default cards/header: NO backdrop-filter (just translucent surface + border) */
   .glass {
-    background-color: hsl(var(--glass-bg) / var(--glass-bg-alpha));
-    backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
-    -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+    background-color: hsl(var(--glass-bg) / 0.85);
     border: 1px solid hsl(var(--glass-border) / var(--glass-border-alpha));
     box-shadow: var(--glass-shadow);
   }
 
+  /* Strong: only for floating overlays (dialogs, popovers, dropdowns, sheets).
+     These are short-lived & few at a time → blur is OK. */
   .glass-strong {
-    background-color: hsl(var(--glass-bg) / var(--glass-bg-strong-alpha));
-    backdrop-filter: blur(var(--glass-blur-strong)) saturate(var(--glass-saturate));
-    -webkit-backdrop-filter: blur(var(--glass-blur-strong)) saturate(var(--glass-saturate));
+    background-color: hsl(var(--glass-bg) / 0.92);
+    backdrop-filter: blur(12px) saturate(160%);
+    -webkit-backdrop-filter: blur(12px) saturate(160%);
     border: 1px solid hsl(var(--glass-border) / var(--glass-border-alpha));
     box-shadow: var(--glass-shadow-strong);
   }
 
   .glass-sidebar {
-    background-color: hsl(var(--sidebar-glass-bg) / var(--sidebar-glass-alpha));
-    backdrop-filter: blur(20px) saturate(180%);
-    -webkit-backdrop-filter: blur(20px) saturate(180%);
+    background-color: hsl(var(--sidebar-glass-bg) / 0.96);
     border-right: 1px solid hsl(var(--glass-border) / var(--glass-border-alpha));
   }
 
   .glass-input {
-    background-color: hsl(var(--glass-bg) / 0.4);
-    backdrop-filter: blur(8px) saturate(160%);
-    -webkit-backdrop-filter: blur(8px) saturate(160%);
+    background-color: hsl(var(--glass-bg) / 0.7);
     border: 1px solid hsl(var(--glass-border) / var(--glass-border-alpha));
   }
 
