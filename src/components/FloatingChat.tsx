@@ -18,7 +18,7 @@ export function FloatingChat() {
     conversations, activeConversationId, messages, input, setInput,
     loading, sendMessage, clearChat, scrollRef,
     createConversation, switchConversation,
-    pendingAttachments, addAttachments, removeAttachment,
+    pendingAttachments, addAttachments, removeAttachment, resolvePendingAction,
   } = useChatMessages();
 
   const activeConv = conversations.find(c => c.id === activeConversationId);
