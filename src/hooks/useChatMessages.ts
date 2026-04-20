@@ -403,6 +403,21 @@ export function useChatMessages() {
     setMessages([]);
   };
 
+  const resolvePendingAction = useCallback(async (
+    messageId: string,
+    resolution: { confirmed: boolean; success?: boolean; error?: string }
+  ) => {
+    const resolved = { ...resolution, at: Date.now() };
+    setMessages(prev => prev.map(m => {
+      if (m.id !== messageId) return m;
+      const newMeta = { ...(m.meta || {}), action_resolved: resolved };
+      return { ...m, meta: newMeta };
+    }));
+    const target = messages.find(m => m.id === messageId);
+    const newMeta = { ...(target?.meta || {}), action_resolved: resolved };
+    await supabase.from("ava_messages").update({ meta: newMeta as any }).eq("id", messageId);
+  }, [messages]);
+
   return {
     conversations,
     activeConversationId,
@@ -420,5 +435,6 @@ export function useChatMessages() {
     pendingAttachments,
     addAttachments,
     removeAttachment,
+    resolvePendingAction,
   };
 }
