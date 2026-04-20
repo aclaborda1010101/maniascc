@@ -175,3 +175,6 @@ function AppSidebarInner() {
     </Sidebar>
   );
 }
+
+export const AppSidebar = memo(AppSidebarInner);
+
