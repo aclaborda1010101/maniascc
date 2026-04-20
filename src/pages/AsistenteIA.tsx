@@ -244,6 +244,9 @@ export default function AsistenteIA() {
                     {msg.meta?.pdf_content && (
                       <PdfDownloadButton content={msg.meta.pdf_content} title={msg.meta.pdf_title} />
                     )}
+                    {msg.meta?.forge_pdf && (
+                      <ForgePdfBlock forgePdf={msg.meta.forge_pdf} />
+                    )}
                   </div>
                 ) : (
                   <p className="text-xs md:text-sm">{msg.content}</p>
@@ -284,17 +287,28 @@ export default function AsistenteIA() {
         </div>
 
         {/* Input */}
-        <div className="border-t border-border px-3 md:px-6 py-3 md:py-4 shrink-0">
-          <div className="flex gap-2">
+        <div className="border-t border-border px-3 md:px-6 py-3 md:py-4 shrink-0 space-y-2">
+          {pendingAttachments.length > 0 && (
+            <AvaAttachmentBar attachments={pendingAttachments} onAdd={addAttachments} onRemove={removeAttachment} disabled={loading} />
+          )}
+          <div className="flex gap-2 items-end">
+            {pendingAttachments.length === 0 && (
+              <AvaAttachmentBar attachments={[]} onAdd={addAttachments} onRemove={removeAttachment} disabled={loading} />
+            )}
             <Input
-              placeholder="Pregúntame lo que necesites..."
+              placeholder="Pregúntame o adjunta un documento..."
               value={input}
               onChange={e => setInput(e.target.value)}
               onKeyDown={e => e.key === "Enter" && !e.shiftKey && sendMessage()}
               disabled={loading}
               className="flex-1 text-sm"
             />
-            <Button onClick={sendMessage} disabled={loading || !input.trim()} size="icon" className="bg-accent text-accent-foreground hover:bg-accent/90 h-9 w-9 md:h-10 md:w-10">
+            <Button
+              onClick={sendMessage}
+              disabled={loading || (!input.trim() && pendingAttachments.filter(a => a.status === "ready").length === 0) || pendingAttachments.some(a => a.status === "uploading" || a.status === "processing")}
+              size="icon"
+              className="bg-accent text-accent-foreground hover:bg-accent/90 h-9 w-9 md:h-10 md:w-10"
+            >
               <Send className="h-4 w-4" />
             </Button>
           </div>
