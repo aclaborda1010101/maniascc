@@ -9,44 +9,94 @@ import { NotificationProvider } from "@/contexts/NotificationContext";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { AppLayout } from "@/components/AppLayout";
 import { ThemeProvider } from "next-themes";
+import { TopProgressBar } from "@/components/TopProgressBar";
 import NotFound from "./pages/NotFound";
 
-const Login = lazy(() => import("./pages/Login"));
-const Dashboard = lazy(() => import("./pages/Dashboard"));
-const Proyectos = lazy(() => import("./pages/Proyectos"));
-const ProyectoDetail = lazy(() => import("./pages/ProyectoDetail"));
-const Locales = lazy(() => import("./pages/Locales"));
-const LocalDetail = lazy(() => import("./pages/LocalDetail"));
-const Operadores = lazy(() => import("./pages/Operadores"));
-const OperadorDetail = lazy(() => import("./pages/OperadorDetail"));
-const Contactos = lazy(() => import("./pages/Contactos"));
-const ContactoDetail = lazy(() => import("./pages/ContactoDetail"));
-const Documentos = lazy(() => import("./pages/Documentos"));
-const Matching = lazy(() => import("./pages/Matching"));
-const Notificaciones = lazy(() => import("./pages/Notificaciones"));
-const LocationAnalysis = lazy(() => import("./pages/LocationAnalysis"));
-const DossierValidation = lazy(() => import("./pages/DossierValidation"));
-const TenantMixOptimizer = lazy(() => import("./pages/TenantMixOptimizer"));
-const NegotiationBriefing = lazy(() => import("./pages/NegotiationBriefing"));
-const AsistenteIA = lazy(() => import("./pages/AsistenteIA"));
-const Patrones = lazy(() => import("./pages/Patrones"));
-const Admin = lazy(() => import("./pages/Admin"));
-const Playground = lazy(() => import("./pages/Playground"));
-const Consumo = lazy(() => import("./pages/Consumo"));
-const Ajustes = lazy(() => import("./pages/Ajustes"));
-const GeneradorDocumentos = lazy(() => import("./pages/GeneradorDocumentos"));
-const Conocimiento = lazy(() => import("./pages/Conocimiento"));
+// Importadores nombrados → permiten prefetch desde el sidebar.
+// Vite cachea el módulo, así que llamar varias veces no descarga dos veces.
+export const importLogin = () => import("./pages/Login");
+export const importDashboard = () => import("./pages/Dashboard");
+export const importProyectos = () => import("./pages/Proyectos");
+export const importProyectoDetail = () => import("./pages/ProyectoDetail");
+export const importLocales = () => import("./pages/Locales");
+export const importLocalDetail = () => import("./pages/LocalDetail");
+export const importOperadores = () => import("./pages/Operadores");
+export const importOperadorDetail = () => import("./pages/OperadorDetail");
+export const importContactos = () => import("./pages/Contactos");
+export const importContactoDetail = () => import("./pages/ContactoDetail");
+export const importDocumentos = () => import("./pages/Documentos");
+export const importMatching = () => import("./pages/Matching");
+export const importNotificaciones = () => import("./pages/Notificaciones");
+export const importLocationAnalysis = () => import("./pages/LocationAnalysis");
+export const importDossierValidation = () => import("./pages/DossierValidation");
+export const importTenantMixOptimizer = () => import("./pages/TenantMixOptimizer");
+export const importNegotiationBriefing = () => import("./pages/NegotiationBriefing");
+export const importAsistenteIA = () => import("./pages/AsistenteIA");
+export const importPatrones = () => import("./pages/Patrones");
+export const importAdmin = () => import("./pages/Admin");
+export const importPlayground = () => import("./pages/Playground");
+export const importConsumo = () => import("./pages/Consumo");
+export const importAjustes = () => import("./pages/Ajustes");
+export const importGeneradorDocumentos = () => import("./pages/GeneradorDocumentos");
+export const importConocimiento = () => import("./pages/Conocimiento");
 
+const Login = lazy(importLogin);
+const Dashboard = lazy(importDashboard);
+const Proyectos = lazy(importProyectos);
+const ProyectoDetail = lazy(importProyectoDetail);
+const Locales = lazy(importLocales);
+const LocalDetail = lazy(importLocalDetail);
+const Operadores = lazy(importOperadores);
+const OperadorDetail = lazy(importOperadorDetail);
+const Contactos = lazy(importContactos);
+const ContactoDetail = lazy(importContactoDetail);
+const Documentos = lazy(importDocumentos);
+const Matching = lazy(importMatching);
+const Notificaciones = lazy(importNotificaciones);
+const LocationAnalysis = lazy(importLocationAnalysis);
+const DossierValidation = lazy(importDossierValidation);
+const TenantMixOptimizer = lazy(importTenantMixOptimizer);
+const NegotiationBriefing = lazy(importNegotiationBriefing);
+const AsistenteIA = lazy(importAsistenteIA);
+const Patrones = lazy(importPatrones);
+const Admin = lazy(importAdmin);
+const Playground = lazy(importPlayground);
+const Consumo = lazy(importConsumo);
+const Ajustes = lazy(importAjustes);
+const GeneradorDocumentos = lazy(importGeneradorDocumentos);
+const Conocimiento = lazy(importConocimiento);
 
-const queryClient = new QueryClient();
+// Mapa ruta → prefetch, consumido por AppSidebar.
+export const routePrefetchMap: Record<string, () => Promise<unknown>> = {
+  "/dashboard": importDashboard,
+  "/asistente": importAsistenteIA,
+  "/oportunidades": importProyectos,
+  "/generador": importGeneradorDocumentos,
+  "/activos": importLocales,
+  "/operadores": importOperadores,
+  "/contactos": importContactos,
+  "/documentos": importDocumentos,
+  "/conocimiento": importConocimiento,
+  "/localizacion": importLocationAnalysis,
+  "/validacion-dossier": importDossierValidation,
+  "/tenant-mix": importTenantMixOptimizer,
+  "/negociacion-ia": importNegotiationBriefing,
+  "/consumo": importConsumo,
+  "/patrones": importPatrones,
+  "/playground": importPlayground,
+  "/ajustes": importAjustes,
+};
 
-function PageLoader() {
-  return (
-    <div className="flex min-h-[50vh] items-center justify-center">
-      <div className="h-8 w-8 animate-spin rounded-full border-4 border-accent border-t-transparent" />
-    </div>
-  );
-}
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 30_000,
+      gcTime: 5 * 60_000,
+      refetchOnWindowFocus: false,
+      retry: 1,
+    },
+  },
+});
 
 const App = () => (
   <ThemeProvider attribute="class" defaultTheme="light" enableSystem={false}>
@@ -56,7 +106,7 @@ const App = () => (
         <Sonner />
         <BrowserRouter>
           <AuthProvider>
-            <Suspense fallback={<PageLoader />}>
+            <Suspense fallback={<TopProgressBar />}>
               <Routes>
                 <Route path="/login" element={<Login />} />
                 <Route path="/" element={<Navigate to="/dashboard" replace />} />
