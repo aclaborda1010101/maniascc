@@ -36,8 +36,6 @@ const MODEL_PRICING: Record<string, { input: number; output: number }> = {
   "gemini-3-flash-preview": { input: 0.10, output: 0.40 },
   "google/gemini-3.1-flash": { input: 0.10, output: 0.40 },
   "gemini-3.1-flash": { input: 0.10, output: 0.40 },
-  // Expert Forge MoE (estimación basada en Flash)
-  "expert-forge-moe": { input: 0.10, output: 0.40 },
 };
 // Por defecto asumimos Flash (no Pro) para no inflar costes desconocidos.
 const DEFAULT_PRICING = { input: 0.15, output: 0.60 };

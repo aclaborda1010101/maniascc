@@ -53,8 +53,7 @@ interface PastEval {
 const toolLabel = (t: string) => {
   const map: Record<string, string> = {
     db_query: "🔍 Datos", db_mutate: "✏️ Modificación",
-    expert_forge: "🧠 Especialista", run_intelligence: "📊 Análisis",
-    search_data: "🔎 Búsqueda",
+    run_intelligence: "📊 Análisis", search_data: "🔎 Búsqueda",
   };
   return map[t] || t;
 };
