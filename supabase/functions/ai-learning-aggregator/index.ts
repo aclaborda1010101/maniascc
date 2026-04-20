@@ -27,7 +27,7 @@ serve(async (req) => {
       .eq("agente_tipo", "learning_aggregator")
       .eq("estado", "pending")
       .order("prioridad", { ascending: false })
-      .limit(50);
+      .limit(200);
 
     if (taskError || !tasks || tasks.length === 0) {
       return new Response(JSON.stringify({ processed: 0, message: "No pending tasks" }), {
@@ -52,6 +52,8 @@ serve(async (req) => {
           patternsUpdated += await processMatchFeedback(admin, task.entidad_id);
         } else if (task.entidad_tipo === "rag_response") {
           patternsUpdated += await processRAGFeedback(admin, task.entidad_id);
+        } else if (task.entidad_tipo === "ava_message") {
+          patternsUpdated += await processAvaMessageFeedback(admin, task.entidad_id);
         }
 
         // Mark as completed
@@ -71,9 +73,9 @@ serve(async (req) => {
       }
     }
 
-    // Aggregate patterns periodically (every 10 tasks)
-    if (processedCount >= 10) {
-      await aggregateMatchPatterns(admin);
+    // Aggregate sector patterns periodically (lowered threshold)
+    if (processedCount >= 3) {
+      try { await aggregateMatchPatterns(admin); } catch (e) { console.warn("aggregateMatchPatterns:", e); }
     }
 
     return new Response(JSON.stringify({
