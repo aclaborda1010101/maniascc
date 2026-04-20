@@ -229,8 +229,8 @@
   /* Glass surface utility */
   .glass {
     background: hsl(var(--glass-surface) / 0.04);
-    backdrop-filter: blur(var(--glass-blur)) saturate(1.8);
-    -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(1.8);
+    backdrop-filter: blur(16px) saturate(1.4);
+    -webkit-backdrop-filter: blur(16px) saturate(1.4);
     border: 1px solid hsl(var(--glass-border) / 0.10);
     box-shadow: var(--shadow-md);
   }
