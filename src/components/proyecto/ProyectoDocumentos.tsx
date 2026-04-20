@@ -1,14 +1,15 @@
-import { useState } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Upload, Download, File, Trash2, RefreshCw, Loader2, FileText, Sparkles, Tag } from "lucide-react";
+import { Progress } from "@/components/ui/progress";
+import { Upload, Download, File, Trash2, RefreshCw, Loader2, FileText, Sparkles, Tag, Wand2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { ingestDocument } from "@/services/ragService";
-import { classifyDocument, linkDocument } from "@/services/documentService";
+import { classifyDocument, linkDocument, fetchTaxonomias, type Taxonomia } from "@/services/documentService";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 
@@ -26,6 +27,18 @@ export function ProyectoDocumentos({ proyectoId, docs, onRefresh }: Props) {
   const [docTipo, setDocTipo] = useState("auto");
   const [ingesting, setIngesting] = useState<string | null>(null);
   const [classifying, setClassifying] = useState<string | null>(null);
+  const [taxonomias, setTaxonomias] = useState<Taxonomia[]>([]);
+  const [bulkRunning, setBulkRunning] = useState(false);
+  const [bulkProgress, setBulkProgress] = useState({ done: 0, total: 0, classified: 0, indexed: 0 });
+
+  useEffect(() => {
+    fetchTaxonomias().then(setTaxonomias);
+  }, []);
+
+  const pendientes = useMemo(
+    () => docs.filter((d) => !d.taxonomia_id || !d.procesado_ia),
+    [docs]
+  );
 
   const readSample = async (file: File): Promise<string> => {
     if (file.type.startsWith("text/") || /\.(txt|md|csv|json|html|xml|eml)$/i.test(file.name)) {
@@ -113,24 +126,58 @@ export function ProyectoDocumentos({ proyectoId, docs, onRefresh }: Props) {
     setClassifying(null);
   };
 
+  // Procesa N a la vez para no saturar el edge function ni el AI gateway
+  const runBulk = async () => {
+    if (pendientes.length === 0) return;
+    setBulkRunning(true);
+    const total = pendientes.length;
+    setBulkProgress({ done: 0, total, classified: 0, indexed: 0 });
+    let classified = 0, indexed = 0;
+    const CHUNK = 3;
+    for (let i = 0; i < pendientes.length; i += CHUNK) {
+      const slice = pendientes.slice(i, i + CHUNK);
+      const results = await Promise.allSettled(
+        slice.map(async (d) => {
+          const r: { c: boolean; i: boolean } = { c: false, i: false };
+          if (!d.taxonomia_id) {
+            try { const res: any = await classifyDocument(d.id); if (res?.ok) r.c = true; } catch {}
+          }
+          if (!d.procesado_ia) {
+            try { const res = await ingestDocument(d.id); if (res.success) r.i = true; } catch {}
+          }
+          return r;
+        })
+      );
+      for (const r of results) {
+        if (r.status === "fulfilled") {
+          if (r.value.c) classified++;
+          if (r.value.i) indexed++;
+        }
+      }
+      setBulkProgress({ done: Math.min(i + CHUNK, total), total, classified, indexed });
+    }
+    setBulkRunning(false);
+    toast({
+      title: `Procesamiento completado`,
+      description: `${classified} clasificados · ${indexed} indexados de ${total}`,
+    });
+    onRefresh();
+  };
+
   return (
     <div className="space-y-4">
       <Card>
         <CardHeader className="pb-3"><CardTitle className="text-base flex items-center gap-2"><Upload className="h-4 w-4" /> Subir documentos</CardTitle></CardHeader>
         <CardContent className="space-y-4">
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 flex-wrap">
             <Label className="text-sm whitespace-nowrap">Categoría:</Label>
             <Select value={docTipo} onValueChange={setDocTipo}>
-              <SelectTrigger className="w-[240px]"><SelectValue /></SelectTrigger>
+              <SelectTrigger className="w-[280px]"><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="auto">🤖 Auto (clasificar con IA)</SelectItem>
-                <SelectItem value="contrato">Contrato / Legal</SelectItem>
-                <SelectItem value="financiero">Financiero</SelectItem>
-                <SelectItem value="dossier">Dossier / Presentación</SelectItem>
-                <SelectItem value="informe">Informe</SelectItem>
-                <SelectItem value="plano">Plano / Arquitectura</SelectItem>
-                <SelectItem value="correo">Correo histórico</SelectItem>
-                <SelectItem value="otro">Otro</SelectItem>
+                {taxonomias.map((t) => (
+                  <SelectItem key={t.id} value={t.codigo}>{t.nombre}</SelectItem>
+                ))}
               </SelectContent>
             </Select>
             <span className="text-xs text-muted-foreground flex items-center gap-1">
@@ -153,8 +200,33 @@ export function ProyectoDocumentos({ proyectoId, docs, onRefresh }: Props) {
       </Card>
 
       <Card>
-        <CardHeader className="pb-3"><CardTitle className="text-base">{docs.length} documento{docs.length !== 1 ? "s" : ""}</CardTitle></CardHeader>
+        <CardHeader className="pb-3 flex flex-row items-center justify-between gap-3">
+          <CardTitle className="text-base">{docs.length} documento{docs.length !== 1 ? "s" : ""}</CardTitle>
+          {pendientes.length > 0 && (
+            <Button
+              size="sm"
+              variant="default"
+              onClick={runBulk}
+              disabled={bulkRunning}
+              className="gap-2"
+              title="Clasificar e indexar todos los documentos pendientes"
+            >
+              {bulkRunning ? <Loader2 className="h-4 w-4 animate-spin" /> : <Wand2 className="h-4 w-4" />}
+              {bulkRunning
+                ? `Procesando ${bulkProgress.done}/${bulkProgress.total}…`
+                : `Clasificar todo (${pendientes.length} pendientes)`}
+            </Button>
+          )}
+        </CardHeader>
         <CardContent>
+          {bulkRunning && (
+            <div className="mb-4 space-y-1">
+              <Progress value={(bulkProgress.done / Math.max(1, bulkProgress.total)) * 100} className="h-2" />
+              <p className="text-xs text-muted-foreground">
+                {bulkProgress.classified} clasificados · {bulkProgress.indexed} indexados
+              </p>
+            </div>
+          )}
           {docs.length === 0 ? (
             <div className="py-8 text-center"><FileText className="mx-auto mb-3 h-10 w-10 text-muted-foreground/30" /><p className="text-muted-foreground text-sm">No hay documentos aún.</p></div>
           ) : (

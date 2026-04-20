@@ -11,7 +11,7 @@ import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   FileText, Image as ImageIcon, FolderOpen, Cloud, Search, Tags, Sparkles,
-  RefreshCw, Lock, Globe2, Users as UsersIcon, AlertCircle, CheckCircle2, Loader2, Upload, Database,
+  RefreshCw, Lock, Globe2, Users as UsersIcon, AlertCircle, CheckCircle2, Loader2, Upload, Database, Wand2,
 } from "lucide-react";
 import { toast } from "sonner";
 import { UploadZone } from "@/components/UploadZone";
@@ -20,6 +20,7 @@ import {
   fetchOneDriveState, startOneDriveSync, fetchIngestionJobs,
   type DocumentoExt, type Taxonomia,
 } from "@/services/documentService";
+import { ingestDocument } from "@/services/ragService";
 
 const SENSIBILIDAD_STYLES: Record<string, string> = {
   publico: "bg-chart-2/10 text-chart-2 border-chart-2/30",
