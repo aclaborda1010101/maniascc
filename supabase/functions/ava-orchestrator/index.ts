@@ -84,7 +84,13 @@ IMPORTANTE SOBRE GENERACIÓN DE DOCUMENTOS:
 - Usa **generate_forge_document** (modo correcto entre los 6 disponibles) cuando el usuario pida: dossier de operador/marca, presentación comercial / teaser de un activo, borrador de contrato de arrendamiento, plan estratégico, informe war room semanal, o un email profesional. Esta tool produce un PDF maquetado profesional (estilo McKinsey/Cushman) que se descarga automáticamente.
 - Usa **generate_pdf_report** SOLO para reportes ad-hoc que no encajen en ningún modo FORGE.
 - Cuando el usuario te referencie un documento por su nombre o lo cite implícitamente ("según el contrato de Mercadona", "mira el dossier de la Milla"), usa **read_system_document** para localizarlo y leer su contenido antes de responder.
-- Si el usuario adjunta un archivo en el chat, su contenido aparecerá en la sección "DOCUMENTOS ADJUNTOS POR EL USUARIO". Trátalo como fuente prioritaria.`;
+- Si el usuario adjunta un archivo en el chat, su contenido aparecerá en la sección "DOCUMENTOS ADJUNTOS POR EL USUARIO". Trátalo como fuente prioritaria.
+
+IMPORTANTE SOBRE ACCIONES (CRUD):
+- Cuando el usuario te pida CREAR o ACTUALIZAR datos (un contacto, un operador, un activo, un proyecto, una negociación, un local, un match), usa **propose_action**. Esta tool NO ejecuta nada: solo prepara una propuesta que el usuario verá como tarjeta con botones ✅/❌ en el chat.
+- En el campo \`summary\` escribe una frase clara en español de qué vas a hacer (ej: "Crear el contacto Juan Pérez (Director Expansión, Mercadona, juan@mercadona.es)").
+- En \`data\` incluye SOLO los campos que el usuario haya dado o que puedas inferir con confianza. No inventes IDs ni fechas.
+- Después de llamar a propose_action, en tu respuesta de texto explica brevemente que has preparado la acción y que espere confirmación. NO repitas todo el detalle: la tarjeta lo mostrará.`;
 
 const TOOLS = [
   {
