@@ -20,6 +20,19 @@ export interface ChatMessage {
       title: string;
     };
     attachments?: Array<{ file_name: string; mime_type: string; size?: number }>;
+    pending_action?: {
+      table: string;
+      action: "insert" | "update";
+      data: Record<string, any>;
+      match: { id?: string } | null;
+      summary: string;
+    };
+    action_resolved?: {
+      confirmed: boolean;
+      success?: boolean;
+      error?: string;
+      at: number;
+    };
   };
 }
 
