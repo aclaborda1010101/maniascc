@@ -13,7 +13,6 @@ import remarkGfm from "remark-gfm";
 export function FloatingChat() {
   const [open, setOpen] = useState(false);
   const [showConvList, setShowConvList] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
   const {
     conversations, activeConversationId, messages, input, setInput,
     loading, sendMessage, clearChat, scrollRef,
