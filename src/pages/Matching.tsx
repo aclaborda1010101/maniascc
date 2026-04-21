@@ -77,6 +77,36 @@ export default function Matching() {
     );
   }
 
+  if (!local && !localId) {
+    return (
+      <div className="space-y-5">
+        <div>
+          <p className="text-[11px] uppercase tracking-widest text-muted-foreground">Matching IA</p>
+          <h1 className="text-2xl md:text-3xl font-bold tracking-tight mt-1">Elige un activo</h1>
+          <p className="text-sm text-muted-foreground mt-1">Selecciona un activo para ver y generar matches con operadores compatibles.</p>
+        </div>
+        <div className="grid gap-3 md:grid-cols-2">
+          {activos.map((a) => (
+            <button
+              key={a.id}
+              onClick={() => navigate(`/matching/${a.id}`)}
+              className="card-premium p-4 text-left hover:border-accent/40 transition-colors"
+            >
+              <p className="font-semibold tracking-tight truncate">{a.nombre}</p>
+              <p className="text-xs text-muted-foreground truncate flex items-center gap-1 mt-1">
+                <MapPin className="h-3 w-3" /> {a.direccion}, {a.ciudad}
+              </p>
+            </button>
+          ))}
+          {activos.length === 0 && (
+            <div className="card-premium p-12 text-center col-span-full">
+              <p className="text-sm text-muted-foreground">No hay activos disponibles aún.</p>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
   if (!local) return <p className="text-muted-foreground">Local no encontrado.</p>;
 
   const pendientes = matches.filter(m => m.estado === "pendiente" || m.estado === "sugerido").length;
