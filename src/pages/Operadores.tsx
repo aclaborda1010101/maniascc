@@ -223,30 +223,28 @@ export default function Operadores() {
               <p className="text-muted-foreground text-sm">{search || filtroSector !== "todos" || filtroActivo !== "todos" ? "No se encontraron operadores." : "No hay operadores. Crea el primero."}</p>
             </div>
           ) : isMobile ? (
-            /* Mobile: card layout */
+            /* Mobile: glass cards */
             <div className="space-y-2">
               {operadores.map((o) => (
                 <Link key={o.id} to={`/operadores/${o.id}`}>
-                  <Card className="hover:border-accent/40 transition-colors shadow-sm">
-                    <CardContent className="p-3 space-y-1.5">
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="min-w-0 flex-1">
-                          <p className="font-medium text-sm text-accent truncate">{o.nombre}</p>
-                          {o.direccion && <p className="text-[11px] text-muted-foreground truncate">{o.direccion}</p>}
-                        </div>
-                        <Badge variant={o.activo ? "default" : "secondary"} className={`shrink-0 text-[10px] ${o.activo ? "bg-chart-2/10 text-chart-2" : ""}`}>
-                          {o.activo ? "Activo" : "Inactivo"}
-                        </Badge>
+                  <div className="glass p-3 space-y-1.5 hover:bg-white/[0.06] transition-colors">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0 flex-1">
+                        <p className="font-display font-semibold text-sm tracking-tight truncate">{o.nombre}</p>
+                        {o.direccion && <p className="text-[11px] text-muted-foreground truncate">{o.direccion}</p>}
                       </div>
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <Badge variant="secondary" className="text-[10px]">{o.sector || "—"}</Badge>
-                        {!o.matriz_id && <Badge variant="outline" className="text-[10px]">Matriz</Badge>}
-                        <span className="text-[10px] text-muted-foreground ml-auto">
-                          {Number(o.presupuesto_min).toLocaleString("es-ES")}–{Number(o.presupuesto_max).toLocaleString("es-ES")} €
-                        </span>
-                      </div>
-                    </CardContent>
-                  </Card>
+                      <span className="chip" style={o.activo ? { color: "hsl(var(--acc-4))", borderColor: "hsl(var(--acc-4) / 0.3)" } : {}}>
+                        {o.activo ? "Activo" : "Inactivo"}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="chip">{o.sector || "—"}</span>
+                      {!o.matriz_id && <span className="chip" style={{ color: "hsl(var(--acc-2))", borderColor: "hsl(var(--acc-2) / 0.3)" }}>Matriz</span>}
+                      <span className="text-[10px] text-muted-foreground ml-auto num-display">
+                        {Number(o.presupuesto_min).toLocaleString("es-ES")}–{Number(o.presupuesto_max).toLocaleString("es-ES")} €
+                      </span>
+                    </div>
+                  </div>
                 </Link>
               ))}
             </div>
@@ -254,7 +252,7 @@ export default function Operadores() {
             /* Desktop: table */
             <Table>
               <TableHeader>
-                <TableRow>
+                <TableRow className="border-border/30 hover:bg-transparent">
                   <TableHead>Nombre</TableHead>
                   <TableHead>Matriz</TableHead>
                   <TableHead>Sector</TableHead>
@@ -265,25 +263,25 @@ export default function Operadores() {
               </TableHeader>
               <TableBody>
                 {operadores.map((o) => (
-                  <TableRow key={o.id} className="cursor-pointer hover:bg-muted/50">
+                  <TableRow key={o.id} className="cursor-pointer border-border/20 hover:bg-white/[0.03]">
                     <TableCell>
-                      <Link to={`/operadores/${o.id}`} className="font-medium text-accent hover:underline">{o.nombre}</Link>
+                      <Link to={`/operadores/${o.id}`} className="font-display font-semibold tracking-tight hover:text-iridescent">{o.nombre}</Link>
                       {o.direccion && <p className="text-xs text-muted-foreground">{o.direccion}</p>}
                     </TableCell>
                     <TableCell>
                       {o.matriz_id ? (
-                        <Link to={`/operadores/${o.matriz_id}`} className="text-xs text-accent hover:underline">
+                        <Link to={`/operadores/${o.matriz_id}`} className="text-xs hover:underline" style={{ color: "hsl(var(--acc-2))" }}>
                           {matrices.find((m: any) => m.id === o.matriz_id)?.nombre || "—"}
                         </Link>
                       ) : (
-                        <Badge variant="outline" className="text-xs">Matriz</Badge>
+                        <span className="chip" style={{ color: "hsl(var(--acc-2))", borderColor: "hsl(var(--acc-2) / 0.3)" }}>Matriz</span>
                       )}
                     </TableCell>
-                    <TableCell><Badge variant="secondary">{o.sector || "—"}</Badge></TableCell>
-                    <TableCell className="text-right">{Number(o.presupuesto_min).toLocaleString("es-ES")} – {Number(o.presupuesto_max).toLocaleString("es-ES")} €</TableCell>
-                    <TableCell className="text-right">{o.superficie_min} – {o.superficie_max} m²</TableCell>
+                    <TableCell><span className="chip">{o.sector || "—"}</span></TableCell>
+                    <TableCell className="text-right num-display">{Number(o.presupuesto_min).toLocaleString("es-ES")} – {Number(o.presupuesto_max).toLocaleString("es-ES")} €</TableCell>
+                    <TableCell className="text-right num-display">{o.superficie_min} – {o.superficie_max} m²</TableCell>
                     <TableCell>
-                      <Badge variant={o.activo ? "default" : "secondary"} className={o.activo ? "bg-chart-2/10 text-chart-2" : ""}>{o.activo ? "Activo" : "Inactivo"}</Badge>
+                      <span className="chip" style={o.activo ? { color: "hsl(var(--acc-4))", borderColor: "hsl(var(--acc-4) / 0.3)" } : {}}>{o.activo ? "Activo" : "Inactivo"}</span>
                     </TableCell>
                   </TableRow>
                 ))}
@@ -293,8 +291,8 @@ export default function Operadores() {
           {!loading && operadores.length > 0 && (
             <p className="mt-3 text-xs text-muted-foreground">{operadores.length} operador{operadores.length !== 1 ? "es" : ""}</p>
           )}
-        </CardContent>
-      </Card>
+        </div>
+      </div>
     </div>
   );
 }
