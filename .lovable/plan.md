@@ -1,129 +1,66 @@
 
 
-# Análisis: Cómo está integrada la RAG hoy
+# Diagnóstico: lentitud generalizada (AVA, Oportunidades, Activos, Dashboard)
 
-## 1) Arquitectura actual (interna, sin dependencias externas)
+## Causa real
 
-```text
-┌─────────────────────────────────────────────────────────────────┐
-│                       SUBIDA DE DOCUMENTO                       │
-│  UploadZone → Storage (bucket: documentos_contratos, privado)   │
-│             → INSERT documentos_proyecto (procesado_ia=false)   │
-└──────────────────────────┬──────────────────────────────────────┘
-                           │
-        ┌──────────────────┴──────────────────┐
-        ▼                                     ▼
-┌──────────────────┐              ┌────────────────────────┐
-│ document-classify│              │       rag-ingest        │
-│ Gemini 2.5 Flash │              │ Gemini 2.5 Flash multi │
-│ → taxonomía      │              │ → texto extraído        │
-│ → sensibilidad   │              │ → chunks (2000 chars,   │
-│ → resumen 1ª     │              │    overlap 200)         │
-│ → fecha doc      │              │ → INSERT document_chunks│
-│ UPDATE doc       │              │ + dominio inferido      │
-└──────────────────┘              │ UPDATE procesado_ia=true│
-                                  └──────────┬─────────────┘
-                                             │
-                                             ▼
-                              ┌────────────────────────────┐
-                              │     document_chunks (315k) │
-                              │  Postgres FTS español      │
-                              │  + columna `dominio`       │
-                              │  RLS por visibility/owner  │
-                              └────────────┬───────────────┘
-                                           │
-        ┌──────────────────────────────────┼──────────────────┐
-        ▼                                  ▼                  ▼
-┌──────────────────┐       ┌────────────────────┐   ┌──────────────────┐
-│   rag-proxy      │       │  rag-proxy-v4      │   │ ava-orchestrator │
-│ (UI ProyectoRAG) │       │ (no usado en UI)   │   │ tool: rag_search │
-│ FTS+ILIKE→Gemini │       │ +team knowledge    │   │ → llama rag-proxy│
-│ tool-call JSON   │       │ +signals/threads   │   │                  │
-└──────────────────┘       └────────────────────┘   └──────────────────┘
+Las peticiones a Supabase REST están devolviendo **503 PGRST002** repetidamente:
+
+```
+Could not query the database for the schema cache. Retrying.
 ```
 
-**Componentes vivos:**
-- `rag-ingest` (chunking + extracción multimodal Gemini)
-- `rag-proxy` (consulta principal: FTS español + fallback ILIKE + Gemini con tool-call estructurado)
-- `rag-proxy-v4` (versión enriquecida con email_threads/signals; **desplegada pero no llamada desde UI ni orquestador**)
-- `document_chunks` con columna `dominio` (sin embeddings vectoriales reales)
-- `document_embeddings` (tabla creada pero **vacía / sin uso real**)
-- AVA → tool `rag_search` → llama `rag-proxy`
+Esto ocurre cuando **PostgREST no puede mantener el caché del schema**, típicamente porque:
 
-## 2) Estado real en BD (datos en producción)
+1. La instancia de Lovable Cloud está **saturada de CPU / memoria** (ahora mismo tienes ~40.000 documentos, 315.000 chunks, embeddings recién activados, RAG batch corriendo, AVA, Realtime…).
+2. Hay **demasiadas conexiones concurrentes** abiertas contra Postgres (cada pestaña de tu app abre varias).
+3. Acabamos de aplicar **2 migraciones grandes** (pgvector + columna `embedding vector(1536)` + funciones RPC) que invalidan el schema cache y obligan a PostgREST a reconstruirlo bajo carga.
 
-| Métrica | Valor |
-|---|---|
-| Documentos totales | **39.814** |
-| Documentos indexados (`procesado_ia=true`) | 39.641 (99,6%) |
-| Documentos clasificados (`taxonomia_id`) | **1** ❗ |
-| Chunks totales | 315.238 |
-| Embeddings reales | 0 útiles (tabla `document_embeddings` no se rellena) |
-| Taxonomías activas | 15 (las 12 + las 3 nuevas que añadimos) |
+Por eso:
+- AVA no carga conversaciones → `GET ava_conversations` → 503
+- Oportunidades tarda → `GET proyectos` → 503 con reintentos
+- Activos tarda → `GET activos` → 503
+- Dashboard tarda → varias queries paralelas → todas en 503
 
-**Distribución por dominio:**
-- `comunicaciones` (emails) — 237.682 chunks / 35.535 docs
-- `centros_comerciales` — 72.759 / 4.112
-- `activos` — 2.725 / 6
-- `general` — 2.072 / 54
+No es un bug de código. El front está bien; el backend no responde a tiempo.
 
-**Llamadas últimos 14 días:** `ava-orchestrator` 57, `rag-proxy:centros_comerciales` solo **2**. La RAG se está usando muy poco directamente.
+## Plan de acción (3 frentes en paralelo)
 
-## 3) Hallazgos importantes
+### 1) Inmediato — reducir presión sobre la BD
 
-### 🟢 Lo que funciona bien
-- Extracción multimodal Gemini para PDF/imagen/PPTX/email — operativa.
-- Chunking + dominios + RLS por owner/visibility — correcto.
-- AVA puede consultar la RAG vía tool `rag_search`.
-- Fallback ILIKE cuando FTS no encuentra nada.
+- **Pausar el batch RAG** (clasificación + embeddings) si está corriendo ahora mismo. Comprobar `rag_reprocess_queue` y poner en `paused` los pendientes hasta que la BD recupere el cache.
+- **Forzar refresh del schema cache** ejecutando `NOTIFY pgrst, 'reload schema';` desde una migración corta. Esto suele desbloquear los 503 en segundos.
+- **Reducir polling**: la AppLayout/Notification Center y `useChatMessages` mantienen suscripciones realtime que abren websockets — revisar que se desconectan al desmontar.
 
-### 🟡 Problemas reales detectados
-1. **Casi nada está clasificado** (1/39.814). El botón "Clasificar todo" existe pero no se ha lanzado masivamente sobre el histórico.
-2. **`rag-proxy-v4` está desplegada y muerta** — duplica `rag-proxy` con extras (team knowledge, signals) pero nadie la invoca. Es deuda técnica.
-3. **`document_embeddings` existe vacía** — diseñada para búsqueda semántica vectorial nunca implementada. Hoy todo es FTS textual + LLM.
-4. **Búsqueda solo léxica (FTS)**: si preguntas con sinónimos o conceptos no presentes literalmente, no encuentra nada hasta que el ILIKE rescata por una palabra. No hay similitud semántica real.
-5. **Chunks "pobres" de 1 sola fila** (12.455 docs tienen solo 1 chunk, muchos <250 caracteres) — extracción de PDFs muy ligera o imágenes con poco texto. Son documentos que están "indexados" pero aportan poco al RAG.
-6. **AVA dispara `rag_search` pocas veces** porque su system-prompt favorece otras tools y porque las respuestas FTS llegan vacías a menudo.
-7. **Sin reranking ni control de relevancia** — devuelve los 10 primeros hits FTS sin ordenar por score real.
+### 2) Corto plazo — código que reduce carga
 
-## 4) Cómo accedes hoy a la RAG (recorrido usuario)
+- **`ava_conversations`**: añadir `.limit(30)` y seleccionar columnas concretas (hoy `select=*`).
+- **Activos / Operadores / Contactos**: aplicar el mismo patrón que ya hicimos en Proyectos (`limit(60)` + columnas explícitas + debounce 350 ms en search).
+- **Dashboard**: las KPIs hacen `count('*', {head:true})` sobre tablas grandes; reemplazar por un único RPC `dashboard_stats()` que devuelva todos los contadores en una sola query (evita 6 round-trips).
+- **AppLayout `<FloatingChat />`**: el hook `useChatMessages` arranca aunque el panel esté cerrado. Cargarlo perezosamente solo cuando el usuario abre el FAB.
 
-- **Por proyecto**: pestaña "Conocimiento" en `/oportunidades/:id` → `ProyectoRAG` (selector de dominio + caja de pregunta + lista de docs indexados con botón reindexar).
-- **Global desde AVA**: pregunta a AVA, el orquestador decide si llamar `rag_search` (filtro automático por dominio).
-- **Nada más**. No hay buscador global de RAG fuera de proyecto.
+### 3) Plataforma — cuando lo anterior no basta
 
-## 5) Plan propuesto (qué arreglar y mejorar)
+Si tras las optimizaciones siguen apareciendo 503 esporádicos bajo uso normal, la instancia de Lovable Cloud se ha quedado pequeña para tu volumen (40k docs + RAG vectorial + AVA concurrente).
 
-### A. Higiene inmediata (sin cambios de modelo)
-- **A1** Borrar `rag-proxy-v4` (desplegada y huérfana) y la tabla/columna `document_embeddings` si confirmamos no usarla.
-- **A2** Lanzar **clasificación retroactiva** de los ~39.800 documentos sin taxonomía vía un job de batch (botón en `/admin` "Reclasificar todo el histórico" con barra de progreso, en chunks de 5 docs paralelos).
-- **A3** Añadir **buscador RAG global** en el menú lateral (`/conocimiento`) — actualmente solo se accede dentro de cada oportunidad.
+Puedes ampliar la capacidad desde:
+**Backend → Lovable Cloud → Advanced settings → Upgrade instance**
+([docs](https://docs.lovable.dev/features/cloud#advanced-settings-upgrade-instance))
 
-### B. Calidad de la RAG (alto impacto)
-- **B1 Embeddings semánticos reales**: rellenar `document_embeddings` con `text-embedding-3-small` (OpenAI, ya tienes `OPENAI_API_KEY`) o usar Gemini embeddings. Modificar `rag-proxy` para hacer **búsqueda híbrida**: FTS + cosine similarity con `pgvector` y rerank.
-- **B2 Reranker**: tras recuperar 20 candidatos (10 FTS + 10 vectorial), rerankear con un Gemini Flash dedicado a "rate relevance 0-10 for question X".
-- **B3 Chunk smarter**: en `rag-ingest`, detectar documentos cuyo texto extraído sea <300 chars y marcarlos `fase_rag='low_quality'` para reprocesarlos con un prompt Gemini más agresivo.
-- **B4 Citas con enlace**: que `rag-proxy` devuelva `documento_id` en cada cita y la UI permita abrir el PDF original directamente desde la respuesta.
-
-### C. Integración con AVA
-- **C1** Mejorar el system-prompt del orquestador para que **siempre pruebe `rag_search` primero** cuando la pregunta menciona "documento", "contrato", "informe", nombres de operadores o de proyectos.
-- **C2** Cachear en `aba_messages.meta` los chunks usados para que el feedback del usuario alimente `ai_learned_patterns` (ya existe el patrón en V4).
-
-### D. Documentación interna
-- **D1** Actualizar `mem://features/ai/rag` (hoy describe "8 dominios", la BD solo tiene 4 activos).
-- **D2** Crear `mem://features/ai/rag-architecture` con el diagrama de arriba.
+Mi recomendación: aplicar 1 y 2 primero, observar 24 h, y solo escalar si reaparece.
 
 ## Detalles técnicos
-- Bucket: `documentos_contratos` (privado), `ava_attachments` (privado).
-- Chunking actual: 2000 chars + 200 overlap, sin estructura semántica.
-- FTS: `to_tsvector('spanish', contenido)` implícito en `textSearch(..., {config:'spanish'})`.
-- Para B1 hace falta migración: `CREATE EXTENSION pgvector` (si no está) + columna `embedding vector(1536)` en `document_chunks` con índice ivfflat o hnsw.
-- Modelo extracción: `google/gemini-2.5-flash` (16k tokens, multimodal).
-- Modelo respuesta RAG: `google/gemini-3-flash-preview`.
 
-## Preguntas antes de implementar
-1. ¿Lanzo ya la **clasificación retroactiva masiva** (39.800 docs, ~3-4h en background, coste estimado <5€)?
-2. ¿Activamos **embeddings semánticos reales** (B1+B2) o de momento mantenemos solo FTS textual?
-3. ¿Borro `rag-proxy-v4` y `document_embeddings` huérfanas, o prefieres conservarlas por si reaprovechamos?
-4. ¿Quieres un **buscador RAG global** en el menú lateral (`/conocimiento`) o seguimos solo dentro de cada oportunidad?
+- Migración para forzar reload del schema cache de PostgREST (1 línea).
+- RPC `dashboard_stats()` agregando: oportunidades activas, operadores, activos, docs, costes IA del mes — todo en un solo SELECT.
+- Refactor de `Activos.tsx`, `Operadores.tsx`, `Contactos.tsx` (mismo patrón debounce + limit + columnas).
+- Refactor de `useChatMessages.ts`: lazy-init (no consultar `ava_conversations` hasta que `open=true` en `FloatingChat`).
+- Pausar/auditar `rag_reprocess_queue`: `UPDATE rag_reprocess_queue SET status='paused' WHERE status='pending'` + botón "Reanudar" en `/admin`.
+
+## Resultado esperado
+
+- Desaparición de los 503 en cuestión de segundos tras el `NOTIFY`.
+- Carga inicial de AVA, Activos y Oportunidades **<1 s** en lugar de varios segundos.
+- Dashboard: 1 query en lugar de 6 — carga instantánea.
+- Si vuelve la lentitud bajo carga real → escalar instancia (paso 3).
 
