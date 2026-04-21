@@ -22,6 +22,7 @@ export function BottomNav() {
     <nav
       className="md:hidden fixed bottom-0 inset-x-0 z-40 pointer-events-none"
       aria-label="Navegación principal"
+      style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
     >
       <div className="pointer-events-auto relative px-3 pb-3 pt-2">
         <div className="card-premium card-elevated mx-auto flex items-end justify-around gap-1 px-2 py-2 shadow-xl">
@@ -35,8 +36,8 @@ export function BottomNav() {
             onClick={() => navigate("/asistente")}
             aria-label="Abrir AVA"
             className={cn(
-              "relative -mt-7 h-16 w-16 rounded-full ava-gradient grid place-items-center text-white shrink-0 transition-transform active:scale-95",
-              onAva ? "ring-2 ring-white/40" : "glow-ring"
+              "relative -mt-7 h-16 w-16 rounded-full ava-gradient grid place-items-center text-white shrink-0 transition-transform active:scale-95 glow-ring",
+              onAva && "ring-2 ring-white/50 animate-pulse"
             )}
           >
             <Sparkles className="h-7 w-7 drop-shadow" />
