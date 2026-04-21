@@ -170,38 +170,65 @@ export default function Dashboard() {
 
   const unreadCount = notifications.filter((n) => !n.read).length;
 
+  const userName = (user?.email?.split("@")[0] || "Alberto").replace(/[^a-zA-Z]/g, "");
+  const greeting = (() => {
+    const h = new Date().getHours();
+    if (h < 12) return "Buenos días";
+    if (h < 20) return "Buenas tardes";
+    return "Buenas noches";
+  })();
+
   return (
-    <div className="space-y-4 md:space-y-6">
-      {/* Header */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-xl md:text-2xl font-bold tracking-tight">Dashboard</h1>
-          <p className="text-xs md:text-sm text-muted-foreground">Visión general de la plataforma AVA</p>
+    <div className="space-y-6 md:space-y-8">
+      {/* Hero */}
+      <div className="space-y-1.5">
+        <p className="text-[11px] uppercase tracking-widest text-muted-foreground/70 font-medium">Dashboard</p>
+        <h1 className="text-3xl md:text-5xl font-bold tracking-tight leading-[1.05]">
+          {greeting}, <span className="ava-text-gradient capitalize">{userName}</span>
+        </h1>
+        <p className="text-sm md:text-base text-muted-foreground">
+          Tienes <strong className="text-foreground">{stats?.matchesPendientes ?? 0}</strong> matches nuevos y <strong className="text-foreground">{stats?.proyectosActivos ?? 0}</strong> oportunidades activas.
+        </p>
+      </div>
+
+      {/* AVA card highlight */}
+      <Link to="/asistente" className="block card-premium overflow-hidden relative group">
+        <div className="absolute inset-0 ava-gradient opacity-[0.08] group-hover:opacity-[0.12] transition-opacity" />
+        <div className="relative p-5 md:p-6 flex items-center gap-4">
+          <div className="h-14 w-14 md:h-16 md:w-16 rounded-2xl ava-gradient grid place-items-center text-white shrink-0 glow-ring-soft">
+            <Sparkles className="h-7 w-7" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-[11px] uppercase tracking-widest text-accent font-semibold">AVA · Resumen del día</p>
+            <p className="text-base md:text-lg font-semibold tracking-tight mt-0.5">Pregunta lo que quieras a tu asistente</p>
+            <p className="text-xs text-muted-foreground mt-0.5">Análisis, generación de informes, búsqueda y más.</p>
+          </div>
+          <ArrowRight className="h-5 w-5 text-muted-foreground group-hover:text-accent transition-colors shrink-0" />
         </div>
-        <div className="flex gap-2 w-full sm:w-auto">
-          <Button asChild size="sm" className="bg-accent text-accent-foreground hover:bg-accent/90 flex-1 sm:flex-none">
-            <Link to="/oportunidades"><Plus className="mr-1 h-4 w-4" /> <span className="hidden sm:inline">Nueva </span>Oportunidad</Link>
-          </Button>
-          <Button asChild size="sm" variant="outline" className="flex-1 sm:flex-none">
-            <Link to="/operadores"><Plus className="mr-1 h-4 w-4" /> <span className="hidden sm:inline">Nuevo </span>Operador</Link>
-          </Button>
-        </div>
+      </Link>
+
+      {/* CTAs */}
+      <div className="flex flex-col sm:flex-row gap-2">
+        <Button asChild size="sm" className="ava-gradient text-white border-0 hover:opacity-90 flex-1 sm:flex-none">
+          <Link to="/oportunidades"><Plus className="mr-1 h-4 w-4" /> Nueva oportunidad</Link>
+        </Button>
+        <Button asChild size="sm" variant="outline" className="flex-1 sm:flex-none">
+          <Link to="/operadores"><Plus className="mr-1 h-4 w-4" /> Nuevo operador</Link>
+        </Button>
       </div>
 
       {/* KPI cards */}
-      <div className="grid gap-2.5 md:gap-3 grid-cols-2 md:grid-cols-3 lg:grid-cols-6">
+      <div className="grid gap-3 grid-cols-2 md:grid-cols-3 lg:grid-cols-6">
         {statCards.map((card) => (
-          <Card key={card.label} className="shadow-sm">
-            <CardContent className="py-3 px-3 md:py-4 md:px-4 flex flex-col gap-1.5 md:gap-2">
-              <div className="flex items-center justify-between">
-                <p className="text-[10px] md:text-xs font-medium text-muted-foreground leading-tight">{card.label}</p>
-                <div className={`h-6 w-6 md:h-7 md:w-7 rounded-full ${card.bg} flex items-center justify-center`}>
-                  <card.icon className={`h-3 w-3 md:h-3.5 md:w-3.5 ${card.color}`} />
-                </div>
+          <div key={card.label} className="card-premium p-4 flex flex-col gap-2">
+            <div className="flex items-center justify-between">
+              <p className="text-[10px] md:text-xs font-medium text-muted-foreground leading-tight uppercase tracking-wider">{card.label}</p>
+              <div className={`h-7 w-7 rounded-xl ${card.bg} flex items-center justify-center`}>
+                <card.icon className={`h-3.5 w-3.5 ${card.color}`} />
               </div>
-              {loading ? <Skeleton className="h-6 md:h-7 w-14" /> : <p className="text-lg md:text-2xl font-bold">{card.value}</p>}
-            </CardContent>
-          </Card>
+            </div>
+            {loading ? <Skeleton className="h-7 w-16" /> : <p className="text-xl md:text-2xl font-bold tabular-nums tracking-tight">{card.value}</p>}
+          </div>
         ))}
       </div>
 
