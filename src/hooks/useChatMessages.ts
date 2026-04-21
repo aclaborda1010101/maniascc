@@ -91,9 +91,10 @@ export function useChatMessages() {
       setInitialLoading(true);
       const { data: convRows } = await supabase
         .from("ava_conversations")
-        .select("*")
+        .select("id, title, created_at, updated_at, user_id")
         .eq("user_id", user.id)
-        .order("updated_at", { ascending: false });
+        .order("updated_at", { ascending: false })
+        .limit(30);
 
       if (cancelled) return;
 

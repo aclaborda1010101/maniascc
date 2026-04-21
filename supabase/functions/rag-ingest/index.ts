@@ -54,6 +54,22 @@ function geminiMimeType(mime: string, fileName: string): string {
 /** Max base64 size we'll send to Gemini (~15MB raw = ~20MB base64) */
 const MAX_BASE64_SIZE = 20 * 1024 * 1024;
 
+async function fetchWithRetry(url: string, init: RequestInit, maxRetries = 3): Promise<Response> {
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    const resp = await fetch(url, init);
+    if (resp.status === 429 || resp.status === 503) {
+      if (attempt < maxRetries) {
+        const delay = Math.min(1000 * Math.pow(2, attempt), 8000);
+        console.warn(`Rate limited (${resp.status}), retrying in ${delay}ms (attempt ${attempt + 1}/${maxRetries})`);
+        await new Promise((r) => setTimeout(r, delay));
+        continue;
+      }
+    }
+    return resp;
+  }
+  throw new Error("Max retries exceeded");
+}
+
 /** Extract text from a file using Google Gemini multimodal */
 async function extractWithGemini(
   fileBase64: string,
@@ -71,7 +87,7 @@ async function extractWithGemini(
 
   console.log(`Extracting ${fileName} (${(fileBase64.length / 1024 / 1024).toFixed(1)}MB base64, mime: ${resolvedMime})`);
 
-  const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+  const response = await fetchWithRetry("https://ai.gateway.lovable.dev/v1/chat/completions", {
     method: "POST",
     headers: {
       "Authorization": `Bearer ${apiKey}`,
@@ -258,33 +274,33 @@ serve(async (req) => {
     }));
 
     if (rows.length > 0) {
-      // Insert chunks one by one to handle individual failures
-      let insertedCount = 0;
-      for (const row of rows) {
-        try {
-          const { error: insertErr } = await admin.from("document_chunks").insert(row);
-          if (insertErr) {
-            console.error(`Chunk ${row.chunk_index} insert error:`, insertErr.message, "contenido length:", row.contenido.length);
-            // Try with more aggressive sanitization
-            const sanitized = {
-              ...row,
-              contenido: row.contenido.replace(/[^\x20-\x7E\xA0-\uFFFF\n\r\t]/g, " "),
-            };
-            const { error: retryErr } = await admin.from("document_chunks").insert(sanitized);
-            if (retryErr) {
-              console.error(`Chunk ${row.chunk_index} retry failed:`, retryErr.message);
-              continue;
+      // Try batch insert first (much faster)
+      const { error: batchErr } = await admin.from("document_chunks").insert(rows);
+      if (batchErr) {
+        console.warn(`Batch insert failed (${batchErr.message}), falling back to individual inserts`);
+        // Fallback: insert individually with sanitization retry
+        let insertedCount = 0;
+        for (const row of rows) {
+          try {
+            const { error: insertErr } = await admin.from("document_chunks").insert(row);
+            if (insertErr) {
+              const sanitized = {
+                ...row,
+                contenido: row.contenido.replace(/[^\x20-\x7E\xA0-\uFFFF\n\r\t]/g, " "),
+              };
+              const { error: retryErr } = await admin.from("document_chunks").insert(sanitized);
+              if (retryErr) continue;
             }
+            insertedCount++;
+          } catch (e) {
+            console.error(`Chunk ${row.chunk_index} exception:`, e);
           }
-          insertedCount++;
-        } catch (e) {
-          console.error(`Chunk ${row.chunk_index} exception:`, e);
         }
-      }
-      if (insertedCount === 0) {
-        return new Response(JSON.stringify({ error: "All chunk inserts failed" }), {
-          status: 500, headers: corsHeaders,
-        });
+        if (insertedCount === 0) {
+          return new Response(JSON.stringify({ error: "All chunk inserts failed" }), {
+            status: 500, headers: corsHeaders,
+          });
+        }
       }
     }
 

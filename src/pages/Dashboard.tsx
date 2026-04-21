@@ -103,14 +103,14 @@ export default function Dashboard() {
         supabase.from("proyectos").select("id", { count: "exact", head: true }).in("estado", ["activo", "en_negociacion"]),
         supabase.from("operadores").select("id", { count: "exact", head: true }),
         supabase.from("matches").select("id", { count: "exact", head: true }).eq("estado", "pendiente"),
-        supabase.from("auditoria_ia").select("coste_estimado, latencia_ms, tokens_entrada, tokens_salida, modelo").gte("created_at", startOfMonth.toISOString()),
+        supabase.from("auditoria_ia").select("tokens_entrada, tokens_salida, modelo").gte("created_at", startOfMonth.toISOString()).limit(500),
         supabase.from("locales").select("id", { count: "exact", head: true }),
         supabase.from("auditoria_ia").select("latencia_ms").order("created_at", { ascending: false }).limit(50),
-        supabase.from("matches").select("*, locales(nombre), operadores(nombre)").order("created_at", { ascending: false }).limit(8),
-        supabase.from("actividad_proyecto").select("*, proyectos(nombre)").order("created_at", { ascending: false }).limit(10),
-        supabase.from("locales").select("estado"),
-        supabase.from("matches").select("estado, score"),
-        user ? supabase.from("notificaciones").select("*").eq("user_id", user.id).order("created_at", { ascending: false }).limit(10) : Promise.resolve({ data: [] }),
+        supabase.from("matches").select("id, score, estado, explicacion, created_at, locales(nombre), operadores(nombre)").order("created_at", { ascending: false }).limit(8),
+        supabase.from("actividad_proyecto").select("id, descripcion, tipo, created_at, proyectos(nombre)").order("created_at", { ascending: false }).limit(10),
+        supabase.from("locales").select("estado").limit(500),
+        supabase.from("matches").select("estado, score").limit(1000),
+        user ? supabase.from("notificaciones").select("id, title, description, type, read, link, created_at").eq("user_id", user.id).order("created_at", { ascending: false }).limit(10) : Promise.resolve({ data: [] }),
       ]);
 
       const audMes = audMesRes.data || [];

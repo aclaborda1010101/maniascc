@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -50,10 +50,18 @@ export default function Operadores() {
 
   const selectedMatriz = matrices.find((m: any) => m.id === selectedMatrizId);
 
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  const debounceRef = useRef<ReturnType<typeof setTimeout>>();
+
+  useEffect(() => {
+    debounceRef.current = setTimeout(() => setDebouncedSearch(search), 350);
+    return () => clearTimeout(debounceRef.current);
+  }, [search]);
+
   const fetchOperadores = async () => {
     setLoading(true);
-    let query = supabase.from("operadores").select("*").order("created_at", { ascending: false });
-    if (search) query = query.or(`nombre.ilike.%${search}%,sector.ilike.%${search}%`);
+    let query = supabase.from("operadores").select("id, nombre, sector, direccion, presupuesto_min, presupuesto_max, superficie_min, superficie_max, activo, matriz_id, created_at").order("created_at", { ascending: false }).limit(60);
+    if (debouncedSearch) query = query.or(`nombre.ilike.%${debouncedSearch}%,sector.ilike.%${debouncedSearch}%`);
     if (filtroSector !== "todos") query = query.eq("sector", filtroSector);
     if (filtroActivo === "activo") query = query.eq("activo", true);
     if (filtroActivo === "inactivo") query = query.eq("activo", false);
@@ -65,8 +73,11 @@ export default function Operadores() {
 
   useEffect(() => {
     fetchOperadores();
-    supabase.from("locales").select("id, nombre, direccion").order("nombre").then(({ data }) => setActivos(data || []));
-  }, [search, filtroSector, filtroActivo]);
+  }, [debouncedSearch, filtroSector, filtroActivo]);
+
+  useEffect(() => {
+    supabase.from("locales").select("id, nombre, direccion").order("nombre").limit(200).then(({ data }) => setActivos(data || []));
+  }, []);
 
   const handleCreate = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();

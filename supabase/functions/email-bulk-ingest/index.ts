@@ -298,6 +298,22 @@ function chunkText(text: string, maxLen: number): string[] {
   return chunks;
 }
 
+async function fetchWithRetry(url: string, init: RequestInit, maxRetries = 3): Promise<Response> {
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    const resp = await fetch(url, init);
+    if (resp.status === 429 || resp.status === 503) {
+      if (attempt < maxRetries) {
+        const delay = Math.min(1000 * Math.pow(2, attempt), 8000);
+        console.warn(`Rate limited (${resp.status}), retrying in ${delay}ms (attempt ${attempt + 1}/${maxRetries})`);
+        await new Promise((r) => setTimeout(r, delay));
+        continue;
+      }
+    }
+    return resp;
+  }
+  throw new Error("Max retries exceeded");
+}
+
 async function extractKnowledge(text: string, subject: string, participants: any[], apiKey: string) {
   const systemPrompt = `Eres un analista experto en negociaciones inmobiliarias comerciales. Extraes conocimiento estructurado de hilos de correo electrónico para alimentar un grafo de inteligencia compartida.
 NO incluyas texto literal del correo en los snippets de contexto: usa máximo 1 frase resumida y neutra.
@@ -311,7 +327,7 @@ ${text}
 
 Extrae: resumen ejecutivo (3-5 líneas), temas clave, entidades mencionadas (operadores/marcas, contactos, activos/locales, proyectos), señales de negociación (precio, superficie, plazos, condiciones), y sentimiento general.`;
 
-  const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+  const response = await fetchWithRetry("https://ai.gateway.lovable.dev/v1/chat/completions", {
     method: "POST",
     headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
     body: JSON.stringify({

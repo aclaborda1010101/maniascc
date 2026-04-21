@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -41,17 +41,25 @@ export default function Locales() {
   const { user } = useAuth();
   const isMobile = useIsMobile();
 
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  const debounceRef = useRef<ReturnType<typeof setTimeout>>();
+
+  useEffect(() => {
+    debounceRef.current = setTimeout(() => setDebouncedSearch(search), 350);
+    return () => clearTimeout(debounceRef.current);
+  }, [search]);
+
   const fetchLocales = async () => {
     setLoading(true);
-    let query = supabase.from("locales").select("*").order("created_at", { ascending: false });
+    let query = supabase.from("locales").select("id, nombre, direccion, ciudad, codigo_postal, superficie_m2, precio_renta, estado, created_at").order("created_at", { ascending: false }).limit(60);
     if (filtroEstado !== "todos") query = query.eq("estado", filtroEstado as any);
-    if (search) query = query.or(`nombre.ilike.%${search}%,direccion.ilike.%${search}%,codigo_postal.ilike.%${search}%,ciudad.ilike.%${search}%`);
+    if (debouncedSearch) query = query.or(`nombre.ilike.%${debouncedSearch}%,direccion.ilike.%${debouncedSearch}%,codigo_postal.ilike.%${debouncedSearch}%,ciudad.ilike.%${debouncedSearch}%`);
     const { data } = await query;
     setLocales(data || []);
     setLoading(false);
   };
 
-  useEffect(() => { fetchLocales(); }, [filtroEstado, search]);
+  useEffect(() => { fetchLocales(); }, [filtroEstado, debouncedSearch]);
 
   const handleCreate = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();

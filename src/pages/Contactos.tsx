@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo, useCallback } from "react";
+import { useEffect, useState, useMemo, useCallback, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -45,19 +45,27 @@ export default function Contactos() {
   const { user } = useAuth();
   const isMobile = useIsMobile();
 
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  const debounceRef = useRef<ReturnType<typeof setTimeout>>();
+
+  useEffect(() => {
+    debounceRef.current = setTimeout(() => setDebouncedSearch(search), 350);
+    return () => clearTimeout(debounceRef.current);
+  }, [search]);
+
   const fetchContactos = useCallback(async () => {
     setLoading(true);
-    let query = supabase.from("contactos").select("*").order("created_at", { ascending: false });
-    if (search) {
-      query = query.or(`nombre.ilike.%${search}%,empresa.ilike.%${search}%,cargo.ilike.%${search}%`);
+    let query = supabase.from("contactos").select("id, nombre, apellidos, empresa, cargo, email, telefono, whatsapp, linkedin_url, operador_id, is_favorite, in_network, last_contact, wa_message_count, plaud_count, estilo_negociacion, created_at").order("created_at", { ascending: false }).limit(100);
+    if (debouncedSearch) {
+      query = query.or(`nombre.ilike.%${debouncedSearch}%,empresa.ilike.%${debouncedSearch}%,cargo.ilike.%${debouncedSearch}%`);
     }
     const { data } = await query;
     setContactos(data || []);
     setLoading(false);
-  }, [search]);
+  }, [debouncedSearch]);
 
   useEffect(() => {
-    supabase.from("operadores").select("id, nombre").eq("activo", true).order("nombre")
+    supabase.from("operadores").select("id, nombre").eq("activo", true).order("nombre").limit(200)
       .then(({ data }) => setOperadores(data || []));
   }, []);
 

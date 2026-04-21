@@ -65,14 +65,23 @@ Deno.serve(async (req) => {
         admin.from("document_chunks").select("id", { count: "exact", head: true }),
         admin.from("document_chunks").select("id", { count: "exact", head: true }).not("embedding", "is", null),
       ]);
-      const { data: queueStats } = await admin
-        .from("rag_reprocess_queue")
-        .select("task_type, estado")
-        .limit(50000);
+      // Count queue stats efficiently using individual count queries per task_type+estado
+      const taskTypes = ["classify", "ingest", "embed"];
+      const estados = ["pending", "processing", "done", "error"];
+      const countQueries = taskTypes.flatMap((tt) =>
+        estados.map((est) =>
+          admin.from("rag_reprocess_queue").select("id", { count: "exact", head: true })
+            .eq("task_type", tt).eq("estado", est)
+            .then((r: any) => ({ tt, est, count: r.count || 0 }))
+        )
+      );
+      const countResults = await Promise.all(countQueries);
       const queue: Record<string, Record<string, number>> = {};
-      for (const row of queueStats || []) {
-        queue[row.task_type] ??= {};
-        queue[row.task_type][row.estado] = (queue[row.task_type][row.estado] || 0) + 1;
+      for (const { tt, est, count } of countResults) {
+        if (count > 0) {
+          queue[tt] ??= {};
+          queue[tt][est] = count;
+        }
       }
       return new Response(
         JSON.stringify({
