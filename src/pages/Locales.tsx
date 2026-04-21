@@ -16,11 +16,11 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { useIsMobile } from "@/hooks/use-mobile";
 
-const estadoColors: Record<string, string> = {
-  disponible: "bg-chart-2/10 text-chart-2",
-  en_negociacion: "bg-chart-3/10 text-chart-3",
-  ocupado: "bg-chart-4/10 text-chart-4",
-  reforma: "bg-chart-5/10 text-chart-5",
+const estadoTone: Record<string, string> = {
+  disponible: "acc-4",
+  en_negociacion: "acc-5",
+  ocupado: "acc-3",
+  reforma: "acc-2",
 };
 
 const estadoLabels: Record<string, string> = {
@@ -89,15 +89,18 @@ export default function Locales() {
   };
 
   return (
-    <div className="space-y-4 md:space-y-6">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-xl md:text-2xl font-bold tracking-tight">Activos</h1>
-          <p className="text-xs md:text-sm text-muted-foreground">Gestiona los activos comerciales de tus centros</p>
+    <div className="space-y-5 md:space-y-6">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+        <div className="space-y-1.5">
+          <p className="text-[11px] uppercase tracking-widest text-muted-foreground/70 font-medium">Cartera · {locales.length}</p>
+          <h1 className="text-3xl md:text-4xl font-display font-bold tracking-tight">
+            <span className="text-iridescent">Activos</span>
+          </h1>
+          <p className="text-xs md:text-sm text-muted-foreground">Gestiona los activos comerciales de tus centros.</p>
         </div>
         <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
           <DialogTrigger asChild>
-            <Button className="bg-accent text-accent-foreground hover:bg-accent/90 w-full sm:w-auto">
+            <Button className="rounded-2xl gradient-iridescent text-white border-0 hover:opacity-95 w-full sm:w-auto">
               <Plus className="mr-2 h-4 w-4" /> Nuevo Activo
             </Button>
           </DialogTrigger>
@@ -154,26 +157,24 @@ export default function Locales() {
         </Dialog>
       </div>
 
-      <Card className="shadow-sm">
-        <CardHeader className="pb-3">
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <Input placeholder="Buscar por nombre, dirección..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-10" />
-            </div>
-            <Select value={filtroEstado} onValueChange={setFiltroEstado}>
-              <SelectTrigger className="w-full sm:w-[180px]"><SelectValue placeholder="Estado" /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="todos">Todos los estados</SelectItem>
-                <SelectItem value="disponible">Disponible</SelectItem>
-                <SelectItem value="en_negociacion">En negociación</SelectItem>
-                <SelectItem value="ocupado">Ocupado</SelectItem>
-                <SelectItem value="reforma">En reforma</SelectItem>
-              </SelectContent>
-            </Select>
+      <div className="glass p-4 md:p-5">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center pb-3">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input placeholder="Buscar por nombre, dirección..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-10 rounded-2xl bg-white/[0.04] border-border/40" />
           </div>
-        </CardHeader>
-        <CardContent>
+          <Select value={filtroEstado} onValueChange={setFiltroEstado}>
+            <SelectTrigger className="w-full sm:w-[180px] rounded-2xl bg-white/[0.04] border-border/40"><SelectValue placeholder="Estado" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="todos">Todos los estados</SelectItem>
+              <SelectItem value="disponible">Disponible</SelectItem>
+              <SelectItem value="en_negociacion">En negociación</SelectItem>
+              <SelectItem value="ocupado">Ocupado</SelectItem>
+              <SelectItem value="reforma">En reforma</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+        <div>
           {loading ? (
             <div className="space-y-3">{[1, 2, 3, 4].map((i) => <Skeleton key={i} className="h-14 w-full" />)}</div>
           ) : locales.length === 0 ? (
