@@ -9,6 +9,7 @@ import { NotificationCenter } from "@/components/NotificationCenter";
 import { FloatingChat } from "@/components/FloatingChat";
 import { BottomNav } from "@/components/BottomNav";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { Sparkles } from "lucide-react";
 
 export function AppLayout() {
   const navigate = useNavigate();
@@ -20,43 +21,66 @@ export function AppLayout() {
   const initials = user?.email?.substring(0, 2).toUpperCase() || "AV";
 
   // En móvil ocultamos el FloatingChat (lo sustituye el FAB del BottomNav).
-  // En /asistente también, ya hay UI propia.
   const showFloatingChat = !isMobile && location.pathname !== "/asistente";
 
   return (
     <SidebarProvider>
-      <div className="min-h-screen flex w-full overflow-x-hidden bg-background">
-        {/* Ambient gradient blobs (decorativos, sólo desktop) */}
-        <div className="pointer-events-none fixed inset-0 overflow-hidden hidden md:block z-0">
-          <div className="absolute -top-40 -left-20 h-[500px] w-[500px] rounded-full bg-[hsl(var(--ava-via)/0.08)] blur-[120px]" />
-          <div className="absolute top-1/3 -right-40 h-[600px] w-[600px] rounded-full bg-[hsl(var(--ava-from)/0.06)] blur-[140px]" />
-          <div className="absolute -bottom-40 left-1/3 h-[400px] w-[400px] rounded-full bg-[hsl(var(--ava-to)/0.05)] blur-[100px]" />
+      <div className="min-h-screen flex w-full overflow-x-hidden" style={{ background: "hsl(224 30% 3%)" }}>
+        {/* Ambient iridescent blobs (fixed, behind everything) */}
+        <div className="ambient" aria-hidden>
+          <div className="ambient-blob-3" />
         </div>
 
+        {/* Desktop sidebar (glass) */}
         <div className="hidden md:block relative z-10">
           <AppSidebar />
         </div>
 
         <div className="relative z-10 flex-1 flex flex-col min-w-0">
-          {/* Header desktop only */}
-          <header className="hidden md:flex h-14 items-center border-b border-border/40 bg-background/60 backdrop-blur-xl px-4 gap-3 shrink-0 sticky top-0 z-20">
-            <SidebarTrigger className="h-9 w-9 flex items-center justify-center" />
-            <span className="font-display text-base font-semibold tracking-tight">
-              <span className="ava-text-gradient">AVA</span>
-            </span>
+          {/* Desktop topbar — minimal, glass, with breadcrumb + AVA pill */}
+          <header
+            className="hidden md:flex h-14 items-center px-6 gap-4 shrink-0 sticky top-0 z-20"
+            style={{
+              background: "hsl(224 30% 4% / 0.6)",
+              backdropFilter: "blur(20px) saturate(1.6)",
+              WebkitBackdropFilter: "blur(20px) saturate(1.6)",
+              borderBottom: "1px solid hsl(0 0% 100% / 0.06)",
+            }}
+          >
+            <SidebarTrigger className="h-8 w-8 flex items-center justify-center text-white/55 hover:text-white" />
+            <Crumb pathname={location.pathname} />
             <div className="ml-auto flex items-center gap-2">
+              {/* "Preguntar a AVA" pill */}
+              <button
+                onClick={() => navigate("/asistente")}
+                className="hidden lg:flex items-center gap-2 h-8 pl-2.5 pr-3 rounded-full text-[12.5px] font-medium text-white transition-all hover:scale-[1.02]"
+                style={{
+                  background: "linear-gradient(135deg, hsl(var(--acc-1)), hsl(var(--acc-2)))",
+                  boxShadow: "0 6px 20px -8px hsl(var(--acc-2) / 0.7)",
+                }}
+              >
+                <Sparkles className="h-3.5 w-3.5" />
+                <span>Preguntar a AVA</span>
+                <span
+                  className="ml-1 px-1.5 py-0.5 rounded text-[10px] font-mono"
+                  style={{ background: "hsl(0 0% 100% / 0.18)" }}
+                >
+                  ⌘K
+                </span>
+              </button>
+
               <NotificationCenter />
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <button className="flex items-center gap-2 rounded-full focus:outline-none focus:ring-2 focus:ring-ring">
-                    <Avatar className="h-8 w-8 ring-1 ring-border">
-                      <AvatarFallback className="ava-gradient text-white text-xs font-semibold">
+                    <Avatar className="h-8 w-8 ring-1 ring-white/10">
+                      <AvatarFallback className="text-white text-xs font-semibold gradient-iridescent">
                         {initials}
                       </AvatarFallback>
                     </Avatar>
                   </button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
+                <DropdownMenuContent align="end" className="glass border-white/10">
                   <DropdownMenuItem className="text-xs text-muted-foreground" disabled>{user?.email}</DropdownMenuItem>
                   <DropdownMenuItem onClick={() => signOut()}>Cerrar sesión</DropdownMenuItem>
                 </DropdownMenuContent>
@@ -64,22 +88,29 @@ export function AppLayout() {
             </div>
           </header>
 
-          {/* Mobile header — minimal: notificaciones + avatar */}
-          <header className="md:hidden flex h-12 items-center px-4 gap-2 shrink-0 sticky top-0 z-20 bg-background/80 backdrop-blur-xl">
-            <span className="font-display text-base font-bold ava-text-gradient">AVA</span>
+          {/* Mobile header */}
+          <header
+            className="md:hidden flex h-12 items-center px-4 gap-2 shrink-0 sticky top-0 z-20"
+            style={{
+              background: "hsl(224 30% 4% / 0.7)",
+              backdropFilter: "blur(20px) saturate(1.6)",
+              WebkitBackdropFilter: "blur(20px) saturate(1.6)",
+            }}
+          >
+            <span className="font-display text-base font-bold text-iridescent">AVA</span>
             <div className="ml-auto flex items-center gap-1">
               <NotificationCenter />
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <button className="flex items-center gap-2 rounded-full focus:outline-none focus:ring-2 focus:ring-ring">
+                  <button className="flex items-center gap-2 rounded-full focus:outline-none">
                     <Avatar className="h-8 w-8">
-                      <AvatarFallback className="ava-gradient text-white text-[11px] font-semibold">
+                      <AvatarFallback className="text-white text-[11px] font-semibold gradient-iridescent">
                         {initials}
                       </AvatarFallback>
                     </Avatar>
                   </button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
+                <DropdownMenuContent align="end" className="glass border-white/10">
                   <DropdownMenuItem className="text-xs text-muted-foreground" disabled>{user?.email}</DropdownMenuItem>
                   <DropdownMenuItem onClick={() => signOut()}>Cerrar sesión</DropdownMenuItem>
                 </DropdownMenuContent>
@@ -87,7 +118,7 @@ export function AppLayout() {
             </div>
           </header>
 
-          <main className="flex-1 overflow-auto px-4 md:px-8 py-4 md:py-6 pb-28 md:pb-6 max-w-[1600px] w-full mx-auto">
+          <main className="flex-1 overflow-auto px-4 md:px-8 py-5 md:py-8 pb-28 md:pb-8 max-w-[1600px] w-full mx-auto">
             <Outlet />
           </main>
 
@@ -96,5 +127,41 @@ export function AppLayout() {
         </div>
       </div>
     </SidebarProvider>
+  );
+}
+
+/* ───────── Breadcrumb ───────── */
+const PATH_LABELS: Record<string, string> = {
+  dashboard: "Dashboard",
+  asistente: "Asistente",
+  oportunidades: "Oportunidades",
+  activos: "Activos",
+  operadores: "Operadores",
+  contactos: "Contactos",
+  documentos: "Documentos",
+  conocimiento: "Conocimiento",
+  matching: "Matching",
+  patrones: "Patrones",
+  ajustes: "Ajustes",
+  consumo: "Consumo",
+  generador: "Generador",
+  localizacion: "Localización",
+  "tenant-mix": "Optimización Mix",
+  "negociacion-ia": "Negociación IA",
+  "validacion-dossier": "Validación Dossier",
+  playground: "Playground",
+  mas: "Más",
+};
+
+function Crumb({ pathname }: { pathname: string }) {
+  const parts = pathname.split("/").filter(Boolean);
+  const last = parts[0] ?? "";
+  const label = PATH_LABELS[last] ?? last;
+  return (
+    <div className="flex items-center gap-2 text-[12.5px] text-white/55">
+      <span className="text-white/40">AVA</span>
+      <span className="text-white/25">/</span>
+      <span className="text-white/85 font-medium">{label}</span>
+    </div>
   );
 }

@@ -2,169 +2,263 @@
 @tailwind components;
 @tailwind utilities;
 
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;450;500;550;600;700;800;900&family=Inter+Tight:wght@500;600;700;800&display=swap');
 
 @layer base {
   :root {
-    /* ── Light (fallback, raramente usado) ── */
-    --background: 224 47% 97%;
-    --foreground: 222 47% 8%;
+    /* ── visionOS dark-first palette ───────── */
+    --background: 224 30% 4%;
+    --foreground: 0 0% 96%;
 
-    --card: 0 0% 100%;
-    --card-foreground: 222 47% 8%;
-    --card-elevated: 224 30% 99%;
+    /* Translucent surfaces — used inside glass cards */
+    --card: 0 0% 100%;          /* alpha applied via /0.04 etc. */
+    --card-foreground: 0 0% 96%;
+    --card-elevated: 0 0% 100%; /* used as base, alpha controlled */
 
-    --popover: 0 0% 100%;
-    --popover-foreground: 222 47% 8%;
+    --popover: 224 30% 8%;
+    --popover-foreground: 0 0% 96%;
 
-    --primary: 224 47% 8%;
-    --primary-foreground: 210 40% 98%;
+    --primary: 220 100% 71%;     /* acc-1 indigo/blue */
+    --primary-foreground: 224 30% 4%;
 
-    --secondary: 224 30% 94%;
-    --secondary-foreground: 222 47% 8%;
+    --secondary: 0 0% 100%;      /* alpha controlled */
+    --secondary-foreground: 0 0% 96%;
 
-    --muted: 224 30% 94%;
-    --muted-foreground: 215 16% 47%;
+    --muted: 0 0% 100%;
+    --muted-foreground: 0 0% 65%;
 
-    --accent: 265 90% 65%;
-    --accent-foreground: 0 0% 100%;
+    --accent: 270 100% 77%;      /* acc-2 violet */
+    --accent-foreground: 224 30% 4%;
 
-    --destructive: 0 84% 60%;
-    --destructive-foreground: 210 40% 98%;
+    --destructive: 0 88% 71%;
+    --destructive-foreground: 0 0% 100%;
 
-    --border: 224 30% 88%;
-    --input: 224 30% 88%;
-    --ring: 265 90% 65%;
+    --border: 0 0% 100%;         /* alpha controlled (/0.08, /0.14, /0.22) */
+    --input: 0 0% 100%;
+    --ring: 220 100% 71%;
 
-    --radius: 1rem;
+    --radius: 1.25rem;
 
-    --sidebar-background: 224 47% 97%;
-    --sidebar-foreground: 222 47% 8%;
-    --sidebar-primary: 265 90% 65%;
-    --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 224 30% 92%;
-    --sidebar-accent-foreground: 222 47% 8%;
-    --sidebar-border: 224 30% 88%;
-    --sidebar-ring: 265 90% 65%;
+    /* ── 5 iridescent accents (visionOS) ─── */
+    --acc-1: 220 100% 71%;       /* #6ea8ff blue */
+    --acc-2: 270 100% 77%;       /* #b98cff violet */
+    --acc-3: 333 100% 74%;       /* #ff7ab6 pink/coral */
+    --acc-4: 168 79% 65%;        /* #5eead4 mint */
+    --acc-5: 41 100% 70%;        /* #ffd166 amber */
 
-    --chart-1: 190 95% 60%;
-    --chart-2: 145 80% 55%;
-    --chart-3: 38 92% 55%;
-    --chart-4: 0 84% 60%;
-    --chart-5: 320 90% 65%;
+    /* AVA legacy aliases (mapped to new accents) */
+    --ava-from: var(--acc-1);
+    --ava-via:  var(--acc-2);
+    --ava-to:   var(--acc-3);
+    --score-ring: var(--acc-4);
 
-    /* AVA gradient & misc */
-    --ava-from: 190 95% 60%;
-    --ava-via: 265 90% 65%;
-    --ava-to: 320 90% 65%;
-    --score-ring: 145 80% 55%;
+    /* Sidebar (rarely used directly — sidebar is glass) */
+    --sidebar-background: 224 30% 4%;
+    --sidebar-foreground: 0 0% 96%;
+    --sidebar-primary: var(--acc-1);
+    --sidebar-primary-foreground: 224 30% 4%;
+    --sidebar-accent: 0 0% 100%;
+    --sidebar-accent-foreground: 0 0% 96%;
+    --sidebar-border: 0 0% 100%;
+    --sidebar-ring: var(--acc-1);
+
+    --chart-1: var(--acc-1);
+    --chart-2: var(--acc-2);
+    --chart-3: var(--acc-3);
+    --chart-4: var(--acc-4);
+    --chart-5: var(--acc-5);
   }
 
+  /* Forced dark — keep .dark mirroring :root for any old references */
   .dark {
-    /* ── Dark premium (default) ── */
-    --background: 224 47% 4%;
-    --foreground: 210 40% 98%;
-
-    --card: 224 40% 8%;
-    --card-foreground: 210 40% 98%;
-    --card-elevated: 224 35% 11%;
-
-    --popover: 224 40% 8%;
-    --popover-foreground: 210 40% 98%;
-
-    --primary: 265 90% 65%;
-    --primary-foreground: 0 0% 100%;
-
-    --secondary: 224 30% 14%;
-    --secondary-foreground: 210 40% 98%;
-
-    --muted: 224 30% 14%;
-    --muted-foreground: 215 20% 65%;
-
-    --accent: 265 90% 65%;
-    --accent-foreground: 0 0% 100%;
-
-    --destructive: 0 70% 55%;
-    --destructive-foreground: 210 40% 98%;
-
-    --border: 224 30% 16%;
-    --input: 224 30% 16%;
-    --ring: 265 90% 65%;
-
-    --sidebar-background: 224 45% 5%;
-    --sidebar-foreground: 210 40% 96%;
-    --sidebar-primary: 265 90% 65%;
-    --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 224 30% 12%;
-    --sidebar-accent-foreground: 210 40% 96%;
-    --sidebar-border: 224 30% 14%;
-    --sidebar-ring: 265 90% 65%;
-
-    --chart-1: 190 95% 60%;
-    --chart-2: 145 80% 55%;
-    --chart-3: 38 92% 55%;
-    --chart-4: 0 70% 60%;
-    --chart-5: 320 90% 65%;
-
-    --ava-from: 190 95% 60%;
-    --ava-via: 265 90% 65%;
-    --ava-to: 320 90% 65%;
-    --score-ring: 145 80% 55%;
+    --background: 224 30% 4%;
+    --foreground: 0 0% 96%;
+    --card: 0 0% 100%;
+    --card-foreground: 0 0% 96%;
+    --card-elevated: 0 0% 100%;
+    --popover: 224 30% 8%;
+    --popover-foreground: 0 0% 96%;
+    --primary: 220 100% 71%;
+    --primary-foreground: 224 30% 4%;
+    --secondary: 0 0% 100%;
+    --secondary-foreground: 0 0% 96%;
+    --muted: 0 0% 100%;
+    --muted-foreground: 0 0% 65%;
+    --accent: 270 100% 77%;
+    --accent-foreground: 224 30% 4%;
+    --destructive: 0 88% 71%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 0 0% 100%;
+    --input: 0 0% 100%;
+    --ring: 220 100% 71%;
+    --acc-1: 220 100% 71%;
+    --acc-2: 270 100% 77%;
+    --acc-3: 333 100% 74%;
+    --acc-4: 168 79% 65%;
+    --acc-5: 41 100% 70%;
+    --ava-from: var(--acc-1);
+    --ava-via:  var(--acc-2);
+    --ava-to:   var(--acc-3);
+    --score-ring: var(--acc-4);
+    --sidebar-background: 224 30% 4%;
+    --sidebar-foreground: 0 0% 96%;
+    --sidebar-accent: 0 0% 100%;
+    --sidebar-accent-foreground: 0 0% 96%;
+    --sidebar-border: 0 0% 100%;
+    --chart-1: var(--acc-1);
+    --chart-2: var(--acc-2);
+    --chart-3: var(--acc-3);
+    --chart-4: var(--acc-4);
+    --chart-5: var(--acc-5);
   }
 }
 
 @layer base {
-  * { @apply border-border; }
+  * { @apply border-border/10; }
   body {
-    @apply bg-background text-foreground font-sans antialiased;
-    font-family: 'Inter', system-ui, sans-serif;
+    @apply bg-background text-foreground antialiased;
+    font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'SF Pro Text', 'Inter', system-ui, sans-serif;
+    background-color: hsl(224 30% 3%);
+    font-size: 14px;
+    line-height: 1.5;
+    letter-spacing: -0.005em;
     overflow-x: hidden;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
   }
   #root { overflow-x: hidden; }
+  ::selection { background: hsl(var(--acc-1) / 0.35); }
 }
 
 @layer components {
-  /* AVA gradient utilities */
-  .ava-gradient {
-    background-image: linear-gradient(
-      135deg,
-      hsl(var(--ava-from)) 0%,
-      hsl(var(--ava-via)) 50%,
-      hsl(var(--ava-to)) 100%
-    );
+  /* ── Iridescent gradients (signature) ──────────── */
+  .gradient-iridescent {
+    background-image: linear-gradient(135deg,
+      hsl(var(--acc-1)) 0%,
+      hsl(var(--acc-2)) 50%,
+      hsl(var(--acc-3)) 100%);
   }
+  .gradient-conic {
+    background-image: conic-gradient(from 180deg at 50% 50%,
+      hsl(var(--acc-1)),
+      hsl(var(--acc-2)),
+      hsl(var(--acc-3)),
+      hsl(var(--acc-4)),
+      hsl(var(--acc-1)));
+  }
+  /* Legacy alias */
+  .ava-gradient { @apply gradient-iridescent; }
+
+  .text-iridescent,
   .ava-text-gradient {
-    background-image: linear-gradient(
-      135deg,
-      hsl(var(--ava-from)) 0%,
-      hsl(var(--ava-via)) 50%,
-      hsl(var(--ava-to)) 100%
-    );
+    background-image: linear-gradient(135deg,
+      hsl(var(--acc-1)) 0%,
+      hsl(var(--acc-2)) 50%,
+      hsl(var(--acc-3)) 100%);
     -webkit-background-clip: text;
     background-clip: text;
     -webkit-text-fill-color: transparent;
     color: transparent;
   }
-  .card-premium {
-    @apply bg-card border border-border/60 rounded-3xl;
+
+  /* ── Glass surface (THE primary card style) ────── */
+  .glass {
+    background: hsl(0 0% 100% / 0.04);
+    backdrop-filter: blur(32px) saturate(1.8);
+    -webkit-backdrop-filter: blur(32px) saturate(1.8);
+    border: 1px solid hsl(0 0% 100% / 0.08);
+    border-radius: 1.25rem;
     box-shadow:
-      0 1px 0 0 hsl(0 0% 100% / 0.03) inset,
-      0 12px 40px -16px hsl(224 47% 0% / 0.4);
+      0 1px 0 hsl(0 0% 100% / 0.06) inset,
+      0 10px 30px -8px hsl(0 0% 0% / 0.6);
   }
+  .glass-strong {
+    background: hsl(0 0% 100% / 0.07);
+    backdrop-filter: blur(40px) saturate(1.8);
+    -webkit-backdrop-filter: blur(40px) saturate(1.8);
+    border: 1px solid hsl(0 0% 100% / 0.14);
+    border-radius: 1.25rem;
+    box-shadow:
+      0 1px 0 hsl(0 0% 100% / 0.08) inset,
+      0 14px 40px -10px hsl(0 0% 0% / 0.7);
+  }
+  /* Accent line on top edge of a glass card (uses --tw-accent-color via CSS var) */
+  .glass-accent {
+    position: relative;
+    overflow: hidden;
+  }
+  .glass-accent::before {
+    content: "";
+    position: absolute; top: 0; left: 0; right: 0; height: 2px;
+    background: linear-gradient(90deg,
+      hsl(var(--acc-line, var(--acc-1))) 0%,
+      hsl(var(--acc-line, var(--acc-1)) / 0.1) 100%);
+    pointer-events: none;
+  }
+
+  /* Legacy alias — many files still use .card-premium */
+  .card-premium { @apply glass; }
   .card-elevated {
-    background-color: hsl(var(--card-elevated));
+    background: hsl(0 0% 100% / 0.06);
   }
+
+  /* ── Ambient blobs (page background decoration) ── */
+  .ambient {
+    position: fixed; inset: 0; z-index: 0; pointer-events: none; overflow: hidden;
+  }
+  .ambient::before, .ambient::after {
+    content: ""; position: absolute; border-radius: 50%;
+    filter: blur(110px); opacity: 0.55;
+  }
+  .ambient::before {
+    width: 640px; height: 640px; left: -120px; top: -120px;
+    background: radial-gradient(circle, hsl(var(--acc-1)), transparent 60%);
+  }
+  .ambient::after {
+    width: 620px; height: 620px; right: -120px; bottom: -160px;
+    background: radial-gradient(circle, hsl(var(--acc-2)), transparent 60%);
+  }
+  .ambient-blob-3 {
+    position: absolute; width: 480px; height: 480px;
+    left: 40%; top: 25%;
+    background: radial-gradient(circle, hsl(var(--acc-3)), transparent 65%);
+    filter: blur(110px); opacity: 0.45; border-radius: 50%; pointer-events: none;
+  }
+
+  /* ── Glow utilities ────────────────────────────── */
   .glow-ring {
     box-shadow:
-      0 0 0 1px hsl(var(--ava-via) / 0.3),
-      0 0 24px -2px hsl(var(--ava-via) / 0.45),
-      0 0 48px -4px hsl(var(--ava-from) / 0.25);
+      0 0 0 1px hsl(var(--acc-2) / 0.3),
+      0 0 24px -2px hsl(var(--acc-2) / 0.45),
+      0 0 48px -4px hsl(var(--acc-1) / 0.25);
   }
-  .glow-ring-soft {
-    box-shadow:
-      0 0 32px -4px hsl(var(--ava-via) / 0.35);
+  .glow-ring-soft { box-shadow: 0 0 32px -4px hsl(var(--acc-2) / 0.35); }
+  .glow-blue  { box-shadow: 0 0 24px -4px hsl(var(--acc-1) / 0.5); }
+  .glow-pink  { box-shadow: 0 0 24px -4px hsl(var(--acc-3) / 0.5); }
+  .glow-mint  { box-shadow: 0 0 24px -4px hsl(var(--acc-4) / 0.5); }
+  .glow-amber { box-shadow: 0 0 24px -4px hsl(var(--acc-5) / 0.5); }
+
+  /* ── Chips / pills ─────────────────────────────── */
+  .chip {
+    @apply inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[11px] font-medium;
+    background: hsl(0 0% 100% / 0.06);
+    border: 1px solid hsl(0 0% 100% / 0.10);
+    color: hsl(0 0% 100% / 0.78);
   }
-  /* Hide scrollbar (for horizontal chip rows) */
+  .chip-dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+
+  /* ── Number/display typography ─────────────────── */
+  .font-display {
+    font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Inter Tight', system-ui, sans-serif;
+    letter-spacing: -0.025em;
+  }
+  .num-display {
+    @apply font-display tabular-nums;
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: "tnum";
+  }
+
+  /* Hide scrollbar (horizontal chip rows) */
   .no-scrollbar::-webkit-scrollbar { display: none; }
   .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
 }
@@ -179,62 +273,45 @@
 .prose li { @apply text-foreground; }
 .prose strong { @apply font-semibold text-foreground; }
 .prose em { @apply italic; }
-.prose hr { @apply my-4 border-border; }
+.prose hr { @apply my-4 border-border/20; }
 .prose blockquote {
-  @apply border-l-4 border-accent/40 pl-4 my-3 italic text-muted-foreground;
+  @apply border-l-2 border-accent/40 pl-4 my-3 italic text-muted-foreground;
 }
 .prose code:not(pre code) {
-  @apply bg-muted text-accent px-1.5 py-0.5 rounded text-xs font-mono;
+  @apply bg-white/5 text-accent px-1.5 py-0.5 rounded text-xs font-mono;
 }
 .prose pre {
-  @apply bg-muted rounded-lg p-4 my-3 overflow-x-auto;
+  @apply bg-white/5 rounded-lg p-4 my-3 overflow-x-auto border border-white/10;
 }
-.prose pre code {
-  @apply bg-transparent p-0 text-xs font-mono text-foreground;
-}
-.prose table {
-  @apply w-full border-collapse my-3 text-sm;
-}
+.prose pre code { @apply bg-transparent p-0 text-xs font-mono text-foreground; }
+.prose table { @apply w-full border-collapse my-3 text-sm; }
 .prose thead th {
-  @apply bg-muted font-semibold text-left px-3 py-2 border border-border text-foreground;
+  @apply bg-white/5 font-semibold text-left px-3 py-2 border border-white/10 text-foreground;
 }
-.prose tbody td {
-  @apply px-3 py-2 border border-border;
-}
-.prose tbody tr:nth-child(even) {
-  @apply bg-muted/40;
-}
-.prose a {
-  @apply text-accent underline underline-offset-2 hover:text-accent/80;
-}
-.prose p {
-  @apply my-2 leading-relaxed;
-}
+.prose tbody td { @apply px-3 py-2 border border-white/10; }
+.prose tbody tr:nth-child(even) { @apply bg-white/[0.02]; }
+.prose a { @apply text-accent underline underline-offset-2 hover:text-accent/80; }
+.prose p { @apply my-2 leading-relaxed; }
 
 /* ── AVA executive report bubble ── */
 .ava-report h2 {
-  @apply text-sm font-bold mt-4 mb-1.5 pb-1 border-b border-border/60 tracking-wide uppercase text-foreground;
+  @apply text-sm font-bold mt-4 mb-1.5 pb-1 tracking-wide uppercase text-foreground;
+  border-bottom: 1px solid hsl(0 0% 100% / 0.1);
 }
 .ava-report h2:first-child { @apply mt-0; }
-.ava-report h3 {
-  @apply text-sm font-semibold mt-3 mb-1 text-accent;
-}
+.ava-report h3 { @apply text-sm font-semibold mt-3 mb-1 text-accent; }
 .ava-report > p:first-child,
 .ava-report blockquote {
-  @apply border-l-4 border-accent/50 pl-3 my-2 not-italic text-foreground bg-accent/5 py-2 pr-2 rounded-r;
+  @apply border-l-2 border-accent/50 pl-3 my-2 not-italic text-foreground bg-accent/5 py-2 pr-2 rounded-r;
 }
-.ava-report table {
-  @apply text-xs rounded-lg overflow-hidden my-2;
-}
+.ava-report table { @apply text-xs rounded-lg overflow-hidden my-2; }
 .ava-report thead th {
-  @apply bg-accent/10 text-accent font-semibold text-[11px] uppercase tracking-wider px-2.5 py-1.5 border-border/50;
+  @apply bg-accent/10 text-accent font-semibold text-[11px] uppercase tracking-wider px-2.5 py-1.5;
 }
-.ava-report tbody td {
-  @apply px-2.5 py-1.5 text-xs border-border/40;
-}
+.ava-report tbody td { @apply px-2.5 py-1.5 text-xs; }
 .ava-report ul, .ava-report ol { @apply my-1.5 space-y-0.5; }
 .ava-report li { @apply text-xs; }
-.ava-report hr { @apply my-3 border-border/40; }
+.ava-report hr { @apply my-3; border-color: hsl(0 0% 100% / 0.1); }
 .ava-report p { @apply my-1.5 text-xs leading-relaxed; }
 .ava-report strong { @apply font-semibold text-foreground; }
 .ava-report code:not(pre code) { @apply text-[10px]; }

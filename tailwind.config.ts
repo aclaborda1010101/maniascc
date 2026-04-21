@@ -14,12 +14,19 @@ export default {
     },
     extend: {
       fontFamily: {
-        sans: ["Inter", "system-ui", "sans-serif"],
+        sans: ["-apple-system", "BlinkMacSystemFont", "SF Pro Display", "SF Pro Text", "Inter", "system-ui", "sans-serif"],
+        display: ["-apple-system", "BlinkMacSystemFont", "SF Pro Display", "Inter Tight", "system-ui", "sans-serif"],
+        mono: ["SF Mono", "ui-monospace", "JetBrains Mono", "Menlo", "monospace"],
       },
       colors: {
-        border: "hsl(var(--border))",
-        input: "hsl(var(--input))",
+        border: "hsl(var(--border) / 0.10)",
+        input: "hsl(var(--input) / 0.14)",
         ring: "hsl(var(--ring))",
+        "acc-1": "hsl(var(--acc-1))",
+        "acc-2": "hsl(var(--acc-2))",
+        "acc-3": "hsl(var(--acc-3))",
+        "acc-4": "hsl(var(--acc-4))",
+        "acc-5": "hsl(var(--acc-5))",
         background: "hsl(var(--background))",
         foreground: "hsl(var(--foreground))",
         primary: {
