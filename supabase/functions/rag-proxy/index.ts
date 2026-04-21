@@ -161,38 +161,48 @@ ${context}
 PREGUNTA: ${question}`;
 
     const startMs = Date.now();
-    const aiResp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
-      body: JSON.stringify({
-        model: "google/gemini-2.5-flash",
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: userPrompt },
-        ],
-        tools: [{
-          type: "function",
-          function: {
-            name: "rag_response",
-            description: "Respuesta RAG estructurada",
-            parameters: {
-              type: "object",
-              properties: {
-                answer: { type: "string" },
-                cited_sources: {
-                  type: "array",
-                  items: { type: "integer" },
-                  description: "Índices (1-based) de las fuentes realmente usadas",
+    let aiResp: Response;
+    try {
+      aiResp = await fetchWithTimeout("https://ai.gateway.lovable.dev/v1/chat/completions", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          model: "google/gemini-2.5-flash",
+          messages: [
+            { role: "system", content: systemPrompt },
+            { role: "user", content: userPrompt },
+          ],
+          tools: [{
+            type: "function",
+            function: {
+              name: "rag_response",
+              description: "Respuesta RAG estructurada",
+              parameters: {
+                type: "object",
+                properties: {
+                  answer: { type: "string" },
+                  cited_sources: {
+                    type: "array",
+                    items: { type: "integer" },
+                    description: "Índices (1-based) de las fuentes realmente usadas",
+                  },
+                  confidence: { type: "number" },
                 },
-                confidence: { type: "number" },
+                required: ["answer", "cited_sources", "confidence"],
               },
-              required: ["answer", "cited_sources", "confidence"],
             },
-          },
-        }],
-        tool_choice: { type: "function", function: { name: "rag_response" } },
-      }),
-    });
+          }],
+          tool_choice: { type: "function", function: { name: "rag_response" } },
+        }),
+      }, 90000);
+    } catch (err: any) {
+      if (err?.name === "AbortError") {
+        return new Response(JSON.stringify({ error: "El modelo tardó demasiado en responder. Intenta de nuevo o reformula la pregunta." }), {
+          status: 504, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      throw err;
+    }
 
     if (!aiResp.ok) {
       const status = aiResp.status;
