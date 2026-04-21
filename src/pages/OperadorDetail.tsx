@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -30,45 +31,58 @@ export default function OperadorDetail() {
   const navigate = useNavigate();
   const { toast } = useToast();
   const { user } = useAuth();
+  const qc = useQueryClient();
   const [op, setOp] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [subOps, setSubOps] = useState<any[]>([]);
-  const [subContacts, setSubContacts] = useState<Record<string, any[]>>({});
-  const [subDocs, setSubDocs] = useState<Record<string, any[]>>({});
   const [expandedSubs, setExpandedSubs] = useState<Set<string>>(new Set());
   const [showCreateSub, setShowCreateSub] = useState(false);
   const [submittingSub, setSubmittingSub] = useState(false);
   const [showAddContact, setShowAddContact] = useState<string | null>(null);
-  const [activos, setActivos] = useState<any[]>([]);
 
-  useEffect(() => {
-    supabase.from("operadores").select("*").eq("id", id).single().then(({ data }) => {
-      setOp(data);
-      setLoading(false);
-    });
-    fetchSubOps();
-    supabase.from("locales").select("id, nombre, direccion").order("nombre").then(({ data }) => setActivos(data || []));
-  }, [id]);
+  const { data: opData, isLoading: loading } = useQuery({
+    queryKey: ["operador-detail", id],
+    queryFn: async () => {
+      const { data } = await supabase.from("operadores").select("*").eq("id", id!).single();
+      return data;
+    },
+    enabled: !!id,
+  });
 
-  const fetchSubOps = async () => {
-    const { data } = await supabase.from("operadores").select("*").eq("matriz_id", id).order("nombre");
-    const subs = data || [];
-    setSubOps(subs);
-    // Fetch contacts and docs for each sub
-    const contactMap: Record<string, any[]> = {};
-    const docMap: Record<string, any[]> = {};
-    await Promise.all(subs.map(async (s: any) => {
-      const [cRes, dRes] = await Promise.all([
-        supabase.from("contactos").select("*").eq("operador_id", s.id),
-        supabase.storage.from("documentos_contratos").list(`operadores/${s.id}`, { limit: 100 }),
-      ]);
-      contactMap[s.id] = cRes.data || [];
-      docMap[s.id] = (dRes.data || []).filter((f: any) => f.name !== ".emptyFolderPlaceholder");
-    }));
-    setSubContacts(contactMap);
-    setSubDocs(docMap);
-  };
+  useEffect(() => { if (opData) setOp(opData); }, [opData]);
+
+  const { data: activos = [] } = useQuery({
+    queryKey: ["operador-detail-activos"],
+    queryFn: async () => {
+      const { data } = await supabase.from("locales").select("id, nombre, direccion").order("nombre");
+      return data || [];
+    },
+  });
+
+  const { data: subData } = useQuery({
+    queryKey: ["operador-subops", id],
+    queryFn: async () => {
+      const { data } = await supabase.from("operadores").select("*").eq("matriz_id", id!).order("nombre");
+      const subs = data || [];
+      const contactMap: Record<string, any[]> = {};
+      const docMap: Record<string, any[]> = {};
+      await Promise.all(subs.map(async (s: any) => {
+        const [cRes, dRes] = await Promise.all([
+          supabase.from("contactos").select("*").eq("operador_id", s.id),
+          supabase.storage.from("documentos_contratos").list(`operadores/${s.id}`, { limit: 100 }),
+        ]);
+        contactMap[s.id] = cRes.data || [];
+        docMap[s.id] = (dRes.data || []).filter((f: any) => f.name !== ".emptyFolderPlaceholder");
+      }));
+      return { subOps: subs, subContacts: contactMap, subDocs: docMap };
+    },
+    enabled: !!id,
+  });
+
+  const subOps = subData?.subOps || [];
+  const subContacts = subData?.subContacts || {};
+  const subDocs = subData?.subDocs || {};
+
+  const fetchSubOps = () => qc.invalidateQueries({ queryKey: ["operador-subops", id] });
 
   const handleSave = async () => {
     if (!op) return;
@@ -81,7 +95,7 @@ export default function OperadorDetail() {
     } as any).eq("id", id);
     setSaving(false);
     if (error) toast({ title: "Error", description: error.message, variant: "destructive" });
-    else toast({ title: "Operador actualizado correctamente" });
+    else { toast({ title: "Operador actualizado correctamente" }); qc.invalidateQueries({ queryKey: ["operador-detail", id] }); }
   };
 
   const handleDelete = async () => {
