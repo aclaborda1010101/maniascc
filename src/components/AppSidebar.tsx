@@ -44,7 +44,8 @@ const adminItems = [
 ];
 
 export function AppSidebar() {
-  const { state } = useSidebar();
+  const sidebar = useSidebar();
+  const { state } = sidebar;
   const collapsed = state === "collapsed";
   const location = useLocation();
   const { signOut, user } = useAuth();
