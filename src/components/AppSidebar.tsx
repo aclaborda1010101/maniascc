@@ -1,4 +1,3 @@
-import { memo, useCallback } from "react";
 import {
   LayoutDashboard, Users, Sparkles, LogOut, FileText,
   FolderKanban, UserCircle, MapPin, Brain, Hammer,
@@ -14,7 +13,6 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar";
 import { Button } from "@/components/ui/button";
-import { routePrefetchMap } from "@/App";
 
 const mainItems = [
   { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
@@ -45,7 +43,7 @@ const adminItems = [
   { title: "Ajustes", url: "/ajustes", icon: Settings },
 ];
 
-function AppSidebarInner() {
+export function AppSidebar() {
   const { state } = useSidebar();
   const collapsed = state === "collapsed";
   const location = useLocation();
@@ -54,12 +52,6 @@ function AppSidebarInner() {
 
   const isActive = (path: string) =>
     location.pathname === path || location.pathname.startsWith(path + "/");
-
-  // Dispara la descarga del chunk al pasar el ratón / enfocar.
-  const handlePrefetch = useCallback((url: string) => {
-    const fn = routePrefetchMap[url];
-    if (fn) fn().catch(() => { /* silencioso: navegación caerá al flujo normal */ });
-  }, []);
 
   const renderItems = (items: typeof mainItems) =>
     items.map((item) => (
@@ -70,9 +62,6 @@ function AppSidebarInner() {
             end={item.url === "/dashboard"}
             className="hover:bg-sidebar-accent/50"
             activeClassName="bg-sidebar-accent text-sidebar-primary font-medium"
-            onMouseEnter={() => handlePrefetch(item.url)}
-            onFocus={() => handlePrefetch(item.url)}
-            onTouchStart={() => handlePrefetch(item.url)}
           >
             <item.icon className="mr-2 h-4 w-4" />
             {!collapsed && <span>{item.title}</span>}
@@ -175,6 +164,3 @@ function AppSidebarInner() {
     </Sidebar>
   );
 }
-
-export const AppSidebar = memo(AppSidebarInner);
-

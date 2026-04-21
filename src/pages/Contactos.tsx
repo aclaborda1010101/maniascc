@@ -1,5 +1,4 @@
-import { useState, useMemo } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useEffect, useState, useMemo, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -31,6 +30,9 @@ const CATEGORIAS = [
 ];
 
 export default function Contactos() {
+  const [contactos, setContactos] = useState<any[]>([]);
+  const [operadores, setOperadores] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [tipoFilter, setTipoFilter] = useState("todos");
   const [catFilter, setCatFilter] = useState("todos");
@@ -42,29 +44,24 @@ export default function Contactos() {
   const { toast } = useToast();
   const { user } = useAuth();
   const isMobile = useIsMobile();
-  const qc = useQueryClient();
 
-  const { data: contactos = [], isLoading: loading } = useQuery<any[]>({
-    queryKey: ["contactos", search],
-    queryFn: async () => {
-      let query = supabase.from("contactos").select("*").order("created_at", { ascending: false });
-      if (search) {
-        query = query.or(`nombre.ilike.%${search}%,empresa.ilike.%${search}%,cargo.ilike.%${search}%`);
-      }
-      const { data } = await query;
-      return data || [];
-    },
-  });
+  const fetchContactos = useCallback(async () => {
+    setLoading(true);
+    let query = supabase.from("contactos").select("*").order("created_at", { ascending: false });
+    if (search) {
+      query = query.or(`nombre.ilike.%${search}%,empresa.ilike.%${search}%,cargo.ilike.%${search}%`);
+    }
+    const { data } = await query;
+    setContactos(data || []);
+    setLoading(false);
+  }, [search]);
 
-  const { data: operadores = [] } = useQuery({
-    queryKey: ["contactos-operadores-list"],
-    queryFn: async () => {
-      const { data } = await supabase.from("operadores").select("id, nombre").eq("activo", true).order("nombre");
-      return data || [];
-    },
-  });
+  useEffect(() => {
+    supabase.from("operadores").select("id, nombre").eq("activo", true).order("nombre")
+      .then(({ data }) => setOperadores(data || []));
+  }, []);
 
-  const fetchContactos = () => qc.invalidateQueries({ queryKey: ["contactos"] });
+  useEffect(() => { fetchContactos(); }, [fetchContactos]);
 
   const filtered = useMemo(() => {
     let list = contactos;
@@ -94,9 +91,7 @@ export default function Contactos() {
     const c = contactos.find((x) => x.id === id);
     if (!c) return;
     const next = !c.is_favorite;
-    qc.setQueryData<any[]>(["contactos", search], (prev = []) =>
-      prev.map((x) => x.id === id ? { ...x, is_favorite: next } : x)
-    );
+    setContactos((prev) => prev.map((x) => x.id === id ? { ...x, is_favorite: next } : x));
     await supabase.from("contactos").update({ is_favorite: next } as any).eq("id", id);
   };
 
@@ -105,9 +100,7 @@ export default function Contactos() {
     const c = contactos.find((x) => x.id === id);
     if (!c) return;
     const next = !c.in_network;
-    qc.setQueryData<any[]>(["contactos", search], (prev = []) =>
-      prev.map((x) => x.id === id ? { ...x, in_network: next } : x)
-    );
+    setContactos((prev) => prev.map((x) => x.id === id ? { ...x, in_network: next } : x));
     await supabase.from("contactos").update({ in_network: next } as any).eq("id", id);
   };
 

@@ -1,72 +1,129 @@
 
 
-# Plan: Acelerar la navegación entre secciones del menú lateral
+# Análisis: Cómo está integrada la RAG hoy
 
-## Diagnóstico
+## 1) Arquitectura actual (interna, sin dependencias externas)
 
-Cuatro causas combinadas hacen que cada clic se sienta lento:
+```text
+┌─────────────────────────────────────────────────────────────────┐
+│                       SUBIDA DE DOCUMENTO                       │
+│  UploadZone → Storage (bucket: documentos_contratos, privado)   │
+│             → INSERT documentos_proyecto (procesado_ia=false)   │
+└──────────────────────────┬──────────────────────────────────────┘
+                           │
+        ┌──────────────────┴──────────────────┐
+        ▼                                     ▼
+┌──────────────────┐              ┌────────────────────────┐
+│ document-classify│              │       rag-ingest        │
+│ Gemini 2.5 Flash │              │ Gemini 2.5 Flash multi │
+│ → taxonomía      │              │ → texto extraído        │
+│ → sensibilidad   │              │ → chunks (2000 chars,   │
+│ → resumen 1ª     │              │    overlap 200)         │
+│ → fecha doc      │              │ → INSERT document_chunks│
+│ UPDATE doc       │              │ + dominio inferido      │
+└──────────────────┘              │ UPDATE procesado_ia=true│
+                                  └──────────┬─────────────┘
+                                             │
+                                             ▼
+                              ┌────────────────────────────┐
+                              │     document_chunks (315k) │
+                              │  Postgres FTS español      │
+                              │  + columna `dominio`       │
+                              │  RLS por visibility/owner  │
+                              └────────────┬───────────────┘
+                                           │
+        ┌──────────────────────────────────┼──────────────────┐
+        ▼                                  ▼                  ▼
+┌──────────────────┐       ┌────────────────────┐   ┌──────────────────┐
+│   rag-proxy      │       │  rag-proxy-v4      │   │ ava-orchestrator │
+│ (UI ProyectoRAG) │       │ (no usado en UI)   │   │ tool: rag_search │
+│ FTS+ILIKE→Gemini │       │ +team knowledge    │   │ → llama rag-proxy│
+│ tool-call JSON   │       │ +signals/threads   │   │                  │
+└──────────────────┘       └────────────────────┘   └──────────────────┘
+```
 
-1. **Lazy loading sin prefetch**: cada página se descarga la primera vez que entras, mostrando el spinner global.
-2. **Sin caché de datos**: el 95 % de las páginas usa `useState + useEffect` con varias queries Supabase en paralelo. Volver a una sección ya visitada vuelve a pedirlo todo desde cero.
-3. **`PageLoader` a pantalla completa**: oculta el contenido anterior y se percibe como "se ha quedado en blanco" aunque tarde 200 ms.
-4. **Coste del glassmorphism**: `backdrop-filter: blur(16-24px) saturate(180%)` en sidebar + header + cards + dialogs + tabs + inputs, sumado a los blobs gradientes `fixed` de fondo, fuerza al navegador a recomponer una capa muy cara en cada navegación.
+**Componentes vivos:**
+- `rag-ingest` (chunking + extracción multimodal Gemini)
+- `rag-proxy` (consulta principal: FTS español + fallback ILIKE + Gemini con tool-call estructurado)
+- `rag-proxy-v4` (versión enriquecida con email_threads/signals; **desplegada pero no llamada desde UI ni orquestador**)
+- `document_chunks` con columna `dominio` (sin embeddings vectoriales reales)
+- `document_embeddings` (tabla creada pero **vacía / sin uso real**)
+- AVA → tool `rag_search` → llama `rag-proxy`
 
-## Cambios propuestos
+## 2) Estado real en BD (datos en producción)
 
-### 1. Prefetch de páginas al pasar el ratón (impacto alto, riesgo bajo)
-- Convertir cada `lazy(() => import(...))` en una constante con su importador reutilizable y exponer una función `prefetch()`.
-- En `AppSidebar.tsx`, añadir `onMouseEnter` / `onFocus` al `NavLink` para disparar `prefetch()` del chunk de la ruta destino. Cuando el usuario hace clic, el JS ya está descargado → navegación casi instantánea.
+| Métrica | Valor |
+|---|---|
+| Documentos totales | **39.814** |
+| Documentos indexados (`procesado_ia=true`) | 39.641 (99,6%) |
+| Documentos clasificados (`taxonomia_id`) | **1** ❗ |
+| Chunks totales | 315.238 |
+| Embeddings reales | 0 útiles (tabla `document_embeddings` no se rellena) |
+| Taxonomías activas | 15 (las 12 + las 3 nuevas que añadimos) |
 
-### 2. Mantener el contenido anterior visible durante la transición (UX)
-- Sustituir el `PageLoader` global por una **barra de progreso superior** (estilo NProgress, 2 px) cuando `Suspense` está cargando.
-- El layout (sidebar, header) permanece visible y el contenido anterior se mantiene hasta que llega el nuevo. Sensación de "instantáneo".
+**Distribución por dominio:**
+- `comunicaciones` (emails) — 237.682 chunks / 35.535 docs
+- `centros_comerciales` — 72.759 / 4.112
+- `activos` — 2.725 / 6
+- `general` — 2.072 / 54
 
-### 3. Migrar el fetching de páginas críticas a React Query (caché real)
-Páginas con más impacto en navegación repetida:
-- `Dashboard`, `Proyectos`, `Operadores`, `Contactos`, `Locales`, `Documentos`, `Conocimiento`.
+**Llamadas últimos 14 días:** `ava-orchestrator` 57, `rag-proxy:centros_comerciales` solo **2**. La RAG se está usando muy poco directamente.
 
-Para cada una:
-- Reemplazar `useState + useEffect + supabase.from` por `useQuery({ queryKey, queryFn, staleTime: 60_000 })`.
-- Configurar `QueryClient` con `staleTime: 30_000`, `gcTime: 5 * 60_000`, `refetchOnWindowFocus: false`.
+## 3) Hallazgos importantes
 
-Resultado: volver a una sección visitada en los últimos 30-60 s **no dispara ninguna petición** y la página aparece instantánea.
+### 🟢 Lo que funciona bien
+- Extracción multimodal Gemini para PDF/imagen/PPTX/email — operativa.
+- Chunking + dominios + RLS por owner/visibility — correcto.
+- AVA puede consultar la RAG vía tool `rag_search`.
+- Fallback ILIKE cuando FTS no encuentra nada.
 
-### 4. Reducir el coste del glassmorphism sin perder el look
-- Bajar `--glass-blur` de `16px` → `12px` y `--glass-blur-strong` de `24px` → `18px`.
-- Bajar `--glass-saturate` de `180%` → `140%`.
-- En `body::before`, bajar `filter: blur(80px)` → `blur(60px)` y opacidad de `0.9` → `0.6` (claro) / `0.7` → `0.5` (oscuro).
-- En `.glass-input` quitar `backdrop-filter` (los inputs no necesitan blur propio, basta con el del card que los contiene).
-- Añadir `will-change: backdrop-filter` solo al sidebar y header (las superficies fijas), para que el navegador las promueva a capa propia y no las recomponga al cambiar de ruta.
-- Mantener el fallback `@supports not (backdrop-filter)` ya existente.
+### 🟡 Problemas reales detectados
+1. **Casi nada está clasificado** (1/39.814). El botón "Clasificar todo" existe pero no se ha lanzado masivamente sobre el histórico.
+2. **`rag-proxy-v4` está desplegada y muerta** — duplica `rag-proxy` con extras (team knowledge, signals) pero nadie la invoca. Es deuda técnica.
+3. **`document_embeddings` existe vacía** — diseñada para búsqueda semántica vectorial nunca implementada. Hoy todo es FTS textual + LLM.
+4. **Búsqueda solo léxica (FTS)**: si preguntas con sinónimos o conceptos no presentes literalmente, no encuentra nada hasta que el ILIKE rescata por una palabra. No hay similitud semántica real.
+5. **Chunks "pobres" de 1 sola fila** (12.455 docs tienen solo 1 chunk, muchos <250 caracteres) — extracción de PDFs muy ligera o imágenes con poco texto. Son documentos que están "indexados" pero aportan poco al RAG.
+6. **AVA dispara `rag_search` pocas veces** porque su system-prompt favorece otras tools y porque las respuestas FTS llegan vacías a menudo.
+7. **Sin reranking ni control de relevancia** — devuelve los 10 primeros hits FTS sin ordenar por score real.
 
-### 5. Memoizar el sidebar
-- Envolver `AppSidebar` en `React.memo`. Hoy se vuelve a renderizar en cada cambio de ruta porque `useLocation` cambia, pero los items son estáticos: separar el cálculo de `isActive` en un subcomponente memoizado por item para evitar re-render del árbol entero.
+## 4) Cómo accedes hoy a la RAG (recorrido usuario)
+
+- **Por proyecto**: pestaña "Conocimiento" en `/oportunidades/:id` → `ProyectoRAG` (selector de dominio + caja de pregunta + lista de docs indexados con botón reindexar).
+- **Global desde AVA**: pregunta a AVA, el orquestador decide si llamar `rag_search` (filtro automático por dominio).
+- **Nada más**. No hay buscador global de RAG fuera de proyecto.
+
+## 5) Plan propuesto (qué arreglar y mejorar)
+
+### A. Higiene inmediata (sin cambios de modelo)
+- **A1** Borrar `rag-proxy-v4` (desplegada y huérfana) y la tabla/columna `document_embeddings` si confirmamos no usarla.
+- **A2** Lanzar **clasificación retroactiva** de los ~39.800 documentos sin taxonomía vía un job de batch (botón en `/admin` "Reclasificar todo el histórico" con barra de progreso, en chunks de 5 docs paralelos).
+- **A3** Añadir **buscador RAG global** en el menú lateral (`/conocimiento`) — actualmente solo se accede dentro de cada oportunidad.
+
+### B. Calidad de la RAG (alto impacto)
+- **B1 Embeddings semánticos reales**: rellenar `document_embeddings` con `text-embedding-3-small` (OpenAI, ya tienes `OPENAI_API_KEY`) o usar Gemini embeddings. Modificar `rag-proxy` para hacer **búsqueda híbrida**: FTS + cosine similarity con `pgvector` y rerank.
+- **B2 Reranker**: tras recuperar 20 candidatos (10 FTS + 10 vectorial), rerankear con un Gemini Flash dedicado a "rate relevance 0-10 for question X".
+- **B3 Chunk smarter**: en `rag-ingest`, detectar documentos cuyo texto extraído sea <300 chars y marcarlos `fase_rag='low_quality'` para reprocesarlos con un prompt Gemini más agresivo.
+- **B4 Citas con enlace**: que `rag-proxy` devuelva `documento_id` en cada cita y la UI permita abrir el PDF original directamente desde la respuesta.
+
+### C. Integración con AVA
+- **C1** Mejorar el system-prompt del orquestador para que **siempre pruebe `rag_search` primero** cuando la pregunta menciona "documento", "contrato", "informe", nombres de operadores o de proyectos.
+- **C2** Cachear en `aba_messages.meta` los chunks usados para que el feedback del usuario alimente `ai_learned_patterns` (ya existe el patrón en V4).
+
+### D. Documentación interna
+- **D1** Actualizar `mem://features/ai/rag` (hoy describe "8 dominios", la BD solo tiene 4 activos).
+- **D2** Crear `mem://features/ai/rag-architecture` con el diagrama de arriba.
 
 ## Detalles técnicos
+- Bucket: `documentos_contratos` (privado), `ava_attachments` (privado).
+- Chunking actual: 2000 chars + 200 overlap, sin estructura semántica.
+- FTS: `to_tsvector('spanish', contenido)` implícito en `textSearch(..., {config:'spanish'})`.
+- Para B1 hace falta migración: `CREATE EXTENSION pgvector` (si no está) + columna `embedding vector(1536)` en `document_chunks` con índice ivfflat o hnsw.
+- Modelo extracción: `google/gemini-2.5-flash` (16k tokens, multimodal).
+- Modelo respuesta RAG: `google/gemini-3-flash-preview`.
 
-- React Query ya está instalado (`@tanstack/react-query`) y `QueryClientProvider` montado en `App.tsx` — solo hay que ajustar defaults y migrar páginas.
-- Patrón de prefetch:
-  ```ts
-  const importDashboard = () => import("./pages/Dashboard");
-  const Dashboard = lazy(importDashboard);
-  // en sidebar: onMouseEnter={() => importDashboard()}
-  ```
-  Vite cachea el módulo, así que llamarlo dos veces no descarga dos veces.
-- Barra de progreso: componente propio de 30 líneas que escucha el estado de `Suspense` vía un wrapper, sin librería externa.
-- Para las páginas migradas a React Query, mantener la firma de los componentes igual: solo cambia el interior del `useEffect`.
-
-## Entregables
-
-1. `src/App.tsx`: importadores nombrados + `QueryClient` con `staleTime`/`gcTime` ajustados + `TopProgressBar` reemplazando `PageLoader`.
-2. `src/components/TopProgressBar.tsx`: nuevo, barra superior animada para Suspense.
-3. `src/components/AppSidebar.tsx`: `onMouseEnter` con prefetch + `React.memo` + items memoizados.
-4. `src/index.css`: tuning de variables glass (`--glass-blur`, `--glass-saturate`, opacidad blobs) + `will-change` en `.glass-sidebar` y header.
-5. Migración a React Query de: `Dashboard.tsx`, `Proyectos.tsx`, `Operadores.tsx`, `Contactos.tsx`, `Locales.tsx`, `Documentos.tsx`, `Conocimiento.tsx`.
-
-## Resultado esperado
-
-- **1ª visita** a una sección: ~200-400 ms más rápido (chunk ya prefetched al hover).
-- **2ª visita** dentro de 30-60 s: **instantánea** (datos en caché, sin petición).
-- **Glassmorphism**: misma estética, ~30-40 % menos coste de pintado por frame.
-- **Sin spinner a pantalla completa**: barra fina arriba, contenido anterior visible.
+## Preguntas antes de implementar
+1. ¿Lanzo ya la **clasificación retroactiva masiva** (39.800 docs, ~3-4h en background, coste estimado <5€)?
+2. ¿Activamos **embeddings semánticos reales** (B1+B2) o de momento mantenemos solo FTS textual?
+3. ¿Borro `rag-proxy-v4` y `document_embeddings` huérfanas, o prefieres conservarlas por si reaprovechamos?
+4. ¿Quieres un **buscador RAG global** en el menú lateral (`/conocimiento`) o seguimos solo dentro de cada oportunidad?
 

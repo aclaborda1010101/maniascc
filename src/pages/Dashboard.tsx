@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query";
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -80,10 +80,17 @@ interface NotifRow {
 
 export default function Dashboard() {
   const { user } = useAuth();
+  const [stats, setStats] = useState<Stats | null>(null);
+  const [recentMatches, setRecentMatches] = useState<any[]>([]);
+  const [recentActivity, setRecentActivity] = useState<any[]>([]);
+  const [localEstadoDist, setLocalEstadoDist] = useState<any[]>([]);
+  const [matchEstadoDist, setMatchEstadoDist] = useState<any[]>([]);
+  const [matchScoreDist, setMatchScoreDist] = useState<any[]>([]);
+  const [notifications, setNotifications] = useState<NotifRow[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const { data, isLoading: loading } = useQuery({
-    queryKey: ["dashboard", user?.id],
-    queryFn: async () => {
+  useEffect(() => {
+    async function fetchData() {
       const startOfMonth = new Date();
       startOfMonth.setDate(1);
       startOfMonth.setHours(0, 0, 0, 0);
@@ -114,7 +121,7 @@ export default function Dashboard() {
 
       const localDist: Record<string, number> = {};
       (localesAllRes.data || []).forEach((l: any) => { localDist[l.estado] = (localDist[l.estado] || 0) + 1; });
-      const localEstadoDist = Object.entries(localDist).map(([k, v]) => ({ name: estadoLocalLabels[k] || k, value: v }));
+      setLocalEstadoDist(Object.entries(localDist).map(([k, v]) => ({ name: estadoLocalLabels[k] || k, value: v })));
 
       const matchDist: Record<string, number> = {};
       const scoreBuckets = { "0-30": 0, "31-50": 0, "51-70": 0, "71-85": 0, "86-100": 0 };
@@ -127,35 +134,25 @@ export default function Dashboard() {
         else if (s <= 85) scoreBuckets["71-85"]++;
         else scoreBuckets["86-100"]++;
       });
-      const matchEstadoDist = Object.entries(matchDist).map(([k, v]) => ({ name: estadoMatchLabels[k] || k, value: v }));
-      const matchScoreDist = Object.entries(scoreBuckets).map(([k, v]) => ({ range: k, count: v }));
+      setMatchEstadoDist(Object.entries(matchDist).map(([k, v]) => ({ name: estadoMatchLabels[k] || k, value: v })));
+      setMatchScoreDist(Object.entries(scoreBuckets).map(([k, v]) => ({ range: k, count: v })));
 
-      return {
-        stats: {
-          proyectosActivos: proyectosRes.count || 0,
-          totalOperadores: operadoresRes.count || 0,
-          matchesPendientes: matchesPendRes.count || 0,
-          costeIAMes,
-          totalLocales: localesCountRes.count || 0,
-          latenciaMedia,
-        } as Stats,
-        recentMatches: recentMatchesRes.data || [],
-        recentActivity: actividadRes.data || [],
-        localEstadoDist,
-        matchEstadoDist,
-        matchScoreDist,
-        notifications: (notifsRes.data || []) as NotifRow[],
-      };
-    },
-  });
+      setNotifications((notifsRes.data || []) as NotifRow[]);
 
-  const stats = data?.stats ?? null;
-  const recentMatches = data?.recentMatches ?? [];
-  const recentActivity = data?.recentActivity ?? [];
-  const localEstadoDist = data?.localEstadoDist ?? [];
-  const matchEstadoDist = data?.matchEstadoDist ?? [];
-  const matchScoreDist = data?.matchScoreDist ?? [];
-  const notifications = data?.notifications ?? [];
+      setStats({
+        proyectosActivos: proyectosRes.count || 0,
+        totalOperadores: operadoresRes.count || 0,
+        matchesPendientes: matchesPendRes.count || 0,
+        costeIAMes,
+        totalLocales: localesCountRes.count || 0,
+        latenciaMedia,
+      });
+      setRecentMatches(recentMatchesRes.data || []);
+      setRecentActivity(actividadRes.data || []);
+      setLoading(false);
+    }
+    fetchData();
+  }, [user]);
 
   const statCards = [
     { label: "Oportunidades", value: stats?.proyectosActivos, icon: FolderOpen, color: "text-primary", bg: "bg-primary/10" },

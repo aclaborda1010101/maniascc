@@ -1,6 +1,5 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -26,30 +25,32 @@ export default function ContactoDetail() {
   const navigate = useNavigate();
   const { toast } = useToast();
   const { user } = useAuth();
+  const [contacto, setContacto] = useState<any>(null);
+  const [operador, setOperador] = useState<any>(null);
+  const [negociaciones, setNegociaciones] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
   const [briefLoading, setBriefLoading] = useState(false);
   const [brief, setBrief] = useState<string | null>(null);
   const [briefExpanded, setBriefExpanded] = useState(true);
 
-  const { data, isLoading: loading } = useQuery({
-    queryKey: ["contacto-detail", id],
-    queryFn: async () => {
+  useEffect(() => {
+    if (!id) return;
+    const load = async () => {
+      setLoading(true);
       const [{ data: c }, { data: negs }] = await Promise.all([
-        supabase.from("contactos").select("*").eq("id", id!).single(),
-        supabase.from("negociaciones").select("*, operadores(nombre), activos(nombre)").eq("contacto_interlocutor_id", id!).order("created_at", { ascending: false }).limit(20),
+        supabase.from("contactos").select("*").eq("id", id).single(),
+        supabase.from("negociaciones").select("*, operadores(nombre), activos(nombre)").eq("contacto_interlocutor_id", id).order("created_at", { ascending: false }).limit(20),
       ]);
-      let op: any = null;
+      setContacto(c);
+      setNegociaciones(negs || []);
       if (c?.operador_id) {
-        const { data: opData } = await supabase.from("operadores").select("id, nombre, sector").eq("id", c.operador_id).single();
-        op = opData;
+        const { data: op } = await supabase.from("operadores").select("id, nombre, sector").eq("id", c.operador_id).single();
+        setOperador(op);
       }
-      return { contacto: c, negociaciones: negs || [], operador: op };
-    },
-    enabled: !!id,
-  });
-
-  const contacto = data?.contacto;
-  const operador = data?.operador;
-  const negociaciones = data?.negociaciones || [];
+      setLoading(false);
+    };
+    load();
+  }, [id]);
 
   const generateBrief = async () => {
     if (!contacto) return;

@@ -1,5 +1,4 @@
-import { useState } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -32,6 +31,8 @@ const estadoLabels: Record<string, string> = {
 };
 
 export default function Locales() {
+  const [locales, setLocales] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [filtroEstado, setFiltroEstado] = useState("todos");
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -39,18 +40,18 @@ export default function Locales() {
   const { toast } = useToast();
   const { user } = useAuth();
   const isMobile = useIsMobile();
-  const qc = useQueryClient();
 
-  const { data: locales = [], isLoading: loading } = useQuery({
-    queryKey: ["locales", filtroEstado, search],
-    queryFn: async () => {
-      let query = supabase.from("locales").select("*").order("created_at", { ascending: false });
-      if (filtroEstado !== "todos") query = query.eq("estado", filtroEstado as any);
-      if (search) query = query.or(`nombre.ilike.%${search}%,direccion.ilike.%${search}%,codigo_postal.ilike.%${search}%,ciudad.ilike.%${search}%`);
-      const { data } = await query;
-      return data || [];
-    },
-  });
+  const fetchLocales = async () => {
+    setLoading(true);
+    let query = supabase.from("locales").select("*").order("created_at", { ascending: false });
+    if (filtroEstado !== "todos") query = query.eq("estado", filtroEstado as any);
+    if (search) query = query.or(`nombre.ilike.%${search}%,direccion.ilike.%${search}%,codigo_postal.ilike.%${search}%,ciudad.ilike.%${search}%`);
+    const { data } = await query;
+    setLocales(data || []);
+    setLoading(false);
+  };
+
+  useEffect(() => { fetchLocales(); }, [filtroEstado, search]);
 
   const handleCreate = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -75,7 +76,7 @@ export default function Locales() {
     } else {
       toast({ title: "Activo creado correctamente" });
       setDialogOpen(false);
-      qc.invalidateQueries({ queryKey: ["locales"] });
+      fetchLocales();
     }
   };
 
