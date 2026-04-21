@@ -139,16 +139,17 @@ export default function Proyectos() {
   };
 
   return (
-    <div className="space-y-4 md:space-y-6">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-xl md:text-2xl font-bold tracking-tight">Oportunidades</h1>
+    <div className="space-y-5 md:space-y-6">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+        <div className="space-y-1">
+          <p className="text-[11px] uppercase tracking-widest text-muted-foreground/70 font-medium">Pipeline · {proyectos.length}</p>
+          <h1 className="text-3xl md:text-4xl font-bold tracking-tight">Oportunidades</h1>
           <p className="text-xs md:text-sm text-muted-foreground">Gestiona todas las oportunidades de negocio</p>
         </div>
         <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
           <DialogTrigger asChild>
-            <Button className="bg-accent text-accent-foreground hover:bg-accent/90 w-full sm:w-auto">
-              <Plus className="mr-2 h-4 w-4" /> Nueva Oportunidad
+            <Button className="ava-gradient text-white border-0 hover:opacity-90 w-full sm:w-auto">
+              <Plus className="mr-2 h-4 w-4" /> Nueva oportunidad
             </Button>
           </DialogTrigger>
           <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
@@ -202,35 +203,49 @@ export default function Proyectos() {
                 <Label htmlFor="p-desc">Descripción</Label>
                 <Textarea id="p-desc" name="descripcion" placeholder="Objetivo y contexto de la oportunidad..." rows={3} />
               </div>
-              <Button type="submit" className="w-full bg-accent text-accent-foreground hover:bg-accent/90" disabled={submitting}>
-                {submitting ? "Creando..." : "Crear Oportunidad"}
+              <Button type="submit" className="w-full ava-gradient text-white border-0 hover:opacity-90" disabled={submitting}>
+                {submitting ? "Creando..." : "Crear oportunidad"}
               </Button>
             </form>
           </DialogContent>
         </Dialog>
       </div>
 
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input placeholder="Buscar oportunidades..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-10" />
-        </div>
-        <div className="flex gap-2">
-          <Select value={filtroTipo} onValueChange={setFiltroTipo}>
-            <SelectTrigger className="flex-1 sm:w-[180px]"><SelectValue placeholder="Tipo" /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="todos">Todos los tipos</SelectItem>
-              {Object.entries(tipoLabels).map(([k, v]) => <SelectItem key={k} value={k}>{v}</SelectItem>)}
-            </SelectContent>
-          </Select>
-          <Select value={filtroEstado} onValueChange={setFiltroEstado}>
-            <SelectTrigger className="flex-1 sm:w-[180px]"><SelectValue placeholder="Estado" /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="todos">Todos los estados</SelectItem>
-              {Object.entries(estadoLabels).map(([k, v]) => <SelectItem key={k} value={k}>{v}</SelectItem>)}
-            </SelectContent>
-          </Select>
-        </div>
+      {/* Buscador */}
+      <div className="relative">
+        <Search className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+        <Input
+          placeholder="Buscar oportunidades..."
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          className="pl-11 h-12 rounded-2xl bg-card border-border/60"
+        />
+      </div>
+
+      {/* Chips horizontales */}
+      <div className="flex gap-2 overflow-x-auto no-scrollbar -mx-4 px-4">
+        {[
+          { value: "todos", label: "Todas" },
+          { value: "activo", label: "Activas" },
+          { value: "en_negociacion", label: "Negociación" },
+          { value: "en_pausa", label: "En pausa" },
+          { value: "cerrado_exito", label: "Cerradas ✓" },
+        ].map((chip) => {
+          const active = filtroEstado === chip.value;
+          return (
+            <button
+              key={chip.value}
+              onClick={() => setFiltroEstado(chip.value)}
+              className={`shrink-0 px-4 py-1.5 rounded-full text-xs font-medium transition-all border ${
+                active
+                  ? "ava-gradient text-white border-transparent"
+                  : "bg-card text-muted-foreground border-border/60 hover:text-foreground"
+              }`}
+            >
+              {chip.label}
+            </button>
+          );
+        })}
       </div>
 
       {loading ? (
