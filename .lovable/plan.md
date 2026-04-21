@@ -1,105 +1,82 @@
 
 
-# Rediseño visual AVA — Dark premium + mobile-first
+# Aplicar referencias del prototipo móvil (AVA_4) a las pantallas pendientes
 
-## Qué cambia (visión)
+## Qué falta del rediseño aprobado anteriormente
 
-Pasar de la UI actual (claro por defecto, sidebar tradicional, header con buscador) a la estética de las capturas:
+En la iteración previa quedaron por terminar:
 
-- **Tema oscuro por defecto**, fondo casi negro (`222 47% 4%`) con superficies elevadas y gradientes sutiles violeta→azul.
-- **Acento gradiente AVA** (cian → violeta → magenta) reservado al logo, FAB, scores y CTAs principales.
-- **Cards "premium"**: `rounded-3xl`, borde 1px translúcido, sombra suave, padding generoso, sin separadores duros.
-- **Tipografía** más grande y respirada (Inter pesado en titulares: 28-32 px en móvil, 40 px en hero "Buenos días, Alberto").
-- **Mobile-first**: barra inferior fija con 5 ítems (Inicio · Oport. · **AVA (FAB gradiente)** · Match · Más). El sidebar desaparece en móvil; en desktop se mantiene pero rediseñado.
-- **Dashboard, Oportunidades, Activo Detail, Matching, AVA chat y "Más"** se rediseñan según las dos capturas.
+1. **AVA Chat (`/asistente`)** — todavía con el diseño anterior tipo "informe ejecutivo", sin el tratamiento mobile-first del prototipo (avatar gradiente grande arriba, saludo, sugerencias en chips, input flotante con micro+cámara, burbujas usuario con gradiente).
+2. **Activo Detail (`/activos/:id`)** — sigue con tabs `Información/Contactos` planos. Falta el hero con score circular "94", mini-grid (Superficie/Valor/Cierre), card "AVA propone" y pipeline horizontal.
+3. **Matching individual (`/matching/:id`)** — falta el score circular grande con barras de razones (Tráfico 98, Zona AAA 96…) y los 3 botones circulares ✕/⏱/✓ tipo swipe.
+4. **Login (`/login`)** — sigue con estilo claro estándar; conviene alinearlo al dark premium con avatar AVA gradiente y glow.
 
-## Arquitectura visual
+## Nota sobre el ZIP
 
-```text
-Mobile (<768px)                      Desktop (≥768px)
-┌─────────────────────┐              ┌──────┬──────────────────────────┐
-│ Status bar          │              │      │ Header minimal           │
-│ Hero / título       │              │ Side │──────────────────────────│
-│                     │              │ bar  │  Contenido               │
-│ Cards apiladas      │              │ slim │  con mismas cards        │
-│                     │              │ icon │  premium dark            │
-│ ↓ scroll            │              │      │                          │
-│                     │              │      │                          │
-│─────────────────────│              └──────┴──────────────────────────┘
-│ ⌂  📁  ✦AVA  ∞  ⋯  │  ← BottomNav fijo, FAB central con gradiente
-└─────────────────────┘
-```
+El `AVA_4.zip` que subes contiene **`AVA Mobile.html`** (prototipo móvil de una sola página). Es el complemento natural del `AVA_3.zip` (handoff desktop en React) que ya apliqué. En modo plan no puedo descomprimirlo aquí, pero combinado con las dos capturas móviles que enviaste y los componentes ya implementados (BottomNav, FAB AVA, `Mas`, Dashboard hero), tengo el lenguaje visual claro: **avatar gradiente cian→violeta→magenta, scores circulares verde lima, cards `card-premium` con `rounded-3xl`, glow halos sutiles**. Cuando entremos en implementación descomprimiré el HTML para extraer cualquier matiz adicional (animaciones, microinteracciones, copys exactos).
 
-## Cambios técnicos
+## Cambios técnicos por pantalla
 
-### 1) Design tokens (`src/index.css` + `tailwind.config.ts`)
-- Cambiar tema **dark por defecto** (`defaultTheme="dark"` en `App.tsx`).
-- Nuevos tokens:
-  - `--background: 224 47% 4%` (casi negro azulado)
-  - `--card: 224 40% 8%` con `--card-elevated: 224 35% 11%`
-  - `--border: 224 30% 16%` translúcido
-  - `--ava-gradient-from / via / to`: cian `190 95% 60%`, violeta `265 90% 65%`, magenta `320 90% 65%`
-  - `--score-ring`: verde lima `145 80% 55%` para gauges tipo "94"
-- Nuevo radio: `--radius: 1rem` (todo más redondeado, cards `rounded-3xl`).
-- Utilidades en `@layer components`:
-  - `.ava-gradient` (background-image lineal)
-  - `.ava-text-gradient` (texto con `bg-clip-text`)
-  - `.card-premium` (bg + border + shadow estándar)
-  - `.glow-ring` (halo difuso violeta para FAB y avatar AVA)
-- Mantener compatibilidad con tokens semánticos existentes (no rompe componentes shadcn).
+### 1) `src/pages/AsistenteIA.tsx` — versión móvil
+- En `<768px`: ocultar sidebar de conversaciones; mostrar header compacto con avatar AVA gradiente 56 px + saludo "Hola {nombre} 👋" + subtítulo "¿En qué te ayudo hoy?".
+- Estado vacío: 4 chips horizontales scrollables ("Resumen del día", "Matches calientes", "Redacta email a…", "Genera dossier").
+- Burbujas: usuario con `bg-gradient-to-br from-cyan-500 to-violet-600 text-white`, AVA con `card-premium`. Avatar AVA en cada respuesta = círculo 32 px gradient con `glow-ring`.
+- Input flotante fijo abajo (sticky con `safe-area-inset-bottom`), `rounded-3xl`, fondo `--card-elevated`, botones micro y adjuntar a izquierda, send gradient a derecha.
+- Desktop: mantener layout actual con 2 columnas, solo aplicar nuevos tokens (gradient avatar, burbujas, card-premium).
 
-### 2) Layout
-- `AppLayout.tsx`: header simplificado en desktop (solo trigger + avatar + notificaciones, sin buscador grande — buscador pasa a Oportunidades). En móvil **header desaparece** y se añade `<BottomNav />` fijo.
-- Nuevo `src/components/BottomNav.tsx`: 5 botones (Inicio, Oportunidades, **FAB AVA central**, Matching, Más). FAB redondo 64 px con gradiente y glow. Solo visible `<768px`.
-- Nueva ruta `/mas` con la pantalla "Más" de la captura 2 (cartera, inteligencia, cuenta) — en desktop redirige a `/ajustes`.
-- `FloatingChat` se oculta en móvil (lo sustituye el FAB del BottomNav que navega a `/asistente`).
+### 2) `src/pages/LocalDetail.tsx` — hero + pipeline
+- Hero `card-premium` con gradient sutil radial:
+  - Esquina sup-derecha: `<ScoreRing value={local.ava_score || 0} size={88} />` (componente nuevo, SVG circular, color verde lima).
+  - Título 32 px bold, dirección, badges estado.
+- Mini-grid 3 columnas: **Superficie** (m²) · **Renta** (€/mes) · **Estado** — números grandes, label pequeño uppercase.
+- Card "AVA propone" gradient suave (`from-violet-500/10 to-cyan-500/5`) con avatar AVA, texto generado de `local.descripcion` o placeholder, y 2 CTAs: "Ver matches" / "Generar dossier".
+- Pipeline horizontal con 5 dots conectados: Contacto · Análisis · **Matching activo** (resaltado gradient) · Negociación · Cierre.
+- Tabs (Información/Contactos) **se mantienen** pero pasan debajo del hero, con estilo `card-premium`.
 
-### 3) Sidebar (desktop)
-- `AppSidebar.tsx`: rediseño visual con fondo `--card`, ítems `rounded-xl`, ítem activo con barra lateral acento gradiente. Logo con `<span className="ava-text-gradient">AVA</span>`. Sin cambios estructurales de navegación.
+### 3) `src/pages/Matching.tsx` — vista individual con score grande
+- Cuando hay `:id` (match concreto): card central `card-premium` con `<ScoreRing value={94} size={180} />` arriba.
+- Debajo: lista de "razones" con `<Progress />` horizontales (Tráfico peatonal 98, Zona AAA 96, Encaje sectorial 92…).
+- Footer con 3 botones circulares 64 px: ✕ rojo (descartar) · ⏱ ámbar (aplazar) · ✓ verde (aprobar). Indicador "1/3" centrado arriba.
+- Lista (sin `:id`) ya quedó hecha — solo aplicar `card-premium` consistente.
 
-### 4) Dashboard (`src/pages/Dashboard.tsx`)
-- Hero "Buenos días, {nombre}" + subtítulo "Tienes X matches nuevos y Y tareas para hoy".
-- Card "AVA · Resumen del día" gradient con avatar AVA y CTA.
-- 3 KPI cards (Pipeline · Matches · Cierre) en `grid-cols-3` móvil con números grandes y delta.
-- Sección "Para hoy" (tareas) y "Oportunidades calientes" (carrusel de cards con score circular).
+### 4) `src/pages/Login.tsx` — alinear estética
+- Fondo `--background` con dos blobs gradient ambient.
+- Card central `card-premium`, logo AVA grande (texto gradient + glow), inputs `rounded-2xl`, botón principal `ava-gradient`.
+- Eliminar cualquier color claro hardcoded.
 
-### 5) Oportunidades (`src/pages/Proyectos.tsx`)
-- Header "Pipeline · N" + título grande + buscador con icono micrófono.
-- Filtros en chips horizontales (Todas, Caliente, Negociación, Matching).
-- Cards de oportunidad con: avatar gradient circular + score, nombre, ubicación, badge estado, m² y €.
+### 5) Nuevo componente `src/components/ScoreRing.tsx`
+- SVG circular con stroke gradient (verde lima → cian) según `value` (0-100), número grande centrado, label opcional debajo.
+- Props: `value`, `size`, `label?`, `colorScheme?` ("score" | "match" | "risk").
+- Reutilizable en LocalDetail, Matching, Dashboard cards de oportunidades calientes.
 
-### 6) Activo Detail (`src/pages/LocalDetail.tsx`)
-- Hero gradient con score circular grande arriba-derecha (estilo "94 SCORE").
-- Título grande, ubicación, mini-grid (Superficie · Valor · Cierre est.).
-- Card "AVA propone" con gradient suave y CTA "Ver match" / "Redactar email".
-- Pipeline horizontal con dots (Contacto · Análisis · **Matching activo** · Negociación · Cierre).
+### 6) Pulir BottomNav
+- Verificar que el FAB central NO se oculta al estar en `/asistente` (se mantiene activo con animación pulse para indicar "estás aquí").
+- Añadir `safe-area-inset-bottom` para iOS notch.
 
-### 7) Matching (`src/pages/Matching.tsx`)
-- Card central con score circular grande "94" + barras de razones (Tráfico peatonal 98, Zona AAA 96…).
-- 3 botones grandes circulares abajo: ✕ rojo · ⏱ ámbar · ✓ verde (swipe-friendly).
-- Indicador "1/3" con paginación.
+### 7) Aplicar `card-premium` al resto de páginas que aún usan `<Card>` plano
+- Pasada rápida en: `Operadores`, `Contactos`, `Documentos`, `Patrones`, `Conocimiento`, `Notificaciones`, `Ajustes`, `Consumo`. Solo cambio de className raíz de cards (no toca lógica).
 
-### 8) AVA Chat (`src/pages/AsistenteIA.tsx`)
-- Vista móvil: avatar AVA gradient grande arriba, "Hola Alberto 👋", input flotante abajo con botón micro y cámara, sugerencias horizontales (chips).
-- Burbujas: usuario gradient, AVA card oscura. Mantiene `.ava-report` actual.
+## Lo que NO se toca
 
-### 9) "Más" (`src/pages/Mas.tsx`, **nueva**)
-- Header con avatar usuario + badge PRO.
-- Secciones (Cartera, Inteligencia, Cuenta) con filas grandes `rounded-2xl`, icono + label + contador a la derecha.
+- Lógica de Supabase, hooks, edge functions, `ava-orchestrator`.
+- Estructura de rutas (las que añadimos `/mas`, `/matching` se mantienen).
+- Sistema de notificaciones, RAG, embeddings, email AVA.
+- Funcionalidad de tabs internas (Información/Contactos en LocalDetail, etc.).
 
-## Estrategia de implementación
+## Orden de ejecución
 
-1. **Tokens y utilidades** primero (1 archivo CSS + 1 tailwind config) → cambia toda la app sin tocar componentes.
-2. **Layout + BottomNav + Sidebar** rediseño.
-3. **Pantallas clave** una a una: Dashboard → Oportunidades → Activo Detail → Matching → AVA → Más.
-4. Cada pantalla mantiene su lógica de datos actual; solo cambia JSX/estilos.
-
-No se toca: rutas existentes, lógica de Supabase, hooks, edge functions, ni el sistema AVA orchestrator.
+1. Crear `ScoreRing` (componente reutilizable, base para 3 pantallas).
+2. Rediseñar `AsistenteIA` (la pantalla que más usas y que más se aleja del nuevo lenguaje).
+3. Rediseñar `LocalDetail` (hero + pipeline + AVA propone).
+4. Rediseñar `Matching` individual (score + razones + botones).
+5. Rediseñar `Login`.
+6. Pasada de `card-premium` en páginas secundarias.
+7. Descomprimir `AVA_4.zip`, revisar `AVA Mobile.html` y ajustar matices (animaciones, copys, microinteracciones que pueda haber capturado el prototipo).
 
 ## Preguntas antes de implementar
 
-1. **Tema**: ¿forzamos **dark por defecto sin opción de cambio** (como la maqueta) o mantenemos el toggle claro/oscuro y solo cambiamos el default a dark?
-2. **Alcance**: ¿hago las **6 pantallas clave** del rediseño (Dashboard, Oportunidades, Activo Detail, Matching, AVA, Más) o solo Dashboard + AVA + BottomNav como primer paso para validar la dirección?
-3. **"Más"**: la pantalla "Más" de la captura tiene secciones que ya existen como rutas (Activos, Operadores, Contactos, Patrones, Documentos, Notificaciones, Ajustes). ¿Hago `/mas` como **nuevo agregador móvil** que linka a esas rutas, o reorganizo la navegación?
-4. **FAB AVA**: cuando estés ya dentro de `/asistente`, ¿el FAB central debe **ocultarse** o **mantenerse activo** (con otro estado visual)?
+1. **ScoreRing data**: el campo `ava_score` no existe aún en `locales`. ¿Lo calculo on-the-fly con un placeholder (ej. `Math.round((superficie/renta)*X)`) o añadimos columna `ava_score` y la pobla un job? Para esta iteración propongo placeholder visual y dejar la columna real para una fase posterior.
+2. **"AVA propone" en Activo Detail**: ¿texto estático placeholder de momento, o llamamos a `ava-orchestrator` con un prompt corto al cargar la página (coste por visita)? Recomiendo placeholder + botón "Pedir análisis a AVA" para no inflar costes.
+3. **Login**: ¿mantengo el formulario email/password actual y solo cambio estética, o aprovecho para añadir botón "Continuar con Google" que pediste hace tiempo?
+4. **Alcance final**: ¿hago las 7 pasos o priorizamos solo 1-4 (las pantallas clave) y dejamos el resto para una pasada posterior?
 
