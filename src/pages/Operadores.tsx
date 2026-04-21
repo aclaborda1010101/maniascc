@@ -1,4 +1,5 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -32,10 +33,6 @@ const SECTORES: { value: string; label: string }[] = [
 ];
 
 export default function Operadores() {
-  const [operadores, setOperadores] = useState<any[]>([]);
-  const [matrices, setMatrices] = useState<any[]>([]);
-  const [activos, setActivos] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [filtroSector, setFiltroSector] = useState("todos");
   const [filtroActivo, setFiltroActivo] = useState("todos");
@@ -47,26 +44,31 @@ export default function Operadores() {
   const { toast } = useToast();
   const { user } = useAuth();
   const isMobile = useIsMobile();
+  const qc = useQueryClient();
 
+  const { data: operadores = [], isLoading: loading } = useQuery({
+    queryKey: ["operadores", search, filtroSector, filtroActivo],
+    queryFn: async () => {
+      let query = supabase.from("operadores").select("*").order("created_at", { ascending: false });
+      if (search) query = query.or(`nombre.ilike.%${search}%,sector.ilike.%${search}%`);
+      if (filtroSector !== "todos") query = query.eq("sector", filtroSector);
+      if (filtroActivo === "activo") query = query.eq("activo", true);
+      if (filtroActivo === "inactivo") query = query.eq("activo", false);
+      const { data } = await query;
+      return data || [];
+    },
+  });
+
+  const { data: activos = [] } = useQuery({
+    queryKey: ["operadores-activos-list"],
+    queryFn: async () => {
+      const { data } = await supabase.from("locales").select("id, nombre, direccion").order("nombre");
+      return data || [];
+    },
+  });
+
+  const matrices = (operadores as any[]).filter((o: any) => !o.matriz_id);
   const selectedMatriz = matrices.find((m: any) => m.id === selectedMatrizId);
-
-  const fetchOperadores = async () => {
-    setLoading(true);
-    let query = supabase.from("operadores").select("*").order("created_at", { ascending: false });
-    if (search) query = query.or(`nombre.ilike.%${search}%,sector.ilike.%${search}%`);
-    if (filtroSector !== "todos") query = query.eq("sector", filtroSector);
-    if (filtroActivo === "activo") query = query.eq("activo", true);
-    if (filtroActivo === "inactivo") query = query.eq("activo", false);
-    const { data } = await query;
-    setOperadores(data || []);
-    setMatrices((data || []).filter((o: any) => !o.matriz_id));
-    setLoading(false);
-  };
-
-  useEffect(() => {
-    fetchOperadores();
-    supabase.from("locales").select("id, nombre, direccion").order("nombre").then(({ data }) => setActivos(data || []));
-  }, [search, filtroSector, filtroActivo]);
 
   const handleCreate = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -96,7 +98,7 @@ export default function Operadores() {
       setSelectedMatrizId("");
       setSelectedActivoId("");
       setMatrizMode("existing");
-      fetchOperadores();
+      qc.invalidateQueries({ queryKey: ["operadores"] });
     }
   };
 

@@ -1,4 +1,5 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -82,8 +83,6 @@ const tiposNuevos = ["desarrollo_comercial", "venta_activo", "optimizacion_centr
 
 export default function Proyectos() {
   const [tipoSeleccionado, setTipoSeleccionado] = useState("desarrollo_comercial");
-  const [proyectos, setProyectos] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [filtroEstado, setFiltroEstado] = useState("todos");
   const [filtroTipo, setFiltroTipo] = useState("todos");
@@ -91,19 +90,19 @@ export default function Proyectos() {
   const [submitting, setSubmitting] = useState(false);
   const { toast } = useToast();
   const { user } = useAuth();
+  const qc = useQueryClient();
 
-  const fetchProyectos = async () => {
-    setLoading(true);
-    let query = supabase.from("proyectos").select("*").order("created_at", { ascending: false });
-    if (filtroEstado !== "todos") query = query.eq("estado", filtroEstado as any);
-    if (filtroTipo !== "todos") query = query.eq("tipo", filtroTipo as any);
-    if (search) query = query.or(`nombre.ilike.%${search}%,descripcion.ilike.%${search}%`);
-    const { data } = await query;
-    setProyectos(data || []);
-    setLoading(false);
-  };
-
-  useEffect(() => { fetchProyectos(); }, [filtroEstado, filtroTipo, search]);
+  const { data: proyectos = [], isLoading: loading } = useQuery({
+    queryKey: ["proyectos", filtroEstado, filtroTipo, search],
+    queryFn: async () => {
+      let query = supabase.from("proyectos").select("*").order("created_at", { ascending: false });
+      if (filtroEstado !== "todos") query = query.eq("estado", filtroEstado as any);
+      if (filtroTipo !== "todos") query = query.eq("tipo", filtroTipo as any);
+      if (search) query = query.or(`nombre.ilike.%${search}%,descripcion.ilike.%${search}%`);
+      const { data } = await query;
+      return data || [];
+    },
+  });
 
   const handleCreate = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -126,7 +125,7 @@ export default function Proyectos() {
     } else {
       toast({ title: "Oportunidad creada correctamente" });
       setDialogOpen(false);
-      fetchProyectos();
+      qc.invalidateQueries({ queryKey: ["proyectos"] });
     }
   };
 

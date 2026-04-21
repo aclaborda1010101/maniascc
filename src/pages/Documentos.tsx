@@ -1,4 +1,5 @@
-import { useEffect, useState, useCallback, useMemo } from "react";
+import { useState, useMemo } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { Card, CardContent } from "@/components/ui/card";
@@ -46,50 +47,65 @@ const FASE_LABEL: Record<string, { label: string; cls: string }> = {
 
 export default function Documentos() {
   const { user } = useAuth();
-  const [documentos, setDocumentos] = useState<DocumentoExt[]>([]);
-  const [taxonomias, setTaxonomias] = useState<Taxonomia[]>([]);
-  const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [taxFilter, setTaxFilter] = useState<string>("todas");
   const [origenFilter, setOrigenFilter] = useState<string>("todos");
-
-  // Storage legacy (contratos / multimedia)
-  const [contratosFiles, setContratosFiles] = useState<{ name: string; created_at?: string }[]>([]);
-  const [multimediaFiles, setMultimediaFiles] = useState<{ name: string; created_at?: string }[]>([]);
-
-  // OneDrive state
-  const [odState, setOdState] = useState<any>(null);
   const [odSyncing, setOdSyncing] = useState(false);
-  const [jobs, setJobs] = useState<any[]>([]);
-
   const [bulkRunning, setBulkRunning] = useState(false);
   const [bulkProgress, setBulkProgress] = useState({ done: 0, total: 0, classified: 0, indexed: 0 });
+  const qc = useQueryClient();
 
-  const loadAll = useCallback(async () => {
-    setLoading(true);
-    const [docs, tax, c, m] = await Promise.all([
-      fetchDocumentos({
-        taxonomia: taxFilter !== "todas" ? taxFilter : undefined,
-        origen: origenFilter !== "todos" ? origenFilter : undefined,
-        search: search || undefined,
-      }),
-      fetchTaxonomias(),
-      supabase.storage.from("documentos_contratos").list("general", { limit: 100, sortBy: { column: "created_at", order: "desc" } }),
-      supabase.storage.from("multimedia_locales").list("general", { limit: 100, sortBy: { column: "created_at", order: "desc" } }),
-    ]);
-    setDocumentos(docs);
-    setTaxonomias(tax);
-    setContratosFiles(((c.data || []) as { name: string; created_at?: string }[]).filter((f) => f.name !== ".emptyFolderPlaceholder"));
-    setMultimediaFiles(((m.data || []) as { name: string; created_at?: string }[]).filter((f) => f.name !== ".emptyFolderPlaceholder"));
-    if (user?.id) {
-      const [s, j] = await Promise.all([fetchOneDriveState(user.id), fetchIngestionJobs(user.id, 5)]);
-      setOdState(s);
-      setJobs(j);
-    }
-    setLoading(false);
-  }, [search, taxFilter, origenFilter, user?.id]);
+  const docsQuery = useQuery<DocumentoExt[]>({
+    queryKey: ["documentos", taxFilter, origenFilter, search],
+    queryFn: () => fetchDocumentos({
+      taxonomia: taxFilter !== "todas" ? taxFilter : undefined,
+      origen: origenFilter !== "todos" ? origenFilter : undefined,
+      search: search || undefined,
+    }),
+  });
+  const documentos = docsQuery.data || [];
+  const loading = docsQuery.isLoading;
 
-  useEffect(() => { loadAll(); }, [loadAll]);
+  const { data: taxonomias = [] } = useQuery<Taxonomia[]>({
+    queryKey: ["documentos-taxonomias"],
+    queryFn: fetchTaxonomias,
+    staleTime: 5 * 60_000,
+  });
+
+  const { data: contratosFiles = [] } = useQuery({
+    queryKey: ["documentos-storage", "documentos_contratos"],
+    queryFn: async () => {
+      const { data } = await supabase.storage.from("documentos_contratos").list("general", { limit: 100, sortBy: { column: "created_at", order: "desc" } });
+      return ((data || []) as { name: string; created_at?: string }[]).filter((f) => f.name !== ".emptyFolderPlaceholder");
+    },
+  });
+
+  const { data: multimediaFiles = [] } = useQuery({
+    queryKey: ["documentos-storage", "multimedia_locales"],
+    queryFn: async () => {
+      const { data } = await supabase.storage.from("multimedia_locales").list("general", { limit: 100, sortBy: { column: "created_at", order: "desc" } });
+      return ((data || []) as { name: string; created_at?: string }[]).filter((f) => f.name !== ".emptyFolderPlaceholder");
+    },
+  });
+
+  const { data: odState } = useQuery({
+    queryKey: ["documentos-onedrive-state", user?.id],
+    queryFn: () => fetchOneDriveState(user!.id),
+    enabled: !!user?.id,
+  });
+
+  const { data: jobs = [] } = useQuery({
+    queryKey: ["documentos-onedrive-jobs", user?.id],
+    queryFn: () => fetchIngestionJobs(user!.id, 5),
+    enabled: !!user?.id,
+  });
+
+  const loadAll = () => {
+    qc.invalidateQueries({ queryKey: ["documentos"] });
+    qc.invalidateQueries({ queryKey: ["documentos-storage"] });
+    qc.invalidateQueries({ queryKey: ["documentos-onedrive-state"] });
+    qc.invalidateQueries({ queryKey: ["documentos-onedrive-jobs"] });
+  };
 
   const handleClassify = async (docId: string) => {
     try {

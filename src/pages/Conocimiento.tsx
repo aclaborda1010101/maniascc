@@ -1,4 +1,5 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -23,16 +24,16 @@ export default function Conocimiento() {
   const [dominio, setDominio] = useState("todos");
   const [loading, setLoading] = useState(false);
   const [answer, setAnswer] = useState<{ answer: string; citations: Citation[] | string[]; confidence: number } | null>(null);
-  const [stats, setStats] = useState<RagStats | null>(null);
   const [batchRunning, setBatchRunning] = useState(false);
+  const qc = useQueryClient();
 
-  useEffect(() => {
-    void refreshStats();
-  }, []);
+  const { data: stats = null } = useQuery<RagStats | null>({
+    queryKey: ["rag-stats"],
+    queryFn: async () => (await fetchRagStats()) || null,
+  });
 
   const refreshStats = async () => {
-    const s = await fetchRagStats();
-    if (s) setStats(s);
+    await qc.invalidateQueries({ queryKey: ["rag-stats"] });
   };
 
   const handleSearch = async () => {
