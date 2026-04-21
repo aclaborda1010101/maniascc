@@ -2,110 +2,171 @@
 @tailwind components;
 @tailwind utilities;
 
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
 
 @layer base {
   :root {
-    --background: 210 40% 98%;
-    --foreground: 222 47% 11%;
+    /* ── Light (fallback, raramente usado) ── */
+    --background: 224 47% 97%;
+    --foreground: 222 47% 8%;
 
     --card: 0 0% 100%;
-    --card-foreground: 222 47% 11%;
+    --card-foreground: 222 47% 8%;
+    --card-elevated: 224 30% 99%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 222 47% 11%;
+    --popover-foreground: 222 47% 8%;
 
-    --primary: 222 47% 11%;
+    --primary: 224 47% 8%;
     --primary-foreground: 210 40% 98%;
 
-    --secondary: 210 40% 96%;
-    --secondary-foreground: 222 47% 11%;
+    --secondary: 224 30% 94%;
+    --secondary-foreground: 222 47% 8%;
 
-    --muted: 210 40% 96%;
+    --muted: 224 30% 94%;
     --muted-foreground: 215 16% 47%;
 
-    --accent: 217 91% 60%;
+    --accent: 265 90% 65%;
     --accent-foreground: 0 0% 100%;
 
     --destructive: 0 84% 60%;
     --destructive-foreground: 210 40% 98%;
 
-    --border: 214 32% 91%;
-    --input: 214 32% 91%;
-    --ring: 217 91% 60%;
+    --border: 224 30% 88%;
+    --input: 224 30% 88%;
+    --ring: 265 90% 65%;
 
-    --radius: 0.5rem;
+    --radius: 1rem;
 
-    --sidebar-background: 222 47% 11%;
-    --sidebar-foreground: 210 40% 96%;
-    --sidebar-primary: 217 91% 60%;
+    --sidebar-background: 224 47% 97%;
+    --sidebar-foreground: 222 47% 8%;
+    --sidebar-primary: 265 90% 65%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 217 33% 17%;
-    --sidebar-accent-foreground: 210 40% 96%;
-    --sidebar-border: 217 33% 17%;
-    --sidebar-ring: 217 91% 60%;
+    --sidebar-accent: 224 30% 92%;
+    --sidebar-accent-foreground: 222 47% 8%;
+    --sidebar-border: 224 30% 88%;
+    --sidebar-ring: 265 90% 65%;
 
-    --chart-1: 217 91% 60%;
-    --chart-2: 142 71% 45%;
-    --chart-3: 38 92% 50%;
+    --chart-1: 190 95% 60%;
+    --chart-2: 145 80% 55%;
+    --chart-3: 38 92% 55%;
     --chart-4: 0 84% 60%;
-    --chart-5: 262 83% 58%;
+    --chart-5: 320 90% 65%;
+
+    /* AVA gradient & misc */
+    --ava-from: 190 95% 60%;
+    --ava-via: 265 90% 65%;
+    --ava-to: 320 90% 65%;
+    --score-ring: 145 80% 55%;
   }
 
   .dark {
-    --background: 222 47% 6%;
+    /* ── Dark premium (default) ── */
+    --background: 224 47% 4%;
     --foreground: 210 40% 98%;
 
-    --card: 222 47% 9%;
+    --card: 224 40% 8%;
     --card-foreground: 210 40% 98%;
+    --card-elevated: 224 35% 11%;
 
-    --popover: 222 47% 9%;
+    --popover: 224 40% 8%;
     --popover-foreground: 210 40% 98%;
 
-    --primary: 217 91% 60%;
+    --primary: 265 90% 65%;
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 217 33% 17%;
+    --secondary: 224 30% 14%;
     --secondary-foreground: 210 40% 98%;
 
-    --muted: 217 33% 17%;
+    --muted: 224 30% 14%;
     --muted-foreground: 215 20% 65%;
 
-    --accent: 217 91% 60%;
+    --accent: 265 90% 65%;
     --accent-foreground: 0 0% 100%;
 
-    --destructive: 0 63% 31%;
+    --destructive: 0 70% 55%;
     --destructive-foreground: 210 40% 98%;
 
-    --border: 217 33% 17%;
-    --input: 217 33% 17%;
-    --ring: 217 91% 60%;
+    --border: 224 30% 16%;
+    --input: 224 30% 16%;
+    --ring: 265 90% 65%;
 
-    --sidebar-background: 222 47% 6%;
+    --sidebar-background: 224 45% 5%;
     --sidebar-foreground: 210 40% 96%;
-    --sidebar-primary: 217 91% 60%;
+    --sidebar-primary: 265 90% 65%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 217 33% 17%;
+    --sidebar-accent: 224 30% 12%;
     --sidebar-accent-foreground: 210 40% 96%;
-    --sidebar-border: 217 33% 17%;
-    --sidebar-ring: 217 91% 60%;
+    --sidebar-border: 224 30% 14%;
+    --sidebar-ring: 265 90% 65%;
+
+    --chart-1: 190 95% 60%;
+    --chart-2: 145 80% 55%;
+    --chart-3: 38 92% 55%;
+    --chart-4: 0 70% 60%;
+    --chart-5: 320 90% 65%;
+
+    --ava-from: 190 95% 60%;
+    --ava-via: 265 90% 65%;
+    --ava-to: 320 90% 65%;
+    --score-ring: 145 80% 55%;
   }
 }
 
 @layer base {
-  * {
-    @apply border-border;
-  }
-
+  * { @apply border-border; }
   body {
-    @apply bg-background text-foreground font-sans;
+    @apply bg-background text-foreground font-sans antialiased;
     font-family: 'Inter', system-ui, sans-serif;
     overflow-x: hidden;
   }
+  #root { overflow-x: hidden; }
+}
 
-  #root {
-    overflow-x: hidden;
+@layer components {
+  /* AVA gradient utilities */
+  .ava-gradient {
+    background-image: linear-gradient(
+      135deg,
+      hsl(var(--ava-from)) 0%,
+      hsl(var(--ava-via)) 50%,
+      hsl(var(--ava-to)) 100%
+    );
   }
+  .ava-text-gradient {
+    background-image: linear-gradient(
+      135deg,
+      hsl(var(--ava-from)) 0%,
+      hsl(var(--ava-via)) 50%,
+      hsl(var(--ava-to)) 100%
+    );
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    color: transparent;
+  }
+  .card-premium {
+    @apply bg-card border border-border/60 rounded-3xl;
+    box-shadow:
+      0 1px 0 0 hsl(0 0% 100% / 0.03) inset,
+      0 12px 40px -16px hsl(224 47% 0% / 0.4);
+  }
+  .card-elevated {
+    background-color: hsl(var(--card-elevated));
+  }
+  .glow-ring {
+    box-shadow:
+      0 0 0 1px hsl(var(--ava-via) / 0.3),
+      0 0 24px -2px hsl(var(--ava-via) / 0.45),
+      0 0 48px -4px hsl(var(--ava-from) / 0.25);
+  }
+  .glow-ring-soft {
+    box-shadow:
+      0 0 32px -4px hsl(var(--ava-via) / 0.35);
+  }
+  /* Hide scrollbar (for horizontal chip rows) */
+  .no-scrollbar::-webkit-scrollbar { display: none; }
+  .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
 }
 
 /* ── Prose / Markdown styling ── */
@@ -113,31 +174,24 @@
 .prose h2 { @apply text-lg font-semibold mt-5 mb-2 text-foreground; }
 .prose h3 { @apply text-base font-semibold mt-4 mb-2 text-foreground; }
 .prose h4 { @apply text-sm font-semibold mt-3 mb-1 text-foreground; }
-
 .prose ul { @apply list-disc pl-5 my-2 space-y-1; }
 .prose ol { @apply list-decimal pl-5 my-2 space-y-1; }
 .prose li { @apply text-foreground; }
-
 .prose strong { @apply font-semibold text-foreground; }
 .prose em { @apply italic; }
-
 .prose hr { @apply my-4 border-border; }
-
 .prose blockquote {
   @apply border-l-4 border-accent/40 pl-4 my-3 italic text-muted-foreground;
 }
-
 .prose code:not(pre code) {
   @apply bg-muted text-accent px-1.5 py-0.5 rounded text-xs font-mono;
 }
-
 .prose pre {
   @apply bg-muted rounded-lg p-4 my-3 overflow-x-auto;
 }
 .prose pre code {
   @apply bg-transparent p-0 text-xs font-mono text-foreground;
 }
-
 .prose table {
   @apply w-full border-collapse my-3 text-sm;
 }
@@ -150,11 +204,9 @@
 .prose tbody tr:nth-child(even) {
   @apply bg-muted/40;
 }
-
 .prose a {
   @apply text-accent underline underline-offset-2 hover:text-accent/80;
 }
-
 .prose p {
   @apply my-2 leading-relaxed;
 }
@@ -163,9 +215,7 @@
 .ava-report h2 {
   @apply text-sm font-bold mt-4 mb-1.5 pb-1 border-b border-border/60 tracking-wide uppercase text-foreground;
 }
-.ava-report h2:first-child {
-  @apply mt-0;
-}
+.ava-report h2:first-child { @apply mt-0; }
 .ava-report h3 {
   @apply text-sm font-semibold mt-3 mb-1 text-accent;
 }
@@ -182,21 +232,9 @@
 .ava-report tbody td {
   @apply px-2.5 py-1.5 text-xs border-border/40;
 }
-.ava-report ul, .ava-report ol {
-  @apply my-1.5 space-y-0.5;
-}
-.ava-report li {
-  @apply text-xs;
-}
-.ava-report hr {
-  @apply my-3 border-border/40;
-}
-.ava-report p {
-  @apply my-1.5 text-xs leading-relaxed;
-}
-.ava-report strong {
-  @apply font-semibold text-foreground;
-}
-.ava-report code:not(pre code) {
-  @apply text-[10px];
-}
+.ava-report ul, .ava-report ol { @apply my-1.5 space-y-0.5; }
+.ava-report li { @apply text-xs; }
+.ava-report hr { @apply my-3 border-border/40; }
+.ava-report p { @apply my-1.5 text-xs leading-relaxed; }
+.ava-report strong { @apply font-semibold text-foreground; }
+.ava-report code:not(pre code) { @apply text-[10px]; }
