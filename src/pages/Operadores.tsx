@@ -112,15 +112,18 @@ export default function Operadores() {
   };
 
   return (
-    <div className="space-y-4 md:space-y-6">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-xl md:text-2xl font-bold tracking-tight">Operadores</h1>
-          <p className="text-xs md:text-sm text-muted-foreground">Gestiona los operadores comerciales</p>
+    <div className="space-y-5 md:space-y-6">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+        <div className="space-y-1.5">
+          <p className="text-[11px] uppercase tracking-widest text-muted-foreground/70 font-medium">Directorio · {operadores.length}</p>
+          <h1 className="text-3xl md:text-4xl font-display font-bold tracking-tight">
+            <span className="text-iridescent">Operadores</span>
+          </h1>
+          <p className="text-xs md:text-sm text-muted-foreground">Gestiona los operadores comerciales y su jerarquía.</p>
         </div>
         <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
           <DialogTrigger asChild>
-            <Button className="bg-accent text-accent-foreground hover:bg-accent/90 w-full sm:w-auto">
+            <Button className="rounded-2xl gradient-iridescent text-white border-0 hover:opacity-95 w-full sm:w-auto">
               <Plus className="mr-2 h-4 w-4" /> Nuevo Operador
             </Button>
           </DialogTrigger>
@@ -187,33 +190,31 @@ export default function Operadores() {
         </Dialog>
       </div>
 
-      <Card className="shadow-sm">
-        <CardHeader className="pb-3">
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <Input placeholder="Buscar por nombre o sector..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-10" />
-            </div>
-            <div className="flex gap-2">
-              <Select value={filtroSector} onValueChange={setFiltroSector}>
-                <SelectTrigger className="flex-1 sm:w-[160px]"><SelectValue placeholder="Sector" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="todos">Todos los sectores</SelectItem>
-                  {SECTORES.map((s) => <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>)}
-                </SelectContent>
-              </Select>
-              <Select value={filtroActivo} onValueChange={setFiltroActivo}>
-                <SelectTrigger className="flex-1 sm:w-[130px]"><SelectValue placeholder="Estado" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="todos">Todos</SelectItem>
-                  <SelectItem value="activo">Activos</SelectItem>
-                  <SelectItem value="inactivo">Inactivos</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+      <div className="glass p-4 md:p-5">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center pb-3">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input placeholder="Buscar por nombre o sector..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-10 rounded-2xl bg-white/[0.04] border-border/40" />
           </div>
-        </CardHeader>
-        <CardContent>
+          <div className="flex gap-2">
+            <Select value={filtroSector} onValueChange={setFiltroSector}>
+              <SelectTrigger className="flex-1 sm:w-[160px] rounded-2xl bg-white/[0.04] border-border/40"><SelectValue placeholder="Sector" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="todos">Todos los sectores</SelectItem>
+                {SECTORES.map((s) => <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>)}
+              </SelectContent>
+            </Select>
+            <Select value={filtroActivo} onValueChange={setFiltroActivo}>
+              <SelectTrigger className="flex-1 sm:w-[130px] rounded-2xl bg-white/[0.04] border-border/40"><SelectValue placeholder="Estado" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="todos">Todos</SelectItem>
+                <SelectItem value="activo">Activos</SelectItem>
+                <SelectItem value="inactivo">Inactivos</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+        <div className="pt-1">
           {loading ? (
             <div className="space-y-3">{[1,2,3,4].map(i => <Skeleton key={i} className="h-14 w-full" />)}</div>
           ) : operadores.length === 0 ? (
@@ -222,30 +223,28 @@ export default function Operadores() {
               <p className="text-muted-foreground text-sm">{search || filtroSector !== "todos" || filtroActivo !== "todos" ? "No se encontraron operadores." : "No hay operadores. Crea el primero."}</p>
             </div>
           ) : isMobile ? (
-            /* Mobile: card layout */
+            /* Mobile: glass cards */
             <div className="space-y-2">
               {operadores.map((o) => (
                 <Link key={o.id} to={`/operadores/${o.id}`}>
-                  <Card className="hover:border-accent/40 transition-colors shadow-sm">
-                    <CardContent className="p-3 space-y-1.5">
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="min-w-0 flex-1">
-                          <p className="font-medium text-sm text-accent truncate">{o.nombre}</p>
-                          {o.direccion && <p className="text-[11px] text-muted-foreground truncate">{o.direccion}</p>}
-                        </div>
-                        <Badge variant={o.activo ? "default" : "secondary"} className={`shrink-0 text-[10px] ${o.activo ? "bg-chart-2/10 text-chart-2" : ""}`}>
-                          {o.activo ? "Activo" : "Inactivo"}
-                        </Badge>
+                  <div className="glass p-3 space-y-1.5 hover:bg-white/[0.06] transition-colors">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0 flex-1">
+                        <p className="font-display font-semibold text-sm tracking-tight truncate">{o.nombre}</p>
+                        {o.direccion && <p className="text-[11px] text-muted-foreground truncate">{o.direccion}</p>}
                       </div>
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <Badge variant="secondary" className="text-[10px]">{o.sector || "—"}</Badge>
-                        {!o.matriz_id && <Badge variant="outline" className="text-[10px]">Matriz</Badge>}
-                        <span className="text-[10px] text-muted-foreground ml-auto">
-                          {Number(o.presupuesto_min).toLocaleString("es-ES")}–{Number(o.presupuesto_max).toLocaleString("es-ES")} €
-                        </span>
-                      </div>
-                    </CardContent>
-                  </Card>
+                      <span className="chip" style={o.activo ? { color: "hsl(var(--acc-4))", borderColor: "hsl(var(--acc-4) / 0.3)" } : {}}>
+                        {o.activo ? "Activo" : "Inactivo"}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="chip">{o.sector || "—"}</span>
+                      {!o.matriz_id && <span className="chip" style={{ color: "hsl(var(--acc-2))", borderColor: "hsl(var(--acc-2) / 0.3)" }}>Matriz</span>}
+                      <span className="text-[10px] text-muted-foreground ml-auto num-display">
+                        {Number(o.presupuesto_min).toLocaleString("es-ES")}–{Number(o.presupuesto_max).toLocaleString("es-ES")} €
+                      </span>
+                    </div>
+                  </div>
                 </Link>
               ))}
             </div>
@@ -253,7 +252,7 @@ export default function Operadores() {
             /* Desktop: table */
             <Table>
               <TableHeader>
-                <TableRow>
+                <TableRow className="border-border/30 hover:bg-transparent">
                   <TableHead>Nombre</TableHead>
                   <TableHead>Matriz</TableHead>
                   <TableHead>Sector</TableHead>
@@ -264,25 +263,25 @@ export default function Operadores() {
               </TableHeader>
               <TableBody>
                 {operadores.map((o) => (
-                  <TableRow key={o.id} className="cursor-pointer hover:bg-muted/50">
+                  <TableRow key={o.id} className="cursor-pointer border-border/20 hover:bg-white/[0.03]">
                     <TableCell>
-                      <Link to={`/operadores/${o.id}`} className="font-medium text-accent hover:underline">{o.nombre}</Link>
+                      <Link to={`/operadores/${o.id}`} className="font-display font-semibold tracking-tight hover:text-iridescent">{o.nombre}</Link>
                       {o.direccion && <p className="text-xs text-muted-foreground">{o.direccion}</p>}
                     </TableCell>
                     <TableCell>
                       {o.matriz_id ? (
-                        <Link to={`/operadores/${o.matriz_id}`} className="text-xs text-accent hover:underline">
+                        <Link to={`/operadores/${o.matriz_id}`} className="text-xs hover:underline" style={{ color: "hsl(var(--acc-2))" }}>
                           {matrices.find((m: any) => m.id === o.matriz_id)?.nombre || "—"}
                         </Link>
                       ) : (
-                        <Badge variant="outline" className="text-xs">Matriz</Badge>
+                        <span className="chip" style={{ color: "hsl(var(--acc-2))", borderColor: "hsl(var(--acc-2) / 0.3)" }}>Matriz</span>
                       )}
                     </TableCell>
-                    <TableCell><Badge variant="secondary">{o.sector || "—"}</Badge></TableCell>
-                    <TableCell className="text-right">{Number(o.presupuesto_min).toLocaleString("es-ES")} – {Number(o.presupuesto_max).toLocaleString("es-ES")} €</TableCell>
-                    <TableCell className="text-right">{o.superficie_min} – {o.superficie_max} m²</TableCell>
+                    <TableCell><span className="chip">{o.sector || "—"}</span></TableCell>
+                    <TableCell className="text-right num-display">{Number(o.presupuesto_min).toLocaleString("es-ES")} – {Number(o.presupuesto_max).toLocaleString("es-ES")} €</TableCell>
+                    <TableCell className="text-right num-display">{o.superficie_min} – {o.superficie_max} m²</TableCell>
                     <TableCell>
-                      <Badge variant={o.activo ? "default" : "secondary"} className={o.activo ? "bg-chart-2/10 text-chart-2" : ""}>{o.activo ? "Activo" : "Inactivo"}</Badge>
+                      <span className="chip" style={o.activo ? { color: "hsl(var(--acc-4))", borderColor: "hsl(var(--acc-4) / 0.3)" } : {}}>{o.activo ? "Activo" : "Inactivo"}</span>
                     </TableCell>
                   </TableRow>
                 ))}
@@ -292,8 +291,8 @@ export default function Operadores() {
           {!loading && operadores.length > 0 && (
             <p className="mt-3 text-xs text-muted-foreground">{operadores.length} operador{operadores.length !== 1 ? "es" : ""}</p>
           )}
-        </CardContent>
-      </Card>
+        </div>
+      </div>
     </div>
   );
 }

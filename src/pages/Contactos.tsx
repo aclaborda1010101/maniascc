@@ -143,11 +143,11 @@ export default function Contactos() {
   };
 
   const listPanel = (
-    <div className="flex flex-col h-full bg-card">
+    <div className="flex flex-col h-full bg-background/60 backdrop-blur-xl">
       {/* Header */}
-      <div className="border-b p-3 md:p-4 space-y-2.5 md:space-y-3">
+      <div className="border-b border-border/50 p-3 md:p-4 space-y-2.5 md:space-y-3">
         <div className="flex items-center justify-between">
-          <h1 className="text-base md:text-lg font-bold tracking-tight">Red de Contactos</h1>
+          <h1 className="text-base md:text-lg font-display font-bold tracking-tight"><span className="text-iridescent">Red</span> de Contactos</h1>
           <div className="flex gap-1">
             <Button variant="ghost" size="icon" className="h-8 w-8" title="Importar contactos" onClick={() => setImportOpen(true)}>
               <Upload className="h-4 w-4" />
@@ -170,16 +170,14 @@ export default function Contactos() {
         </div>
 
         {/* Stats */}
-        <div className="flex gap-3 text-[10px] md:text-xs font-medium">
-          <span className="flex items-center gap-1 text-primary">
-            <Network className="h-3 w-3 md:h-3.5 md:w-3.5" /> {inNetworkCount} EN RED
+        <div className="flex gap-2 text-[10px] md:text-xs font-medium num-display">
+          <span className="chip" style={{ color: "hsl(var(--acc-1))", borderColor: "hsl(var(--acc-1) / 0.3)" }}>
+            <Network className="h-3 w-3" /> {inNetworkCount} en red
           </span>
-          <span className="text-muted-foreground">·</span>
-          <span className="flex items-center gap-1 text-chart-3">
-            <Star className="h-3 w-3 md:h-3.5 md:w-3.5" /> {favCount} FAV
+          <span className="chip" style={{ color: "hsl(var(--acc-5))", borderColor: "hsl(var(--acc-5) / 0.3)" }}>
+            <Star className="h-3 w-3" /> {favCount} fav
           </span>
-          <span className="text-muted-foreground">·</span>
-          <span className="text-muted-foreground">{contactos.length} TOTAL</span>
+          <span className="chip">{contactos.length} total</span>
         </div>
 
         {/* Search */}
@@ -295,12 +293,12 @@ function ContactListItem({ contacto: c, isSelected, onSelect, onToggleFav, onTog
   return (
     <div
       onClick={onSelect}
-      className={`flex cursor-pointer items-start gap-3 rounded-lg p-3 transition-colors min-h-[44px] ${
-        isSelected ? "bg-primary/10 border border-primary/20" : "hover:bg-muted/50"
+      className={`flex cursor-pointer items-start gap-3 rounded-2xl p-3 transition-all min-h-[44px] ${
+        isSelected ? "bg-white/[0.06] border border-white/15 glow-ring-soft" : "hover:bg-white/[0.03] border border-transparent"
       }`}
     >
-      <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-xs font-semibold ${
-        c.in_network ? "bg-primary/15 text-primary" : "bg-muted text-muted-foreground"
+      <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl text-xs font-display font-semibold ${
+        c.in_network ? "gradient-iridescent text-white" : "bg-white/[0.06] text-muted-foreground border border-white/[0.08]"
       }`}>
         {initials}
       </div>

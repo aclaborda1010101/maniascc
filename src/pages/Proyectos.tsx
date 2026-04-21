@@ -253,56 +253,46 @@ export default function Proyectos() {
           {[1, 2, 3].map((i) => <Skeleton key={i} className="h-44 w-full rounded-lg" />)}
         </div>
       ) : proyectos.length === 0 ? (
-        <Card>
-          <CardContent className="py-16 text-center">
-            <FolderKanban className="mx-auto mb-3 h-12 w-12 text-muted-foreground/30" />
-            <p className="text-muted-foreground text-sm">
-              {search || filtroEstado !== "todos" || filtroTipo !== "todos"
-                ? "No se encontraron oportunidades con esos filtros."
-                : "No hay oportunidades aún. Crea la primera."}
-            </p>
-          </CardContent>
-        </Card>
+        <div className="glass p-16 text-center">
+          <FolderKanban className="mx-auto mb-3 h-12 w-12 text-muted-foreground/30" />
+          <p className="text-muted-foreground text-sm">
+            {search || filtroEstado !== "todos" || filtroTipo !== "todos"
+              ? "No se encontraron oportunidades con esos filtros."
+              : "No hay oportunidades aún. Crea la primera."}
+          </p>
+        </div>
       ) : (
         <div className="grid gap-3 md:gap-4 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
           {proyectos.map((p) => {
             const TipoIcon = tipoIcons[p.tipo] || FolderKanban;
             return (
               <Link key={p.id} to={`/oportunidades/${p.id}`}>
-                <Card className="hover:border-accent/50 hover:shadow-md transition-all cursor-pointer h-full shadow-sm">
-                  <CardHeader className="pb-3">
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="flex items-start gap-2 min-w-0">
-                        <TipoIcon className="h-4 w-4 mt-0.5 text-muted-foreground shrink-0" />
-                        <h3 className="font-semibold leading-tight line-clamp-2 text-sm">{p.nombre}</h3>
-                      </div>
-                      <Badge variant="secondary" className={`shrink-0 text-[10px] ${estadoColors[p.estado] || ""}`}>
-                        {estadoLabels[p.estado] || p.estado}
-                      </Badge>
+                <div className="glass p-4 hover:bg-white/[0.06] transition-all cursor-pointer h-full space-y-3">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex items-start gap-2 min-w-0">
+                      <TipoIcon className="h-4 w-4 mt-0.5 text-muted-foreground shrink-0" />
+                      <h3 className="font-display font-semibold leading-tight tracking-tight line-clamp-2 text-sm">{p.nombre}</h3>
                     </div>
-                  </CardHeader>
-                  <CardContent className="space-y-2 md:space-y-3">
-                    <Badge variant="outline" className={`text-[10px] md:text-xs ${tipoColors[p.tipo] || ""}`}>
-                      {tipoLabels[p.tipo] || p.tipo}
-                    </Badge>
-                    {p.descripcion && (
-                      <p className="text-xs text-muted-foreground line-clamp-2">{p.descripcion}</p>
+                    <span className={`chip shrink-0 ${estadoColors[p.estado] || ""}`}>{estadoLabels[p.estado] || p.estado}</span>
+                  </div>
+                  <span className={`chip ${tipoColors[p.tipo] || ""}`}>{tipoLabels[p.tipo] || p.tipo}</span>
+                  {p.descripcion && (
+                    <p className="text-xs text-muted-foreground line-clamp-2">{p.descripcion}</p>
+                  )}
+                  <div className="flex items-center gap-3 md:gap-4 text-[10px] md:text-xs text-muted-foreground flex-wrap">
+                    {p.ubicacion && (
+                      <span className="flex items-center gap-1">
+                        <MapPin className="h-3 w-3" /> {p.ubicacion}
+                      </span>
                     )}
-                    <div className="flex items-center gap-3 md:gap-4 text-[10px] md:text-xs text-muted-foreground flex-wrap">
-                      {p.ubicacion && (
-                        <span className="flex items-center gap-1">
-                          <MapPin className="h-3 w-3" /> {p.ubicacion}
-                        </span>
-                      )}
-                      {p.fecha_objetivo && (
-                        <span className="flex items-center gap-1">
-                          <Calendar className="h-3 w-3" />
-                          {new Date(p.fecha_objetivo).toLocaleDateString("es-ES")}
-                        </span>
-                      )}
-                    </div>
-                  </CardContent>
-                </Card>
+                    {p.fecha_objetivo && (
+                      <span className="flex items-center gap-1 num-display">
+                        <Calendar className="h-3 w-3" />
+                        {new Date(p.fecha_objetivo).toLocaleDateString("es-ES")}
+                      </span>
+                    )}
+                  </div>
+                </div>
               </Link>
             );
           })}
