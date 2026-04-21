@@ -94,7 +94,11 @@ export default function Proyectos() {
 
   const fetchProyectos = async () => {
     setLoading(true);
-    let query = supabase.from("proyectos").select("*").order("created_at", { ascending: false });
+    let query = supabase
+      .from("proyectos")
+      .select("id,nombre,descripcion,tipo,estado,ubicacion,fecha_objetivo,created_at")
+      .order("created_at", { ascending: false })
+      .limit(60);
     if (filtroEstado !== "todos") query = query.eq("estado", filtroEstado as any);
     if (filtroTipo !== "todos") query = query.eq("tipo", filtroTipo as any);
     if (search) query = query.or(`nombre.ilike.%${search}%,descripcion.ilike.%${search}%`);
@@ -103,7 +107,11 @@ export default function Proyectos() {
     setLoading(false);
   };
 
-  useEffect(() => { fetchProyectos(); }, [filtroEstado, filtroTipo, search]);
+  // Debounce search to avoid one query per keystroke
+  useEffect(() => {
+    const t = setTimeout(() => { fetchProyectos(); }, search ? 350 : 0);
+    return () => clearTimeout(t);
+  }, [filtroEstado, filtroTipo, search]);
 
   const handleCreate = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
