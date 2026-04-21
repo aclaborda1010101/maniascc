@@ -36,6 +36,7 @@ const Consumo = lazy(() => import("./pages/Consumo"));
 const Ajustes = lazy(() => import("./pages/Ajustes"));
 const GeneradorDocumentos = lazy(() => import("./pages/GeneradorDocumentos"));
 const Conocimiento = lazy(() => import("./pages/Conocimiento"));
+const Mas = lazy(() => import("./pages/Mas"));
 
 
 const queryClient = new QueryClient();
@@ -49,7 +50,7 @@ function PageLoader() {
 }
 
 const App = () => (
-  <ThemeProvider attribute="class" defaultTheme="light" enableSystem={false}>
+  <ThemeProvider attribute="class" defaultTheme="dark" enableSystem={false} forcedTheme="dark">
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
         <Toaster />
@@ -72,6 +73,8 @@ const App = () => (
                   <Route path="/activos" element={<Locales />} />
                   <Route path="/activos/:id" element={<LocalDetail />} />
                   <Route path="/matching/:localId" element={<Matching />} />
+                  <Route path="/matching" element={<Matching />} />
+                  <Route path="/mas" element={<Mas />} />
                   <Route path="/notificaciones" element={<Notificaciones />} />
                   <Route path="/localizacion" element={<LocationAnalysis />} />
                   <Route path="/validacion-dossier" element={<DossierValidation />} />
