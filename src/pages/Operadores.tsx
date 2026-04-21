@@ -112,15 +112,18 @@ export default function Operadores() {
   };
 
   return (
-    <div className="space-y-4 md:space-y-6">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-xl md:text-2xl font-bold tracking-tight">Operadores</h1>
-          <p className="text-xs md:text-sm text-muted-foreground">Gestiona los operadores comerciales</p>
+    <div className="space-y-5 md:space-y-6">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+        <div className="space-y-1.5">
+          <p className="text-[11px] uppercase tracking-widest text-muted-foreground/70 font-medium">Directorio · {operadores.length}</p>
+          <h1 className="text-3xl md:text-4xl font-display font-bold tracking-tight">
+            <span className="text-iridescent">Operadores</span>
+          </h1>
+          <p className="text-xs md:text-sm text-muted-foreground">Gestiona los operadores comerciales y su jerarquía.</p>
         </div>
         <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
           <DialogTrigger asChild>
-            <Button className="bg-accent text-accent-foreground hover:bg-accent/90 w-full sm:w-auto">
+            <Button className="rounded-2xl gradient-iridescent text-white border-0 hover:opacity-95 w-full sm:w-auto">
               <Plus className="mr-2 h-4 w-4" /> Nuevo Operador
             </Button>
           </DialogTrigger>
@@ -187,33 +190,31 @@ export default function Operadores() {
         </Dialog>
       </div>
 
-      <Card className="shadow-sm">
-        <CardHeader className="pb-3">
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <Input placeholder="Buscar por nombre o sector..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-10" />
-            </div>
-            <div className="flex gap-2">
-              <Select value={filtroSector} onValueChange={setFiltroSector}>
-                <SelectTrigger className="flex-1 sm:w-[160px]"><SelectValue placeholder="Sector" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="todos">Todos los sectores</SelectItem>
-                  {SECTORES.map((s) => <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>)}
-                </SelectContent>
-              </Select>
-              <Select value={filtroActivo} onValueChange={setFiltroActivo}>
-                <SelectTrigger className="flex-1 sm:w-[130px]"><SelectValue placeholder="Estado" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="todos">Todos</SelectItem>
-                  <SelectItem value="activo">Activos</SelectItem>
-                  <SelectItem value="inactivo">Inactivos</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+      <div className="glass p-4 md:p-5">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center pb-3">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input placeholder="Buscar por nombre o sector..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-10 rounded-2xl bg-white/[0.04] border-border/40" />
           </div>
-        </CardHeader>
-        <CardContent>
+          <div className="flex gap-2">
+            <Select value={filtroSector} onValueChange={setFiltroSector}>
+              <SelectTrigger className="flex-1 sm:w-[160px] rounded-2xl bg-white/[0.04] border-border/40"><SelectValue placeholder="Sector" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="todos">Todos los sectores</SelectItem>
+                {SECTORES.map((s) => <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>)}
+              </SelectContent>
+            </Select>
+            <Select value={filtroActivo} onValueChange={setFiltroActivo}>
+              <SelectTrigger className="flex-1 sm:w-[130px] rounded-2xl bg-white/[0.04] border-border/40"><SelectValue placeholder="Estado" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="todos">Todos</SelectItem>
+                <SelectItem value="activo">Activos</SelectItem>
+                <SelectItem value="inactivo">Inactivos</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+        <div className="pt-1">
           {loading ? (
             <div className="space-y-3">{[1,2,3,4].map(i => <Skeleton key={i} className="h-14 w-full" />)}</div>
           ) : operadores.length === 0 ? (
