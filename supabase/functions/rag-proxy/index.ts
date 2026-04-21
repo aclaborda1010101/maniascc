@@ -17,14 +17,24 @@ const DOMAIN_SYSTEM_PROMPTS: Record<string, string> = {
   general: `Eres un asistente experto en el sector inmobiliario comercial.`,
 };
 
+async function fetchWithTimeout(url: string, init: RequestInit, ms: number): Promise<Response> {
+  const ctl = new AbortController();
+  const t = setTimeout(() => ctl.abort(), ms);
+  try {
+    return await fetch(url, { ...init, signal: ctl.signal });
+  } finally {
+    clearTimeout(t);
+  }
+}
+
 async function embedQuery(question: string, openaiKey: string): Promise<number[] | null> {
   if (!openaiKey) return null;
   try {
-    const r = await fetch("https://api.openai.com/v1/embeddings", {
+    const r = await fetchWithTimeout("https://api.openai.com/v1/embeddings", {
       method: "POST",
       headers: { Authorization: `Bearer ${openaiKey}`, "Content-Type": "application/json" },
       body: JSON.stringify({ model: "text-embedding-3-small", input: question.slice(0, 8000) }),
-    });
+    }, 8000);
     if (!r.ok) return null;
     const d = await r.json();
     return d.data?.[0]?.embedding ?? null;
