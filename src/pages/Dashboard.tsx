@@ -154,13 +154,14 @@ export default function Dashboard() {
     fetchData();
   }, [user]);
 
+  // Cards: 5 acentos iridiscentes (acc-1 → acc-5)
   const statCards = [
-    { label: "Oportunidades", value: stats?.proyectosActivos, icon: FolderOpen, color: "text-primary", bg: "bg-primary/10" },
-    { label: "Operadores", value: stats?.totalOperadores, icon: Users, color: "text-chart-2", bg: "bg-chart-2/10" },
-    { label: "Activos", value: stats?.totalLocales, icon: MapPin, color: "text-chart-1", bg: "bg-chart-1/10" },
-    { label: "Matches", value: stats?.matchesPendientes, icon: Sparkles, color: "text-accent", bg: "bg-accent/10" },
-    { label: "Coste IA", value: stats ? `${stats.costeIAMes.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €` : undefined, icon: DollarSign, color: "text-chart-3", bg: "bg-chart-3/10" },
-    { label: "Latencia IA", value: stats ? `${stats.latenciaMedia}ms` : undefined, icon: Clock, color: "text-muted-foreground", bg: "bg-muted/50" },
+    { label: "Oportunidades", value: stats?.proyectosActivos, icon: FolderOpen, accent: 1 },
+    { label: "Operadores",    value: stats?.totalOperadores,  icon: Users,      accent: 2 },
+    { label: "Activos",       value: stats?.totalLocales,     icon: MapPin,     accent: 4 },
+    { label: "Matches",       value: stats?.matchesPendientes, icon: Sparkles,  accent: 3 },
+    { label: "Coste IA",      value: stats ? `${stats.costeIAMes.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €` : undefined, icon: DollarSign, accent: 5 },
+    { label: "Latencia IA",   value: stats ? `${stats.latenciaMedia}ms` : undefined, icon: Clock, accent: 1 },
   ];
 
   const barData = recentMatches.map((m) => ({
@@ -179,55 +180,70 @@ export default function Dashboard() {
   })();
 
   return (
-    <div className="space-y-6 md:space-y-8">
-      {/* Hero */}
-      <div className="space-y-1.5">
-        <p className="text-[11px] uppercase tracking-widest text-muted-foreground/70 font-medium">Dashboard</p>
-        <h1 className="text-3xl md:text-5xl font-bold tracking-tight leading-[1.05]">
-          {greeting}, <span className="ava-text-gradient capitalize">{userName}</span>
+    <div className="space-y-6 md:space-y-10">
+      {/* Hero — eyebrow + display title */}
+      <div className="space-y-2">
+        <p className="text-[11px] uppercase tracking-[0.15em] text-white/45 font-semibold">AVA · DASHBOARD</p>
+        <h1 className="font-display text-4xl md:text-6xl font-semibold tracking-[-0.035em] leading-[1] text-white">
+          {greeting}, <span className="text-iridescent capitalize">{userName}</span>
         </h1>
-        <p className="text-sm md:text-base text-muted-foreground">
-          Tienes <strong className="text-foreground">{stats?.matchesPendientes ?? 0}</strong> matches nuevos y <strong className="text-foreground">{stats?.proyectosActivos ?? 0}</strong> oportunidades activas.
+        <p className="text-sm md:text-base text-white/55 mt-3 max-w-xl">
+          Tienes <span className="text-white font-medium num-display">{stats?.matchesPendientes ?? 0}</span> matches nuevos y <span className="text-white font-medium num-display">{stats?.proyectosActivos ?? 0}</span> oportunidades activas.
         </p>
       </div>
 
-      {/* AVA card highlight */}
-      <Link to="/asistente" className="block card-premium overflow-hidden relative group">
-        <div className="absolute inset-0 ava-gradient opacity-[0.08] group-hover:opacity-[0.12] transition-opacity" />
+      {/* AVA pill highlight */}
+      <Link to="/asistente" className="block glass glass-accent overflow-hidden relative group rounded-[20px]"
+        style={{ "--acc-line": "var(--acc-2)" } as any}>
         <div className="relative p-5 md:p-6 flex items-center gap-4">
-          <div className="h-14 w-14 md:h-16 md:w-16 rounded-2xl ava-gradient grid place-items-center text-white shrink-0 glow-ring-soft">
-            <Sparkles className="h-7 w-7" />
+          <div
+            className="h-12 w-12 md:h-14 md:w-14 rounded-2xl grid place-items-center text-white shrink-0"
+            style={{ background: "linear-gradient(135deg, hsl(var(--acc-1)), hsl(var(--acc-2)))", boxShadow: "0 8px 28px -8px hsl(var(--acc-2) / 0.7)" }}
+          >
+            <Sparkles className="h-6 w-6" />
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-[11px] uppercase tracking-widest text-accent font-semibold">AVA · Resumen del día</p>
-            <p className="text-base md:text-lg font-semibold tracking-tight mt-0.5">Pregunta lo que quieras a tu asistente</p>
-            <p className="text-xs text-muted-foreground mt-0.5">Análisis, generación de informes, búsqueda y más.</p>
+            <p className="text-[10.5px] uppercase tracking-[0.12em] text-[hsl(var(--acc-2))] font-semibold">AVA · Resumen del día</p>
+            <p className="text-base md:text-lg font-semibold tracking-tight mt-1 text-white">Pregúntame lo que quieras sobre tu cartera</p>
+            <p className="text-xs text-white/55 mt-0.5">Análisis, generación de informes, búsqueda y más.</p>
           </div>
-          <ArrowRight className="h-5 w-5 text-muted-foreground group-hover:text-accent transition-colors shrink-0" />
+          <ArrowRight className="h-5 w-5 text-white/40 group-hover:text-white transition-colors shrink-0" />
         </div>
       </Link>
 
       {/* CTAs */}
       <div className="flex flex-col sm:flex-row gap-2">
-        <Button asChild size="sm" className="ava-gradient text-white border-0 hover:opacity-90 flex-1 sm:flex-none">
-          <Link to="/oportunidades"><Plus className="mr-1 h-4 w-4" /> Nueva oportunidad</Link>
+        <Button asChild size="sm" className="text-white border-0 rounded-full h-9 px-5 flex-1 sm:flex-none gradient-iridescent shadow-[0_6px_20px_-8px_hsl(var(--acc-2)/0.7)]">
+          <Link to="/oportunidades"><Plus className="mr-1.5 h-4 w-4" /> Nueva oportunidad</Link>
         </Button>
-        <Button asChild size="sm" variant="outline" className="flex-1 sm:flex-none">
-          <Link to="/operadores"><Plus className="mr-1 h-4 w-4" /> Nuevo operador</Link>
+        <Button asChild size="sm" variant="outline" className="rounded-full h-9 px-5 flex-1 sm:flex-none bg-white/[0.04] border-white/10 text-white hover:bg-white/[0.08]">
+          <Link to="/operadores"><Plus className="mr-1.5 h-4 w-4" /> Nuevo operador</Link>
         </Button>
       </div>
 
-      {/* KPI cards */}
+      {/* KPI cards — glass + accent line + icono coloreado */}
       <div className="grid gap-3 grid-cols-2 md:grid-cols-3 lg:grid-cols-6">
         {statCards.map((card) => (
-          <div key={card.label} className="card-premium p-4 flex flex-col gap-2">
+          <div
+            key={card.label}
+            className="glass glass-accent p-4 flex flex-col gap-3 relative"
+            style={{ "--acc-line": `var(--acc-${card.accent})` } as any}
+          >
             <div className="flex items-center justify-between">
-              <p className="text-[10px] md:text-xs font-medium text-muted-foreground leading-tight uppercase tracking-wider">{card.label}</p>
-              <div className={`h-7 w-7 rounded-xl ${card.bg} flex items-center justify-center`}>
-                <card.icon className={`h-3.5 w-3.5 ${card.color}`} />
+              <p className="text-[10px] font-medium text-white/55 leading-tight uppercase tracking-[0.1em]">{card.label}</p>
+              <div
+                className="h-7 w-7 rounded-xl grid place-items-center"
+                style={{
+                  background: `hsl(var(--acc-${card.accent}) / 0.12)`,
+                  color: `hsl(var(--acc-${card.accent}))`,
+                }}
+              >
+                <card.icon className="h-3.5 w-3.5" />
               </div>
             </div>
-            {loading ? <Skeleton className="h-7 w-16" /> : <p className="text-xl md:text-2xl font-bold tabular-nums tracking-tight">{card.value}</p>}
+            {loading
+              ? <Skeleton className="h-7 w-16 bg-white/[0.06]" />
+              : <p className="num-display text-2xl md:text-[28px] font-semibold text-white leading-none">{card.value}</p>}
           </div>
         ))}
       </div>
