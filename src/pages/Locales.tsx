@@ -183,36 +183,32 @@ export default function Locales() {
               <p className="text-muted-foreground text-sm">{search || filtroEstado !== "todos" ? "No se encontraron activos." : "No hay activos. Crea el primero."}</p>
             </div>
           ) : isMobile ? (
-            /* Mobile: card layout */
             <div className="space-y-2">
               {locales.map((l) => (
                 <Link key={l.id} to={`/activos/${l.id}`}>
-                  <Card className="hover:border-accent/40 transition-colors shadow-sm">
-                    <CardContent className="p-3 space-y-1.5">
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="min-w-0 flex-1">
-                          <p className="font-medium text-sm text-accent truncate">{l.nombre}</p>
-                          <p className="text-[11px] text-muted-foreground truncate">{l.direccion}</p>
-                        </div>
-                        <Badge variant="secondary" className={`shrink-0 text-[10px] ${estadoColors[l.estado] || ""}`}>
-                          {estadoLabels[l.estado] || l.estado}
-                        </Badge>
+                  <div className="glass p-3 space-y-1.5 hover:bg-white/[0.06] transition-colors">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0 flex-1">
+                        <p className="font-display font-semibold text-sm tracking-tight truncate">{l.nombre}</p>
+                        <p className="text-[11px] text-muted-foreground truncate">{l.direccion}</p>
                       </div>
-                      <div className="flex items-center gap-3 text-[11px] text-muted-foreground">
-                        <span>{l.ciudad}</span>
-                        <span>{Number(l.superficie_m2).toLocaleString("es-ES")} m²</span>
-                        <span className="ml-auto font-medium text-foreground">{Number(l.precio_renta).toLocaleString("es-ES")} €/mes</span>
-                      </div>
-                    </CardContent>
-                  </Card>
+                      <span className="chip" style={{ color: `hsl(var(--${estadoTone[l.estado] || "acc-1"}))`, borderColor: `hsl(var(--${estadoTone[l.estado] || "acc-1"}) / 0.3)` }}>
+                        {estadoLabels[l.estado] || l.estado}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-3 text-[11px] text-muted-foreground num-display">
+                      <span>{l.ciudad}</span>
+                      <span>{Number(l.superficie_m2).toLocaleString("es-ES")} m²</span>
+                      <span className="ml-auto font-display font-semibold text-foreground">{Number(l.precio_renta).toLocaleString("es-ES")} €/mes</span>
+                    </div>
+                  </div>
                 </Link>
               ))}
             </div>
           ) : (
-            /* Desktop: table */
             <Table>
               <TableHeader>
-                <TableRow>
+                <TableRow className="border-border/30 hover:bg-transparent">
                   <TableHead>Nombre</TableHead>
                   <TableHead>Ciudad</TableHead>
                   <TableHead className="text-right">m²</TableHead>
@@ -222,18 +218,18 @@ export default function Locales() {
               </TableHeader>
               <TableBody>
                 {locales.map((l) => (
-                  <TableRow key={l.id} className="cursor-pointer hover:bg-muted/50">
+                  <TableRow key={l.id} className="cursor-pointer border-border/20 hover:bg-white/[0.03]">
                     <TableCell>
-                      <Link to={`/activos/${l.id}`} className="font-medium text-accent hover:underline">{l.nombre}</Link>
+                      <Link to={`/activos/${l.id}`} className="font-display font-semibold tracking-tight hover:text-iridescent">{l.nombre}</Link>
                       <p className="text-xs text-muted-foreground truncate max-w-[200px]">{l.direccion}</p>
                     </TableCell>
                     <TableCell>{l.ciudad}</TableCell>
-                    <TableCell className="text-right">{Number(l.superficie_m2).toLocaleString("es-ES")}</TableCell>
-                    <TableCell className="text-right">{Number(l.precio_renta).toLocaleString("es-ES")} €</TableCell>
+                    <TableCell className="text-right num-display">{Number(l.superficie_m2).toLocaleString("es-ES")}</TableCell>
+                    <TableCell className="text-right num-display">{Number(l.precio_renta).toLocaleString("es-ES")} €</TableCell>
                     <TableCell>
-                      <Badge variant="secondary" className={estadoColors[l.estado] || ""}>
+                      <span className="chip" style={{ color: `hsl(var(--${estadoTone[l.estado] || "acc-1"}))`, borderColor: `hsl(var(--${estadoTone[l.estado] || "acc-1"}) / 0.3)` }}>
                         {estadoLabels[l.estado] || l.estado}
-                      </Badge>
+                      </span>
                     </TableCell>
                   </TableRow>
                 ))}
@@ -243,8 +239,8 @@ export default function Locales() {
           {!loading && locales.length > 0 && (
             <p className="mt-3 text-xs text-muted-foreground">{locales.length} activo{locales.length !== 1 ? "s" : ""}</p>
           )}
-        </CardContent>
-      </Card>
+        </div>
+      </div>
     </div>
   );
 }
