@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -18,25 +19,34 @@ export default function LocalDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
   const { toast } = useToast();
+  const qc = useQueryClient();
   const [local, setLocal] = useState<any>(null);
-  const [contactos, setContactos] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [showAddContact, setShowAddContact] = useState(false);
 
-  const fetchContactos = async () => {
-    const { data } = await supabase.from("contactos").select("*").eq("activo_id", id);
-    setContactos(data || []);
-  };
+  const { data: localData, isLoading: loading } = useQuery({
+    queryKey: ["local-detail", id],
+    queryFn: async () => {
+      const { data } = await supabase.from("locales").select("*").eq("id", id!).single();
+      return data;
+    },
+    enabled: !!id,
+  });
+
+  const { data: contactos = [] } = useQuery({
+    queryKey: ["local-contactos", id],
+    queryFn: async () => {
+      const { data } = await supabase.from("contactos").select("*").eq("activo_id", id!);
+      return data || [];
+    },
+    enabled: !!id,
+  });
+
+  const fetchContactos = () => qc.invalidateQueries({ queryKey: ["local-contactos", id] });
 
   useEffect(() => {
-    async function fetch() {
-      const { data } = await supabase.from("locales").select("*").eq("id", id).single();
-      setLocal(data);
-      setLoading(false);
-    }
-    if (id) { fetch(); fetchContactos(); }
-  }, [id]);
+    if (localData) setLocal(localData);
+  }, [localData]);
 
   const handleSave = async () => {
     if (!local) return;
@@ -49,7 +59,7 @@ export default function LocalDetail() {
     }).eq("id", id);
     setSaving(false);
     if (error) toast({ title: "Error", description: error.message, variant: "destructive" });
-    else toast({ title: "Activo actualizado correctamente" });
+    else { toast({ title: "Activo actualizado correctamente" }); qc.invalidateQueries({ queryKey: ["local-detail", id] }); }
   };
 
   const handleDelete = async () => {

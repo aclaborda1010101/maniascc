@@ -1,5 +1,6 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -50,72 +51,86 @@ export default function ProyectoDetail() {
   const navigate = useNavigate();
   const { toast } = useToast();
   const { user } = useAuth();
-  const [proyecto, setProyecto] = useState<any>(null);
-  const [activos, setActivos] = useState<any[]>([]);
-  const [operadores, setOperadores] = useState<any[]>([]);
-  const [contactosVinculados, setContactosVinculados] = useState<any[]>([]);
-  const [allOperadores, setAllOperadores] = useState<any[]>([]);
-  const [allContactos, setAllContactos] = useState<any[]>([]);
-  const [allLocales, setAllLocales] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
+  const qc = useQueryClient();
   const [addCtDialog, setAddCtDialog] = useState(false);
-  const [matches, setMatches] = useState<any[]>([]);
-  const [docs, setDocs] = useState<any[]>([]);
 
-  const fetchAll = async () => {
-    if (!id) return;
-    setLoading(true);
-    const [proyRes, activosRes, opsRes, ctsRes] = await Promise.all([
-      supabase.from("proyectos").select("*").eq("id", id).single(),
-      supabase.from("activos").select("*").eq("proyecto_id", id).order("created_at"),
-      supabase.from("proyecto_operadores").select("*, operadores(id, nombre, sector, activo)").eq("proyecto_id", id),
-      supabase.from("proyecto_contactos").select("*, contactos:contacto_id(id, nombre, apellidos, empresa, cargo)").eq("proyecto_id", id),
-    ]);
-    setProyecto(proyRes.data);
-    setActivos(activosRes.data || []);
-    setOperadores(opsRes.data || []);
-    setContactosVinculados(ctsRes.data || []);
-    setLoading(false);
-  };
+  const { data: mainData, isLoading: loading } = useQuery({
+    queryKey: ["proyecto-detail", id],
+    queryFn: async () => {
+      const [proyRes, activosRes, opsRes, ctsRes] = await Promise.all([
+        supabase.from("proyectos").select("*").eq("id", id!).single(),
+        supabase.from("activos").select("*").eq("proyecto_id", id!).order("created_at"),
+        supabase.from("proyecto_operadores").select("*, operadores(id, nombre, sector, activo)").eq("proyecto_id", id!),
+        supabase.from("proyecto_contactos").select("*, contactos:contacto_id(id, nombre, apellidos, empresa, cargo)").eq("proyecto_id", id!),
+      ]);
+      return {
+        proyecto: proyRes.data,
+        activos: activosRes.data || [],
+        operadores: opsRes.data || [],
+        contactosVinculados: ctsRes.data || [],
+      };
+    },
+    enabled: !!id,
+  });
 
-  const fetchAvailable = async () => {
-    const [opRes, ctRes, locRes] = await Promise.all([
-      supabase.from("operadores").select("id, nombre, sector").eq("activo", true).order("nombre"),
-      supabase.from("contactos").select("id, nombre, apellidos, empresa").order("nombre"),
-      supabase.from("locales").select("id, nombre, direccion, ciudad").order("nombre"),
-    ]);
-    setAllOperadores(opRes.data || []);
-    setAllContactos(ctRes.data || []);
-    setAllLocales(locRes.data || []);
-  };
+  const proyecto = mainData?.proyecto;
+  const activos = mainData?.activos || [];
+  const operadores = mainData?.operadores || [];
+  const contactosVinculados = mainData?.contactosVinculados || [];
 
-  const fetchDocs = async () => {
-    if (!id) return;
-    const { data } = await supabase.from("documentos_proyecto")
-      .select("id, nombre, nombre_normalizado, nivel_sensibilidad, procesado_ia, created_at, mime_type, tipo_documento, tamano_bytes, storage_path, taxonomia_id, taxonomia:taxonomia_id(id,codigo,nombre,icono,color)")
-      .eq("proyecto_id", id).order("created_at", { ascending: false });
-    setDocs(data || []);
-  };
+  const { data: availableData } = useQuery({
+    queryKey: ["proyecto-detail-available"],
+    queryFn: async () => {
+      const [opRes, ctRes, locRes] = await Promise.all([
+        supabase.from("operadores").select("id, nombre, sector").eq("activo", true).order("nombre"),
+        supabase.from("contactos").select("id, nombre, apellidos, empresa").order("nombre"),
+        supabase.from("locales").select("id, nombre, direccion, ciudad").order("nombre"),
+      ]);
+      return {
+        allOperadores: opRes.data || [],
+        allContactos: ctRes.data || [],
+        allLocales: locRes.data || [],
+      };
+    },
+  });
+  const allOperadores = availableData?.allOperadores || [];
+  const allContactos = availableData?.allContactos || [];
+  const allLocales = availableData?.allLocales || [];
 
-  const fetchMatches = async () => {
-    if (!proyecto?.local_id) return;
-    const { data } = await supabase.from("matches").select("*, operadores(nombre)").eq("local_id", proyecto.local_id).order("score", { ascending: false });
-    setMatches(data || []);
-  };
+  const { data: docs = [] } = useQuery({
+    queryKey: ["proyecto-docs", id],
+    queryFn: async () => {
+      const { data } = await supabase.from("documentos_proyecto")
+        .select("id, nombre, nombre_normalizado, nivel_sensibilidad, procesado_ia, created_at, mime_type, tipo_documento, tamano_bytes, storage_path, taxonomia_id, taxonomia:taxonomia_id(id,codigo,nombre,icono,color)")
+        .eq("proyecto_id", id!).order("created_at", { ascending: false });
+      return data || [];
+    },
+    enabled: !!id,
+  });
 
-  useEffect(() => { fetchAll(); fetchAvailable(); fetchDocs(); }, [id]);
-  useEffect(() => { if (proyecto?.local_id) fetchMatches(); }, [proyecto?.local_id]);
+  const { data: matches = [] } = useQuery({
+    queryKey: ["proyecto-matches", proyecto?.local_id],
+    queryFn: async () => {
+      const { data } = await supabase.from("matches").select("*, operadores(nombre)").eq("local_id", proyecto!.local_id).order("score", { ascending: false });
+      return data || [];
+    },
+    enabled: !!proyecto?.local_id,
+  });
+
+  const fetchAll = () => qc.invalidateQueries({ queryKey: ["proyecto-detail", id] });
+  const fetchDocs = () => qc.invalidateQueries({ queryKey: ["proyecto-docs", id] });
+  const fetchMatches = () => qc.invalidateQueries({ queryKey: ["proyecto-matches", proyecto?.local_id] });
 
   const handleAssignLocal = async (localId: string) => {
     const val = localId === "__none" ? null : localId;
     const { error } = await supabase.from("proyectos").update({ local_id: val }).eq("id", id!);
     if (error) toast({ title: "Error", description: error.message, variant: "destructive" });
-    else { setProyecto((prev: any) => ({ ...prev, local_id: val })); toast({ title: val ? "Local asignado" : "Local desvinculado" }); }
+    else { fetchAll(); toast({ title: val ? "Local asignado" : "Local desvinculado" }); }
   };
 
   const updateEstado = async (estado: string) => {
     await supabase.from("proyectos").update({ estado: estado as any }).eq("id", id!);
-    setProyecto((p: any) => ({ ...p, estado }));
+    fetchAll();
     toast({ title: `Estado actualizado a ${estadoLabels[estado]}` });
   };
 
