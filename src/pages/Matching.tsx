@@ -20,8 +20,15 @@ export default function Matching() {
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
   const [lastResult, setLastResult] = useState<{ latency_ms?: number; modelo?: string; ai_enhanced?: boolean } | null>(null);
+  const [activos, setActivos] = useState<any[]>([]);
 
   const fetchData = async () => {
+    if (!localId) {
+      const { data } = await supabase.from("locales").select("id, nombre, ciudad, direccion").order("created_at", { ascending: false }).limit(50);
+      setActivos(data || []);
+      setLoading(false);
+      return;
+    }
     const [localRes, matchesRes] = await Promise.all([
       supabase.from("locales").select("*").eq("id", localId).single(),
       supabase.from("matches").select("*, operadores(nombre)").eq("local_id", localId).order("score", { ascending: false }),
@@ -31,7 +38,8 @@ export default function Matching() {
     setLoading(false);
   };
 
-  useEffect(() => { if (localId) fetchData(); }, [localId]);
+  useEffect(() => { fetchData(); }, [localId]);
+
 
   const handleGenerate = async () => {
     setGenerating(true);
