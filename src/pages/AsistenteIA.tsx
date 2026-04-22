@@ -372,8 +372,7 @@ export default function AsistenteIA() {
 
         {/* Input panel + suggestions */}
         <div
-          className="px-3 md:px-8 py-4 md:py-5 shrink-0 space-y-4 max-w-4xl mx-auto w-full"
-          style={{ paddingBottom: "max(1rem, env(safe-area-inset-bottom))" }}
+          className="px-3 md:px-8 pt-3 md:pt-5 pb-2 md:pb-5 shrink-0 space-y-3 md:space-y-4 max-w-4xl mx-auto w-full"
         >
           {pendingAttachments.length > 0 && (
             <AvaAttachmentBar attachments={pendingAttachments} onAdd={addAttachments} onRemove={removeAttachment} disabled={loading} />
