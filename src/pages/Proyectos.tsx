@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, Search, FolderKanban, Calendar, MapPin, Building2, ClipboardCheck, Layers, ArrowLeftRight, Pill, ShoppingBag, TrendingUp } from "lucide-react";
+import { Plus, Search, FolderKanban, Calendar, MapPin, Building2, ClipboardCheck, Layers, ArrowLeftRight, ShoppingBag, TrendingUp } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
@@ -24,7 +24,6 @@ const tipoLabels: Record<string, string> = {
   auditoria_estrategica: "Auditoría Estratégica",
   desarrollo_suelo: "Desarrollo Suelo",
   traspaso_adquisicion: "Traspaso/Adquisición",
-  farmacia: "Farmacia",
   otro: "Otro",
 };
 
@@ -37,7 +36,6 @@ const tipoIcons: Record<string, any> = {
   auditoria_estrategica: ClipboardCheck,
   desarrollo_suelo: Layers,
   traspaso_adquisicion: ArrowLeftRight,
-  farmacia: Pill,
 };
 
 const estadoLabels: Record<string, string> = {
@@ -50,28 +48,28 @@ const estadoLabels: Record<string, string> = {
   archivado: "Archivado",
 };
 
-const estadoColors: Record<string, string> = {
-  borrador: "bg-muted text-muted-foreground",
-  activo: "bg-chart-2/10 text-chart-2",
-  en_pausa: "bg-chart-3/10 text-chart-3",
-  en_negociacion: "bg-chart-3/10 text-chart-3",
-  cerrado_exito: "bg-accent/10 text-accent",
-  cerrado_sin_exito: "bg-destructive/10 text-destructive",
-  archivado: "bg-muted text-muted-foreground",
+// Estado dot color (uses --acc-* tokens)
+const estadoDot: Record<string, string> = {
+  borrador: "hsl(var(--muted-foreground))",
+  activo: "hsl(var(--acc-4))",
+  en_pausa: "hsl(var(--acc-5))",
+  en_negociacion: "hsl(var(--acc-2))",
+  cerrado_exito: "hsl(var(--acc-4))",
+  cerrado_sin_exito: "hsl(var(--destructive))",
+  archivado: "hsl(var(--muted-foreground))",
 };
 
 const tipoColors: Record<string, string> = {
-  desarrollo_comercial: "bg-primary/10 text-primary",
-  venta_activo: "bg-chart-1/10 text-chart-1",
-  optimizacion_centros: "bg-chart-2/10 text-chart-2",
-  comercializacion: "bg-accent/10 text-accent",
-  negociacion: "bg-chart-3/10 text-chart-3",
-  centro_completo: "bg-accent/10 text-accent",
-  auditoria_estrategica: "bg-chart-5/10 text-chart-5",
-  desarrollo_suelo: "bg-chart-2/10 text-chart-2",
-  traspaso_adquisicion: "bg-chart-3/10 text-chart-3",
-  farmacia: "bg-destructive/10 text-destructive",
-  otro: "bg-muted text-muted-foreground",
+  desarrollo_comercial: "bg-[hsl(var(--acc-1))/0.12] text-[hsl(var(--acc-1))] border-[hsl(var(--acc-1))/0.25]",
+  venta_activo: "bg-[hsl(var(--acc-2))/0.12] text-[hsl(var(--acc-2))] border-[hsl(var(--acc-2))/0.25]",
+  optimizacion_centros: "bg-[hsl(var(--acc-4))/0.12] text-[hsl(var(--acc-4))] border-[hsl(var(--acc-4))/0.25]",
+  comercializacion: "bg-[hsl(var(--acc-2))/0.12] text-[hsl(var(--acc-2))] border-[hsl(var(--acc-2))/0.25]",
+  negociacion: "bg-[hsl(var(--acc-3))/0.12] text-[hsl(var(--acc-3))] border-[hsl(var(--acc-3))/0.25]",
+  centro_completo: "bg-[hsl(var(--acc-3))/0.12] text-[hsl(var(--acc-3))] border-[hsl(var(--acc-3))/0.25]",
+  auditoria_estrategica: "bg-[hsl(var(--acc-5))/0.12] text-[hsl(var(--acc-5))] border-[hsl(var(--acc-5))/0.25]",
+  desarrollo_suelo: "bg-[hsl(var(--acc-4))/0.12] text-[hsl(var(--acc-4))] border-[hsl(var(--acc-4))/0.25]",
+  traspaso_adquisicion: "bg-[hsl(var(--acc-1))/0.12] text-[hsl(var(--acc-1))] border-[hsl(var(--acc-1))/0.25]",
+  otro: "bg-white/5 text-muted-foreground border-white/10",
 };
 
 const subtiposActivo = [
