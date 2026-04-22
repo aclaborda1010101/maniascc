@@ -58,7 +58,11 @@ export function AppSidebar() {
       const active = isActive(item.url);
       return (
         <SidebarMenuItem key={item.title}>
-          <SidebarMenuButton asChild tooltip={item.title}>
+          <SidebarMenuButton
+            asChild
+            tooltip={item.title}
+            className="!bg-transparent hover:!bg-transparent active:!bg-transparent data-[active=true]:!bg-transparent focus-visible:!ring-0"
+          >
             <NavLink to={item.url} end={item.url === "/dashboard"} className="" activeClassName="">
               <span
                 className={`relative flex items-center gap-3 rounded-xl px-2.5 py-2 w-full transition-all
