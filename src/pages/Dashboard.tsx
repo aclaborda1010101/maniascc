@@ -426,7 +426,7 @@ export default function Dashboard() {
                     </div>
                     <div className="flex items-center gap-1.5 shrink-0 flex-wrap">
                       <Badge className="bg-accent/10 text-accent text-[10px]">{m.score}%</Badge>
-                      <Badge variant="secondary" className="capitalize text-[10px]">{m.estado}</Badge>
+                      <Badge className="capitalize text-[10px] bg-primary/15 text-foreground border border-primary/20 hover:bg-primary/20">{m.estado}</Badge>
                     </div>
                   </div>
                 ))}
