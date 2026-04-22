@@ -392,9 +392,13 @@ serve(async (req) => {
 
     const startTime = Date.now();
 
+    // Infer current topic to filter relevant corrections
+    const currentTopic = inferTopic(message, []);
+
     // Load learned patterns + recent corrections to inject as system context
     let lessonsBlock = "";
     try {
+      // Generic patterns: high-signal (extreme tasa_exito or high observations)
       const { data: patterns } = await admin
         .from("ai_learned_patterns")
         .select("patron_tipo, patron_key, patron_descripcion, tasa_exito, num_observaciones, score_ajuste, confianza")
@@ -403,28 +407,58 @@ serve(async (req) => {
         .order("num_observaciones", { ascending: false })
         .limit(30);
 
-      const { data: corrections } = await admin
+      // Topic-relevant corrections: filter by patron_key matching current topic
+      const { data: topicCorrections } = await admin
+        .from("ai_learned_patterns")
+        .select("patron_descripcion, num_observaciones, tasa_exito")
+        .eq("activo", true)
+        .eq("patron_tipo", "ava_correction")
+        .like("patron_key", `correction:${currentTopic}:%`)
+        .gte("confianza", 0.5)
+        .order("num_observaciones", { ascending: false })
+        .limit(8);
+
+      // Fallback: most recent raw corrections (capped) for cross-topic safety
+      const { data: recentCorrections } = await admin
         .from("ai_feedback")
-        .select("correccion_sugerida, comentario, contexto, created_at")
+        .select("correccion_sugerida")
         .eq("entidad_tipo", "ava_message")
         .not("correccion_sugerida", "is", null)
         .order("created_at", { ascending: false })
-        .limit(5);
+        .limit(3);
+
+      // Prioritize patterns with extreme success rates (very high or very low) over neutral
+      const sortedPatterns = (patterns || []).slice().sort((a, b) => {
+        const extremeA = a.tasa_exito != null ? Math.abs((a.tasa_exito as number) - 0.5) : 0;
+        const extremeB = b.tasa_exito != null ? Math.abs((b.tasa_exito as number) - 0.5) : 0;
+        return extremeB - extremeA;
+      });
 
       const lessons: string[] = [];
-      for (const p of patterns || []) {
+      for (const p of sortedPatterns) {
         const sign = (p.score_ajuste ?? 0) >= 0 ? "✅" : "⚠️";
-        const tasa = p.tasa_exito != null ? ` (éxito ${(p.tasa_exito * 100).toFixed(0)}%, n=${p.num_observaciones})` : "";
+        const tasa = p.tasa_exito != null ? ` (éxito ${((p.tasa_exito as number) * 100).toFixed(0)}%, n=${p.num_observaciones})` : "";
         lessons.push(`${sign} ${p.patron_descripcion}${tasa}`);
       }
+
       const corrLines: string[] = [];
-      for (const c of corrections || []) {
-        if (c.correccion_sugerida) corrLines.push(`- "${(c.correccion_sugerida as string).slice(0, 250)}"`);
+      for (const c of topicCorrections || []) {
+        if (c.patron_descripcion) {
+          const meta = c.num_observaciones ? ` (×${c.num_observaciones})` : "";
+          corrLines.push(`- ${(c.patron_descripcion as string).slice(0, 280)}${meta}`);
+        }
       }
+      // Add up to 2 recent generic corrections only if topic-specific ones are scarce
+      if (corrLines.length < 3) {
+        for (const c of recentCorrections || []) {
+          if (c.correccion_sugerida) corrLines.push(`- "${(c.correccion_sugerida as string).slice(0, 250)}"`);
+        }
+      }
+
       if (lessons.length > 0 || corrLines.length > 0) {
         lessonsBlock = `\n\n## LECCIONES APRENDIDAS DEL FEEDBACK DEL USUARIO\nAplica SIEMPRE estas lecciones cuando el contexto lo permita. Son aprendizajes acumulados de interacciones reales.\n\n${lessons.join("\n")}`;
         if (corrLines.length > 0) {
-          lessonsBlock += `\n\n### Correcciones recientes que NO debes repetir:\n${corrLines.join("\n")}`;
+          lessonsBlock += `\n\n### Correcciones relevantes para este tema (${currentTopic}) que NO debes repetir:\n${corrLines.join("\n")}`;
         }
       }
     } catch (e) {
