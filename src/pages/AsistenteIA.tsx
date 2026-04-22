@@ -285,23 +285,35 @@ export default function AsistenteIA() {
             </div>
           )}
 
-          <div className="space-y-3 md:space-y-4">
+          <div className="space-y-6 md:space-y-8 max-w-4xl mx-auto w-full">
             {messages.map(msg => (
-              <div key={msg.id} className={`flex gap-2 md:gap-3 ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
-                {msg.role === "assistant" && (
-                  <div className="shrink-0 w-8 h-8 md:w-9 md:h-9 rounded-full ava-gradient grid place-items-center glow-ring-soft">
-                    <Sparkles className="h-4 w-4 text-white" />
+              <div key={msg.id}>
+                {msg.role === "user" ? (
+                  <div className="flex gap-3 justify-end items-start">
+                    <div className="max-w-[85%] md:max-w-[78%] rounded-3xl px-5 py-3 gradient-iridescent text-white shadow-[0_8px_28px_-12px_hsl(var(--acc-2)/0.45)]">
+                      <p className="text-sm leading-relaxed">{msg.content}</p>
+                    </div>
+                    <div className="shrink-0 w-9 h-9 rounded-full bg-white/[0.08] border border-white/10 backdrop-blur-xl grid place-items-center text-[10px] font-semibold text-white/85">
+                      {(userName?.[0] || "U").toUpperCase()}
+                    </div>
                   </div>
-                )}
-                <div className={cn(
-                  "max-w-[85%] md:max-w-[80%] rounded-3xl px-4 py-3 md:px-5 md:py-3.5",
-                  msg.role === "user"
-                    ? "ava-gradient text-white rounded-br-lg"
-                    : "card-premium rounded-bl-lg"
-                )}>
-                  {msg.role === "assistant" ? (
-                    <div>
-                      <div className="ava-report prose prose-sm dark:prose-invert max-w-none text-xs md:text-sm">
+                ) : (
+                  <div className="space-y-2">
+                    {/* Meta header (logo + name + latency + tokens) */}
+                    <div className="flex items-center gap-2.5 pl-1">
+                      <div className="relative h-8 w-8 rounded-xl gradient-iridescent grid place-items-center glow-ring-soft shrink-0">
+                        <Sparkles className="h-3.5 w-3.5 text-white" />
+                      </div>
+                      <div className="text-[11px] text-muted-foreground flex items-center gap-1.5">
+                        <span className="text-foreground/80 font-medium">AVA</span>
+                        {msg.meta?.latency_ms && <><span className="opacity-40">·</span><span>{msg.meta.latency_ms}ms</span></>}
+                        {msg.meta?.tokens && <><span className="opacity-40">·</span><span>{(msg.meta.tokens / 1000).toFixed(1)}K tokens</span></>}
+                      </div>
+                    </div>
+
+                    {/* Big glass response panel */}
+                    <div className="glass-edge rounded-3xl px-6 py-5 md:px-7 md:py-6 relative">
+                      <div className="ava-report prose prose-sm dark:prose-invert max-w-none text-sm leading-relaxed">
                         <ReactMarkdown remarkPlugins={[remarkGfm]}>{msg.content}</ReactMarkdown>
                       </div>
                       {msg.meta?.pdf_content && (
@@ -317,7 +329,7 @@ export default function AsistenteIA() {
                         />
                       )}
                       {msg.meta?.action_resolved && (
-                        <div className="mt-2 text-[10px] text-muted-foreground">
+                        <div className="mt-3 text-[11px] text-muted-foreground">
                           {msg.meta.action_resolved.confirmed
                             ? msg.meta.action_resolved.success
                               ? "✅ Acción confirmada y ejecutada"
@@ -325,41 +337,32 @@ export default function AsistenteIA() {
                             : "✖️ Acción cancelada por el usuario"}
                         </div>
                       )}
-                    </div>
-                  ) : (
-                    <p className="text-sm leading-relaxed">{msg.content}</p>
-                  )}
-                  {msg.meta && msg.role === "assistant" && (
-                    <div className="mt-1.5 md:mt-2 flex flex-wrap gap-1">
-                      {msg.meta.tools_used?.map((t: string, i: number) => {
-                        const tl = toolLabel(t);
-                        return <Badge key={i} variant="outline" className="text-[9px] md:text-[10px] rounded-full">{tl.emoji} {tl.label}</Badge>;
-                      })}
-                      {msg.meta.latency_ms && (
-                        <Badge variant="outline" className="text-[9px] md:text-[10px] rounded-full">⏱ {msg.meta.latency_ms}ms</Badge>
+                      {msg.meta?.tools_used && msg.meta.tools_used.length > 0 && (
+                        <div className="mt-4 pt-3 border-t border-white/[0.06] flex flex-wrap gap-1.5">
+                          {msg.meta.tools_used.map((t: string, i: number) => {
+                            const tl = toolLabel(t);
+                            return <span key={i} className="text-[10px] px-2 py-0.5 rounded-full bg-white/[0.05] border border-white/[0.08] text-muted-foreground">{tl.emoji} {tl.label}</span>;
+                          })}
+                        </div>
                       )}
+                      <div className="mt-2 -ml-1">
+                        <AvaMessageFeedback messageId={msg.id} toolsUsed={msg.meta?.tools_used} />
+                      </div>
                     </div>
-                  )}
-                  {msg.role === "assistant" && (
-                    <div className="mt-1.5 -ml-1">
-                      <AvaMessageFeedback messageId={msg.id} toolsUsed={msg.meta?.tools_used} />
-                    </div>
-                  )}
-                </div>
-                {msg.role === "user" && (
-                  <div className="shrink-0 w-8 h-8 md:w-9 md:h-9 rounded-full bg-secondary border border-border/60 grid place-items-center">
-                    <User className="h-4 w-4 text-muted-foreground" />
                   </div>
                 )}
               </div>
             ))}
 
             {loading && (
-              <div className="flex gap-2 md:gap-3">
-                <div className="shrink-0 w-8 h-8 md:w-9 md:h-9 rounded-full ava-gradient grid place-items-center glow-ring-soft">
-                  <Sparkles className="h-4 w-4 text-white animate-pulse" />
+              <div className="space-y-2">
+                <div className="flex items-center gap-2.5 pl-1">
+                  <div className="relative h-8 w-8 rounded-xl gradient-iridescent grid place-items-center glow-ring-soft shrink-0">
+                    <Sparkles className="h-3.5 w-3.5 text-white animate-pulse" />
+                  </div>
+                  <span className="text-[11px] text-muted-foreground">AVA está pensando…</span>
                 </div>
-                <Skeleton className="h-16 w-48 md:w-64 rounded-3xl" />
+                <Skeleton className="h-24 w-full rounded-3xl" />
               </div>
             )}
           </div>
