@@ -186,7 +186,7 @@ export default function AsistenteIA() {
   };
 
   return (
-    <div className="flex h-[calc(100vh-6.5rem)] gap-0 -mx-4 md:-mx-0 -mt-4 md:-mt-0">
+    <div className="flex h-[calc(100dvh-4rem)] md:h-[calc(100vh-6.5rem)] gap-0 -mx-4 md:-mx-0 -mt-4 md:-mt-0 -mb-28 md:mb-0">
       {/* Desktop sidebar (collapsible) */}
       {!isMobile && (
         <div className={cn(
