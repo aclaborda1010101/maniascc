@@ -1,82 +1,75 @@
 
 
-# Aplicar referencias del prototipo móvil (AVA_4) a las pantallas pendientes
+# Migrar embeddings antiguos + index HNSW + alinear modelo de query
 
-## Qué falta del rediseño aprobado anteriormente
+## Diagnóstico confirmado
 
-En la iteración previa quedaron por terminar:
+| Aspecto | Estado |
+|---|---|
+| `document_chunks` total | 565.413 |
+| `document_chunks.embedding` poblados | **0** |
+| `document_chunks.embedding` tipo declarado | **`vector(1536)`** (OpenAI text-embedding-3-small) |
+| `document_embeddings.embedding_json` | 464.635 (todos vinculados a chunks vía `chunk_id`) |
+| Modelo de los 464k embeddings antiguos | **`text-embedding-004`** (Gemini, **768 dims**) |
+| `rag-proxy` (búsqueda) embebe queries con | OpenAI 1536 |
+| `rag-embed-chunks` (indexación) embebe con | OpenAI 1536 |
 
-1. **AVA Chat (`/asistente`)** — todavía con el diseño anterior tipo "informe ejecutivo", sin el tratamiento mobile-first del prototipo (avatar gradiente grande arriba, saludo, sugerencias en chips, input flotante con micro+cámara, burbujas usuario con gradiente).
-2. **Activo Detail (`/activos/:id`)** — sigue con tabs `Información/Contactos` planos. Falta el hero con score circular "94", mini-grid (Superficie/Valor/Cierre), card "AVA propone" y pipeline horizontal.
-3. **Matching individual (`/matching/:id`)** — falta el score circular grande con barras de razones (Tráfico 98, Zona AAA 96…) y los 3 botones circulares ✕/⏱/✓ tipo swipe.
-4. **Login (`/login`)** — sigue con estilo claro estándar; conviene alinearlo al dark premium con avatar AVA gradiente y glow.
+**Bloqueo crítico**: la migración tal como la propones **fallará** con `expected 1536 dimensions, got 768` porque la columna está dimensionada para OpenAI y los datos antiguos son Gemini.
 
-## Nota sobre el ZIP
+Hay dos rutas posibles, mutuamente excluyentes (no se pueden mezclar dimensiones distintas en una misma columna `vector(N)` ni en un mismo índice HNSW):
 
-El `AVA_4.zip` que subes contiene **`AVA Mobile.html`** (prototipo móvil de una sola página). Es el complemento natural del `AVA_3.zip` (handoff desktop en React) que ya apliqué. En modo plan no puedo descomprimirlo aquí, pero combinado con las dos capturas móviles que enviaste y los componentes ya implementados (BottomNav, FAB AVA, `Mas`, Dashboard hero), tengo el lenguaje visual claro: **avatar gradiente cian→violeta→magenta, scores circulares verde lima, cards `card-premium` con `rounded-3xl`, glow halos sutiles**. Cuando entremos en implementación descomprimiré el HTML para extraer cualquier matiz adicional (animaciones, microinteracciones, copys exactos).
+## Opción A — Conservar los 464k Gemini (rápido, casi cero coste)
 
-## Cambios técnicos por pantalla
+Aprovechar los embeddings ya calculados, redimensionar la columna y alinear `rag-proxy` + `rag-embed-chunks` a Gemini 768.
 
-### 1) `src/pages/AsistenteIA.tsx` — versión móvil
-- En `<768px`: ocultar sidebar de conversaciones; mostrar header compacto con avatar AVA gradiente 56 px + saludo "Hola {nombre} 👋" + subtítulo "¿En qué te ayudo hoy?".
-- Estado vacío: 4 chips horizontales scrollables ("Resumen del día", "Matches calientes", "Redacta email a…", "Genera dossier").
-- Burbujas: usuario con `bg-gradient-to-br from-cyan-500 to-violet-600 text-white`, AVA con `card-premium`. Avatar AVA en cada respuesta = círculo 32 px gradient con `glow-ring`.
-- Input flotante fijo abajo (sticky con `safe-area-inset-bottom`), `rounded-3xl`, fondo `--card-elevated`, botones micro y adjuntar a izquierda, send gradient a derecha.
-- Desktop: mantener layout actual con 2 columnas, solo aplicar nuevos tokens (gradient avatar, burbujas, card-premium).
+### Migraciones SQL
+1. **Drop temporal del índice FTS solo si bloquea el ALTER** (no debería).
+2. `ALTER TABLE document_chunks ALTER COLUMN embedding TYPE vector(768);` — válido solo si la columna está vacía (lo está).
+3. **Backfill** desde `document_embeddings`:
+   ```sql
+   UPDATE document_chunks c
+   SET embedding = (
+     SELECT array(SELECT jsonb_array_elements_text(e.embedding_json))::float8[]::vector(768)
+     FROM document_embeddings e
+     WHERE e.chunk_id = c.id AND e.embedding_json IS NOT NULL
+     LIMIT 1
+   )
+   WHERE c.embedding IS NULL
+     AND EXISTS (SELECT 1 FROM document_embeddings e WHERE e.chunk_id = c.id);
+   ```
+   Se ejecutará por lotes de ~50k vía `WHERE c.id IN (...)` para evitar timeout (la API Supabase ha cancelado consultas largas en el diagnóstico).
+4. `CREATE INDEX idx_document_chunks_embedding_hnsw ON document_chunks USING hnsw (embedding vector_cosine_ops) WITH (m=16, ef_construction=64);`
 
-### 2) `src/pages/LocalDetail.tsx` — hero + pipeline
-- Hero `card-premium` con gradient sutil radial:
-  - Esquina sup-derecha: `<ScoreRing value={local.ava_score || 0} size={88} />` (componente nuevo, SVG circular, color verde lima).
-  - Título 32 px bold, dirección, badges estado.
-- Mini-grid 3 columnas: **Superficie** (m²) · **Renta** (€/mes) · **Estado** — números grandes, label pequeño uppercase.
-- Card "AVA propone" gradient suave (`from-violet-500/10 to-cyan-500/5`) con avatar AVA, texto generado de `local.descripcion` o placeholder, y 2 CTAs: "Ver matches" / "Generar dossier".
-- Pipeline horizontal con 5 dots conectados: Contacto · Análisis · **Matching activo** (resaltado gradient) · Negociación · Cierre.
-- Tabs (Información/Contactos) **se mantienen** pero pasan debajo del hero, con estilo `card-premium`.
+### Cambios en código
+- `supabase/functions/rag-proxy/index.ts`: cambiar `embedQuery` para usar **Lovable AI Gateway → google/text-embedding-004** (768 dims, sin coste de API key OpenAI). Endpoint: `https://ai.gateway.lovable.dev/v1/embeddings` con header `LOVABLE_API_KEY` ya disponible.
+- `supabase/functions/rag-embed-chunks/index.ts`: ídem, sustituir OpenAI por Gemini 768 y constantes `EMBED_MODEL = "google/text-embedding-004"`, `EMBED_DIM = 768`.
+- Eliminar dependencia de `OPENAI_API_KEY` para embeddings.
 
-### 3) `src/pages/Matching.tsx` — vista individual con score grande
-- Cuando hay `:id` (match concreto): card central `card-premium` con `<ScoreRing value={94} size={180} />` arriba.
-- Debajo: lista de "razones" con `<Progress />` horizontales (Tráfico peatonal 98, Zona AAA 96, Encaje sectorial 92…).
-- Footer con 3 botones circulares 64 px: ✕ rojo (descartar) · ⏱ ámbar (aplazar) · ✓ verde (aprobar). Indicador "1/3" centrado arriba.
-- Lista (sin `:id`) ya quedó hecha — solo aplicar `card-premium` consistente.
+### Pendiente residual
+Quedan ~100k chunks sin vector (565k − 464k). Se encolan en `rag_processing_queue` con tarea `embed` y se procesan desde `/conocimiento` con el botón "Procesar lote" (ya existe).
 
-### 4) `src/pages/Login.tsx` — alinear estética
-- Fondo `--background` con dos blobs gradient ambient.
-- Card central `card-premium`, logo AVA grande (texto gradient + glow), inputs `rounded-2xl`, botón principal `ava-gradient`.
-- Eliminar cualquier color claro hardcoded.
+## Opción B — Recalcular todo con OpenAI 1536 (caro, lento)
 
-### 5) Nuevo componente `src/components/ScoreRing.tsx`
-- SVG circular con stroke gradient (verde lima → cian) según `value` (0-100), número grande centrado, label opcional debajo.
-- Props: `value`, `size`, `label?`, `colorScheme?` ("score" | "match" | "risk").
-- Reutilizable en LocalDetail, Matching, Dashboard cards de oportunidades calientes.
+Mantener la columna `vector(1536)` y descartar los 464k Gemini. Requiere `OPENAI_API_KEY` configurada y tiene coste real (~$5-10 para 565k chunks con `text-embedding-3-small`). Tarda horas. No recomendado salvo motivo estratégico.
 
-### 6) Pulir BottomNav
-- Verificar que el FAB central NO se oculta al estar en `/asistente` (se mantiene activo con animación pulse para indicar "estás aquí").
-- Añadir `safe-area-inset-bottom` para iOS notch.
+## Recomendación
 
-### 7) Aplicar `card-premium` al resto de páginas que aún usan `<Card>` plano
-- Pasada rápida en: `Operadores`, `Contactos`, `Documentos`, `Patrones`, `Conocimiento`, `Notificaciones`, `Ajustes`, `Consumo`. Solo cambio de className raíz de cards (no toca lógica).
+**Opción A**, en este orden:
+
+1. **Migración 1 (SQL)**: redimensionar columna a `vector(768)` (vacía, instantáneo).
+2. **Migración 2 (SQL)**: backfill por lotes desde `document_embeddings.embedding_json` → vector(768). Estimado: 5-15 min en background.
+3. **Edge functions**: actualizar `rag-proxy` y `rag-embed-chunks` a Gemini 768 vía Lovable AI Gateway.
+4. **Migración 3 (SQL)**: crear índice HNSW con `vector_cosine_ops`.
+5. **Encolar los ~100k restantes** vía `rag-batch-orchestrator` (`enqueue_all` con `task_type: "embed"`) y procesarlos desde `/conocimiento`.
+6. **Validación**: ejecutar 5 queries de control en `rag-proxy` y verificar `hits > 0` con `hybrid: true`.
 
 ## Lo que NO se toca
+- `rag_hybrid_search` (la función ya está bien, opera sobre `embedding` sin importar dimensión).
+- Estructura de `document_chunks` salvo el tipo de la columna `embedding`.
+- `document_embeddings` (se conserva como histórico/respaldo, no se borra).
+- UI ni lógica de `/conocimiento`.
 
-- Lógica de Supabase, hooks, edge functions, `ava-orchestrator`.
-- Estructura de rutas (las que añadimos `/mas`, `/matching` se mantienen).
-- Sistema de notificaciones, RAG, embeddings, email AVA.
-- Funcionalidad de tabs internas (Información/Contactos en LocalDetail, etc.).
+## Pregunta antes de implementar
 
-## Orden de ejecución
-
-1. Crear `ScoreRing` (componente reutilizable, base para 3 pantallas).
-2. Rediseñar `AsistenteIA` (la pantalla que más usas y que más se aleja del nuevo lenguaje).
-3. Rediseñar `LocalDetail` (hero + pipeline + AVA propone).
-4. Rediseñar `Matching` individual (score + razones + botones).
-5. Rediseñar `Login`.
-6. Pasada de `card-premium` en páginas secundarias.
-7. Descomprimir `AVA_4.zip`, revisar `AVA Mobile.html` y ajustar matices (animaciones, copys, microinteracciones que pueda haber capturado el prototipo).
-
-## Preguntas antes de implementar
-
-1. **ScoreRing data**: el campo `ava_score` no existe aún en `locales`. ¿Lo calculo on-the-fly con un placeholder (ej. `Math.round((superficie/renta)*X)`) o añadimos columna `ava_score` y la pobla un job? Para esta iteración propongo placeholder visual y dejar la columna real para una fase posterior.
-2. **"AVA propone" en Activo Detail**: ¿texto estático placeholder de momento, o llamamos a `ava-orchestrator` con un prompt corto al cargar la página (coste por visita)? Recomiendo placeholder + botón "Pedir análisis a AVA" para no inflar costes.
-3. **Login**: ¿mantengo el formulario email/password actual y solo cambio estética, o aprovecho para añadir botón "Continuar con Google" que pediste hace tiempo?
-4. **Alcance final**: ¿hago las 7 pasos o priorizamos solo 1-4 (las pantallas clave) y dejamos el resto para una pasada posterior?
+¿Vamos con **Opción A** (Gemini 768, aprovecha los 464k existentes, sin coste de API key OpenAI) o prefieres **Opción B** (recalcular todo con OpenAI 1536)?
 
