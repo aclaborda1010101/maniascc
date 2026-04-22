@@ -207,28 +207,22 @@ export default function AsistenteIA() {
       )}
 
       {/* Chat area */}
-      <div className="flex-1 flex flex-col min-w-0 relative">
+      <div className="flex-1 flex flex-col min-w-0 relative ambient">
         {/* Header — desktop only sleek bar; on mobile we use the hero approach */}
         {!isMobile && (
-          <div className="flex items-center justify-between px-3 md:px-6 py-3 border-b border-border shrink-0">
-            <div className="flex items-center gap-2">
-              <Button variant="ghost" size="icon" className="h-9 w-9 rounded-xl" onClick={() => setDesktopSidebarOpen(v => !v)} title={desktopSidebarOpen ? "Ocultar conversaciones" : "Mostrar conversaciones"}>
+          <div className="flex items-center justify-between px-3 md:px-8 py-4 shrink-0 relative z-10">
+            <div className="flex items-center gap-3">
+              <Button variant="ghost" size="icon" className="h-9 w-9 rounded-xl hover:bg-white/[0.06]" onClick={() => setDesktopSidebarOpen(v => !v)} title={desktopSidebarOpen ? "Ocultar conversaciones" : "Mostrar conversaciones"}>
                 {desktopSidebarOpen ? <PanelLeftClose className="h-4 w-4" /> : <PanelLeftOpen className="h-4 w-4" />}
               </Button>
-              <div className="flex items-center gap-2.5">
-                <div className="relative h-9 w-9 rounded-2xl ava-gradient grid place-items-center glow-ring-soft">
-                  <Sparkles className="h-4 w-4 text-white" />
-                </div>
-                <div>
-                  <h1 className="text-base font-bold tracking-tight">
-                    <span className="ava-text-gradient">AVA</span>
-                  </h1>
-                  <p className="text-[10px] text-muted-foreground">Tu asistente inteligente</p>
-                </div>
+              <div className="text-xs text-muted-foreground tracking-wide">
+                <span className="text-foreground/85 font-medium">AVA</span>
+                <span className="mx-2 opacity-40">/</span>
+                <span>Asistente</span>
               </div>
             </div>
             {messages.length > 0 && (
-              <Button variant="ghost" size="sm" onClick={clearChat} className="gap-1 text-muted-foreground text-xs rounded-xl">
+              <Button variant="ghost" size="sm" onClick={clearChat} className="gap-1 text-muted-foreground text-xs rounded-xl hover:bg-white/[0.06]">
                 <Trash2 className="h-3.5 w-3.5" /> Limpiar
               </Button>
             )}
@@ -291,23 +285,34 @@ export default function AsistenteIA() {
             </div>
           )}
 
-          <div className="space-y-3 md:space-y-4">
+          <div className="space-y-6 md:space-y-8 max-w-4xl mx-auto w-full">
             {messages.map(msg => (
-              <div key={msg.id} className={`flex gap-2 md:gap-3 ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
-                {msg.role === "assistant" && (
-                  <div className="shrink-0 w-8 h-8 md:w-9 md:h-9 rounded-full ava-gradient grid place-items-center glow-ring-soft">
-                    <Sparkles className="h-4 w-4 text-white" />
+              <div key={msg.id}>
+                {msg.role === "user" ? (
+                  <div className="flex gap-3 justify-end items-start">
+                    <div className="max-w-[85%] md:max-w-[78%] rounded-3xl px-5 py-3 gradient-iridescent text-white shadow-[0_8px_28px_-12px_hsl(var(--acc-2)/0.45)]">
+                      <p className="text-sm leading-relaxed">{msg.content}</p>
+                    </div>
+                    <div className="shrink-0 w-9 h-9 rounded-full bg-white/[0.08] border border-white/10 backdrop-blur-xl grid place-items-center text-[10px] font-semibold text-white/85">
+                      {(userName?.[0] || "U").toUpperCase()}
+                    </div>
                   </div>
-                )}
-                <div className={cn(
-                  "max-w-[85%] md:max-w-[80%] rounded-3xl px-4 py-3 md:px-5 md:py-3.5",
-                  msg.role === "user"
-                    ? "ava-gradient text-white rounded-br-lg"
-                    : "card-premium rounded-bl-lg"
-                )}>
-                  {msg.role === "assistant" ? (
-                    <div>
-                      <div className="ava-report prose prose-sm dark:prose-invert max-w-none text-xs md:text-sm">
+                ) : (
+                  <div className="space-y-2">
+                    {/* Meta header (logo + name + latency + tokens) */}
+                    <div className="flex items-center gap-2.5 pl-1">
+                      <div className="relative h-8 w-8 rounded-xl gradient-iridescent grid place-items-center glow-ring-soft shrink-0">
+                        <Sparkles className="h-3.5 w-3.5 text-white" />
+                      </div>
+                      <div className="text-[11px] text-muted-foreground flex items-center gap-1.5">
+                        <span className="text-foreground/80 font-medium">AVA</span>
+                        {msg.meta?.latency_ms && <><span className="opacity-40">·</span><span>{msg.meta.latency_ms}ms</span></>}
+                      </div>
+                    </div>
+
+                    {/* Big glass response panel */}
+                    <div className="glass-edge rounded-3xl px-6 py-5 md:px-7 md:py-6 relative">
+                      <div className="ava-report prose prose-sm dark:prose-invert max-w-none text-sm leading-relaxed">
                         <ReactMarkdown remarkPlugins={[remarkGfm]}>{msg.content}</ReactMarkdown>
                       </div>
                       {msg.meta?.pdf_content && (
@@ -323,7 +328,7 @@ export default function AsistenteIA() {
                         />
                       )}
                       {msg.meta?.action_resolved && (
-                        <div className="mt-2 text-[10px] text-muted-foreground">
+                        <div className="mt-3 text-[11px] text-muted-foreground">
                           {msg.meta.action_resolved.confirmed
                             ? msg.meta.action_resolved.success
                               ? "✅ Acción confirmada y ejecutada"
@@ -331,83 +336,102 @@ export default function AsistenteIA() {
                             : "✖️ Acción cancelada por el usuario"}
                         </div>
                       )}
-                    </div>
-                  ) : (
-                    <p className="text-sm leading-relaxed">{msg.content}</p>
-                  )}
-                  {msg.meta && msg.role === "assistant" && (
-                    <div className="mt-1.5 md:mt-2 flex flex-wrap gap-1">
-                      {msg.meta.tools_used?.map((t: string, i: number) => {
-                        const tl = toolLabel(t);
-                        return <Badge key={i} variant="outline" className="text-[9px] md:text-[10px] rounded-full">{tl.emoji} {tl.label}</Badge>;
-                      })}
-                      {msg.meta.latency_ms && (
-                        <Badge variant="outline" className="text-[9px] md:text-[10px] rounded-full">⏱ {msg.meta.latency_ms}ms</Badge>
+                      {msg.meta?.tools_used && msg.meta.tools_used.length > 0 && (
+                        <div className="mt-4 pt-3 border-t border-white/[0.06] flex flex-wrap gap-1.5">
+                          {msg.meta.tools_used.map((t: string, i: number) => {
+                            const tl = toolLabel(t);
+                            return <span key={i} className="text-[10px] px-2 py-0.5 rounded-full bg-white/[0.05] border border-white/[0.08] text-muted-foreground">{tl.emoji} {tl.label}</span>;
+                          })}
+                        </div>
                       )}
+                      <div className="mt-2 -ml-1">
+                        <AvaMessageFeedback messageId={msg.id} toolsUsed={msg.meta?.tools_used} />
+                      </div>
                     </div>
-                  )}
-                  {msg.role === "assistant" && (
-                    <div className="mt-1.5 -ml-1">
-                      <AvaMessageFeedback messageId={msg.id} toolsUsed={msg.meta?.tools_used} />
-                    </div>
-                  )}
-                </div>
-                {msg.role === "user" && (
-                  <div className="shrink-0 w-8 h-8 md:w-9 md:h-9 rounded-full bg-secondary border border-border/60 grid place-items-center">
-                    <User className="h-4 w-4 text-muted-foreground" />
                   </div>
                 )}
               </div>
             ))}
 
             {loading && (
-              <div className="flex gap-2 md:gap-3">
-                <div className="shrink-0 w-8 h-8 md:w-9 md:h-9 rounded-full ava-gradient grid place-items-center glow-ring-soft">
-                  <Sparkles className="h-4 w-4 text-white animate-pulse" />
+              <div className="space-y-2">
+                <div className="flex items-center gap-2.5 pl-1">
+                  <div className="relative h-8 w-8 rounded-xl gradient-iridescent grid place-items-center glow-ring-soft shrink-0">
+                    <Sparkles className="h-3.5 w-3.5 text-white animate-pulse" />
+                  </div>
+                  <span className="text-[11px] text-muted-foreground">AVA está pensando…</span>
                 </div>
-                <Skeleton className="h-16 w-48 md:w-64 rounded-3xl" />
+                <Skeleton className="h-24 w-full rounded-3xl" />
               </div>
             )}
           </div>
         </div>
 
-        {/* Input — sticky floating bar with safe-area inset */}
+        {/* Input panel + suggestions */}
         <div
-          className="border-t border-border/60 bg-background/85 backdrop-blur-xl px-3 md:px-6 py-3 md:py-4 shrink-0 space-y-2"
-          style={{ paddingBottom: "max(0.75rem, env(safe-area-inset-bottom))" }}
+          className="px-3 md:px-8 py-4 md:py-5 shrink-0 space-y-4 max-w-4xl mx-auto w-full"
+          style={{ paddingBottom: "max(1rem, env(safe-area-inset-bottom))" }}
         >
           {pendingAttachments.length > 0 && (
             <AvaAttachmentBar attachments={pendingAttachments} onAdd={addAttachments} onRemove={removeAttachment} disabled={loading} />
           )}
-          <div className="flex gap-1.5 md:gap-2 items-end">
-            {pendingAttachments.length === 0 && (
-              <AvaAttachmentBar attachments={[]} onAdd={addAttachments} onRemove={removeAttachment} disabled={loading} />
-            )}
-            <AvaVoiceControls
-              onTranscript={appendInput}
-              onAutoSend={sendMessage}
-              latestAssistantReply={lastAssistantContent}
-              loading={loading}
-              disabled={loading}
-            />
-            <AvaCallButton onClick={() => setCallOpen(true)} />
+
+          {/* Big glass input panel */}
+          <div className="glass rounded-3xl p-4 md:p-5 relative">
             <Input
-              placeholder="Pregúntame, dicta o adjunta…"
+              placeholder={`Pregunta a AVA…   (⌘↵ para enviar)`}
               value={input}
               onChange={e => setInput(e.target.value)}
               onKeyDown={e => e.key === "Enter" && !e.shiftKey && sendMessage()}
               disabled={loading}
-              className="flex-1 text-sm rounded-2xl bg-card-elevated border-border/60 h-11"
+              className="w-full text-sm bg-transparent border-0 px-1 h-10 placeholder:text-muted-foreground/60 focus-visible:ring-0 focus-visible:ring-offset-0 shadow-none"
             />
-            <Button
-              onClick={sendMessage}
-              disabled={loading || (!input.trim() && pendingAttachments.filter(a => a.status === "ready").length === 0) || pendingAttachments.some(a => a.status === "uploading" || a.status === "processing")}
-              size="icon"
-              className="ava-gradient text-white border-0 hover:opacity-95 h-11 w-11 rounded-2xl shrink-0"
-            >
-              <Send className="h-4 w-4" />
-            </Button>
+            <div className="flex items-center justify-between mt-2 pt-2">
+              <div className="flex items-center gap-2">
+                {pendingAttachments.length === 0 && (
+                  <AvaAttachmentBar attachments={[]} onAdd={addAttachments} onRemove={removeAttachment} disabled={loading} />
+                )}
+                <AvaVoiceControls
+                  onTranscript={appendInput}
+                  onAutoSend={sendMessage}
+                  latestAssistantReply={lastAssistantContent}
+                  loading={loading}
+                  disabled={loading}
+                />
+                <AvaCallButton onClick={() => setCallOpen(true)} />
+                <button className="inline-flex items-center gap-1.5 h-8 px-3 rounded-full bg-white/[0.04] border border-white/[0.08] text-[11px] font-medium text-white/75 hover:bg-white/[0.07] transition-colors">
+                  <Sparkles className="h-3 w-3" /> Pro
+                </button>
+              </div>
+              <Button
+                onClick={sendMessage}
+                disabled={loading || (!input.trim() && pendingAttachments.filter(a => a.status === "ready").length === 0) || pendingAttachments.some(a => a.status === "uploading" || a.status === "processing")}
+                size="sm"
+                className="pill-iridescent h-9 px-5 rounded-full shrink-0 text-xs font-medium gap-1.5"
+              >
+                Enviar <Send className="h-3.5 w-3.5" />
+              </Button>
+            </div>
           </div>
+
+          {/* Suggestions grid (below input, like the mockup) */}
+          {messages.length > 0 && (
+            <div className="space-y-2.5">
+              <p className="text-[10px] font-semibold tracking-[0.18em] text-muted-foreground/70 uppercase pl-1">Sugerencias</p>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                {SUGGESTIONS.map((s) => (
+                  <button
+                    key={s}
+                    onClick={() => handleSuggestion(s)}
+                    className="glass-edge rounded-full px-4 py-2.5 text-left text-xs text-white/80 hover:text-white transition-colors flex items-center gap-2 group"
+                  >
+                    <span className="text-accent opacity-60 group-hover:opacity-100 transition-opacity">→</span>
+                    <span className="truncate">{s}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
