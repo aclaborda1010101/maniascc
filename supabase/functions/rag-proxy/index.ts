@@ -61,6 +61,9 @@ serve(async (req) => {
     const admin = createClient(SUPABASE_URL, SERVICE_KEY);
     const proyectoId = filters?.proyecto_id;
     const dominio = filters?.dominio && filters.dominio !== "todos" ? filters.dominio : null;
+    const userId = claims.user.id;
+    // Visibility filter: user can see chunks they own OR shared/global ones
+    const visibilityOr = `visibility.in.(shared,global),owner_id.eq.${userId}`;
 
     // 1) HYBRID SEARCH (FTS + vector si hay embedding de query)
     let contextChunks: any[] = [];
@@ -74,7 +77,10 @@ serve(async (req) => {
         p_proyecto_id: proyectoId || null,
         p_limit: 20,
       });
-      contextChunks = hybrid || [];
+      // Filter hybrid results by visibility/ownership in-memory (RPC doesn't accept visibility filter)
+      contextChunks = (hybrid || []).filter((c: any) =>
+        c.owner_id === userId || ["shared", "global"].includes(c.visibility)
+      );
     }
 
     // 2) Fallback FTS clásico si la híbrida no devuelve nada
@@ -83,6 +89,7 @@ serve(async (req) => {
         .from("document_chunks")
         .select("id, contenido, chunk_index, metadata, documento_id, dominio")
         .textSearch("contenido", question, { type: "websearch", config: "spanish" })
+        .or(visibilityOr)
         .limit(15);
       if (proyectoId) q = q.eq("proyecto_id", proyectoId);
       if (dominio) q = q.eq("dominio", dominio);
@@ -98,6 +105,7 @@ serve(async (req) => {
           .from("document_chunks")
           .select("id, contenido, chunk_index, metadata, documento_id, dominio")
           .ilike("contenido", `%${words[0]}%`)
+          .or(visibilityOr)
           .limit(10);
         if (proyectoId) fb = fb.eq("proyecto_id", proyectoId);
         if (dominio) fb = fb.eq("dominio", dominio);
