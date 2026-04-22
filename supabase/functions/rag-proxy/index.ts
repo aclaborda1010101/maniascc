@@ -17,13 +17,13 @@ const DOMAIN_SYSTEM_PROMPTS: Record<string, string> = {
   general: `Eres un asistente experto en el sector inmobiliario comercial.`,
 };
 
-async function embedQuery(question: string, openaiKey: string): Promise<number[] | null> {
-  if (!openaiKey) return null;
+async function embedQuery(question: string, lovableKey: string): Promise<number[] | null> {
+  if (!lovableKey) return null;
   try {
-    const r = await fetch("https://api.openai.com/v1/embeddings", {
+    const r = await fetch("https://ai.gateway.lovable.dev/v1/embeddings", {
       method: "POST",
-      headers: { Authorization: `Bearer ${openaiKey}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ model: "text-embedding-3-small", input: question.slice(0, 8000) }),
+      headers: { Authorization: `Bearer ${lovableKey}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ model: "google/text-embedding-004", input: question.slice(0, 8000) }),
     });
     if (!r.ok) return null;
     const d = await r.json();
@@ -41,7 +41,6 @@ serve(async (req) => {
     const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    const OPENAI_KEY = Deno.env.get("OPENAI_API_KEY") || "";
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY not configured");
 
     const authHeader = req.headers.get("Authorization");
@@ -65,7 +64,7 @@ serve(async (req) => {
 
     // 1) HYBRID SEARCH (FTS + vector si hay embedding de query)
     let contextChunks: any[] = [];
-    const queryEmbedding = await embedQuery(question, OPENAI_KEY);
+    const queryEmbedding = await embedQuery(question, LOVABLE_API_KEY);
 
     if (queryEmbedding) {
       const { data: hybrid } = await admin.rpc("rag_hybrid_search", {
