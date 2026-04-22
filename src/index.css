@@ -27,7 +27,7 @@
     --muted: 0 0% 100%;
     --muted-foreground: 0 0% 65%;
 
-    --accent: 270 100% 77%;      /* acc-2 violet */
+    --accent: 240 35% 62%;       /* acc-2 slate-blue (sober) */
     --accent-foreground: 224 30% 4%;
 
     --destructive: 0 88% 71%;
@@ -39,12 +39,12 @@
 
     --radius: 1.25rem;
 
-    /* ── 5 iridescent accents (visionOS) ─── */
-    --acc-1: 220 100% 71%;       /* #6ea8ff blue */
-    --acc-2: 270 100% 77%;       /* #b98cff violet */
-    --acc-3: 333 100% 74%;       /* #ff7ab6 pink/coral */
-    --acc-4: 168 79% 65%;        /* #5eead4 mint */
-    --acc-5: 41 100% 70%;        /* #ffd166 amber */
+    /* ── 5 sober accents (visionOS, low saturation) ─── */
+    --acc-1: 220 80% 68%;        /* #7ea4e6 indigo-blue */
+    --acc-2: 240 35% 62%;        /* #7d83b8 slate-blue (was violet) */
+    --acc-3: 215 25% 58%;        /* #7d8ba8 steel-blue (was pink) */
+    --acc-4: 168 55% 58%;        /* #5fbfa3 mint (calmed) */
+    --acc-5: 38 70% 62%;         /* #d9a35e amber (calmed) */
 
     /* AVA legacy aliases (mapped to new accents) */
     --ava-from: var(--acc-1);
@@ -57,7 +57,7 @@
     --sidebar-foreground: 0 0% 96%;
     --sidebar-primary: var(--acc-1);
     --sidebar-primary-foreground: 224 30% 4%;
-    --sidebar-accent: 0 0% 100%;
+    --sidebar-accent: 0 0% 100% / 0;       /* transparent — span interior gestiona el hover */
     --sidebar-accent-foreground: 0 0% 96%;
     --sidebar-border: 0 0% 100%;
     --sidebar-ring: var(--acc-1);
@@ -84,25 +84,25 @@
     --secondary-foreground: 0 0% 96%;
     --muted: 0 0% 100%;
     --muted-foreground: 0 0% 65%;
-    --accent: 270 100% 77%;
+    --accent: 240 35% 62%;
     --accent-foreground: 224 30% 4%;
-    --destructive: 0 88% 71%;
+    --destructive: 0 70% 62%;
     --destructive-foreground: 0 0% 100%;
     --border: 0 0% 100%;
     --input: 0 0% 100%;
-    --ring: 220 100% 71%;
-    --acc-1: 220 100% 71%;
-    --acc-2: 270 100% 77%;
-    --acc-3: 333 100% 74%;
-    --acc-4: 168 79% 65%;
-    --acc-5: 41 100% 70%;
+    --ring: 220 80% 68%;
+    --acc-1: 220 80% 68%;
+    --acc-2: 240 35% 62%;
+    --acc-3: 215 25% 58%;
+    --acc-4: 168 55% 58%;
+    --acc-5: 38 70% 62%;
     --ava-from: var(--acc-1);
     --ava-via:  var(--acc-2);
     --ava-to:   var(--acc-3);
     --score-ring: var(--acc-4);
     --sidebar-background: 224 30% 4%;
     --sidebar-foreground: 0 0% 96%;
-    --sidebar-accent: 0 0% 100%;
+    --sidebar-accent: 0 0% 100% / 0;
     --sidebar-accent-foreground: 0 0% 96%;
     --sidebar-border: 0 0% 100%;
     --chart-1: var(--acc-1);
@@ -208,7 +208,7 @@
   }
   .ambient::before, .ambient::after {
     content: ""; position: absolute; border-radius: 50%;
-    filter: blur(110px); opacity: 0.55;
+    filter: blur(140px); opacity: 0.28;
   }
   .ambient::before {
     width: 640px; height: 640px; left: -120px; top: -120px;
@@ -222,17 +222,17 @@
     position: absolute; width: 480px; height: 480px;
     left: 40%; top: 25%;
     background: radial-gradient(circle, hsl(var(--acc-3)), transparent 65%);
-    filter: blur(110px); opacity: 0.45; border-radius: 50%; pointer-events: none;
+    filter: blur(140px); opacity: 0.22; border-radius: 50%; pointer-events: none;
   }
 
-  /* ── Glow utilities ────────────────────────────── */
+  /* ── Glow utilities (calmed ~30%) ──────────────── */
   .glow-ring {
     box-shadow:
-      0 0 0 1px hsl(var(--acc-2) / 0.3),
-      0 0 24px -2px hsl(var(--acc-2) / 0.45),
-      0 0 48px -4px hsl(var(--acc-1) / 0.25);
+      0 0 0 1px hsl(var(--acc-2) / 0.20),
+      0 0 18px -2px hsl(var(--acc-2) / 0.30),
+      0 0 36px -4px hsl(var(--acc-1) / 0.18);
   }
-  .glow-ring-soft { box-shadow: 0 0 32px -4px hsl(var(--acc-2) / 0.35); }
+  .glow-ring-soft { box-shadow: 0 0 24px -4px hsl(var(--acc-2) / 0.22); }
   .glow-blue  { box-shadow: 0 0 24px -4px hsl(var(--acc-1) / 0.5); }
   .glow-pink  { box-shadow: 0 0 24px -4px hsl(var(--acc-3) / 0.5); }
   .glow-mint  { box-shadow: 0 0 24px -4px hsl(var(--acc-4) / 0.5); }
