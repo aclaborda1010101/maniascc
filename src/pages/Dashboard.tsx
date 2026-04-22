@@ -211,7 +211,7 @@ export default function Dashboard() {
       <div className="space-y-2">
         <p className="text-[11px] uppercase tracking-[0.15em] text-white/45 font-semibold">AVA · DASHBOARD</p>
         <h1 className="font-display text-4xl md:text-6xl font-semibold tracking-[-0.035em] leading-[1] text-white">
-          {greeting}, <span className="text-iridescent capitalize">{userName}</span>
+          {greeting}, <span className="text-iridescent">{userName}</span>
         </h1>
         <p className="text-sm md:text-base text-white/55 mt-3 max-w-xl">
           Tienes <span className="text-white font-medium num-display">{stats?.matchesPendientes ?? 0}</span> matches nuevos y <span className="text-white font-medium num-display">{stats?.proyectosActivos ?? 0}</span> oportunidades activas.
