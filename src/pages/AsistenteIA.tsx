@@ -416,24 +416,6 @@ export default function AsistenteIA() {
             </div>
           </div>
 
-          {/* Suggestions grid (below input, like the mockup) */}
-          {messages.length > 0 && (
-            <div className="space-y-2.5">
-              <p className="text-[10px] font-semibold tracking-[0.18em] text-muted-foreground/70 uppercase pl-1">Sugerencias</p>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                {SUGGESTIONS.map((s) => (
-                  <button
-                    key={s}
-                    onClick={() => handleSuggestion(s)}
-                    className="glass-edge rounded-full px-4 py-2.5 text-left text-xs text-white/80 hover:text-white transition-colors flex items-center gap-2 group"
-                  >
-                    <span className="text-accent opacity-60 group-hover:opacity-100 transition-opacity">→</span>
-                    <span className="truncate">{s}</span>
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
         </div>
       </div>
 
