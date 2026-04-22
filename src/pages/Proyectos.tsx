@@ -137,18 +137,22 @@ export default function Proyectos() {
   };
 
   return (
-    <div className="space-y-5 md:space-y-6">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+    <div className="space-y-5 md:space-y-6 relative">
+      {/* Header — eyebrow + huge title + iridescent CTA */}
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div className="space-y-1">
-          <p className="text-[11px] uppercase tracking-widest text-muted-foreground/70 font-medium">Pipeline · {proyectos.length}</p>
-          <h1 className="text-3xl md:text-4xl font-bold tracking-tight">Oportunidades</h1>
-          <p className="text-xs md:text-sm text-muted-foreground">Gestiona todas las oportunidades de negocio</p>
+          <p className="text-[11px] uppercase tracking-[0.2em] text-muted-foreground/70 font-semibold flex items-center gap-2">
+            <span className="inline-block w-1.5 h-1.5 rounded-full" style={{ background: "hsl(var(--acc-4))", boxShadow: "0 0 8px hsl(var(--acc-4))" }} />
+            Pipeline · {proyectos.length}
+          </p>
+          <h1 className="text-4xl md:text-5xl font-bold tracking-tight font-display">Oportunidades</h1>
+          <p className="text-sm text-muted-foreground">Gestiona todas las oportunidades de negocio</p>
         </div>
         <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
           <DialogTrigger asChild>
-            <Button className="ava-gradient text-white border-0 hover:opacity-90 w-full sm:w-auto">
-              <Plus className="mr-2 h-4 w-4" /> Nueva oportunidad
-            </Button>
+            <button className="pill-iridescent inline-flex items-center gap-2 px-5 h-11 rounded-2xl font-medium text-sm w-full sm:w-auto justify-center transition-transform hover:scale-[1.02]">
+              <Plus className="h-4 w-4" /> Nueva oportunidad
+            </button>
           </DialogTrigger>
           <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
             <DialogHeader><DialogTitle>Crear Nueva Oportunidad</DialogTitle></DialogHeader>
@@ -201,26 +205,26 @@ export default function Proyectos() {
                 <Label htmlFor="p-desc">Descripción</Label>
                 <Textarea id="p-desc" name="descripcion" placeholder="Objetivo y contexto de la oportunidad..." rows={3} />
               </div>
-              <Button type="submit" className="w-full ava-gradient text-white border-0 hover:opacity-90" disabled={submitting}>
+              <button type="submit" className="pill-iridescent w-full h-11 rounded-2xl text-sm font-medium" disabled={submitting}>
                 {submitting ? "Creando..." : "Crear oportunidad"}
-              </Button>
+              </button>
             </form>
           </DialogContent>
         </Dialog>
       </div>
 
-      {/* Buscador */}
+      {/* Buscador glass */}
       <div className="relative">
-        <Search className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-        <Input
+        <Search className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground z-10" />
+        <input
           placeholder="Buscar oportunidades..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          className="pl-11 h-12 rounded-2xl bg-card border-border/60"
+          className="input-glass w-full pl-11 h-12 text-sm placeholder:text-muted-foreground/60"
         />
       </div>
 
-      {/* Chips horizontales */}
+      {/* Chips horizontales — iridescent active */}
       <div className="flex gap-2 overflow-x-auto no-scrollbar -mx-4 px-4">
         {[
           { value: "todos", label: "Todas" },
@@ -234,11 +238,11 @@ export default function Proyectos() {
             <button
               key={chip.value}
               onClick={() => setFiltroEstado(chip.value)}
-              className={`shrink-0 px-4 py-1.5 rounded-full text-xs font-medium transition-all border ${
+              className={
                 active
-                  ? "ava-gradient text-white border-transparent"
-                  : "bg-card text-muted-foreground border-border/60 hover:text-foreground"
-              }`}
+                  ? "pill-iridescent shrink-0 px-5 py-2 rounded-full text-xs font-medium"
+                  : "shrink-0 px-5 py-2 rounded-full text-xs font-medium border border-white/10 bg-white/[0.04] text-muted-foreground hover:text-foreground hover:border-white/20 transition-all"
+              }
             >
               {chip.label}
             </button>
@@ -247,8 +251,8 @@ export default function Proyectos() {
       </div>
 
       {loading ? (
-        <div className="grid gap-3 md:gap-4 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
-          {[1, 2, 3].map((i) => <Skeleton key={i} className="h-44 w-full rounded-lg" />)}
+        <div className="grid gap-4 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
+          {[1, 2, 3].map((i) => <Skeleton key={i} className="h-44 w-full rounded-2xl" />)}
         </div>
       ) : proyectos.length === 0 ? (
         <div className="glass p-16 text-center">
@@ -260,24 +264,28 @@ export default function Proyectos() {
           </p>
         </div>
       ) : (
-        <div className="grid gap-3 md:gap-4 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
+        <div className="grid gap-4 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
           {proyectos.map((p) => {
             const TipoIcon = tipoIcons[p.tipo] || FolderKanban;
+            const dotColor = estadoDot[p.estado] || "hsl(var(--muted-foreground))";
             return (
               <Link key={p.id} to={`/oportunidades/${p.id}`}>
-                <div className="glass p-4 hover:bg-white/[0.06] transition-all cursor-pointer h-full space-y-3">
+                <div className="glass-edge p-5 hover:bg-white/[0.06] transition-all cursor-pointer h-full flex flex-col gap-3">
                   <div className="flex items-start justify-between gap-2">
-                    <div className="flex items-start gap-2 min-w-0">
+                    <div className="flex items-start gap-2.5 min-w-0">
                       <TipoIcon className="h-4 w-4 mt-0.5 text-muted-foreground shrink-0" />
-                      <h3 className="font-display font-semibold leading-tight tracking-tight line-clamp-2 text-sm">{p.nombre}</h3>
+                      <h3 className="font-display font-semibold leading-tight tracking-tight line-clamp-2 text-base">{p.nombre}</h3>
                     </div>
-                    <span className={`chip shrink-0 ${estadoColors[p.estado] || ""}`}>{estadoLabels[p.estado] || p.estado}</span>
+                    <span className="chip shrink-0 inline-flex items-center gap-1.5">
+                      <span className="chip-dot" style={{ background: dotColor }} />
+                      {estadoLabels[p.estado] || p.estado}
+                    </span>
                   </div>
-                  <span className={`chip ${tipoColors[p.tipo] || ""}`}>{tipoLabels[p.tipo] || p.tipo}</span>
+                  <span className={`chip ${tipoColors[p.tipo] || ""} self-start`}>{tipoLabels[p.tipo] || p.tipo}</span>
                   {p.descripcion && (
-                    <p className="text-xs text-muted-foreground line-clamp-2">{p.descripcion}</p>
+                    <p className="text-xs text-muted-foreground line-clamp-2 leading-relaxed">{p.descripcion}</p>
                   )}
-                  <div className="flex items-center gap-3 md:gap-4 text-[10px] md:text-xs text-muted-foreground flex-wrap">
+                  <div className="mt-auto flex items-center gap-3 md:gap-4 text-[10px] md:text-xs text-muted-foreground flex-wrap pt-2 border-t border-white/5">
                     {p.ubicacion && (
                       <span className="flex items-center gap-1">
                         <MapPin className="h-3 w-3" /> {p.ubicacion}
