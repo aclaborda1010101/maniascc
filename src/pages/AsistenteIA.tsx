@@ -190,10 +190,10 @@ export default function AsistenteIA() {
       {/* Desktop sidebar (collapsible) */}
       {!isMobile && (
         <div className={cn(
-          "shrink-0 overflow-hidden transition-all duration-200 border-r border-white/[0.06]",
-          desktopSidebarOpen ? "w-64" : "w-0"
+          "shrink-0 overflow-hidden transition-all duration-200",
+          desktopSidebarOpen ? "w-64 border-r border-white/[0.06]" : "w-0"
         )}>
-          <div className="w-64 h-full bg-white/[0.02] backdrop-blur-2xl">
+          <div className="w-64 h-full">
             <ConversationList {...convListProps} />
           </div>
         </div>
@@ -209,7 +209,8 @@ export default function AsistenteIA() {
       )}
 
       {/* Chat area */}
-      <div className="flex-1 flex flex-col min-w-0 relative ambient">
+      <div className="flex-1 flex flex-col min-w-0 relative overflow-hidden">
+        <div className="ambient absolute inset-0 -z-10" aria-hidden />
         {/* Header — desktop only sleek bar; on mobile we use the hero approach */}
         {!isMobile && (
           <div className="flex items-center justify-between px-3 md:px-8 py-4 shrink-0 relative z-10">
