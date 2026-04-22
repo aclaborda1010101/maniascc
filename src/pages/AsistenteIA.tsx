@@ -207,28 +207,22 @@ export default function AsistenteIA() {
       )}
 
       {/* Chat area */}
-      <div className="flex-1 flex flex-col min-w-0 relative">
+      <div className="flex-1 flex flex-col min-w-0 relative ambient">
         {/* Header — desktop only sleek bar; on mobile we use the hero approach */}
         {!isMobile && (
-          <div className="flex items-center justify-between px-3 md:px-6 py-3 border-b border-border shrink-0">
-            <div className="flex items-center gap-2">
-              <Button variant="ghost" size="icon" className="h-9 w-9 rounded-xl" onClick={() => setDesktopSidebarOpen(v => !v)} title={desktopSidebarOpen ? "Ocultar conversaciones" : "Mostrar conversaciones"}>
+          <div className="flex items-center justify-between px-3 md:px-8 py-4 shrink-0 relative z-10">
+            <div className="flex items-center gap-3">
+              <Button variant="ghost" size="icon" className="h-9 w-9 rounded-xl hover:bg-white/[0.06]" onClick={() => setDesktopSidebarOpen(v => !v)} title={desktopSidebarOpen ? "Ocultar conversaciones" : "Mostrar conversaciones"}>
                 {desktopSidebarOpen ? <PanelLeftClose className="h-4 w-4" /> : <PanelLeftOpen className="h-4 w-4" />}
               </Button>
-              <div className="flex items-center gap-2.5">
-                <div className="relative h-9 w-9 rounded-2xl ava-gradient grid place-items-center glow-ring-soft">
-                  <Sparkles className="h-4 w-4 text-white" />
-                </div>
-                <div>
-                  <h1 className="text-base font-bold tracking-tight">
-                    <span className="ava-text-gradient">AVA</span>
-                  </h1>
-                  <p className="text-[10px] text-muted-foreground">Tu asistente inteligente</p>
-                </div>
+              <div className="text-xs text-muted-foreground tracking-wide">
+                <span className="text-foreground/85 font-medium">AVA</span>
+                <span className="mx-2 opacity-40">/</span>
+                <span>Asistente</span>
               </div>
             </div>
             {messages.length > 0 && (
-              <Button variant="ghost" size="sm" onClick={clearChat} className="gap-1 text-muted-foreground text-xs rounded-xl">
+              <Button variant="ghost" size="sm" onClick={clearChat} className="gap-1 text-muted-foreground text-xs rounded-xl hover:bg-white/[0.06]">
                 <Trash2 className="h-3.5 w-3.5" /> Limpiar
               </Button>
             )}
