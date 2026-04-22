@@ -7,7 +7,7 @@
 @layer base {
   :root {
     /* ── visionOS dark-first palette ───────── */
-    --background: 224 30% 4%;
+    --background: 240 35% 6%;
     --foreground: 0 0% 96%;
 
     /* Translucent surfaces — used inside glass cards */
@@ -15,11 +15,11 @@
     --card-foreground: 0 0% 96%;
     --card-elevated: 0 0% 100%; /* used as base, alpha controlled */
 
-    --popover: 224 30% 8%;
+    --popover: 240 35% 9%;
     --popover-foreground: 0 0% 96%;
 
     --primary: 220 100% 71%;     /* acc-1 indigo/blue */
-    --primary-foreground: 224 30% 4%;
+    --primary-foreground: 240 35% 6%;
 
     --secondary: 0 0% 100%;      /* alpha controlled */
     --secondary-foreground: 0 0% 96%;
@@ -28,7 +28,7 @@
     --muted-foreground: 0 0% 65%;
 
     --accent: 258 70% 74%;       /* elegant lilac — iridescent signature */
-    --accent-foreground: 224 30% 4%;
+    --accent-foreground: 240 35% 6%;
 
     --destructive: 0 88% 71%;
     --destructive-foreground: 0 0% 100%;
@@ -53,10 +53,10 @@
     --score-ring: var(--acc-4);
 
     /* Sidebar (rarely used directly — sidebar is glass) */
-    --sidebar-background: 224 30% 4%;
+    --sidebar-background: 240 35% 6%;
     --sidebar-foreground: 0 0% 96%;
     --sidebar-primary: var(--acc-1);
-    --sidebar-primary-foreground: 224 30% 4%;
+    --sidebar-primary-foreground: 240 35% 6%;
     --sidebar-accent: 0 0% 100% / 0;       /* transparent — span interior gestiona el hover */
     --sidebar-accent-foreground: 0 0% 96%;
     --sidebar-border: 0 0% 100%;
@@ -71,21 +71,21 @@
 
   /* Forced dark — keep .dark mirroring :root for any old references */
   .dark {
-    --background: 224 30% 4%;
+    --background: 240 35% 6%;
     --foreground: 0 0% 96%;
     --card: 0 0% 100%;
     --card-foreground: 0 0% 96%;
     --card-elevated: 0 0% 100%;
-    --popover: 224 30% 8%;
+    --popover: 240 35% 9%;
     --popover-foreground: 0 0% 96%;
     --primary: 220 100% 71%;
-    --primary-foreground: 224 30% 4%;
+    --primary-foreground: 240 35% 6%;
     --secondary: 0 0% 100%;
     --secondary-foreground: 0 0% 96%;
     --muted: 0 0% 100%;
     --muted-foreground: 0 0% 65%;
     --accent: 258 70% 74%;
-    --accent-foreground: 224 30% 4%;
+    --accent-foreground: 240 35% 6%;
     --destructive: 0 70% 62%;
     --destructive-foreground: 0 0% 100%;
     --border: 0 0% 100%;
@@ -100,7 +100,7 @@
     --ava-via:  var(--acc-2);
     --ava-to:   var(--acc-3);
     --score-ring: var(--acc-4);
-    --sidebar-background: 224 30% 4%;
+    --sidebar-background: 240 35% 6%;
     --sidebar-foreground: 0 0% 96%;
     --sidebar-accent: 0 0% 100% / 0;
     --sidebar-accent-foreground: 0 0% 96%;
@@ -118,7 +118,7 @@
   body {
     @apply bg-background text-foreground antialiased;
     font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'SF Pro Text', 'Inter', system-ui, sans-serif;
-    background-color: hsl(224 30% 3%);
+    background-color: hsl(240 35% 5%);
     font-size: 14px;
     line-height: 1.5;
     letter-spacing: -0.005em;
@@ -163,24 +163,46 @@
 
   /* ── Glass surface (THE primary card style) ────── */
   .glass {
-    background: hsl(0 0% 100% / 0.04);
-    backdrop-filter: blur(32px) saturate(1.8);
-    -webkit-backdrop-filter: blur(32px) saturate(1.8);
-    border: 1px solid hsl(0 0% 100% / 0.08);
-    border-radius: 1.25rem;
+    background: linear-gradient(180deg,
+      hsl(240 30% 100% / 0.05) 0%,
+      hsl(240 30% 100% / 0.025) 100%);
+    backdrop-filter: blur(40px) saturate(1.6);
+    -webkit-backdrop-filter: blur(40px) saturate(1.6);
+    border: 1px solid hsl(240 30% 100% / 0.07);
+    border-radius: 1.5rem;
     box-shadow:
-      0 1px 0 hsl(0 0% 100% / 0.06) inset,
-      0 10px 30px -8px hsl(0 0% 0% / 0.6);
+      0 1px 0 hsl(240 30% 100% / 0.08) inset,
+      0 16px 40px -12px hsl(240 60% 2% / 0.7);
   }
   .glass-strong {
-    background: hsl(0 0% 100% / 0.07);
-    backdrop-filter: blur(40px) saturate(1.8);
-    -webkit-backdrop-filter: blur(40px) saturate(1.8);
-    border: 1px solid hsl(0 0% 100% / 0.14);
-    border-radius: 1.25rem;
+    background: linear-gradient(180deg,
+      hsl(240 30% 100% / 0.08) 0%,
+      hsl(240 30% 100% / 0.04) 100%);
+    backdrop-filter: blur(40px) saturate(1.6);
+    -webkit-backdrop-filter: blur(40px) saturate(1.6);
+    border: 1px solid hsl(240 30% 100% / 0.10);
+    border-radius: 1.5rem;
     box-shadow:
-      0 1px 0 hsl(0 0% 100% / 0.08) inset,
-      0 14px 40px -10px hsl(0 0% 0% / 0.7);
+      0 1px 0 hsl(240 30% 100% / 0.10) inset,
+      0 20px 50px -14px hsl(240 60% 2% / 0.8);
+  }
+  /* Sutil tinte iridiscente — para grids/listas principales tipo "Documentos" del mockup */
+  .glass-tinted {
+    background:
+      linear-gradient(135deg,
+        hsl(var(--acc-1) / 0.06) 0%,
+        hsl(var(--acc-2) / 0.04) 50%,
+        hsl(var(--acc-3) / 0.05) 100%),
+      linear-gradient(180deg,
+        hsl(240 30% 100% / 0.05) 0%,
+        hsl(240 30% 100% / 0.025) 100%);
+    backdrop-filter: blur(40px) saturate(1.6);
+    -webkit-backdrop-filter: blur(40px) saturate(1.6);
+    border: 1px solid hsl(240 30% 100% / 0.08);
+    border-radius: 1.5rem;
+    box-shadow:
+      0 1px 0 hsl(240 30% 100% / 0.09) inset,
+      0 16px 40px -12px hsl(240 60% 2% / 0.7);
   }
   /* Accent line on top edge of a glass card (uses --tw-accent-color via CSS var) */
   .glass-accent {
@@ -204,25 +226,25 @@
 
   /* ── Ambient blobs (page background decoration) ── */
   .ambient {
-    position: absolute; inset: 0; z-index: -1; pointer-events: none; overflow: hidden;
+    position: fixed; inset: 0; z-index: 0; pointer-events: none; overflow: hidden;
   }
   .ambient::before, .ambient::after {
     content: ""; position: absolute; border-radius: 50%;
-    filter: blur(120px); opacity: 0.45;
+    filter: blur(160px); opacity: 0.32;
   }
   .ambient::before {
-    width: 640px; height: 640px; left: -120px; top: -120px;
+    width: 820px; height: 820px; left: -200px; top: -200px;
     background: radial-gradient(circle, hsl(var(--acc-1)), transparent 60%);
   }
   .ambient::after {
-    width: 620px; height: 620px; right: -120px; bottom: -160px;
+    width: 780px; height: 780px; right: -200px; bottom: -240px;
     background: radial-gradient(circle, hsl(var(--acc-2)), transparent 60%);
   }
   .ambient-blob-3 {
-    position: absolute; width: 520px; height: 520px;
-    left: 40%; top: 20%;
+    position: absolute; width: 680px; height: 680px;
+    left: 38%; top: 18%;
     background: radial-gradient(circle, hsl(var(--acc-3)), transparent 65%);
-    filter: blur(130px); opacity: 0.32; border-radius: 50%; pointer-events: none;
+    filter: blur(170px); opacity: 0.22; border-radius: 50%; pointer-events: none;
   }
 
   /* ── Glow utilities ──────────────── */
@@ -276,10 +298,14 @@
 
   /* ── Glass input (search bar style) ── */
   .input-glass {
-    background: hsl(0 0% 100% / 0.04);
-    border: 1px solid hsl(0 0% 100% / 0.08);
+    background: linear-gradient(180deg,
+      hsl(240 30% 100% / 0.05) 0%,
+      hsl(240 30% 100% / 0.025) 100%);
+    border: 1px solid hsl(240 30% 100% / 0.07);
     border-radius: 1rem;
     color: hsl(0 0% 96%);
+    backdrop-filter: blur(20px) saturate(1.4);
+    -webkit-backdrop-filter: blur(20px) saturate(1.4);
   }
   .input-glass:focus, .input-glass:focus-visible {
     outline: none;
@@ -290,8 +316,12 @@
   /* ── Tab pill row (glass container, iridescent active) ── */
   .tabs-glass {
     @apply inline-flex p-1 rounded-full;
-    background: hsl(0 0% 100% / 0.05);
-    border: 1px solid hsl(0 0% 100% / 0.08);
+    background: linear-gradient(180deg,
+      hsl(240 30% 100% / 0.05) 0%,
+      hsl(240 30% 100% / 0.025) 100%);
+    border: 1px solid hsl(240 30% 100% / 0.07);
+    backdrop-filter: blur(20px) saturate(1.4);
+    -webkit-backdrop-filter: blur(20px) saturate(1.4);
   }
   .tab-glass {
     @apply inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full text-xs font-medium transition-all;
