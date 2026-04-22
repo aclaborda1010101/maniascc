@@ -73,8 +73,8 @@ function ConversationList({
   const sortedConvs = [...conversations].sort((a: any, b: any) => b.updatedAt - a.updatedAt);
   return (
     <div className="flex flex-col h-full">
-      <div className="p-3 border-b border-border">
-        <Button onClick={onCreate} variant="outline" size="sm" className="w-full gap-2 rounded-xl">
+      <div className="p-3 border-b border-white/[0.06]">
+        <Button onClick={onCreate} variant="ghost" size="sm" className="w-full gap-2 rounded-xl bg-white/[0.04] border border-white/[0.08] hover:bg-white/[0.08] hover:border-white/[0.14] text-white/85 backdrop-blur-xl">
           <Plus className="h-4 w-4" /> Nueva conversación
         </Button>
       </div>
@@ -83,8 +83,10 @@ function ConversationList({
           <div
             key={conv.id}
             className={cn(
-              "group flex items-center gap-2 px-3 py-2.5 cursor-pointer rounded-2xl hover:bg-muted/60 transition-colors min-h-[44px]",
-              conv.id === activeConversationId && "bg-accent/10 border border-accent/30"
+              "group flex items-center gap-2 px-3 py-2.5 cursor-pointer rounded-2xl transition-colors min-h-[44px]",
+              conv.id === activeConversationId
+                ? "bg-white/[0.06] border border-white/[0.10] backdrop-blur-xl"
+                : "hover:bg-white/[0.04] border border-transparent"
             )}
             onClick={() => conv.id !== activeConversationId && onSwitch(conv.id)}
           >
@@ -95,7 +97,7 @@ function ConversationList({
                   value={editTitle}
                   onChange={(e: any) => onEditTitleChange(e.target.value)}
                   onKeyDown={(e: any) => e.key === "Enter" && onConfirmRename()}
-                  className="h-6 text-xs px-1"
+                  className="h-6 text-xs px-1 bg-white/[0.04] border-white/[0.08]"
                   autoFocus
                   onClick={(e: any) => e.stopPropagation()}
                 />
@@ -108,7 +110,7 @@ function ConversationList({
               </div>
             ) : (
               <>
-                <span className="flex-1 text-xs truncate">{conv.title}</span>
+                <span className="flex-1 text-xs truncate text-white/80">{conv.title}</span>
                 <div className="hidden group-hover:flex items-center gap-0.5">
                   <Button variant="ghost" size="icon" className="h-5 w-5" onClick={(e: any) => { e.stopPropagation(); onStartRename(conv.id, conv.title); }}>
                     <Pencil className="h-3 w-3" />
@@ -188,10 +190,10 @@ export default function AsistenteIA() {
       {/* Desktop sidebar (collapsible) */}
       {!isMobile && (
         <div className={cn(
-          "shrink-0 border-r border-border bg-card/40 overflow-hidden transition-all duration-200",
+          "shrink-0 overflow-hidden transition-all duration-200 border-r border-white/[0.06]",
           desktopSidebarOpen ? "w-64" : "w-0"
         )}>
-          <div className="w-64 h-full">
+          <div className="w-64 h-full bg-white/[0.02] backdrop-blur-2xl">
             <ConversationList {...convListProps} />
           </div>
         </div>
@@ -414,24 +416,6 @@ export default function AsistenteIA() {
             </div>
           </div>
 
-          {/* Suggestions grid (below input, like the mockup) */}
-          {messages.length > 0 && (
-            <div className="space-y-2.5">
-              <p className="text-[10px] font-semibold tracking-[0.18em] text-muted-foreground/70 uppercase pl-1">Sugerencias</p>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                {SUGGESTIONS.map((s) => (
-                  <button
-                    key={s}
-                    onClick={() => handleSuggestion(s)}
-                    className="glass-edge rounded-full px-4 py-2.5 text-left text-xs text-white/80 hover:text-white transition-colors flex items-center gap-2 group"
-                  >
-                    <span className="text-accent opacity-60 group-hover:opacity-100 transition-opacity">→</span>
-                    <span className="truncate">{s}</span>
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
         </div>
       </div>
 
