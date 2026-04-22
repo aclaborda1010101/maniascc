@@ -7,7 +7,7 @@
 @layer base {
   :root {
     /* ── visionOS dark-first palette ───────── */
-    --background: 240 35% 6%;
+    --background: 200 35% 6%;
     --foreground: 0 0% 96%;
 
     /* Translucent surfaces — used inside glass cards */
@@ -15,11 +15,11 @@
     --card-foreground: 0 0% 96%;
     --card-elevated: 0 0% 100%; /* used as base, alpha controlled */
 
-    --popover: 240 35% 9%;
+    --popover: 200 35% 9%;
     --popover-foreground: 0 0% 96%;
 
     --primary: 220 100% 71%;     /* acc-1 indigo/blue */
-    --primary-foreground: 240 35% 6%;
+    --primary-foreground: 200 35% 6%;
 
     --secondary: 0 0% 100%;      /* alpha controlled */
     --secondary-foreground: 0 0% 96%;
@@ -27,8 +27,8 @@
     --muted: 0 0% 100%;
     --muted-foreground: 0 0% 65%;
 
-    --accent: 258 70% 74%;       /* elegant lilac — iridescent signature */
-    --accent-foreground: 240 35% 6%;
+    --accent: 175 70% 55%;       /* teal — iridescent signature */
+    --accent-foreground: 200 35% 6%;
 
     --destructive: 0 88% 71%;
     --destructive-foreground: 0 0% 100%;
@@ -39,12 +39,12 @@
 
     --radius: 1.25rem;
 
-    /* ── 5 iridescent accents (Claude prototype palette) ─── */
-    --acc-1: 220 85% 70%;        /* indigo-blue */
-    --acc-2: 258 70% 74%;        /* elegant lilac (signature) */
-    --acc-3: 330 65% 72%;        /* soft pink */
-    --acc-4: 168 60% 60%;        /* mint */
-    --acc-5: 38 75% 64%;         /* amber */
+    /* ── 5 iridescent accents (cyan/teal/green palette) ─── */
+    --acc-1: 200 95% 65%;        /* azul cian brillante */
+    --acc-2: 175 70% 55%;        /* teal (signature) */
+    --acc-3: 155 65% 60%;        /* verde menta */
+    --acc-4: 190 80% 60%;        /* cyan eléctrico */
+    --acc-5: 145 55% 55%;        /* verde esmeralda suave */
 
     /* AVA legacy aliases (mapped to new accents) */
     --ava-from: var(--acc-1);
@@ -53,10 +53,10 @@
     --score-ring: var(--acc-4);
 
     /* Sidebar (rarely used directly — sidebar is glass) */
-    --sidebar-background: 240 35% 6%;
+    --sidebar-background: 200 35% 6%;
     --sidebar-foreground: 0 0% 96%;
     --sidebar-primary: var(--acc-1);
-    --sidebar-primary-foreground: 240 35% 6%;
+    --sidebar-primary-foreground: 200 35% 6%;
     --sidebar-accent: 0 0% 100% / 0;       /* transparent — span interior gestiona el hover */
     --sidebar-accent-foreground: 0 0% 96%;
     --sidebar-border: 0 0% 100%;
@@ -71,36 +71,36 @@
 
   /* Forced dark — keep .dark mirroring :root for any old references */
   .dark {
-    --background: 240 35% 6%;
+    --background: 200 35% 6%;
     --foreground: 0 0% 96%;
     --card: 0 0% 100%;
     --card-foreground: 0 0% 96%;
     --card-elevated: 0 0% 100%;
-    --popover: 240 35% 9%;
+    --popover: 200 35% 9%;
     --popover-foreground: 0 0% 96%;
     --primary: 220 100% 71%;
-    --primary-foreground: 240 35% 6%;
+    --primary-foreground: 200 35% 6%;
     --secondary: 0 0% 100%;
     --secondary-foreground: 0 0% 96%;
     --muted: 0 0% 100%;
     --muted-foreground: 0 0% 65%;
-    --accent: 258 70% 74%;
-    --accent-foreground: 240 35% 6%;
+    --accent: 175 70% 55%;
+    --accent-foreground: 200 35% 6%;
     --destructive: 0 70% 62%;
     --destructive-foreground: 0 0% 100%;
     --border: 0 0% 100%;
     --input: 0 0% 100%;
-    --ring: 220 80% 68%;
-    --acc-1: 220 85% 70%;
-    --acc-2: 258 70% 74%;
-    --acc-3: 330 65% 72%;
-    --acc-4: 168 60% 60%;
-    --acc-5: 38 75% 64%;
+    --ring: 200 95% 65%;
+    --acc-1: 200 95% 65%;
+    --acc-2: 175 70% 55%;
+    --acc-3: 155 65% 60%;
+    --acc-4: 190 80% 60%;
+    --acc-5: 145 55% 55%;
     --ava-from: var(--acc-1);
     --ava-via:  var(--acc-2);
     --ava-to:   var(--acc-3);
     --score-ring: var(--acc-4);
-    --sidebar-background: 240 35% 6%;
+    --sidebar-background: 200 35% 6%;
     --sidebar-foreground: 0 0% 96%;
     --sidebar-accent: 0 0% 100% / 0;
     --sidebar-accent-foreground: 0 0% 96%;
@@ -118,7 +118,7 @@
   body {
     @apply bg-background text-foreground antialiased;
     font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'SF Pro Text', 'Inter', system-ui, sans-serif;
-    background-color: hsl(240 35% 5%);
+    background-color: hsl(200 35% 5%);
     font-size: 14px;
     line-height: 1.5;
     letter-spacing: -0.005em;
