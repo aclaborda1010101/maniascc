@@ -1,5 +1,7 @@
 // Edge function: genera embeddings (Gemini text-embedding-004, 768 dims)
-// vía Lovable AI Gateway, para todos los chunks de un documento que no los tengan.
+// vía Google AI Studio (Generative Language API) directamente.
+// El Lovable AI Gateway dejó de exponer modelos de embeddings, así que usamos
+// la API nativa de Google con la clave GOOGLE_AI_API_KEY.
 // Llamada típica: { documento_id }  o  { question } para embed de query.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
@@ -9,29 +11,28 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-const EMBED_MODEL = "google/text-embedding-004";
+const EMBED_MODEL = "gemini-embedding-001";
 const EMBED_DIM = 768;
-const BATCH = 50;
-const GATEWAY_URL = "https://ai.gateway.lovable.dev/v1/embeddings";
+const BATCH = 100;
+const GOOGLE_URL = `https://generativelanguage.googleapis.com/v1beta/models/${EMBED_MODEL}:batchEmbedContents`;
 
 async function embedTexts(texts: string[], apiKey: string): Promise<number[][]> {
-  const resp = await fetch(GATEWAY_URL, {
+  const requests = texts.map((t) => ({
+    model: `models/${EMBED_MODEL}`,
+    content: { parts: [{ text: (t || "").slice(0, 8000) }] },
+    outputDimensionality: EMBED_DIM,
+  }));
+  const resp = await fetch(`${GOOGLE_URL}?key=${apiKey}`, {
     method: "POST",
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      model: EMBED_MODEL,
-      input: texts.map((t) => (t || "").slice(0, 8000)),
-    }),
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ requests }),
   });
   if (!resp.ok) {
     const txt = await resp.text();
-    throw new Error(`Lovable AI embeddings ${resp.status}: ${txt.slice(0, 300)}`);
+    throw new Error(`Google AI embeddings ${resp.status}: ${txt.slice(0, 300)}`);
   }
   const data = await resp.json();
-  return (data.data || []).map((d: any) => d.embedding as number[]);
+  return (data.embeddings || []).map((e: any) => e.values as number[]);
 }
 
 Deno.serve(async (req) => {
@@ -40,9 +41,9 @@ Deno.serve(async (req) => {
   try {
     const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
     const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) {
-      return new Response(JSON.stringify({ error: "LOVABLE_API_KEY not configured" }), {
+    const GOOGLE_AI_API_KEY = Deno.env.get("GOOGLE_AI_API_KEY");
+    if (!GOOGLE_AI_API_KEY) {
+      return new Response(JSON.stringify({ error: "GOOGLE_AI_API_KEY not configured" }), {
         status: 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -56,7 +57,7 @@ Deno.serve(async (req) => {
 
     // --- Modo 1: embed de una query (para búsqueda híbrida) ---
     if (question) {
-      const [vec] = await embedTexts([question], LOVABLE_API_KEY);
+      const [vec] = await embedTexts([question], GOOGLE_AI_API_KEY);
       return new Response(
         JSON.stringify({ embedding: vec, model: EMBED_MODEL, dim: EMBED_DIM }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -92,7 +93,7 @@ Deno.serve(async (req) => {
       const slice = chunks.slice(i, i + BATCH);
       const vecs = await embedTexts(
         slice.map((c) => c.contenido || ""),
-        LOVABLE_API_KEY
+        GOOGLE_AI_API_KEY
       );
       const updates = slice.map((c, j) =>
         admin.from("document_chunks").update({ embedding: vecs[j] as never }).eq("id", c.id)
