@@ -1,58 +1,69 @@
 
 
-# Unificar fondo y estilo glass al mockup de referencia
+# Cambio de paleta: de morado/rosa a azul/verde moderno
 
-Aplicar a toda la app el mismo lenguaje visual del mockup: fondo púrpura-azul muy oscuro (no negro neutro), superficies glass con tinte ligeramente cálido y bordes apenas visibles, y cards con sutil degradado iridiscente interno como las del panel "Documentos" del diseño.
+Sustituir los acentos iridiscentes actuales (indigo + lila + rosa) por una paleta más fresca y tecnológica basada en azul cian, teal y verde menta. Afecta a fondo animado, sombras de color, gradientes y elementos destacados, manteniendo la estructura glass intacta.
 
 ## Cambios
 
-### 1. Fondo global (`src/index.css`)
+### 1. Tokens de acento (`src/index.css`)
 
-- `--background` pasa de `224 30% 4%` (casi negro) a un tono nocturno púrpura-azul más profundo y con más vida: aproximadamente `240 35% 6%`.
-- `body { background-color }` y el `style={{ background }}` inline del `AppLayout` se igualan al nuevo token.
-- Se intensifican los blobs ambient (`--acc-1`, `--acc-2`, `--acc-3`) bajando opacidad pero aumentando radio para que el fondo respire en lila/azul como la referencia, sin ruido.
+Sustituir los 5 acentos iridiscentes:
 
-### 2. Glass unificado (`.glass`, `.glass-strong`, `.card-premium`)
+| Token | Antes (morado/rosa) | Después (azul/verde) |
+|---|---|---|
+| `--acc-1` | `220 85% 70%` indigo-azul | `200 95% 65%` azul cian brillante |
+| `--acc-2` | `258 70% 74%` lila (firma) | `175 70% 55%` teal (nueva firma) |
+| `--acc-3` | `330 65% 72%` rosa | `155 65% 60%` verde menta |
+| `--acc-4` | `168 60% 60%` mint | `190 80% 60%` cyan eléctrico |
+| `--acc-5` | `38 75% 64%` ámbar | `145 55% 55%` verde esmeralda suave |
 
-Reescribir las superficies para igualar el aspecto del mockup:
+El `--accent` global pasa de lila (`258 70% 74%`) a teal (`175 70% 55%`) para que toda referencia a `accent` en componentes shadcn migre automáticamente.
 
-- Fondo: `linear-gradient(180deg, hsl(240 30% 100% / 0.05), hsl(240 30% 100% / 0.025))` en vez del flat blanco al 4%. Da el sutil "fade" que se ve en cada card del mockup.
-- Borde: `1px solid hsl(240 30% 100% / 0.07)` (más fino y con leve tinte).
-- Radio: subir a `1.5rem` (24px) para igualar el redondeo de la referencia.
-- Sombra interior superior + sombra exterior más profunda para que la card "flote" sobre el fondo.
-- `backdrop-filter: blur(40px) saturate(1.6)` para todas las glass (homogeneizar — hoy varían entre 20/32/40px).
+### 2. Fondo (`--background`)
 
-### 3. Cards de contenido con tinte iridiscente sutil
+Pequeño viraje del nocturno púrpura-azul actual (`240 35% 6%`) a un nocturno más frío y verdoso: aproximadamente `200 35% 6%`. Sigue siendo oscuro y profundo pero con base cian en vez de violeta, coherente con los nuevos acentos.
 
-Nueva clase `.glass-tinted` (variante de `.glass`) que añade un degradado muy tenue de `--acc-1 → --acc-2` al 4-6 % en el fondo, replicando las tarjetas tipo "Contrato Gran Vía 7" del mockup. Se aplica desde Tailwind como utility opcional para listas/grids principales (Dashboard, Activos, Operadores, Documentos, Oportunidades).
+### 3. Blobs ambient animados
 
-### 4. Header sticky y sidebar
+Las dos manchas grandes (`.ambient::before`, `.ambient::after`) y la tercera (`.ambient-blob-3`) usan ya `--acc-1`, `--acc-2`, `--acc-3` por variable, así que el cambio se propaga sin tocar selectores. Resultado: el fondo respira en azul cian + teal + verde menta en vez de azul + lila + rosa.
 
-- El topbar de `AppLayout.tsx` (hoy `hsl(224 30% 4% / 0.6)`) usa el nuevo fondo `hsl(240 35% 6% / 0.55)` y mismo blur que las glass para consistencia.
-- Sidebar (`AppSidebar.tsx`): la superficie glass adopta automáticamente el nuevo `.glass`, sin tocar el componente.
+### 4. Gradientes signature
 
-### 5. Inputs y tabs
+`.gradient-iridescent`, `.text-iridescent`, `.gradient-conic`, `.glass-edge::before`, `.pill-iridescent`, `.tab-glass[data-state=active]` consumen los mismos tokens, por lo que adoptan automáticamente el nuevo degradado azul → teal → verde menta.
 
-- `.input-glass` y `.tabs-glass` heredan el nuevo tono (mismo gradiente sutil + borde 0.07) para que buscadores y selectores no rompan la coherencia visual.
+### 5. Glow utilities
+
+Renombrar semánticamente sin cambiar selectores:
+- `.glow-pink` ahora glow verde menta (mismo `--acc-3` reasignado).
+- `.glow-mint` ahora cyan eléctrico.
+- `.glow-amber` ahora verde esmeralda.
+
+Las clases existentes en componentes siguen funcionando, solo cambia el color que producen.
+
+### 6. Selección de texto
+
+`::selection` pasa de `hsl(var(--acc-1) / 0.35)` indigo a la nueva versión cian, automático al cambiar el token.
 
 ## Lo que NO se toca
 
-- Paleta de acentos `--acc-1..5` (se mantienen los 5 iridiscentes actuales).
-- Tipografía, tamaños y radios de botones.
-- Estructura de componentes ni lógica.
+- Estructura glass (`.glass`, `.glass-strong`, `.glass-tinted`) — solo cambia el matiz que el usuario percibe a través de los acentos.
+- Tipografía, radios, espaciados, sombras neutras.
+- `--destructive` (sigue rojo) y `--muted-foreground`.
+- `.ava-report` y `.prose`.
+- Componentes individuales: ninguno se edita, todos consumen tokens.
 - Modo claro (la app es dark-only).
-- Estilos `.ava-report` y `.prose` (ya tienen su propio tratamiento).
 
 ## Detalles técnicos
 
-- Único archivo modificado: `src/index.css` (tokens + clases `.glass`, `.glass-strong`, `.glass-tinted` nueva, `.input-glass`, `.tabs-glass`, `.ambient`).
-- Segundo archivo: `src/components/AppLayout.tsx` para alinear el `style` inline del contenedor raíz y del header al nuevo `--background`.
-- Sin cambios en Tailwind config: todos los tokens viven en variables CSS ya consumidas por la config existente.
-- Sin migraciones, sin nuevas dependencias, sin tocar componentes individuales — el cambio se propaga porque ya usan `.glass`, `.card-premium` o `bg-background`.
+- Único archivo modificado: `src/index.css` — bloque `:root` y `.dark` (mismos valores espejo).
+- Sin cambios en Tailwind config, componentes, ni lógica.
+- Memoria `mem://style/design-system` se actualiza para reflejar la nueva paleta cian/teal/verde como firma visual.
+- Reversible en un único commit si la paleta nueva no convence: basta con restaurar los 5 valores HSL anteriores.
 
 ## Resultado esperado
 
-- Todas las páginas (Dashboard, Oportunidades, Activos, Operadores, Documentos, Patrones, Conocimiento, AVA, etc.) comparten el mismo fondo púrpura-azul nocturno y el mismo glass del mockup.
-- Las tarjetas se distinguen mejor del fondo gracias al degradado interno sutil y al borde más fino.
-- Coherencia total en sidebar, topbar, tabs, inputs y cards.
+- Fondo animado en tonos cian-teal-verde, más fresco y "tech".
+- Botones primarios, gauges, tabs activos, gradientes y glows en azul/verde coherente.
+- Misma estructura visionOS y mismo nivel de profundidad glass — solo cambia el color de la luz.
 
