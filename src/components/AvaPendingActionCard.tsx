@@ -98,7 +98,7 @@ export function AvaPendingActionCard({ action, onResolved }: Props) {
 
       {status === "pending" && (
         <div className="flex gap-2">
-          <Button size="sm" className="h-7 text-xs gap-1 bg-accent text-accent-foreground hover:bg-accent/90" onClick={handleConfirm}>
+          <Button size="sm" className="h-7 text-xs gap-1 bg-accent/15 text-foreground border border-accent/25 hover:bg-accent/25 backdrop-blur-md" onClick={handleConfirm}>
             <Check className="h-3 w-3" /> Confirmar y ejecutar
           </Button>
           <Button size="sm" variant="outline" className="h-7 text-xs gap-1" onClick={handleCancel}>

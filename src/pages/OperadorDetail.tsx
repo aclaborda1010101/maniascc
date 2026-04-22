@@ -203,7 +203,7 @@ export default function OperadorDetail() {
                 <Switch checked={op.activo} onCheckedChange={(v) => setOp({ ...op, activo: v })} />
                 <Label>Operador activo</Label>
               </div>
-              <Button onClick={handleSave} disabled={saving} className="bg-accent text-accent-foreground hover:bg-accent/90">
+              <Button onClick={handleSave} disabled={saving} className="bg-accent/15 text-foreground border border-accent/25 hover:bg-accent/25 backdrop-blur-md">
                 <Save className="mr-2 h-4 w-4" /> {saving ? "Guardando..." : "Guardar cambios"}
               </Button>
             </CardContent>
@@ -233,7 +233,7 @@ export default function OperadorDetail() {
           <div className="space-y-4">
             <div className="flex items-center justify-between">
               <p className="text-sm text-muted-foreground">{subOps.length} sub-operador{subOps.length !== 1 ? "es" : ""} vinculados a esta matriz</p>
-              <Button size="sm" onClick={() => setShowCreateSub(true)} className="bg-accent text-accent-foreground hover:bg-accent/90">
+              <Button size="sm" onClick={() => setShowCreateSub(true)} className="bg-accent/15 text-foreground border border-accent/25 hover:bg-accent/25 backdrop-blur-md">
                 <Plus className="mr-1 h-3 w-3" /> Nuevo sub-operador
               </Button>
             </div>
@@ -363,7 +363,7 @@ export default function OperadorDetail() {
                   </Select>
                 </div>
                 <div className="space-y-2"><Label>Descripción</Label><Textarea name="descripcion" rows={2} /></div>
-                <Button type="submit" className="w-full bg-accent text-accent-foreground hover:bg-accent/90" disabled={submittingSub}>
+                <Button type="submit" className="w-full bg-accent/15 text-foreground border border-accent/25 hover:bg-accent/25 backdrop-blur-md" disabled={submittingSub}>
                   {submittingSub ? "Creando..." : "Crear Sub-operador"}
                 </Button>
               </form>

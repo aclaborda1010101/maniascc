@@ -64,7 +64,7 @@ export default function TabHistorialIA({ contacto: c, operador, negociaciones }:
           <CardTitle className="text-sm flex items-center gap-2">
             <Sparkles className="h-4 w-4 text-accent" /> Brief de Negociación IA
           </CardTitle>
-          <Button onClick={generate} disabled={loading} size="sm" className="bg-accent text-accent-foreground hover:bg-accent/90">
+          <Button onClick={generate} disabled={loading} size="sm" className="bg-accent/15 text-foreground border border-accent/25 hover:bg-accent/25 backdrop-blur-md">
             <Sparkles className="mr-1.5 h-3.5 w-3.5" />
             {loading ? "Generando..." : brief ? "Regenerar" : "Generar Brief"}
           </Button>

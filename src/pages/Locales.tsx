@@ -149,7 +149,7 @@ export default function Locales() {
                 <Label htmlFor="c-desc">Descripción</Label>
                 <Textarea id="c-desc" name="descripcion" placeholder="Detalles adicionales..." rows={3} />
               </div>
-              <Button type="submit" className="w-full bg-accent text-accent-foreground hover:bg-accent/90" disabled={submitting}>
+              <Button type="submit" className="w-full bg-accent/15 text-foreground border border-accent/25 hover:bg-accent/25 backdrop-blur-md" disabled={submitting}>
                 {submitting ? "Creando..." : "Crear Activo"}
               </Button>
             </form>

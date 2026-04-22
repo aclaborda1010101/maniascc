@@ -9,7 +9,7 @@ const NotFound = () => {
         <h1 className="mb-2 text-6xl font-bold text-accent">404</h1>
         <p className="mb-4 text-xl text-muted-foreground">Página no encontrada</p>
         <p className="mb-6 text-sm text-muted-foreground">La página que buscas no existe o ha sido movida.</p>
-        <Button asChild className="bg-accent text-accent-foreground hover:bg-accent/90">
+        <Button asChild className="bg-accent/15 text-foreground border border-accent/25 hover:bg-accent/25 backdrop-blur-md">
           <Link to="/dashboard"><Home className="mr-2 h-4 w-4" /> Volver al Dashboard</Link>
         </Button>
       </div>

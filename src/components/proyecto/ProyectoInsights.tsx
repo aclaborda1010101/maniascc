@@ -96,7 +96,7 @@ export function ProyectoInsights({ proyectoId }: Props) {
               <Brain className="h-4 w-4" /> Insights IA
               {nuevos > 0 && <Badge className="bg-primary/10 text-primary text-xs">{nuevos} nuevos</Badge>}
             </CardTitle>
-            <Button onClick={handleGenerateInsights} disabled={generating} size="sm" className="bg-accent text-accent-foreground hover:bg-accent/90">
+            <Button onClick={handleGenerateInsights} disabled={generating} size="sm" className="bg-accent/15 text-foreground border border-accent/25 hover:bg-accent/25 backdrop-blur-md">
               {generating ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> : <Brain className="h-3.5 w-3.5 mr-1" />}
               Analizar proyecto
             </Button>

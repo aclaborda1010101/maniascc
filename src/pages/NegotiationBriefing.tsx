@@ -185,7 +185,7 @@ export default function NegotiationBriefing() {
             <Label>Notas previas</Label>
             <Textarea rows={2} value={notas} onChange={e => setNotas(e.target.value)} placeholder="Notas de reuniones anteriores..." />
           </div>
-          <Button onClick={handleGenerate} disabled={loading} className="w-full sm:w-auto h-11 bg-accent text-accent-foreground hover:bg-accent/90">
+          <Button onClick={handleGenerate} disabled={loading} className="w-full sm:w-auto h-11 bg-accent/15 text-foreground border border-accent/25 hover:bg-accent/25 backdrop-blur-md">
             {loading ? <><Clock className="mr-2 h-4 w-4 animate-spin" /> Generando...</> : <><MessageSquare className="mr-2 h-4 w-4" /> Generar Briefing</>}
           </Button>
         </CardContent>

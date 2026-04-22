@@ -161,7 +161,7 @@ export default function DossierValidation() {
             </Button>
           </div>
 
-          <Button onClick={handleValidate} disabled={loading} className="w-full sm:w-auto h-11 bg-accent text-accent-foreground hover:bg-accent/90">
+          <Button onClick={handleValidate} disabled={loading} className="w-full sm:w-auto h-11 bg-accent/15 text-foreground border border-accent/25 hover:bg-accent/25 backdrop-blur-md">
             {loading ? <><Clock className="mr-2 h-4 w-4 animate-spin" /> Validando...</> : <><FileSearch className="mr-2 h-4 w-4" /> Validar Dossier</>}
           </Button>
         </CardContent>

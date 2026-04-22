@@ -213,7 +213,7 @@ export default function FloatingChatPanel({ open, onClose }: FloatingChatPanelPr
               onClick={sendMessage}
               disabled={loading || processing || (!input.trim() && pendingAttachments.length === 0)}
               size="icon"
-              className="h-8 w-8 bg-accent text-accent-foreground hover:bg-accent/90"
+              className="h-8 w-8 bg-accent/15 text-foreground border border-accent/25 hover:bg-accent/25 backdrop-blur-md"
             >
               <Send className="h-3.5 w-3.5" />
             </Button>

@@ -153,7 +153,7 @@ export function AvaVoiceControls({
         variant={conversationMode ? "default" : "ghost"}
         size="icon"
         className={cn(sizeBtn, "shrink-0",
-          conversationMode && "bg-accent text-accent-foreground hover:bg-accent/90",
+          conversationMode && "bg-accent/15 text-foreground border border-accent/25 hover:bg-accent/25 backdrop-blur-md",
           !conversationMode && "text-muted-foreground hover:text-foreground",
           (conversation.status === "recording" || speaking) && "ring-2 ring-accent/50",
         )}

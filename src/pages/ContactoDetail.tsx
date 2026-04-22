@@ -216,7 +216,7 @@ export default function ContactoDetail() {
             Brief de Negociación
           </CardTitle>
           {!brief && (
-            <Button onClick={generateBrief} disabled={briefLoading} size="sm" className="bg-accent text-accent-foreground hover:bg-accent/90">
+            <Button onClick={generateBrief} disabled={briefLoading} size="sm" className="bg-accent/15 text-foreground border border-accent/25 hover:bg-accent/25 backdrop-blur-md">
               <Sparkles className="mr-2 h-4 w-4" />
               {briefLoading ? "Generando..." : "Generar Brief"}
             </Button>

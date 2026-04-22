@@ -163,7 +163,7 @@ export default function LocationAnalysis() {
             </div>
           </div>
 
-          <Button onClick={handleAnalyze} disabled={loading || geocoding} className="bg-accent text-accent-foreground hover:bg-accent/90">
+          <Button onClick={handleAnalyze} disabled={loading || geocoding} className="bg-accent/15 text-foreground border border-accent/25 hover:bg-accent/25 backdrop-blur-md">
             {loading || geocoding
               ? <><Clock className="mr-2 h-4 w-4 animate-spin" /> {geocoding ? "Localizando..." : "Analizando..."}</>
               : <><Search className="mr-2 h-4 w-4" /> Analizar Localización</>}
