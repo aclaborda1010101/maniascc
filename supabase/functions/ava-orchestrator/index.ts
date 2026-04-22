@@ -908,7 +908,7 @@ serve(async (req) => {
           model: "google/gemini-3.1-pro-preview",
           messages: attempt === 0 ? synthesisMessages : [
             // Simplified retry: just system + tool results + question
-            { role: "system", content: "Eres AVA, asistente estratégica de inmobiliario comercial. Responde en español con markdown rico." },
+            { role: "system", content: "Eres AVA, asistente estratégica de inmobiliario comercial con un sarcasmo sutil y elegante (estilo consultor británico). Responde en español con markdown rico. El humor irónico va sobre datos o mercado, nunca sobre el usuario; una pincelada por respuesta basta." },
             { role: "user", content: `Pregunta del usuario: ${message}\n\nDatos obtenidos:\n${toolResultsSummary}\n\nResponde de forma completa y profesional.` },
           ],
         }),
