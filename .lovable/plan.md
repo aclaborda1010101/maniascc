@@ -1,48 +1,68 @@
 
-Objetivo: corregir el cron roto que intenta crear el índice HNSW de `document_chunks.embedding`, dejar un único job válido y verificar que el índice empiece a construirse.
 
-Estado actual confirmado:
-- `pg_cron`, `pg_net` y `vector` ya están habilitados.
-- El índice `public.idx_document_chunks_embedding_hnsw` no existe todavía.
-- Sigue activo el job `build-hnsw-document-chunks-once` con la lógica antigua basada en `pg_stat_activity`, que es la causa probable de que nunca entre al `CREATE INDEX`.
+# Cerrar el bucle de aprendizaje continuo de AVA
 
-Implementación
-1. Limpiar el cron actual
-- Desprogramar el job roto `build-hnsw-document-chunks-once`.
-- Limpiar también cualquier job previo con nombre parecido (`build-hnsw-doc-chunks`) para evitar duplicados si hubo intentos parciales.
+## Diagnóstico (estado real, no aspiracional)
 
-2. Crear el nuevo cron con mutex correcto
-- Programar un único job por minuto llamado `build-hnsw-doc-chunks`.
-- Usar la versión con:
-  - comprobación de existencia en `pg_indexes`
-  - `pg_try_advisory_xact_lock(7842341)` como mutex real
-  - `set_config('maintenance_work_mem', '4GB', true)`
-  - `set_config('max_parallel_maintenance_workers', '7', true)`
-  - `CREATE INDEX idx_document_chunks_embedding_hnsw ON public.document_chunks USING hnsw (embedding vector_cosine_ops) WITH (m=16, ef_construction=64)`
-  - `cron.unschedule('build-hnsw-doc-chunks')` al terminar o si detecta que el índice ya existe
+| Pieza | Estado |
+|---|---|
+| Captura de feedback (👍/👎/correcciones/aprobaciones de match) | ✅ Activa |
+| Cola de tareas + agregador (`ai-learning-aggregator`) | ✅ 423 procesadas, 0 pendientes |
+| Patrones consolidados (`ai_learned_patterns`) | ✅ 14 activos, sector/presupuesto/superficie + AVA |
+| Inyección en `ava-orchestrator` | ✅ Top 30 patrones + 5 últimas correcciones cada turno |
+| Inyección en `generate-match-v4` | ✅ Ajuste de score por patrones aprendidos |
+| Filtrado de correcciones por **relevancia al tema actual** | ❌ Hoy se cargan globales |
+| UI para auditar / desactivar / forzar lecciones | ❌ Solo lectura parcial en `/patrones` |
+| Volumen real de feedback explícito en AVA chat | ⚠️ 1 solo voto histórico |
 
-3. Aplicarlo como operación de datos, no como migración
-- Esto no es un cambio de esquema persistente del repo, sino una operación operativa sobre `cron.job`.
-- Debe ejecutarse con la herramienta de base de datos para `SELECT/INSERT/UPDATE/DELETE`, no mediante migration SQL.
+Conclusión: **el motor aprende**, pero la memoria conversacional es ciega al contexto y el usuario no tiene forma de ver ni corregir lo que la máquina cree haber aprendido.
 
-4. Verificación inmediata tras lanzar el fix
-- Confirmar que:
-  - el job antiguo ya no está
-  - el job nuevo existe y queda activo
-  - el índice sigue sin existir al principio, pero el cron ya está listo para el siguiente tick
+## Cambios propuestos
 
-5. Verificación a los 2–5 minutos
-- Revisar `pg_indexes` para comprobar si ya aparece `idx_document_chunks_embedding_hnsw`.
-- Si aparece, confirmar que el cron se ha desprogramado solo.
-- Si no aparece, revisar `cron.job_run_details` / estado del último run para detectar si falló por memoria, timeout interno o bloqueo.
+### 1. Inyección de lecciones por relevancia (no global)
+En `ava-orchestrator/index.ts`, antes de pegar el `lessonsBlock`:
+- Inferir el tópico de la pregunta actual con la misma función `inferTopic` que ya usa el agregador.
+- Cargar correcciones desde `ai_learned_patterns` (`patron_tipo='ava_correction'`) filtrando por `patron_key LIKE 'correction:<topic>:%'` además del fallback genérico.
+- Priorizar patrones con `tasa_exito` extrema (muy alta o muy baja) sobre los neutros.
 
-Validación final esperada
-- `pg_indexes` debe devolver el nuevo índice HNSW sobre `public.document_chunks(embedding vector_cosine_ops)`.
-- `cron.job` no debe conservar jobs HNSW activos una vez creado el índice.
-- La búsqueda vectorial de RAG debería bajar de varios segundos a latencias del orden de cientos de ms.
+### 2. Página `/patrones` ampliada con sección "Memoria de AVA"
+Añadir a `src/pages/Patrones.tsx` una pestaña nueva con:
+- Tabla de **correcciones aprendidas** (`patron_tipo='ava_correction'`): tópico, descripción, fecha, número de aplicaciones, botón "Desactivar".
+- Tabla de **tópicos** (`patron_tipo='ava_topic'`) con tasa de éxito y nº de votos.
+- Botón "Marcar como obsoleto" → `UPDATE ai_learned_patterns SET activo=false WHERE id=...`.
+- Filtro por tipo y por confianza.
 
-Detalles técnicos
-- El problema no está en la extensión ni en la tabla: ambas están listas.
-- El fallo está en la lógica del cron actual, que usa `pg_stat_activity` y puede auto-detectarse a sí mismo.
-- El cambio a advisory lock evita ese falso positivo y garantiza que solo un worker construya el índice.
-- No hace falta tocar frontend, edge functions ni `rag_hybrid_search` para este fix; solo la configuración del job programado en base de datos.
+### 3. Captura más visible en el chat
+En `AvaMessageFeedback.tsx`:
+- Mostrar los botones 👍/👎 ya visibles en cada respuesta (ya están), pero añadir un microcopy sutil al pasar el ratón: *"Tu voto entrena a AVA"*.
+- Después de un 👎, abrir directamente el textarea de corrección (hoy hay que hacer un click extra).
+
+### 4. Telemetría mínima de aprendizaje
+Nueva tarjeta en `/patrones` con:
+- Total de feedbacks últimos 30 días.
+- Patrones nuevos creados.
+- Patrones que han cambiado de signo (de éxito a fracaso o viceversa).
+Lectura directa de `ai_learned_patterns` y `ai_feedback`, sin nuevas tablas.
+
+## Lo que NO se toca
+
+- Esquema de base de datos (las tres tablas son suficientes).
+- `ai-learning-aggregator` (funciona y procesa todo lo encolado).
+- `generate-match-v4` (ya consume patrones correctamente).
+- Tono de AVA, prompts ni edge functions de RAG/PDF.
+
+## Detalles técnicos
+
+- Archivos a modificar: `supabase/functions/ava-orchestrator/index.ts`, `src/pages/Patrones.tsx`, `src/components/AvaMessageFeedback.tsx`.
+- Función auxiliar `inferTopic` se duplica en el orquestador (ya existe en el aggregator) para evitar import cross-function.
+- Sin nuevas migraciones: se usa el campo `activo` ya presente en `ai_learned_patterns`.
+- El filtro por tópico se aplica como `OR` ampliado: `patron_key LIKE 'correction:${topic}:%' OR patron_tipo='ava_topic'`.
+- `confianza ≥ 0.6` se mantiene como umbral por defecto; configurable desde la UI más adelante si hace falta.
+
+## Resultado esperado
+
+- AVA verá correcciones **sólo cuando vengan al caso**, no como ruido permanente.
+- El usuario podrá auditar la memoria y desactivar lecciones equivocadas.
+- Subirá el volumen de feedback útil (más fricción reducida = más votos).
+- El bucle queda **observable y reversible**, no una caja negra.
+
