@@ -77,7 +77,7 @@ Deno.serve(async (req) => {
       .eq("documento_id", documento_id)
       .is("embedding", null)
       .order("chunk_index")
-      .limit(500);
+      .limit(2000);
 
     if (error) throw error;
     if (!chunks || chunks.length === 0) {
