@@ -247,6 +247,62 @@
   }
   .chip-dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
 
+  /* ── Iridescent pill (active filter / primary CTA inline) ── */
+  .pill-iridescent {
+    background: linear-gradient(135deg,
+      hsl(var(--acc-1)) 0%,
+      hsl(var(--acc-2)) 60%,
+      hsl(var(--acc-3)) 100%);
+    color: white;
+    box-shadow: 0 6px 20px -8px hsl(var(--acc-2) / 0.7);
+    border: 1px solid hsl(var(--acc-2) / 0.4);
+  }
+
+  /* ── Glass card with iridescent left edge accent ── */
+  .glass-edge {
+    @apply glass relative overflow-hidden;
+  }
+  .glass-edge::before {
+    content: "";
+    position: absolute; left: 0; top: 12%; bottom: 12%; width: 2px;
+    background: linear-gradient(180deg,
+      hsl(var(--acc-1)) 0%,
+      hsl(var(--acc-2)) 50%,
+      hsl(var(--acc-3)) 100%);
+    border-radius: 2px;
+    opacity: 0.85;
+    pointer-events: none;
+  }
+
+  /* ── Glass input (search bar style) ── */
+  .input-glass {
+    background: hsl(0 0% 100% / 0.04);
+    border: 1px solid hsl(0 0% 100% / 0.08);
+    border-radius: 1rem;
+    color: hsl(0 0% 96%);
+  }
+  .input-glass:focus, .input-glass:focus-visible {
+    outline: none;
+    border-color: hsl(var(--acc-2) / 0.5);
+    box-shadow: 0 0 0 3px hsl(var(--acc-2) / 0.15);
+  }
+
+  /* ── Tab pill row (glass container, iridescent active) ── */
+  .tabs-glass {
+    @apply inline-flex p-1 rounded-full;
+    background: hsl(0 0% 100% / 0.05);
+    border: 1px solid hsl(0 0% 100% / 0.08);
+  }
+  .tab-glass {
+    @apply inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full text-xs font-medium transition-all;
+    color: hsl(0 0% 100% / 0.6);
+  }
+  .tab-glass[data-state="active"], .tab-glass.is-active {
+    background: linear-gradient(135deg, hsl(var(--acc-1)), hsl(var(--acc-2)));
+    color: white;
+    box-shadow: 0 4px 14px -4px hsl(var(--acc-2) / 0.55);
+  }
+
   /* ── Number/display typography ─────────────────── */
   .font-display {
     font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Inter Tight', system-ui, sans-serif;
