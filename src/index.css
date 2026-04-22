@@ -375,3 +375,7 @@
 .ava-report p { @apply my-1.5 text-xs leading-relaxed; }
 .ava-report strong { @apply font-semibold text-foreground; }
 .ava-report code:not(pre code) { @apply text-[10px]; }
+.ava-report pre {
+  background: hsl(0 0% 100% / 0.02);
+  border-color: hsl(0 0% 100% / 0.05);
+}
