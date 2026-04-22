@@ -187,31 +187,54 @@ serve(async (req) => {
     // Determine RAG domain
     const dominio = domainOverride || inferDomain(doc.tipo_documento, doc.mime_type);
 
-    // Download file from storage — try multiple buckets since documents may live in different ones
+    // Download file from storage — try multiple buckets and Unicode path variants.
+    // Storage rejects some characters (Ñ, accents) as "Invalid key" — try NFC/NFD normalizations,
+    // then fall back to listing the parent folder and matching by case-insensitive basename.
     const candidateBuckets = ["documentos_contratos", "documentos_generados", "ava_attachments"];
+    const rawPath = doc.storage_path as string;
+    const pathVariants = Array.from(new Set([
+      rawPath,
+      rawPath.normalize("NFC"),
+      rawPath.normalize("NFD"),
+    ]));
     let fileData: Blob | null = null;
-    let lastErr: string = "";
+    let lastErr = "";
     let usedBucket = "";
-    for (const bucket of candidateBuckets) {
-      const { data, error } = await admin.storage.from(bucket).download(doc.storage_path);
-      if (data) {
-        fileData = data;
-        usedBucket = bucket;
-        break;
+    let usedPath = "";
+    outer: for (const bucket of candidateBuckets) {
+      for (const p of pathVariants) {
+        const { data, error } = await admin.storage.from(bucket).download(p);
+        if (data) { fileData = data; usedBucket = bucket; usedPath = p; break outer; }
+        lastErr = error?.message || "unknown";
       }
-      lastErr = error?.message || "unknown";
+    }
+
+    // Last-resort: list parent folder and find the file by case-insensitive basename match
+    if (!fileData) {
+      const lastSlash = rawPath.lastIndexOf("/");
+      const folder = lastSlash >= 0 ? rawPath.slice(0, lastSlash) : "";
+      const targetName = (lastSlash >= 0 ? rawPath.slice(lastSlash + 1) : rawPath).normalize("NFC").toLowerCase();
+      for (const bucket of candidateBuckets) {
+        const { data: list } = await admin.storage.from(bucket).list(folder, { limit: 1000 });
+        if (!list) continue;
+        const match = list.find((f) => f.name.normalize("NFC").toLowerCase() === targetName);
+        if (match) {
+          const realPath = folder ? `${folder}/${match.name}` : match.name;
+          const { data } = await admin.storage.from(bucket).download(realPath);
+          if (data) { fileData = data; usedBucket = bucket; usedPath = realPath; break; }
+        }
+      }
     }
 
     if (!fileData) {
-      // File registered in DB but missing in storage — mark as unprocessable and return friendly error
-      console.error(`File missing in all buckets for doc ${documento_id}, path=${doc.storage_path}, lastErr=${lastErr}`);
+      console.error(`File missing for doc ${documento_id}, path=${rawPath}, lastErr=${lastErr}`);
       return new Response(JSON.stringify({
-        error: `El archivo no existe en el almacenamiento (ruta: ${doc.storage_path}). Es posible que la ingesta original fallara o que el archivo haya sido eliminado. Vuelve a subir el documento.`,
+        error: `El archivo no existe en el almacenamiento (ruta: ${rawPath}). Es posible que la ingesta original fallara o que el archivo haya sido eliminado. Vuelve a subir el documento.`,
         code: "FILE_NOT_FOUND",
-        storage_path: doc.storage_path,
+        storage_path: rawPath,
       }), { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
-    console.log(`Downloaded ${doc.nombre} from bucket ${usedBucket}`);
+    console.log(`Downloaded ${doc.nombre} from bucket ${usedBucket} (path: ${usedPath})`);
 
     // Extract text content
     let text = "";
