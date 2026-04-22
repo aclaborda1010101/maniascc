@@ -565,7 +565,8 @@ serve(async (req) => {
           if (!ALLOWED_TABLES.includes(args.table)) {
             result = { error: "Tabla no permitida: " + args.table };
           } else {
-            let query = admin.from(args.table).select(args.select || "*");
+            // Use user-scoped client so RLS policies enforce per-user access
+            let query = authClient.from(args.table).select(args.select || "*");
             if (args.filters && Array.isArray(args.filters)) {
               for (const f of args.filters) {
                 query = (query as any)[f.operator](f.column, f.value);
