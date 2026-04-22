@@ -171,7 +171,33 @@ export default function Dashboard() {
 
   const unreadCount = notifications.filter((n) => !n.read).length;
 
-  const userName = (user?.email?.split("@")[0] || "Alberto").replace(/[^a-zA-Z]/g, "");
+  const [profileName, setProfileName] = useState<string | null>(null);
+  useEffect(() => {
+    if (!user?.id) return;
+    supabase
+      .from("perfiles")
+      .select("nombre, apellidos")
+      .eq("user_id", user.id)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (data) {
+          const full = `${data.nombre || ""} ${data.apellidos || ""}`.trim();
+          if (full) setProfileName(full);
+        }
+      });
+  }, [user?.id]);
+
+  const titleCase = (raw: string) =>
+    raw
+      .replace(/[._-]+/g, " ")
+      .split(/\s+/)
+      .filter(Boolean)
+      .map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+      .join(" ");
+
+  const userName = profileName
+    ? titleCase(profileName)
+    : titleCase(user?.email?.split("@")[0] || "Alberto");
   const greeting = (() => {
     const h = new Date().getHours();
     if (h < 12) return "Buenos días";
