@@ -186,7 +186,7 @@ export default function AsistenteIA() {
   };
 
   return (
-    <div className="flex h-[calc(100vh-6.5rem)] gap-0 -mx-4 md:-mx-0 -mt-4 md:-mt-0">
+    <div className="flex h-[calc(100dvh-4rem)] md:h-[calc(100vh-6.5rem)] gap-0 -mx-4 md:-mx-0 -mt-4 md:-mt-0 -mb-28 md:mb-0">
       {/* Desktop sidebar (collapsible) */}
       {!isMobile && (
         <div className={cn(
@@ -372,8 +372,7 @@ export default function AsistenteIA() {
 
         {/* Input panel + suggestions */}
         <div
-          className="px-3 md:px-8 py-4 md:py-5 shrink-0 space-y-4 max-w-4xl mx-auto w-full"
-          style={{ paddingBottom: "max(1rem, env(safe-area-inset-bottom))" }}
+          className="px-3 md:px-8 pt-3 md:pt-5 pb-2 md:pb-5 shrink-0 space-y-3 md:space-y-4 max-w-4xl mx-auto w-full"
         >
           {pendingAttachments.length > 0 && (
             <AvaAttachmentBar attachments={pendingAttachments} onAdd={addAttachments} onRemove={removeAttachment} disabled={loading} />
