@@ -1033,3 +1033,21 @@ serve(async (req) => {
     });
   }
 });
+
+// Topic inference (mirrors ai-learning-aggregator to keep the loop coherent)
+function inferTopic(userQuestion: string, toolsUsed: string[]): string {
+  const q = (userQuestion || "").toLowerCase();
+  if (/centro comercial|cc |mall|parque comercial|tenant mix|sba|gla/i.test(q)) return "centro_comercial";
+  if (/operador|marca|expansi[óo]n|inquilino/i.test(q)) return "operador";
+  if (/local|activo|inmueble|nave|parcela/i.test(q)) return "activo";
+  if (/contrato|cl[áa]usula|renta|alquiler/i.test(q)) return "contrato";
+  if (/negocia|propuesta|carta de intenci/i.test(q)) return "negociacion";
+  if (/match|compatibil|encaja/i.test(q)) return "matching";
+  if (/informe|dossier|pdf|reporte/i.test(q)) return "informe";
+  if (/contacto|persona|interlocutor/i.test(q)) return "contacto";
+  if (toolsUsed.some(t => t.startsWith("nearby_search"))) return "ubicacion";
+  if (toolsUsed.some(t => t.startsWith("rag_search"))) return "documental";
+  if (toolsUsed.some(t => t.startsWith("db_query"))) return "base_datos";
+  const words = q.split(/\s+/).filter(w => w.length > 4).slice(0, 3).join("_");
+  return words || "general";
+}
