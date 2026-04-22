@@ -621,19 +621,20 @@ serve(async (req) => {
           const searchTables = args.tables || ["locales", "operadores", "contactos", "proyectos"];
           const searchResults: Record<string, any[]> = {};
           const q = "%" + (args.query || "") + "%";
+          const userId = user.id;
           for (const t of searchTables) {
             if (!ALLOWED_TABLES.includes(t)) continue;
             let searchQuery;
             if (t === "locales") {
-              searchQuery = admin.from(t).select("*").or("nombre.ilike." + q + ",ciudad.ilike." + q + ",direccion.ilike." + q).limit(10);
+              searchQuery = admin.from(t).select("*").or("nombre.ilike." + q + ",ciudad.ilike." + q + ",direccion.ilike." + q).eq("created_by", userId).limit(10);
             } else if (t === "operadores") {
-              searchQuery = admin.from(t).select("*").or("nombre.ilike." + q + ",sector.ilike." + q).limit(10);
+              searchQuery = admin.from(t).select("*").or("nombre.ilike." + q + ",sector.ilike." + q).eq("created_by", userId).limit(10);
             } else if (t === "contactos") {
-              searchQuery = admin.from(t).select("*").or("nombre.ilike." + q + ",empresa.ilike." + q + ",email.ilike." + q).limit(10);
+              searchQuery = admin.from(t).select("*").or("nombre.ilike." + q + ",empresa.ilike." + q + ",email.ilike." + q).or(`visibility.in.(shared,global),creado_por.eq.${userId}`).limit(10);
             } else if (t === "proyectos") {
               searchQuery = admin.from(t).select("*").or("nombre.ilike." + q + ",descripcion.ilike." + q).limit(10);
             } else if (t === "documentos_proyecto") {
-              searchQuery = admin.from(t).select("*").or("nombre.ilike." + q).limit(10);
+              searchQuery = admin.from(t).select("*").or("nombre.ilike." + q).or(`visibility.in.(shared,global),owner_id.eq.${userId}`).limit(10);
             } else {
               continue;
             }
