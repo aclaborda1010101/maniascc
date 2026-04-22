@@ -1,65 +1,86 @@
 
 
-# Pulido visual: glass universal + paleta más sobria + fix hover sidebar
+# Fix: sidebar de AVA no se pliega + input no acepta texto
 
-## 1) Fix crítico — hover blanco del sidebar
+## Diagnóstico
 
-**Causa**: `SidebarMenuButton` (en `src/components/ui/sidebar.tsx` línea 415) aplica `hover:bg-sidebar-accent` y la variable `--sidebar-accent` está definida como `0 0% 100%` (blanco al 100%). Cuando Tailwind compila `bg-sidebar-accent` sin alpha, pinta blanco sólido sobre el wrapper exterior — encima del span interior glass — produciendo el flash blanco que se ve en la captura.
+El bug raíz está en `src/pages/AsistenteIA.tsx` línea 212:
 
-**Solución**:
-- En `src/index.css`: cambiar `--sidebar-accent` a `0 0% 100% / 0` (transparente) o quitar el background del wrapper exterior.
-- Mejor: en `AppSidebar.tsx`, pasar `className="hover:!bg-transparent active:!bg-transparent data-[active=true]:!bg-transparent"` al `SidebarMenuButton` para neutralizar el background del wrapper. El span interior ya gestiona su propio hover/active glass correctamente.
+```tsx
+<div className="flex-1 flex flex-col min-w-0 relative ambient">
+```
 
-## 2) Paleta más sobria — bajar el lila dominante
+La clase `.ambient` definida en `src/index.css` (línea 206) hace:
 
-El violeta brillante `--acc-2: 270 100% 77%` (#b98cff) satura toda la UI (sidebar, gradientes de logo, ambient blobs, KPI accents). Cambios:
+```css
+.ambient { position: fixed; inset: 0; z-index: 0; pointer-events: none; overflow: hidden; }
+```
 
-- `--acc-2: 240 35% 62%` → **azul-índigo apagado** tipo "slate-blue" (#7d83b8). Se mantiene el aire visionOS pero serio, sin el caramelo lila.
-- `--acc-3: 215 25% 58%` → de pink/coral a **azul acero suave** (#7d8ba8) para los acentos terciarios — elimina el rosa que aparece en avatares y bordes de cards.
-- Dejar intactos: `--acc-1` (azul), `--acc-4` (mint para positivos), `--acc-5` (amber para alertas).
-- Bajar opacidad de `.ambient::before/after` de 0.55 → 0.28 y aumentar blur a 140px para que los blobs sean atmósfera, no protagonistas.
-- Bajar `glow-ring` y `glow-ring-soft` un 30% para reducir halos lilas.
+Está pensada como **capa decorativa de fondo absoluta**, no como modificador de un contenedor flex. Al aplicarla al wrapper del área de chat:
 
-## 3) Glass universal — páginas pendientes
+1. **El chat se vuelve `position: fixed`** y se expande a toda la pantalla, tapando el sidebar de conversaciones (de ahí la sensación de "no se pliega": el sidebar sí se reduce a `w-0`, pero el área de chat fixed lo solapa con su propio fondo y blobs).
+2. **El `Input` queda dentro de un contenedor con `pointer-events: none`** heredado, así que los clicks/teclado no llegan al `<input>` HTML — por eso "no me deja escribir".
+3. Todos los hijos del wrapper pierden su layout flex normal porque `fixed inset-0` rompe el flujo del padre.
 
-Las siguientes páginas aún usan `Card` shadcn estándar (fondo opaco), rompiendo la consistencia visual. Reemplazo por `.glass` envoltorio:
+## Solución
 
-| Página | Estado | Acción |
-|---|---|---|
-| `LocationAnalysis.tsx` | Card opaca | Wrapper `.glass` + ambient blobs |
-| `Documentos.tsx` | Cards opacas + tabs | Glass en cards principales y tabs translúcidas |
-| `Conocimiento.tsx` | Cards opacas | Glass + chips iridiscentes para dominios |
-| `Ajustes.tsx` | Cards opacas | Glass por sección |
-| `Consumo.tsx` | KPI cards opacas | `.glass-accent` con acentos por métrica |
-| `DossierValidation.tsx` | Card opaca | Glass + ambient |
-| `GeneradorDocumentos.tsx` | Card opaca | Glass + iridescent header |
-| `Notificaciones.tsx` | Cards opacas | Glass por notificación con dot acento |
-| `ProyectoDetail.tsx` | Cards opacas en pestañas + tipos `farmacia` | Glass + eliminar ref `farmacia` (memory rule) |
-| `LocalDetail.tsx` | Cards opacas | Glass + ambient |
-| `OperadorDetail.tsx` | Cards opacas | Glass + iridescent avatar |
-| `Auditoria.tsx` | Cards opacas | Glass para tabla |
-| `Admin.tsx` | Cards opacas | Glass por panel |
-| `Matching.tsx` | Verificar | Glass si falta |
-| `Patrones.tsx` | Verificar acc-2 | Cambiar lila por nueva paleta |
+### Cambio 1 — `src/pages/AsistenteIA.tsx` línea 212
 
-**Patrón de reemplazo**: cada `<Card>` o `<div className="bg-card …">` se convierte en `<div className="glass p-X">` con padding interno y se elimina `<CardHeader>/<CardContent>` (estructura plana). Los headers de página ganan ambient blobs detrás.
+Quitar `ambient` del wrapper del chat y, si queremos atmósfera de fondo, colocarla como hijo decorativo absoluto:
 
-## 4) Componentes adicionales
+```tsx
+// antes
+<div className="flex-1 flex flex-col min-w-0 relative ambient">
 
-- `MatchCard`, `NegotiatorCard`, `PlanComparisonGrid`, `SynergyMatrix`, `EmptyState`: revisar y aplicar `.glass` si usan Card opaca.
-- `FloatingChat` y `FloatingChatPanel`: ya glass, solo verificar nuevo color.
+// después
+<div className="flex-1 flex flex-col min-w-0 relative overflow-hidden">
+  <div className="ambient absolute inset-0 -z-10" aria-hidden />
+  {/* …resto del contenido tal cual… */}
+```
 
-## 5) Lo que NO se toca
+### Cambio 2 — `src/index.css` línea 206
 
-- Lógica funcional, hooks, servicios, edge functions.
-- Estructura de componentes ricos ya creados (Sparkline, DeltaChip, etc. de la pasada anterior).
-- Routing.
-- Tipografía (ya está bien).
+Hacer la clase `.ambient` segura para uso decorativo en cualquier contenedor (relativa al padre, no al viewport):
 
-## Orden de ejecución
+```css
+.ambient {
+  position: absolute;       /* antes: fixed */
+  inset: 0;
+  z-index: -1;              /* antes: 0  → garantiza que no tape contenido */
+  pointer-events: none;
+  overflow: hidden;
+}
+```
 
-1. **Fix sidebar hover** (sidebar.tsx + AppSidebar.tsx) — 5 min, alto impacto inmediato.
-2. **Recalibrar paleta** en `index.css` (--acc-2, --acc-3, ambient, glows).
-3. **Migración a glass** página por página en el orden de la tabla (LocationAnalysis primero por estar visible en la captura).
-4. Verificación final en `/dashboard`, `/oportunidades`, `/oportunidades/:id`, `/localizacion`, `/documentos`, `/ajustes`.
+Así, donde otras páginas la usen (ej. en el outer layout) seguirá funcionando como decoración de fondo, pero **nunca tapará el contenido ni capturará eventos** porque va a `-z-10`.
+
+### Cambio 3 — limpiar borde del sidebar cuando está cerrado (cosmético)
+
+En la línea 192-199, mover el `border-r` al `<div>` interior y condicionarlo, para que al plegar no quede una línea vertical fantasma:
+
+```tsx
+<div className={cn(
+  "shrink-0 overflow-hidden transition-all duration-200",
+  desktopSidebarOpen ? "w-64 border-r border-white/[0.06]" : "w-0"
+)}>
+  <div className="w-64 h-full">
+    <ConversationList {...convListProps} />
+  </div>
+</div>
+```
+
+(Quitamos el `bg-white/[0.02] backdrop-blur-2xl` del wrapper interior — ya está heredando la atmósfera glass del layout padre y duplicarlo crea la franja gris translúcida que se ve en pantalla.)
+
+## Verificación esperada
+
+- Plegar conversaciones → el área de chat ocupa todo el ancho sin línea vertical residual.
+- Click en el input "Pregunta a AVA…" → focus visible y permite escribir con normalidad.
+- Atajo `⌘↵` / `Enter` envía como antes.
+- Resto de páginas que usen `.ambient` siguen mostrando los blobs de fondo (ahora correctamente confinados al contenedor padre).
+
+## Lo que NO se toca
+
+- Lógica de `useChatMessages`, hooks, edge functions.
+- Estilos de mensajes, suggestions, `.glass-edge`, `.pill-iridescent`.
+- Sidebar global (`AppSidebar`).
 
