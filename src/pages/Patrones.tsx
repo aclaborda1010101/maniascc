@@ -243,12 +243,12 @@ Mínimo 3 patrones, máximo 8.`,
         </TabsList>
 
         <TabsContent value="patrones" className="space-y-4 mt-4">
-          <div className="flex items-center gap-2 justify-end">
-            <Button onClick={fetchPatterns} disabled={loading} size="sm" className="rounded-2xl gradient-iridescent text-white border-0 hover:opacity-95">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-end gap-2">
+            <Button onClick={fetchPatterns} disabled={loading} className="rounded-2xl gradient-iridescent text-white border-0 hover:opacity-95 w-full sm:w-auto h-11 sm:h-9">
               {loading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <RefreshCw className="h-4 w-4 mr-2" />}
               {result ? "Actualizar" : "Cargar patrones"}
             </Button>
-            <Button variant="outline" size="sm" className="rounded-2xl border-border/40" onClick={openAvaWithPatterns}>
+            <Button variant="outline" className="rounded-2xl border-border/40 w-full sm:w-auto h-11 sm:h-9" onClick={openAvaWithPatterns}>
               <MessageSquare className="h-4 w-4 mr-2" />
               Consultar AVA
             </Button>

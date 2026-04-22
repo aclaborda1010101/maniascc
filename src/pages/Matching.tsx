@@ -251,9 +251,9 @@ export default function Matching() {
                 {current.operadores?.nombre || "Operador"}
               </h2>
               {current.operadores?.sector && (
-                <Badge variant="secondary" className="mt-2 capitalize rounded-full">
+                <span className="mt-2 inline-flex items-center rounded-full px-3 py-1 text-xs font-medium capitalize bg-accent/15 text-accent border border-accent/30">
                   {current.operadores.sector}
-                </Badge>
+                </span>
               )}
               {current.explicacion && (
                 <p className="mt-4 text-sm text-muted-foreground max-w-xl leading-relaxed">
@@ -318,19 +318,19 @@ export default function Matching() {
             )}
           </div>
 
-          {/* Mini lista del resto */}
+          {/* Mini lista del resto — vertical en móvil, horizontal en desktop */}
           {matches.length > 1 && (
             <div className="card-premium p-4">
               <p className="text-[11px] uppercase tracking-widest text-muted-foreground mb-3 px-1">
                 Cola
               </p>
-              <div className="flex gap-2 overflow-x-auto no-scrollbar">
+              <div className="flex flex-col gap-2 md:flex-row md:overflow-x-auto md:no-scrollbar">
                 {matches.map((m, i) => (
                   <button
                     key={m.id}
                     onClick={() => setCurrentIdx(i)}
                     className={cn(
-                      "shrink-0 rounded-2xl border px-3 py-2 text-left min-w-[140px] transition-colors",
+                      "shrink-0 rounded-2xl border px-3 py-2 text-left w-full md:w-auto md:min-w-[140px] transition-colors",
                       i === currentIdx
                         ? "border-accent bg-accent/10"
                         : "border-border/60 hover:border-accent/40 bg-card-elevated"

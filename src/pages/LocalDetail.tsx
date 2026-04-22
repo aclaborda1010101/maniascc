@@ -193,11 +193,11 @@ export default function LocalDetail() {
               {local.descripcion?.slice(0, 220) ||
                 `Activo con score ${score}/100. Te recomiendo revisar los matches con operadores compatibles y, si encajan, generar un dossier de presentación profesional.`}
             </p>
-            <div className="mt-3 flex flex-wrap gap-2">
+            <div className="mt-3 flex flex-col sm:flex-row flex-wrap gap-2">
               <Button
                 size="sm"
                 onClick={() => navigate(`/matching/${id}`)}
-                className="rounded-xl ava-gradient text-white border-0 hover:opacity-95"
+                className="rounded-xl ava-gradient text-white border-0 hover:opacity-95 w-full sm:w-auto h-11 sm:h-9"
               >
                 <Target className="h-3.5 w-3.5 mr-1.5" /> Ver matches
               </Button>
@@ -205,7 +205,7 @@ export default function LocalDetail() {
                 size="sm"
                 variant="outline"
                 onClick={() => navigate(`/generador?local=${id}`)}
-                className="rounded-xl"
+                className="rounded-xl w-full sm:w-auto h-11 sm:h-9"
               >
                 <FileText className="h-3.5 w-3.5 mr-1.5" /> Generar dossier
               </Button>

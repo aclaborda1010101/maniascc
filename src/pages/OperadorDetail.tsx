@@ -41,6 +41,7 @@ export default function OperadorDetail() {
   const [submittingSub, setSubmittingSub] = useState(false);
   const [showAddContact, setShowAddContact] = useState<string | null>(null);
   const [activos, setActivos] = useState<any[]>([]);
+  const [tab, setTab] = useState("info");
 
   useEffect(() => {
     supabase.from("operadores").select("*").eq("id", id).single().then(({ data }) => {
@@ -153,8 +154,20 @@ export default function OperadorDetail() {
         </AlertDialog>
       </div>
 
-      <Tabs defaultValue="info">
-        <TabsList>
+      <Tabs value={tab} onValueChange={setTab}>
+        {/* Mobile: select */}
+        <div className="md:hidden mb-3">
+          <Select value={tab} onValueChange={setTab}>
+            <SelectTrigger className="w-full h-11"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="info">Información General</SelectItem>
+              <SelectItem value="perfil-ia">Perfil IA</SelectItem>
+              <SelectItem value="suboperadores">Sub-operadores ({subOps.length})</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+        {/* Desktop: tabs */}
+        <TabsList className="hidden md:inline-flex">
           <TabsTrigger value="info">Información General</TabsTrigger>
           <TabsTrigger value="perfil-ia">Perfil IA</TabsTrigger>
           <TabsTrigger value="suboperadores">Sub-operadores ({subOps.length})</TabsTrigger>

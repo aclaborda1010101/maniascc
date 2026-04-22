@@ -257,21 +257,21 @@ export default function Conocimiento() {
         <CardHeader className="pb-3">
           <CardTitle className="text-base">Mantenimiento masivo</CardTitle>
         </CardHeader>
-        <CardContent className="flex flex-wrap gap-2">
-          <Button onClick={handleEnqueue} disabled={batchRunning} variant="outline" size="sm">
+        <CardContent className="flex flex-col sm:flex-row sm:flex-wrap gap-2">
+          <Button onClick={handleEnqueue} disabled={batchRunning} className="w-full sm:w-auto h-11 sm:h-9 rounded-xl gradient-iridescent text-white border-0 hover:opacity-95">
             {batchRunning ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <RefreshCw className="h-4 w-4 mr-2" />}
             Encolar pendientes
           </Button>
-          <Button onClick={() => handleRunBatch("classify")} disabled={batchRunning} size="sm">
+          <Button onClick={() => handleRunBatch("classify")} disabled={batchRunning} className="w-full sm:w-auto h-11 sm:h-9 rounded-xl gradient-iridescent text-white border-0 hover:opacity-95">
             <PlayCircle className="h-4 w-4 mr-2" /> Clasificar lote
           </Button>
-          <Button onClick={() => handleRunBatch("ingest")} disabled={batchRunning} size="sm">
+          <Button onClick={() => handleRunBatch("ingest")} disabled={batchRunning} className="w-full sm:w-auto h-11 sm:h-9 rounded-xl gradient-iridescent text-white border-0 hover:opacity-95">
             <PlayCircle className="h-4 w-4 mr-2" /> Indexar lote
           </Button>
-          <Button onClick={() => handleRunBatch("embed")} disabled={batchRunning} size="sm">
+          <Button onClick={() => handleRunBatch("embed")} disabled={batchRunning} className="w-full sm:w-auto h-11 sm:h-9 rounded-xl gradient-iridescent text-white border-0 hover:opacity-95">
             <PlayCircle className="h-4 w-4 mr-2" /> Generar embeddings
           </Button>
-          <Button onClick={refreshStats} disabled={batchRunning} variant="ghost" size="sm">
+          <Button onClick={refreshStats} disabled={batchRunning} variant="outline" className="w-full sm:w-auto h-11 sm:h-9 rounded-xl">
             <RefreshCw className="h-4 w-4 mr-2" /> Refrescar stats
           </Button>
         </CardContent>

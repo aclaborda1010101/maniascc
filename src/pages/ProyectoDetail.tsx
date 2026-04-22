@@ -61,6 +61,7 @@ export default function ProyectoDetail() {
   const [addCtDialog, setAddCtDialog] = useState(false);
   const [matches, setMatches] = useState<any[]>([]);
   const [docs, setDocs] = useState<any[]>([]);
+  const [tab, setTab] = useState("resumen");
 
   const fetchAll = async () => {
     if (!id) return;
@@ -169,9 +170,26 @@ export default function ProyectoDetail() {
 
       {proyecto.descripcion && <p className="text-xs md:text-sm text-muted-foreground max-w-2xl">{proyecto.descripcion}</p>}
 
-      <Tabs defaultValue="resumen" className="space-y-4">
-        <div className="overflow-x-auto -mx-4 px-4 md:mx-0 md:px-0">
-          <TabsList className="inline-flex w-max min-w-full md:w-auto md:min-w-0 md:flex-wrap">
+      <Tabs value={tab} onValueChange={setTab} className="space-y-4">
+        {/* Mobile: select */}
+        <div className="md:hidden">
+          <Select value={tab} onValueChange={setTab}>
+            <SelectTrigger className="w-full h-11"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="resumen">Resumen</SelectItem>
+              <SelectItem value="activos">Activos {activos.length > 0 && `(${activos.length})`}</SelectItem>
+              <SelectItem value="operadores">Operadores {operadores.length > 0 && `(${operadores.length})`}</SelectItem>
+              <SelectItem value="matches">Matches</SelectItem>
+              <SelectItem value="documentos">Documentos</SelectItem>
+              <SelectItem value="conocimiento">Conocimiento RAG</SelectItem>
+              <SelectItem value="insights">Insights</SelectItem>
+              <SelectItem value="negociacion">Negociación</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+        {/* Desktop: tabs */}
+        <div className="hidden md:block">
+          <TabsList className="inline-flex flex-wrap">
             <TabsTrigger value="resumen" className="text-xs md:text-sm">Resumen</TabsTrigger>
             <TabsTrigger value="activos" className="gap-1 text-xs md:text-sm"><Building2 className="h-3 w-3 md:h-3.5 md:w-3.5" /> Activos{activos.length > 0 && <Badge variant="secondary" className="ml-0.5 h-4 md:h-5 px-1 md:px-1.5 text-[9px] md:text-[10px]">{activos.length}</Badge>}</TabsTrigger>
             <TabsTrigger value="operadores" className="gap-1 text-xs md:text-sm"><Users className="h-3 w-3 md:h-3.5 md:w-3.5" /> Ops{operadores.length > 0 && <Badge variant="secondary" className="ml-0.5 h-4 md:h-5 px-1 md:px-1.5 text-[9px] md:text-[10px]">{operadores.length}</Badge>}</TabsTrigger>

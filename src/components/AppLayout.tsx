@@ -88,37 +88,9 @@ export function AppLayout() {
             </div>
           </header>
 
-          {/* Mobile header */}
-          <header
-            className="md:hidden flex h-12 items-center px-4 gap-2 shrink-0 sticky top-0 z-20"
-            style={{
-              background: "hsl(224 30% 4% / 0.7)",
-              backdropFilter: "blur(20px) saturate(1.6)",
-              WebkitBackdropFilter: "blur(20px) saturate(1.6)",
-            }}
-          >
-            <span className="font-display text-base font-bold text-iridescent">AVA</span>
-            <div className="ml-auto flex items-center gap-1">
-              <NotificationCenter />
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <button className="flex items-center gap-2 rounded-full focus:outline-none">
-                    <Avatar className="h-8 w-8">
-                      <AvatarFallback className="text-white text-[11px] font-semibold gradient-iridescent">
-                        {initials}
-                      </AvatarFallback>
-                    </Avatar>
-                  </button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="glass border-white/10">
-                  <DropdownMenuItem className="text-xs text-muted-foreground" disabled>{user?.email}</DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => signOut()}>Cerrar sesión</DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </div>
-          </header>
+          {/* Mobile header removed — identidad y notificaciones viven en BottomNav */}
 
-          <main className="flex-1 overflow-auto px-4 md:px-8 py-5 md:py-8 pb-28 md:pb-8 max-w-[1600px] w-full mx-auto">
+          <main className="flex-1 overflow-auto px-4 md:px-8 pt-4 md:py-8 pb-28 md:pb-8 max-w-[1600px] w-full mx-auto">
             <Outlet />
           </main>
 

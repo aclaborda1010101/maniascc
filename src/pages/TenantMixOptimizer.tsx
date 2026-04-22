@@ -145,7 +145,7 @@ export default function TenantMixOptimizer() {
             ))}
           </div>
 
-          <Button onClick={handleOptimize} disabled={loading} className="bg-accent text-accent-foreground hover:bg-accent/90">
+          <Button onClick={handleOptimize} disabled={loading} className="w-full sm:w-auto h-11 bg-accent text-accent-foreground hover:bg-accent/90">
             {loading ? <><Clock className="mr-2 h-4 w-4 animate-spin" /> Optimizando...</> : <><Layers className="mr-2 h-4 w-4" /> Generar Planes A/B/C</>}
           </Button>
         </CardContent>
