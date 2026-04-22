@@ -1,75 +1,65 @@
 
 
-# Migrar embeddings antiguos + index HNSW + alinear modelo de query
+# Pulido visual: glass universal + paleta más sobria + fix hover sidebar
 
-## Diagnóstico confirmado
+## 1) Fix crítico — hover blanco del sidebar
 
-| Aspecto | Estado |
-|---|---|
-| `document_chunks` total | 565.413 |
-| `document_chunks.embedding` poblados | **0** |
-| `document_chunks.embedding` tipo declarado | **`vector(1536)`** (OpenAI text-embedding-3-small) |
-| `document_embeddings.embedding_json` | 464.635 (todos vinculados a chunks vía `chunk_id`) |
-| Modelo de los 464k embeddings antiguos | **`text-embedding-004`** (Gemini, **768 dims**) |
-| `rag-proxy` (búsqueda) embebe queries con | OpenAI 1536 |
-| `rag-embed-chunks` (indexación) embebe con | OpenAI 1536 |
+**Causa**: `SidebarMenuButton` (en `src/components/ui/sidebar.tsx` línea 415) aplica `hover:bg-sidebar-accent` y la variable `--sidebar-accent` está definida como `0 0% 100%` (blanco al 100%). Cuando Tailwind compila `bg-sidebar-accent` sin alpha, pinta blanco sólido sobre el wrapper exterior — encima del span interior glass — produciendo el flash blanco que se ve en la captura.
 
-**Bloqueo crítico**: la migración tal como la propones **fallará** con `expected 1536 dimensions, got 768` porque la columna está dimensionada para OpenAI y los datos antiguos son Gemini.
+**Solución**:
+- En `src/index.css`: cambiar `--sidebar-accent` a `0 0% 100% / 0` (transparente) o quitar el background del wrapper exterior.
+- Mejor: en `AppSidebar.tsx`, pasar `className="hover:!bg-transparent active:!bg-transparent data-[active=true]:!bg-transparent"` al `SidebarMenuButton` para neutralizar el background del wrapper. El span interior ya gestiona su propio hover/active glass correctamente.
 
-Hay dos rutas posibles, mutuamente excluyentes (no se pueden mezclar dimensiones distintas en una misma columna `vector(N)` ni en un mismo índice HNSW):
+## 2) Paleta más sobria — bajar el lila dominante
 
-## Opción A — Conservar los 464k Gemini (rápido, casi cero coste)
+El violeta brillante `--acc-2: 270 100% 77%` (#b98cff) satura toda la UI (sidebar, gradientes de logo, ambient blobs, KPI accents). Cambios:
 
-Aprovechar los embeddings ya calculados, redimensionar la columna y alinear `rag-proxy` + `rag-embed-chunks` a Gemini 768.
+- `--acc-2: 240 35% 62%` → **azul-índigo apagado** tipo "slate-blue" (#7d83b8). Se mantiene el aire visionOS pero serio, sin el caramelo lila.
+- `--acc-3: 215 25% 58%` → de pink/coral a **azul acero suave** (#7d8ba8) para los acentos terciarios — elimina el rosa que aparece en avatares y bordes de cards.
+- Dejar intactos: `--acc-1` (azul), `--acc-4` (mint para positivos), `--acc-5` (amber para alertas).
+- Bajar opacidad de `.ambient::before/after` de 0.55 → 0.28 y aumentar blur a 140px para que los blobs sean atmósfera, no protagonistas.
+- Bajar `glow-ring` y `glow-ring-soft` un 30% para reducir halos lilas.
 
-### Migraciones SQL
-1. **Drop temporal del índice FTS solo si bloquea el ALTER** (no debería).
-2. `ALTER TABLE document_chunks ALTER COLUMN embedding TYPE vector(768);` — válido solo si la columna está vacía (lo está).
-3. **Backfill** desde `document_embeddings`:
-   ```sql
-   UPDATE document_chunks c
-   SET embedding = (
-     SELECT array(SELECT jsonb_array_elements_text(e.embedding_json))::float8[]::vector(768)
-     FROM document_embeddings e
-     WHERE e.chunk_id = c.id AND e.embedding_json IS NOT NULL
-     LIMIT 1
-   )
-   WHERE c.embedding IS NULL
-     AND EXISTS (SELECT 1 FROM document_embeddings e WHERE e.chunk_id = c.id);
-   ```
-   Se ejecutará por lotes de ~50k vía `WHERE c.id IN (...)` para evitar timeout (la API Supabase ha cancelado consultas largas en el diagnóstico).
-4. `CREATE INDEX idx_document_chunks_embedding_hnsw ON document_chunks USING hnsw (embedding vector_cosine_ops) WITH (m=16, ef_construction=64);`
+## 3) Glass universal — páginas pendientes
 
-### Cambios en código
-- `supabase/functions/rag-proxy/index.ts`: cambiar `embedQuery` para usar **Lovable AI Gateway → google/text-embedding-004** (768 dims, sin coste de API key OpenAI). Endpoint: `https://ai.gateway.lovable.dev/v1/embeddings` con header `LOVABLE_API_KEY` ya disponible.
-- `supabase/functions/rag-embed-chunks/index.ts`: ídem, sustituir OpenAI por Gemini 768 y constantes `EMBED_MODEL = "google/text-embedding-004"`, `EMBED_DIM = 768`.
-- Eliminar dependencia de `OPENAI_API_KEY` para embeddings.
+Las siguientes páginas aún usan `Card` shadcn estándar (fondo opaco), rompiendo la consistencia visual. Reemplazo por `.glass` envoltorio:
 
-### Pendiente residual
-Quedan ~100k chunks sin vector (565k − 464k). Se encolan en `rag_processing_queue` con tarea `embed` y se procesan desde `/conocimiento` con el botón "Procesar lote" (ya existe).
+| Página | Estado | Acción |
+|---|---|---|
+| `LocationAnalysis.tsx` | Card opaca | Wrapper `.glass` + ambient blobs |
+| `Documentos.tsx` | Cards opacas + tabs | Glass en cards principales y tabs translúcidas |
+| `Conocimiento.tsx` | Cards opacas | Glass + chips iridiscentes para dominios |
+| `Ajustes.tsx` | Cards opacas | Glass por sección |
+| `Consumo.tsx` | KPI cards opacas | `.glass-accent` con acentos por métrica |
+| `DossierValidation.tsx` | Card opaca | Glass + ambient |
+| `GeneradorDocumentos.tsx` | Card opaca | Glass + iridescent header |
+| `Notificaciones.tsx` | Cards opacas | Glass por notificación con dot acento |
+| `ProyectoDetail.tsx` | Cards opacas en pestañas + tipos `farmacia` | Glass + eliminar ref `farmacia` (memory rule) |
+| `LocalDetail.tsx` | Cards opacas | Glass + ambient |
+| `OperadorDetail.tsx` | Cards opacas | Glass + iridescent avatar |
+| `Auditoria.tsx` | Cards opacas | Glass para tabla |
+| `Admin.tsx` | Cards opacas | Glass por panel |
+| `Matching.tsx` | Verificar | Glass si falta |
+| `Patrones.tsx` | Verificar acc-2 | Cambiar lila por nueva paleta |
 
-## Opción B — Recalcular todo con OpenAI 1536 (caro, lento)
+**Patrón de reemplazo**: cada `<Card>` o `<div className="bg-card …">` se convierte en `<div className="glass p-X">` con padding interno y se elimina `<CardHeader>/<CardContent>` (estructura plana). Los headers de página ganan ambient blobs detrás.
 
-Mantener la columna `vector(1536)` y descartar los 464k Gemini. Requiere `OPENAI_API_KEY` configurada y tiene coste real (~$5-10 para 565k chunks con `text-embedding-3-small`). Tarda horas. No recomendado salvo motivo estratégico.
+## 4) Componentes adicionales
 
-## Recomendación
+- `MatchCard`, `NegotiatorCard`, `PlanComparisonGrid`, `SynergyMatrix`, `EmptyState`: revisar y aplicar `.glass` si usan Card opaca.
+- `FloatingChat` y `FloatingChatPanel`: ya glass, solo verificar nuevo color.
 
-**Opción A**, en este orden:
+## 5) Lo que NO se toca
 
-1. **Migración 1 (SQL)**: redimensionar columna a `vector(768)` (vacía, instantáneo).
-2. **Migración 2 (SQL)**: backfill por lotes desde `document_embeddings.embedding_json` → vector(768). Estimado: 5-15 min en background.
-3. **Edge functions**: actualizar `rag-proxy` y `rag-embed-chunks` a Gemini 768 vía Lovable AI Gateway.
-4. **Migración 3 (SQL)**: crear índice HNSW con `vector_cosine_ops`.
-5. **Encolar los ~100k restantes** vía `rag-batch-orchestrator` (`enqueue_all` con `task_type: "embed"`) y procesarlos desde `/conocimiento`.
-6. **Validación**: ejecutar 5 queries de control en `rag-proxy` y verificar `hits > 0` con `hybrid: true`.
+- Lógica funcional, hooks, servicios, edge functions.
+- Estructura de componentes ricos ya creados (Sparkline, DeltaChip, etc. de la pasada anterior).
+- Routing.
+- Tipografía (ya está bien).
 
-## Lo que NO se toca
-- `rag_hybrid_search` (la función ya está bien, opera sobre `embedding` sin importar dimensión).
-- Estructura de `document_chunks` salvo el tipo de la columna `embedding`.
-- `document_embeddings` (se conserva como histórico/respaldo, no se borra).
-- UI ni lógica de `/conocimiento`.
+## Orden de ejecución
 
-## Pregunta antes de implementar
-
-¿Vamos con **Opción A** (Gemini 768, aprovecha los 464k existentes, sin coste de API key OpenAI) o prefieres **Opción B** (recalcular todo con OpenAI 1536)?
+1. **Fix sidebar hover** (sidebar.tsx + AppSidebar.tsx) — 5 min, alto impacto inmediato.
+2. **Recalibrar paleta** en `index.css` (--acc-2, --acc-3, ambient, glows).
+3. **Migración a glass** página por página en el orden de la tabla (LocationAnalysis primero por estar visible en la captura).
+4. Verificación final en `/dashboard`, `/oportunidades`, `/oportunidades/:id`, `/localizacion`, `/documentos`, `/ajustes`.
 
