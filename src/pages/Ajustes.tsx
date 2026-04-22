@@ -398,7 +398,7 @@ function TabPerfil() {
             <Label>Teléfono</Label>
             <Input value={telefono} onChange={e => setTelefono(e.target.value)} placeholder="+34 600 000 000" />
           </div>
-          <Button onClick={handleSaveProfile} disabled={saving} className="w-full">
+          <Button onClick={handleSaveProfile} disabled={saving} className="w-full ava-gradient text-white border-0 hover:opacity-95 rounded-2xl h-11">
             {saving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
             Guardar cambios
           </Button>
@@ -444,19 +444,11 @@ export default function Ajustes() {
       </div>
 
       <Tabs defaultValue="perfil">
-        <TabsList className="tabs-glass bg-transparent border-0 p-1 h-auto">
-          <TabsTrigger value="perfil" className="tab-glass border-0 data-[state=active]:bg-transparent data-[state=active]:shadow-none">
-            <User className="h-3 w-3" /> Perfil
-          </TabsTrigger>
-          <TabsTrigger value="conexiones" className="tab-glass border-0 data-[state=active]:bg-transparent data-[state=active]:shadow-none">
-            <Link2 className="h-3 w-3" /> Conexiones
-          </TabsTrigger>
-          <TabsTrigger value="auditoria" className="tab-glass border-0 data-[state=active]:bg-transparent data-[state=active]:shadow-none">
-            <Shield className="h-3 w-3" /> Auditoría
-          </TabsTrigger>
-          <TabsTrigger value="config" className="tab-glass border-0 data-[state=active]:bg-transparent data-[state=active]:shadow-none">
-            <Settings className="h-3 w-3" /> Configuración
-          </TabsTrigger>
+        <TabsList>
+          <TabsTrigger value="perfil"><User className="h-3 w-3" /> Perfil</TabsTrigger>
+          <TabsTrigger value="conexiones"><Link2 className="h-3 w-3" /> Conexiones</TabsTrigger>
+          <TabsTrigger value="auditoria"><Shield className="h-3 w-3" /> Auditoría</TabsTrigger>
+          <TabsTrigger value="config"><Settings className="h-3 w-3" /> Configuración</TabsTrigger>
         </TabsList>
 
         <div className="mt-5">
