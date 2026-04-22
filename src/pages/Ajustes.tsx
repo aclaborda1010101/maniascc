@@ -431,26 +431,40 @@ function TabPerfil() {
 
 export default function Ajustes() {
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2">
-          <Settings className="h-6 w-6" /> Ajustes
+    <div className="space-y-6 relative">
+      <div className="space-y-1">
+        <p className="text-[11px] uppercase tracking-[0.2em] text-muted-foreground/70 font-semibold flex items-center gap-2">
+          <span className="inline-block w-1.5 h-1.5 rounded-full" style={{ background: "hsl(var(--acc-2))", boxShadow: "0 0 8px hsl(var(--acc-2))" }} />
+          Sistema · Configuración
+        </p>
+        <h1 className="text-4xl md:text-5xl font-bold tracking-tight font-display flex items-center gap-3">
+          <Settings className="h-9 w-9 text-muted-foreground" /> Ajustes
         </h1>
         <p className="text-sm text-muted-foreground">Perfil, conexiones, auditoría y configuración del sistema</p>
       </div>
 
       <Tabs defaultValue="perfil">
-        <TabsList>
-          <TabsTrigger value="perfil" className="gap-1"><User className="h-3 w-3" /> Perfil</TabsTrigger>
-          <TabsTrigger value="conexiones" className="gap-1"><Link2 className="h-3 w-3" /> Conexiones</TabsTrigger>
-          <TabsTrigger value="auditoria" className="gap-1"><Shield className="h-3 w-3" /> Auditoría</TabsTrigger>
-          <TabsTrigger value="config" className="gap-1"><Settings className="h-3 w-3" /> Configuración</TabsTrigger>
+        <TabsList className="tabs-glass bg-transparent border-0 p-1 h-auto">
+          <TabsTrigger value="perfil" className="tab-glass border-0 data-[state=active]:bg-transparent data-[state=active]:shadow-none">
+            <User className="h-3 w-3" /> Perfil
+          </TabsTrigger>
+          <TabsTrigger value="conexiones" className="tab-glass border-0 data-[state=active]:bg-transparent data-[state=active]:shadow-none">
+            <Link2 className="h-3 w-3" /> Conexiones
+          </TabsTrigger>
+          <TabsTrigger value="auditoria" className="tab-glass border-0 data-[state=active]:bg-transparent data-[state=active]:shadow-none">
+            <Shield className="h-3 w-3" /> Auditoría
+          </TabsTrigger>
+          <TabsTrigger value="config" className="tab-glass border-0 data-[state=active]:bg-transparent data-[state=active]:shadow-none">
+            <Settings className="h-3 w-3" /> Configuración
+          </TabsTrigger>
         </TabsList>
 
-        <TabsContent value="perfil"><TabPerfil /></TabsContent>
-        <TabsContent value="conexiones"><TabConexiones /></TabsContent>
-        <TabsContent value="auditoria"><TabAuditoria /></TabsContent>
-        <TabsContent value="config"><TabConfiguracion /></TabsContent>
+        <div className="mt-5">
+          <TabsContent value="perfil"><TabPerfil /></TabsContent>
+          <TabsContent value="conexiones"><TabConexiones /></TabsContent>
+          <TabsContent value="auditoria"><TabAuditoria /></TabsContent>
+          <TabsContent value="config"><TabConfiguracion /></TabsContent>
+        </div>
       </Tabs>
     </div>
   );
