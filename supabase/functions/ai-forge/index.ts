@@ -629,11 +629,13 @@ serve(async (req) => {
         informe_war_room: ["general", "activos", "operadores"],
         email_comunicacion: ["personas", "operadores"],
       };
+      const userId = claims.user.id;
       const { data: chunks } = await admin
         .from("document_chunks")
         .select("contenido, dominio, metadata")
         .eq("proyecto_id", proyecto_id)
         .in("dominio", domainMap[mode] || ["general"])
+        .or(`visibility.in.(shared,global),owner_id.eq.${userId}`)
         .limit(10);
 
       if (chunks && chunks.length > 0) {
