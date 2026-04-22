@@ -334,12 +334,16 @@
   @apply border-l-2 border-accent/40 pl-4 my-3 italic text-muted-foreground;
 }
 .prose code:not(pre code) {
-  @apply bg-white/5 text-accent px-1.5 py-0.5 rounded text-xs font-mono;
+  @apply text-accent px-1.5 py-0.5 rounded text-xs font-mono;
+  background: hsl(0 0% 100% / 0.04);
 }
 .prose pre {
-  @apply bg-white/5 rounded-lg p-4 my-3 overflow-x-auto border border-white/10;
+  @apply rounded-xl p-4 my-3 overflow-x-auto;
+  background: hsl(0 0% 100% / 0.025);
+  border: 1px solid hsl(0 0% 100% / 0.06);
+  backdrop-filter: blur(8px);
 }
-.prose pre code { @apply bg-transparent p-0 text-xs font-mono text-foreground; }
+.prose pre code { @apply bg-transparent p-0 text-xs font-mono text-foreground/90; }
 .prose table { @apply w-full border-collapse my-3 text-sm; }
 .prose thead th {
   @apply bg-white/5 font-semibold text-left px-3 py-2 border border-white/10 text-foreground;
@@ -371,3 +375,7 @@
 .ava-report p { @apply my-1.5 text-xs leading-relaxed; }
 .ava-report strong { @apply font-semibold text-foreground; }
 .ava-report code:not(pre code) { @apply text-[10px]; }
+.ava-report pre {
+  background: hsl(0 0% 100% / 0.02);
+  border-color: hsl(0 0% 100% / 0.05);
+}
