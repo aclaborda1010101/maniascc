@@ -171,7 +171,33 @@ export default function Dashboard() {
 
   const unreadCount = notifications.filter((n) => !n.read).length;
 
-  const userName = (user?.email?.split("@")[0] || "Alberto").replace(/[^a-zA-Z]/g, "");
+  const [profileName, setProfileName] = useState<string | null>(null);
+  useEffect(() => {
+    if (!user?.id) return;
+    supabase
+      .from("perfiles")
+      .select("nombre, apellidos")
+      .eq("user_id", user.id)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (data) {
+          const full = `${data.nombre || ""} ${data.apellidos || ""}`.trim();
+          if (full) setProfileName(full);
+        }
+      });
+  }, [user?.id]);
+
+  const titleCase = (raw: string) =>
+    raw
+      .replace(/[._-]+/g, " ")
+      .split(/\s+/)
+      .filter(Boolean)
+      .map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+      .join(" ");
+
+  const userName = profileName
+    ? titleCase(profileName)
+    : titleCase(user?.email?.split("@")[0] || "Alberto");
   const greeting = (() => {
     const h = new Date().getHours();
     if (h < 12) return "Buenos días";
@@ -185,7 +211,7 @@ export default function Dashboard() {
       <div className="space-y-2">
         <p className="text-[11px] uppercase tracking-[0.15em] text-white/45 font-semibold">AVA · DASHBOARD</p>
         <h1 className="font-display text-4xl md:text-6xl font-semibold tracking-[-0.035em] leading-[1] text-white">
-          {greeting}, <span className="text-iridescent capitalize">{userName}</span>
+          {greeting}, <span className="text-iridescent">{userName}</span>
         </h1>
         <p className="text-sm md:text-base text-white/55 mt-3 max-w-xl">
           Tienes <span className="text-white font-medium num-display">{stats?.matchesPendientes ?? 0}</span> matches nuevos y <span className="text-white font-medium num-display">{stats?.proyectosActivos ?? 0}</span> oportunidades activas.
