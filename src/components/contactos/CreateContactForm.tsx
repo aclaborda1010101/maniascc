@@ -81,7 +81,7 @@ export default function CreateContactForm({ operadores, submitting, onSubmit }: 
         <Label htmlFor="c-notas">Notas</Label>
         <Textarea id="c-notas" name="notas_perfil" placeholder="Observaciones..." rows={2} />
       </div>
-      <Button type="submit" className="w-full bg-accent text-accent-foreground hover:bg-accent/90" disabled={submitting}>
+      <Button type="submit" className="w-full bg-accent/15 text-foreground border border-accent/25 hover:bg-accent/25 backdrop-blur-md" disabled={submitting}>
         {submitting ? "Creando..." : "Crear Contacto"}
       </Button>
     </form>

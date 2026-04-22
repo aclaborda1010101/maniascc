@@ -84,7 +84,7 @@ export function ProyectoMatches({ proyecto, matches, allLocales, onRefreshMatche
           </div>
           <div className="flex items-center gap-2">
             {lastResult && <span className="text-xs text-muted-foreground">{lastResult.modelo} · {lastResult.latency_ms}ms{lastResult.ai_enhanced && " · ✨ IA"}</span>}
-            <Button onClick={handleGenerate} disabled={generating || !proyecto?.local_id} className="bg-accent text-accent-foreground hover:bg-accent/90">
+            <Button onClick={handleGenerate} disabled={generating || !proyecto?.local_id} className="bg-accent/15 text-foreground border border-accent/25 hover:bg-accent/25 backdrop-blur-md">
               {generating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
               {generating ? "Generando…" : "Generar Matches"}
             </Button>

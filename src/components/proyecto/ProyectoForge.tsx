@@ -67,7 +67,7 @@ export function ProyectoForge({ proyectoId }: Props) {
           />
         </div>
         <div className="flex items-center gap-3">
-          <Button onClick={handleGenerate} disabled={loading || !context.trim()} className="bg-accent text-accent-foreground hover:bg-accent/90">
+          <Button onClick={handleGenerate} disabled={loading || !context.trim()} className="bg-accent/15 text-foreground border border-accent/25 hover:bg-accent/25 backdrop-blur-md">
             {loading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Hammer className="h-4 w-4 mr-2" />}
             Generar documento
           </Button>

@@ -90,7 +90,7 @@ export default function Busqueda() {
             </button>
           )}
         </div>
-        <Button onClick={() => handleSearch()} className="bg-accent text-accent-foreground hover:bg-accent/90">
+        <Button onClick={() => handleSearch()} className="bg-accent/15 text-foreground border border-accent/25 hover:bg-accent/25 backdrop-blur-md">
           Buscar
         </Button>
       </div>

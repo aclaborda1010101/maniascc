@@ -48,7 +48,7 @@ export function ProyectoActivos({ proyectoId, activos, onRefresh }: Props) {
         <p className="text-sm text-muted-foreground">{activos.length} activo{activos.length !== 1 ? "s" : ""}</p>
         <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
           <DialogTrigger asChild>
-            <Button size="sm" className="bg-accent text-accent-foreground hover:bg-accent/90"><Plus className="mr-1 h-3.5 w-3.5" /> Añadir Activo</Button>
+            <Button size="sm" className="bg-accent/15 text-foreground border border-accent/25 hover:bg-accent/25 backdrop-blur-md"><Plus className="mr-1 h-3.5 w-3.5" /> Añadir Activo</Button>
           </DialogTrigger>
           <DialogContent>
             <DialogHeader><DialogTitle>Añadir Activo al Proyecto</DialogTitle></DialogHeader>
@@ -75,7 +75,7 @@ export function ProyectoActivos({ proyectoId, activos, onRefresh }: Props) {
                 <div className="space-y-2"><Label>Dirección</Label><Input name="direccion" placeholder="Av. Principal 12" /></div>
                 <div className="space-y-2"><Label>Renta esperada (€/mes)</Label><Input name="renta_esperada" type="number" placeholder="3000" /></div>
               </div>
-              <Button type="submit" className="w-full bg-accent text-accent-foreground hover:bg-accent/90" disabled={submitting}>
+              <Button type="submit" className="w-full bg-accent/15 text-foreground border border-accent/25 hover:bg-accent/25 backdrop-blur-md" disabled={submitting}>
                 {submitting ? "Añadiendo..." : "Añadir Activo"}
               </Button>
             </form>

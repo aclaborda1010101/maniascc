@@ -76,7 +76,7 @@ export function ForgePreview({ mode, modeLabel, data }: Props) {
             <Code2 className="h-3.5 w-3.5 mr-1.5" /> Copiar HTML
           </Button>
           {!isEmail && (
-            <Button size="sm" onClick={handleExportPdf} disabled={exporting} className="bg-accent text-accent-foreground hover:bg-accent/90">
+            <Button size="sm" onClick={handleExportPdf} disabled={exporting} className="bg-accent/15 text-foreground border border-accent/25 hover:bg-accent/25 backdrop-blur-md">
               {exporting ? <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" /> : <FileDown className="h-3.5 w-3.5 mr-1.5" />}
               Exportar PDF
             </Button>

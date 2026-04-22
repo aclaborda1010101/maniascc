@@ -182,7 +182,7 @@ export default function Operadores() {
                 <div className="space-y-2"><Label>Superficie Max (m²)</Label><Input name="superficie_max" type="number" min="0" /></div>
               </div>
               <div className="space-y-2"><Label>Descripción</Label><Textarea name="descripcion" rows={3} /></div>
-              <Button type="submit" className="w-full bg-accent text-accent-foreground hover:bg-accent/90" disabled={submitting}>
+              <Button type="submit" className="w-full bg-accent/15 text-foreground border border-accent/25 hover:bg-accent/25 backdrop-blur-md" disabled={submitting}>
                 {submitting ? "Creando..." : "Crear Operador"}
               </Button>
             </form>
