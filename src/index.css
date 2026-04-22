@@ -27,7 +27,7 @@
     --muted: 0 0% 100%;
     --muted-foreground: 0 0% 65%;
 
-    --accent: 240 35% 62%;       /* acc-2 slate-blue (sober) */
+    --accent: 258 70% 74%;       /* elegant lilac — iridescent signature */
     --accent-foreground: 224 30% 4%;
 
     --destructive: 0 88% 71%;
@@ -39,12 +39,12 @@
 
     --radius: 1.25rem;
 
-    /* ── 5 sober accents (visionOS, low saturation) ─── */
-    --acc-1: 220 80% 68%;        /* #7ea4e6 indigo-blue */
-    --acc-2: 240 35% 62%;        /* #7d83b8 slate-blue (was violet) */
-    --acc-3: 215 25% 58%;        /* #7d8ba8 steel-blue (was pink) */
-    --acc-4: 168 55% 58%;        /* #5fbfa3 mint (calmed) */
-    --acc-5: 38 70% 62%;         /* #d9a35e amber (calmed) */
+    /* ── 5 iridescent accents (Claude prototype palette) ─── */
+    --acc-1: 220 85% 70%;        /* indigo-blue */
+    --acc-2: 258 70% 74%;        /* elegant lilac (signature) */
+    --acc-3: 330 65% 72%;        /* soft pink */
+    --acc-4: 168 60% 60%;        /* mint */
+    --acc-5: 38 75% 64%;         /* amber */
 
     /* AVA legacy aliases (mapped to new accents) */
     --ava-from: var(--acc-1);
@@ -84,18 +84,18 @@
     --secondary-foreground: 0 0% 96%;
     --muted: 0 0% 100%;
     --muted-foreground: 0 0% 65%;
-    --accent: 240 35% 62%;
+    --accent: 258 70% 74%;
     --accent-foreground: 224 30% 4%;
     --destructive: 0 70% 62%;
     --destructive-foreground: 0 0% 100%;
     --border: 0 0% 100%;
     --input: 0 0% 100%;
     --ring: 220 80% 68%;
-    --acc-1: 220 80% 68%;
-    --acc-2: 240 35% 62%;
-    --acc-3: 215 25% 58%;
-    --acc-4: 168 55% 58%;
-    --acc-5: 38 70% 62%;
+    --acc-1: 220 85% 70%;
+    --acc-2: 258 70% 74%;
+    --acc-3: 330 65% 72%;
+    --acc-4: 168 60% 60%;
+    --acc-5: 38 75% 64%;
     --ava-from: var(--acc-1);
     --ava-via:  var(--acc-2);
     --ava-to:   var(--acc-3);
@@ -208,7 +208,7 @@
   }
   .ambient::before, .ambient::after {
     content: ""; position: absolute; border-radius: 50%;
-    filter: blur(140px); opacity: 0.28;
+    filter: blur(120px); opacity: 0.45;
   }
   .ambient::before {
     width: 640px; height: 640px; left: -120px; top: -120px;
@@ -219,20 +219,20 @@
     background: radial-gradient(circle, hsl(var(--acc-2)), transparent 60%);
   }
   .ambient-blob-3 {
-    position: absolute; width: 480px; height: 480px;
-    left: 40%; top: 25%;
+    position: absolute; width: 520px; height: 520px;
+    left: 40%; top: 20%;
     background: radial-gradient(circle, hsl(var(--acc-3)), transparent 65%);
-    filter: blur(140px); opacity: 0.22; border-radius: 50%; pointer-events: none;
+    filter: blur(130px); opacity: 0.32; border-radius: 50%; pointer-events: none;
   }
 
-  /* ── Glow utilities (calmed ~30%) ──────────────── */
+  /* ── Glow utilities ──────────────── */
   .glow-ring {
     box-shadow:
-      0 0 0 1px hsl(var(--acc-2) / 0.20),
-      0 0 18px -2px hsl(var(--acc-2) / 0.30),
-      0 0 36px -4px hsl(var(--acc-1) / 0.18);
+      0 0 0 1px hsl(var(--acc-2) / 0.30),
+      0 0 24px -2px hsl(var(--acc-2) / 0.45),
+      0 0 48px -4px hsl(var(--acc-1) / 0.28);
   }
-  .glow-ring-soft { box-shadow: 0 0 24px -4px hsl(var(--acc-2) / 0.22); }
+  .glow-ring-soft { box-shadow: 0 0 30px -4px hsl(var(--acc-2) / 0.32); }
   .glow-blue  { box-shadow: 0 0 24px -4px hsl(var(--acc-1) / 0.5); }
   .glow-pink  { box-shadow: 0 0 24px -4px hsl(var(--acc-3) / 0.5); }
   .glow-mint  { box-shadow: 0 0 24px -4px hsl(var(--acc-4) / 0.5); }
