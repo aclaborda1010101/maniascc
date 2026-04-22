@@ -794,27 +794,34 @@ serve(async (req) => {
         } else if (fnName === "read_system_document") {
           toolLabel = "read_system_document";
           try {
+            const userId = user.id;
+            const ownershipFilter = `visibility.in.(shared,global),owner_id.eq.${userId}`;
             let docs: any[] = [];
             if (args.documento_id) {
               const { data } = await admin.from("documentos_proyecto")
-                .select("id, nombre, resumen_ia, storage_path, mime_type")
-                .eq("id", args.documento_id).limit(1);
+                .select("id, nombre, resumen_ia, storage_path, mime_type, owner_id, visibility")
+                .eq("id", args.documento_id)
+                .or(ownershipFilter)
+                .limit(1);
               docs = data || [];
             } else if (args.query) {
               const { data } = await admin.from("documentos_proyecto")
-                .select("id, nombre, resumen_ia, storage_path, mime_type")
-                .ilike("nombre", `%${args.query}%`).limit(3);
+                .select("id, nombre, resumen_ia, storage_path, mime_type, owner_id, visibility")
+                .ilike("nombre", `%${args.query}%`)
+                .or(ownershipFilter)
+                .limit(3);
               docs = data || [];
             }
             if (docs.length === 0) {
-              result = { found: false, message: "No se encontró ningún documento con ese nombre." };
+              result = { found: false, message: "No se encontró ningún documento accesible con ese nombre." };
             } else {
-              // Fetch chunks for each doc
+              // Fetch chunks for each doc (also visibility-scoped)
               const enriched = [];
               for (const d of docs) {
                 const { data: chunks } = await admin.from("document_chunks")
                   .select("contenido")
                   .eq("documento_id", d.id)
+                  .or(ownershipFilter)
                   .order("chunk_index", { ascending: true })
                   .limit(20);
                 const fullText = (chunks || []).map((c: any) => c.contenido).join("\n\n").slice(0, 12000);
