@@ -153,12 +153,11 @@ export default function OperadorDetail() {
         </AlertDialog>
       </div>
 
-      <Tabs defaultValue="info">
-        <TabsList>
-          <TabsTrigger value="info">Información General</TabsTrigger>
-          <TabsTrigger value="perfil-ia">Perfil IA</TabsTrigger>
-          <TabsTrigger value="suboperadores">Sub-operadores ({subOps.length})</TabsTrigger>
-        </TabsList>
+      <Tabs defaultValue="info" value={undefined as any}>
+        {/* Mobile select uses a controlled wrapper below */}
+        <OperadorTabsControl />
+      </Tabs>
+      <OperadorTabs subOpsCount={subOps.length} op={op} setOp={setOp} saving={saving} handleSave={handleSave} perfilIA={perfilIA} subOps={subOps} subContacts={subContacts} subDocs={subDocs} expandedSubs={expandedSubs} toggleExpanded={toggleExpanded} setShowCreateSub={setShowCreateSub} setShowAddContact={setShowAddContact} fetchSubOps={fetchSubOps} />
 
         <TabsContent value="info">
           <Card>
