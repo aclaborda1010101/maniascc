@@ -367,43 +367,71 @@ export default function AsistenteIA() {
           </div>
         </div>
 
-        {/* Input — sticky floating bar with safe-area inset */}
+        {/* Input panel + suggestions */}
         <div
-          className="border-t border-border/60 bg-background/85 backdrop-blur-xl px-3 md:px-6 py-3 md:py-4 shrink-0 space-y-2"
-          style={{ paddingBottom: "max(0.75rem, env(safe-area-inset-bottom))" }}
+          className="px-3 md:px-8 py-4 md:py-5 shrink-0 space-y-4 max-w-4xl mx-auto w-full"
+          style={{ paddingBottom: "max(1rem, env(safe-area-inset-bottom))" }}
         >
           {pendingAttachments.length > 0 && (
             <AvaAttachmentBar attachments={pendingAttachments} onAdd={addAttachments} onRemove={removeAttachment} disabled={loading} />
           )}
-          <div className="flex gap-1.5 md:gap-2 items-end">
-            {pendingAttachments.length === 0 && (
-              <AvaAttachmentBar attachments={[]} onAdd={addAttachments} onRemove={removeAttachment} disabled={loading} />
-            )}
-            <AvaVoiceControls
-              onTranscript={appendInput}
-              onAutoSend={sendMessage}
-              latestAssistantReply={lastAssistantContent}
-              loading={loading}
-              disabled={loading}
-            />
-            <AvaCallButton onClick={() => setCallOpen(true)} />
+
+          {/* Big glass input panel */}
+          <div className="glass rounded-3xl p-4 md:p-5 relative">
             <Input
-              placeholder="Pregúntame, dicta o adjunta…"
+              placeholder={`Pregunta a AVA…   (⌘↵ para enviar)`}
               value={input}
               onChange={e => setInput(e.target.value)}
               onKeyDown={e => e.key === "Enter" && !e.shiftKey && sendMessage()}
               disabled={loading}
-              className="flex-1 text-sm rounded-2xl bg-card-elevated border-border/60 h-11"
+              className="w-full text-sm bg-transparent border-0 px-1 h-10 placeholder:text-muted-foreground/60 focus-visible:ring-0 focus-visible:ring-offset-0 shadow-none"
             />
-            <Button
-              onClick={sendMessage}
-              disabled={loading || (!input.trim() && pendingAttachments.filter(a => a.status === "ready").length === 0) || pendingAttachments.some(a => a.status === "uploading" || a.status === "processing")}
-              size="icon"
-              className="ava-gradient text-white border-0 hover:opacity-95 h-11 w-11 rounded-2xl shrink-0"
-            >
-              <Send className="h-4 w-4" />
-            </Button>
+            <div className="flex items-center justify-between mt-2 pt-2">
+              <div className="flex items-center gap-2">
+                {pendingAttachments.length === 0 && (
+                  <AvaAttachmentBar attachments={[]} onAdd={addAttachments} onRemove={removeAttachment} disabled={loading} />
+                )}
+                <AvaVoiceControls
+                  onTranscript={appendInput}
+                  onAutoSend={sendMessage}
+                  latestAssistantReply={lastAssistantContent}
+                  loading={loading}
+                  disabled={loading}
+                />
+                <AvaCallButton onClick={() => setCallOpen(true)} />
+                <button className="inline-flex items-center gap-1.5 h-8 px-3 rounded-full bg-white/[0.04] border border-white/[0.08] text-[11px] font-medium text-white/75 hover:bg-white/[0.07] transition-colors">
+                  <Sparkles className="h-3 w-3" /> Pro
+                </button>
+              </div>
+              <Button
+                onClick={sendMessage}
+                disabled={loading || (!input.trim() && pendingAttachments.filter(a => a.status === "ready").length === 0) || pendingAttachments.some(a => a.status === "uploading" || a.status === "processing")}
+                size="sm"
+                className="pill-iridescent h-9 px-5 rounded-full shrink-0 text-xs font-medium gap-1.5"
+              >
+                Enviar <Send className="h-3.5 w-3.5" />
+              </Button>
+            </div>
           </div>
+
+          {/* Suggestions grid (below input, like the mockup) */}
+          {messages.length > 0 && (
+            <div className="space-y-2.5">
+              <p className="text-[10px] font-semibold tracking-[0.18em] text-muted-foreground/70 uppercase pl-1">Sugerencias</p>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                {SUGGESTIONS.map((s) => (
+                  <button
+                    key={s}
+                    onClick={() => handleSuggestion(s)}
+                    className="glass-edge rounded-full px-4 py-2.5 text-left text-xs text-white/80 hover:text-white transition-colors flex items-center gap-2 group"
+                  >
+                    <span className="text-accent opacity-60 group-hover:opacity-100 transition-opacity">→</span>
+                    <span className="truncate">{s}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
