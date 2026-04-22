@@ -187,16 +187,31 @@ serve(async (req) => {
     // Determine RAG domain
     const dominio = domainOverride || inferDomain(doc.tipo_documento, doc.mime_type);
 
-    // Download file from storage
-    const { data: fileData, error: dlErr } = await admin.storage
-      .from("documentos_contratos")
-      .download(doc.storage_path);
-
-    if (dlErr || !fileData) {
-      return new Response(JSON.stringify({ error: "Could not download file: " + (dlErr?.message || "") }), {
-        status: 500, headers: corsHeaders,
-      });
+    // Download file from storage — try multiple buckets since documents may live in different ones
+    const candidateBuckets = ["documentos_contratos", "documentos_generados", "ava_attachments"];
+    let fileData: Blob | null = null;
+    let lastErr: string = "";
+    let usedBucket = "";
+    for (const bucket of candidateBuckets) {
+      const { data, error } = await admin.storage.from(bucket).download(doc.storage_path);
+      if (data) {
+        fileData = data;
+        usedBucket = bucket;
+        break;
+      }
+      lastErr = error?.message || "unknown";
     }
+
+    if (!fileData) {
+      // File registered in DB but missing in storage — mark as unprocessable and return friendly error
+      console.error(`File missing in all buckets for doc ${documento_id}, path=${doc.storage_path}, lastErr=${lastErr}`);
+      return new Response(JSON.stringify({
+        error: `El archivo no existe en el almacenamiento (ruta: ${doc.storage_path}). Es posible que la ingesta original fallara o que el archivo haya sido eliminado. Vuelve a subir el documento.`,
+        code: "FILE_NOT_FOUND",
+        storage_path: doc.storage_path,
+      }), { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+    console.log(`Downloaded ${doc.nombre} from bucket ${usedBucket}`);
 
     // Extract text content
     let text = "";
