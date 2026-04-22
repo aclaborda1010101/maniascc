@@ -398,7 +398,7 @@ function TabPerfil() {
             <Label>Teléfono</Label>
             <Input value={telefono} onChange={e => setTelefono(e.target.value)} placeholder="+34 600 000 000" />
           </div>
-          <Button onClick={handleSaveProfile} disabled={saving} className="w-full">
+          <Button onClick={handleSaveProfile} disabled={saving} className="w-full ava-gradient text-white border-0 hover:opacity-95 rounded-2xl h-11">
             {saving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
             Guardar cambios
           </Button>
@@ -431,26 +431,32 @@ function TabPerfil() {
 
 export default function Ajustes() {
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2">
-          <Settings className="h-6 w-6" /> Ajustes
+    <div className="space-y-6 relative">
+      <div className="space-y-1">
+        <p className="text-[11px] uppercase tracking-[0.2em] text-muted-foreground/70 font-semibold flex items-center gap-2">
+          <span className="inline-block w-1.5 h-1.5 rounded-full" style={{ background: "hsl(var(--acc-2))", boxShadow: "0 0 8px hsl(var(--acc-2))" }} />
+          Sistema · Configuración
+        </p>
+        <h1 className="text-4xl md:text-5xl font-bold tracking-tight font-display flex items-center gap-3">
+          <Settings className="h-9 w-9 text-muted-foreground" /> Ajustes
         </h1>
         <p className="text-sm text-muted-foreground">Perfil, conexiones, auditoría y configuración del sistema</p>
       </div>
 
       <Tabs defaultValue="perfil">
         <TabsList>
-          <TabsTrigger value="perfil" className="gap-1"><User className="h-3 w-3" /> Perfil</TabsTrigger>
-          <TabsTrigger value="conexiones" className="gap-1"><Link2 className="h-3 w-3" /> Conexiones</TabsTrigger>
-          <TabsTrigger value="auditoria" className="gap-1"><Shield className="h-3 w-3" /> Auditoría</TabsTrigger>
-          <TabsTrigger value="config" className="gap-1"><Settings className="h-3 w-3" /> Configuración</TabsTrigger>
+          <TabsTrigger value="perfil"><User className="h-3 w-3" /> Perfil</TabsTrigger>
+          <TabsTrigger value="conexiones"><Link2 className="h-3 w-3" /> Conexiones</TabsTrigger>
+          <TabsTrigger value="auditoria"><Shield className="h-3 w-3" /> Auditoría</TabsTrigger>
+          <TabsTrigger value="config"><Settings className="h-3 w-3" /> Configuración</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="perfil"><TabPerfil /></TabsContent>
-        <TabsContent value="conexiones"><TabConexiones /></TabsContent>
-        <TabsContent value="auditoria"><TabAuditoria /></TabsContent>
-        <TabsContent value="config"><TabConfiguracion /></TabsContent>
+        <div className="mt-5">
+          <TabsContent value="perfil"><TabPerfil /></TabsContent>
+          <TabsContent value="conexiones"><TabConexiones /></TabsContent>
+          <TabsContent value="auditoria"><TabAuditoria /></TabsContent>
+          <TabsContent value="config"><TabConfiguracion /></TabsContent>
+        </div>
       </Tabs>
     </div>
   );
