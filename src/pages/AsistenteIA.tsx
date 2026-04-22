@@ -190,10 +190,10 @@ export default function AsistenteIA() {
       {/* Desktop sidebar (collapsible) */}
       {!isMobile && (
         <div className={cn(
-          "shrink-0 overflow-hidden transition-all duration-200 border-r border-white/[0.06]",
-          desktopSidebarOpen ? "w-64" : "w-0"
+          "shrink-0 overflow-hidden transition-all duration-200",
+          desktopSidebarOpen ? "w-64 border-r border-white/[0.06]" : "w-0"
         )}>
-          <div className="w-64 h-full bg-white/[0.02] backdrop-blur-2xl">
+          <div className="w-64 h-full">
             <ConversationList {...convListProps} />
           </div>
         </div>
