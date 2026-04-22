@@ -565,7 +565,8 @@ serve(async (req) => {
           if (!ALLOWED_TABLES.includes(args.table)) {
             result = { error: "Tabla no permitida: " + args.table };
           } else {
-            let query = admin.from(args.table).select(args.select || "*");
+            // Use user-scoped client so RLS policies enforce per-user access
+            let query = authClient.from(args.table).select(args.select || "*");
             if (args.filters && Array.isArray(args.filters)) {
               for (const f of args.filters) {
                 query = (query as any)[f.operator](f.column, f.value);
@@ -621,19 +622,20 @@ serve(async (req) => {
           const searchTables = args.tables || ["locales", "operadores", "contactos", "proyectos"];
           const searchResults: Record<string, any[]> = {};
           const q = "%" + (args.query || "") + "%";
+          const userId = user.id;
           for (const t of searchTables) {
             if (!ALLOWED_TABLES.includes(t)) continue;
             let searchQuery;
             if (t === "locales") {
-              searchQuery = admin.from(t).select("*").or("nombre.ilike." + q + ",ciudad.ilike." + q + ",direccion.ilike." + q).limit(10);
+              searchQuery = admin.from(t).select("*").or("nombre.ilike." + q + ",ciudad.ilike." + q + ",direccion.ilike." + q).eq("created_by", userId).limit(10);
             } else if (t === "operadores") {
-              searchQuery = admin.from(t).select("*").or("nombre.ilike." + q + ",sector.ilike." + q).limit(10);
+              searchQuery = admin.from(t).select("*").or("nombre.ilike." + q + ",sector.ilike." + q).eq("created_by", userId).limit(10);
             } else if (t === "contactos") {
-              searchQuery = admin.from(t).select("*").or("nombre.ilike." + q + ",empresa.ilike." + q + ",email.ilike." + q).limit(10);
+              searchQuery = admin.from(t).select("*").or("nombre.ilike." + q + ",empresa.ilike." + q + ",email.ilike." + q).or(`visibility.in.(shared,global),creado_por.eq.${userId}`).limit(10);
             } else if (t === "proyectos") {
               searchQuery = admin.from(t).select("*").or("nombre.ilike." + q + ",descripcion.ilike." + q).limit(10);
             } else if (t === "documentos_proyecto") {
-              searchQuery = admin.from(t).select("*").or("nombre.ilike." + q).limit(10);
+              searchQuery = admin.from(t).select("*").or("nombre.ilike." + q).or(`visibility.in.(shared,global),owner_id.eq.${userId}`).limit(10);
             } else {
               continue;
             }
@@ -792,27 +794,34 @@ serve(async (req) => {
         } else if (fnName === "read_system_document") {
           toolLabel = "read_system_document";
           try {
+            const userId = user.id;
+            const ownershipFilter = `visibility.in.(shared,global),owner_id.eq.${userId}`;
             let docs: any[] = [];
             if (args.documento_id) {
               const { data } = await admin.from("documentos_proyecto")
-                .select("id, nombre, resumen_ia, storage_path, mime_type")
-                .eq("id", args.documento_id).limit(1);
+                .select("id, nombre, resumen_ia, storage_path, mime_type, owner_id, visibility")
+                .eq("id", args.documento_id)
+                .or(ownershipFilter)
+                .limit(1);
               docs = data || [];
             } else if (args.query) {
               const { data } = await admin.from("documentos_proyecto")
-                .select("id, nombre, resumen_ia, storage_path, mime_type")
-                .ilike("nombre", `%${args.query}%`).limit(3);
+                .select("id, nombre, resumen_ia, storage_path, mime_type, owner_id, visibility")
+                .ilike("nombre", `%${args.query}%`)
+                .or(ownershipFilter)
+                .limit(3);
               docs = data || [];
             }
             if (docs.length === 0) {
-              result = { found: false, message: "No se encontró ningún documento con ese nombre." };
+              result = { found: false, message: "No se encontró ningún documento accesible con ese nombre." };
             } else {
-              // Fetch chunks for each doc
+              // Fetch chunks for each doc (also visibility-scoped)
               const enriched = [];
               for (const d of docs) {
                 const { data: chunks } = await admin.from("document_chunks")
                   .select("contenido")
                   .eq("documento_id", d.id)
+                  .or(ownershipFilter)
                   .order("chunk_index", { ascending: true })
                   .limit(20);
                 const fullText = (chunks || []).map((c: any) => c.contenido).join("\n\n").slice(0, 12000);
