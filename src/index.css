@@ -7,7 +7,7 @@
 @layer base {
   :root {
     /* ── visionOS dark-first palette ───────── */
-    --background: 240 35% 6%;
+    --background: 200 35% 6%;
     --foreground: 0 0% 96%;
 
     /* Translucent surfaces — used inside glass cards */
