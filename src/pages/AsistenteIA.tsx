@@ -307,7 +307,6 @@ export default function AsistenteIA() {
                       <div className="text-[11px] text-muted-foreground flex items-center gap-1.5">
                         <span className="text-foreground/80 font-medium">AVA</span>
                         {msg.meta?.latency_ms && <><span className="opacity-40">·</span><span>{msg.meta.latency_ms}ms</span></>}
-                        {msg.meta?.tokens && <><span className="opacity-40">·</span><span>{(msg.meta.tokens / 1000).toFixed(1)}K tokens</span></>}
                       </div>
                     </div>
 
