@@ -239,10 +239,10 @@ export default function Dashboard() {
 
       {/* CTAs */}
       <div className="flex flex-col sm:flex-row gap-2">
-        <Button asChild size="sm" className="text-white border-0 rounded-full h-9 px-5 flex-1 sm:flex-none gradient-iridescent shadow-[0_6px_20px_-8px_hsl(var(--acc-2)/0.7)]">
+        <Button asChild className="text-white border-0 rounded-full h-11 px-5 w-full sm:w-auto sm:flex-none gradient-iridescent shadow-[0_6px_20px_-8px_hsl(var(--acc-2)/0.7)]">
           <Link to="/oportunidades"><Plus className="mr-1.5 h-4 w-4" /> Nueva oportunidad</Link>
         </Button>
-        <Button asChild size="sm" variant="outline" className="rounded-full h-9 px-5 flex-1 sm:flex-none bg-white/[0.04] border-white/10 text-white hover:bg-white/[0.08]">
+        <Button asChild variant="outline" className="rounded-full h-11 px-5 w-full sm:w-auto sm:flex-none bg-white/[0.04] border-white/10 text-white hover:bg-white/[0.08]">
           <Link to="/operadores"><Plus className="mr-1.5 h-4 w-4" /> Nuevo operador</Link>
         </Button>
       </div>
@@ -419,12 +419,12 @@ export default function Dashboard() {
             {loading ? <Skeleton className="h-40 w-full" /> : recentMatches.length > 0 ? (
               <div className="space-y-2">
                 {recentMatches.slice(0, 5).map((m) => (
-                  <div key={m.id} className="flex flex-col sm:flex-row sm:items-center justify-between rounded-md border p-2.5 text-sm gap-1.5">
+                  <div key={m.id} className="flex flex-col sm:flex-row sm:items-center justify-between rounded-md border p-2.5 text-sm gap-1.5 min-w-0">
                     <div className="min-w-0 flex-1">
                       <p className="font-medium truncate text-xs md:text-sm">{(m.locales as any)?.nombre} ↔ {(m.operadores as any)?.nombre}</p>
                       <p className="text-[11px] text-muted-foreground truncate">{m.explicacion?.substring(0, 80)}</p>
                     </div>
-                    <div className="flex items-center gap-1.5 shrink-0">
+                    <div className="flex items-center gap-1.5 shrink-0 flex-wrap">
                       <Badge className="bg-accent/10 text-accent text-[10px]">{m.score}%</Badge>
                       <Badge variant="secondary" className="capitalize text-[10px]">{m.estado}</Badge>
                     </div>
@@ -445,14 +445,14 @@ export default function Dashboard() {
             {loading ? <Skeleton className="h-40 w-full" /> : recentActivity.length > 0 ? (
               <div className="space-y-2">
                 {recentActivity.map((a) => (
-                  <div key={a.id} className="flex flex-col sm:flex-row sm:items-center justify-between rounded-md border p-2.5 text-sm gap-1.5">
+                  <div key={a.id} className="flex flex-col sm:flex-row sm:items-center justify-between rounded-md border p-2.5 text-sm gap-1.5 min-w-0">
                     <div className="min-w-0 flex-1">
                       <p className="font-medium truncate text-xs md:text-sm">{a.descripcion}</p>
-                      <p className="text-[11px] text-muted-foreground">{(a.proyectos as any)?.nombre || "—"}</p>
+                      <p className="text-[11px] text-muted-foreground truncate">{(a.proyectos as any)?.nombre || "—"}</p>
                     </div>
-                    <div className="flex items-center gap-1.5 shrink-0">
+                    <div className="flex items-center gap-1.5 shrink-0 flex-wrap">
                       <Badge variant="outline" className="text-[10px]">{a.tipo}</Badge>
-                      <span className="text-[10px] text-muted-foreground">{new Date(a.created_at).toLocaleDateString("es-ES")}</span>
+                      <span className="text-[10px] text-muted-foreground whitespace-nowrap">{new Date(a.created_at).toLocaleDateString("es-ES")}</span>
                     </div>
                   </div>
                 ))}

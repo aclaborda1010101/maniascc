@@ -224,8 +224,22 @@ export default function Proyectos() {
         />
       </div>
 
-      {/* Chips horizontales — iridescent active */}
-      <div className="flex gap-2 overflow-x-auto no-scrollbar -mx-4 px-4">
+      {/* Filtro estado — Select en móvil, chips en desktop */}
+      <div className="sm:hidden">
+        <Select value={filtroEstado} onValueChange={setFiltroEstado}>
+          <SelectTrigger className="w-full h-11 rounded-2xl bg-white/[0.04] border-white/10">
+            <SelectValue placeholder="Filtrar por estado" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="todos">Todas</SelectItem>
+            <SelectItem value="activo">Activas</SelectItem>
+            <SelectItem value="en_negociacion">Negociación</SelectItem>
+            <SelectItem value="en_pausa">En pausa</SelectItem>
+            <SelectItem value="cerrado_exito">Cerradas ✓</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+      <div className="hidden sm:flex gap-2 flex-wrap">
         {[
           { value: "todos", label: "Todas" },
           { value: "activo", label: "Activas" },

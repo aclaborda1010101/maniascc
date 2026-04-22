@@ -224,10 +224,10 @@ export default function Operadores() {
             </div>
           ) : isMobile ? (
             /* Mobile: glass cards */
-            <div className="space-y-2">
+            <div className="space-y-3">
               {operadores.map((o) => (
                 <Link key={o.id} to={`/operadores/${o.id}`}>
-                  <div className="glass p-3 space-y-1.5 hover:bg-white/[0.06] transition-colors">
+                  <div className="glass p-4 space-y-2 hover:bg-white/[0.06] transition-colors">
                     <div className="flex items-start justify-between gap-2">
                       <div className="min-w-0 flex-1">
                         <p className="font-display font-semibold text-sm tracking-tight truncate">{o.nombre}</p>

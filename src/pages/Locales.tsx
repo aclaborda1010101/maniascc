@@ -183,10 +183,10 @@ export default function Locales() {
               <p className="text-muted-foreground text-sm">{search || filtroEstado !== "todos" ? "No se encontraron activos." : "No hay activos. Crea el primero."}</p>
             </div>
           ) : isMobile ? (
-            <div className="space-y-2">
+            <div className="space-y-3">
               {locales.map((l) => (
                 <Link key={l.id} to={`/activos/${l.id}`}>
-                  <div className="glass p-3 space-y-1.5 hover:bg-white/[0.06] transition-colors">
+                  <div className="glass p-4 space-y-2 hover:bg-white/[0.06] transition-colors">
                     <div className="flex items-start justify-between gap-2">
                       <div className="min-w-0 flex-1">
                         <p className="font-display font-semibold text-sm tracking-tight truncate">{l.nombre}</p>
