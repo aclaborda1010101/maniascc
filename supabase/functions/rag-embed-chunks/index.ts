@@ -20,6 +20,7 @@ async function embedTexts(texts: string[], apiKey: string): Promise<number[][]> 
   const requests = texts.map((t) => ({
     model: `models/${EMBED_MODEL}`,
     content: { parts: [{ text: (t || "").slice(0, 8000) }] },
+    outputDimensionality: EMBED_DIM,
   }));
   const resp = await fetch(`${GOOGLE_URL}?key=${apiKey}`, {
     method: "POST",
