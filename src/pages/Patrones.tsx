@@ -1,12 +1,14 @@
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Brain, Loader2, RefreshCw, MessageSquare, ShieldCheck, Zap, ChevronDown, ChevronUp } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { cn } from "@/lib/utils";
+import { MemoriaAvaPanel } from "@/components/MemoriaAvaPanel";
 
 interface Pattern {
   title: string;
@@ -220,16 +222,28 @@ Mínimo 3 patrones, máximo 8.`,
       {/* Header */}
       <div className="space-y-3">
         <p className="text-[11px] uppercase tracking-widest text-muted-foreground/70 font-medium">Inteligencia · Patrones</p>
-        <div className="flex flex-col sm:flex-row items-start sm:items-end justify-between gap-4">
-          <div>
-            <h1 className="text-3xl md:text-4xl font-display font-bold tracking-tight">
-              <span className="text-iridescent">Patrones</span> detectados
-            </h1>
-            <p className="text-sm text-muted-foreground mt-1.5">
-              Señales y tendencias detectadas por los especialistas IA.
-            </p>
-          </div>
-          <div className="flex items-center gap-2">
+        <div>
+          <h1 className="text-3xl md:text-4xl font-display font-bold tracking-tight">
+            <span className="text-iridescent">Patrones</span> detectados
+          </h1>
+          <p className="text-sm text-muted-foreground mt-1.5">
+            Señales y tendencias detectadas por los especialistas IA, y memoria viva de AVA.
+          </p>
+        </div>
+      </div>
+
+      <Tabs defaultValue="patrones" className="w-full">
+        <TabsList>
+          <TabsTrigger value="patrones">
+            <Brain className="h-3 w-3 mr-1.5" /> Patrones IA
+          </TabsTrigger>
+          <TabsTrigger value="memoria">
+            <MessageSquare className="h-3 w-3 mr-1.5" /> Memoria de AVA
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="patrones" className="space-y-4 mt-4">
+          <div className="flex items-center gap-2 justify-end">
             <Button onClick={fetchPatterns} disabled={loading} size="sm" className="rounded-2xl gradient-iridescent text-white border-0 hover:opacity-95">
               {loading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <RefreshCw className="h-4 w-4 mr-2" />}
               {result ? "Actualizar" : "Cargar patrones"}
@@ -239,71 +253,75 @@ Mínimo 3 patrones, máximo 8.`,
               Consultar AVA
             </Button>
           </div>
-        </div>
-      </div>
 
-      {/* Loading */}
-      {loading && (
-        <div className="space-y-3">
-          {[1, 2, 3].map(i => (
-            <div key={i} className="glass p-4 space-y-2">
-              <Skeleton className="h-5 w-48" />
-              <Skeleton className="h-4 w-full" />
-              <Skeleton className="h-4 w-3/4" />
+          {/* Loading */}
+          {loading && (
+            <div className="space-y-3">
+              {[1, 2, 3].map(i => (
+                <div key={i} className="glass p-4 space-y-2">
+                  <Skeleton className="h-5 w-48" />
+                  <Skeleton className="h-4 w-full" />
+                  <Skeleton className="h-4 w-3/4" />
+                </div>
+              ))}
             </div>
-          ))}
-        </div>
-      )}
+          )}
 
-      {/* Summary */}
-      {result && (
-        <div className="glass-strong glass-accent p-4 md:p-5" style={{ ["--acc-line" as any]: "var(--acc-2)" }}>
-          <div className="flex flex-wrap items-center gap-x-6 gap-y-3">
-            <div className="flex items-center gap-2 min-w-0">
-              <ShieldCheck className="h-4 w-4 shrink-0" style={{ color: "hsl(var(--acc-4))" }} />
-              <span className="text-sm">
-                <span className="text-muted-foreground">Veredicto: </span>
-                <span className="font-medium text-foreground">{result.verdict || "Sin veredicto"}</span>
-              </span>
-            </div>
-            {result.win_rate != null && (
-              <div className="flex items-center gap-2">
-                <Zap className="h-4 w-4 shrink-0" style={{ color: "hsl(var(--acc-5))" }} />
-                <span className="text-sm">
-                  <span className="text-muted-foreground">Win Rate: </span>
-                  <span className="font-display font-semibold num-display">{result.win_rate}%</span>
-                </span>
+          {/* Summary */}
+          {result && (
+            <div className="glass-strong glass-accent p-4 md:p-5" style={{ ["--acc-line" as any]: "var(--acc-2)" }}>
+              <div className="flex flex-wrap items-center gap-x-6 gap-y-3">
+                <div className="flex items-center gap-2 min-w-0">
+                  <ShieldCheck className="h-4 w-4 shrink-0" style={{ color: "hsl(var(--acc-4))" }} />
+                  <span className="text-sm">
+                    <span className="text-muted-foreground">Veredicto: </span>
+                    <span className="font-medium text-foreground">{result.verdict || "Sin veredicto"}</span>
+                  </span>
+                </div>
+                {result.win_rate != null && (
+                  <div className="flex items-center gap-2">
+                    <Zap className="h-4 w-4 shrink-0" style={{ color: "hsl(var(--acc-5))" }} />
+                    <span className="text-sm">
+                      <span className="text-muted-foreground">Win Rate: </span>
+                      <span className="font-display font-semibold num-display">{result.win_rate}%</span>
+                    </span>
+                  </div>
+                )}
+                <span className="chip ml-auto">{result.patterns.length} patrones</span>
               </div>
-            )}
-            <span className="chip ml-auto">{result.patterns.length} patrones</span>
-          </div>
-        </div>
-      )}
-
-      {/* Pattern cards */}
-      {result && (
-        <div className="space-y-3">
-          {result.patterns.map((p, idx) => (
-            <PatternCard key={idx} pattern={p} defaultOpen={idx === 0} accent={accents[idx % accents.length]} />
-          ))}
-        </div>
-      )}
-
-      {/* Empty state */}
-      {!loading && !result && (
-        <div className="glass p-16 text-center">
-          <div className="relative inline-grid place-items-center">
-            <div className="absolute inset-0 gradient-iridescent rounded-full blur-2xl opacity-40" />
-            <div className="relative h-16 w-16 rounded-3xl gradient-iridescent grid place-items-center glow-ring">
-              <Brain className="h-7 w-7 text-white" />
             </div>
-          </div>
-          <h3 className="font-display font-semibold text-lg mt-5 tracking-tight">Sin patrones cargados</h3>
-          <p className="text-sm text-muted-foreground mt-1.5 max-w-md mx-auto">
-            Pulsa "Cargar patrones" para que la IA analice los datos y detecte tendencias relevantes.
-          </p>
-        </div>
-      )}
+          )}
+
+          {/* Pattern cards */}
+          {result && (
+            <div className="space-y-3">
+              {result.patterns.map((p, idx) => (
+                <PatternCard key={idx} pattern={p} defaultOpen={idx === 0} accent={accents[idx % accents.length]} />
+              ))}
+            </div>
+          )}
+
+          {/* Empty state */}
+          {!loading && !result && (
+            <div className="glass p-16 text-center">
+              <div className="relative inline-grid place-items-center">
+                <div className="absolute inset-0 gradient-iridescent rounded-full blur-2xl opacity-40" />
+                <div className="relative h-16 w-16 rounded-3xl gradient-iridescent grid place-items-center glow-ring">
+                  <Brain className="h-7 w-7 text-white" />
+                </div>
+              </div>
+              <h3 className="font-display font-semibold text-lg mt-5 tracking-tight">Sin patrones cargados</h3>
+              <p className="text-sm text-muted-foreground mt-1.5 max-w-md mx-auto">
+                Pulsa "Cargar patrones" para que la IA analice los datos y detecte tendencias relevantes.
+              </p>
+            </div>
+          )}
+        </TabsContent>
+
+        <TabsContent value="memoria" className="mt-4">
+          <MemoriaAvaPanel />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }

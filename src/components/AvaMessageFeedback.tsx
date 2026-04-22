@@ -24,6 +24,10 @@ export function AvaMessageFeedback({ messageId, toolsUsed, className }: Props) {
   const [comment, setComment] = useState("");
 
   const handleQuick = async (tipo: "thumbs_up" | "thumbs_down") => {
+    // Optimistic UX: si es 👎, abrimos el textarea inmediatamente para reducir fricción
+    if (tipo === "thumbs_down") {
+      setOpen(true);
+    }
     const r = await recordExplicitFeedback({
       entidadTipo: "ava_message",
       entidadId: messageId,
@@ -31,8 +35,12 @@ export function AvaMessageFeedback({ messageId, toolsUsed, className }: Props) {
       contexto: { tools_used: toolsUsed || [] },
     });
     if (r.success) {
-      setSubmitted(tipo === "thumbs_up" ? "up" : "down");
-      toast({ title: "Gracias por tu feedback", description: "Esto entrena a AVA." });
+      if (tipo === "thumbs_up") {
+        setSubmitted("up");
+        toast({ title: "Gracias por tu feedback", description: "Esto entrena a AVA." });
+      } else {
+        toast({ title: "Voto registrado", description: "Cuéntale a AVA qué debería haber dicho (opcional)." });
+      }
     }
   };
 
@@ -67,7 +75,7 @@ export function AvaMessageFeedback({ messageId, toolsUsed, className }: Props) {
         variant="ghost"
         size="icon"
         className="h-6 w-6 text-muted-foreground hover:text-foreground"
-        title="Útil"
+        title="Útil — tu voto entrena a AVA"
         onClick={() => handleQuick("thumbs_up")}
       >
         <ThumbsUp className="h-3 w-3" />
@@ -76,7 +84,7 @@ export function AvaMessageFeedback({ messageId, toolsUsed, className }: Props) {
         variant="ghost"
         size="icon"
         className="h-6 w-6 text-muted-foreground hover:text-foreground"
-        title="No útil"
+        title="No útil — tu voto entrena a AVA"
         onClick={() => handleQuick("thumbs_down")}
       >
         <ThumbsDown className="h-3 w-3" />
