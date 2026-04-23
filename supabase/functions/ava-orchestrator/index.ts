@@ -1055,3 +1055,139 @@ function inferTopic(userQuestion: string, toolsUsed: string[]): string {
   const words = q.split(/\s+/).filter(w => w.length > 4).slice(0, 3).join("_");
   return words || "general";
 }
+
+/**
+ * Extract structured sources from tool results for the traceability panel in the UI.
+ * Returns three buckets:
+ *  - documents: RAG / system docs consulted (with names + relevance)
+ *  - entities: DB rows accessed (table + id + display name)
+ *  - external: external sources used (POIs from OSM, intelligence services, etc.)
+ */
+function extractSources(toolResults: Array<{ tool: string; result: any }>) {
+  const documents: Array<{ name: string; domain?: string; snippet?: string; documento_id?: string; score?: number }> = [];
+  const entities: Array<{ table: string; id?: string; name: string; subtitle?: string }> = [];
+  const external: Array<{ source: string; label: string; detail?: string; url?: string }> = [];
+
+  const seenDocs = new Set<string>();
+  const seenEntities = new Set<string>();
+
+  const pushDoc = (d: { name: string; domain?: string; snippet?: string; documento_id?: string; score?: number }) => {
+    const k = (d.documento_id || d.name || "").toLowerCase();
+    if (!k || seenDocs.has(k)) return;
+    seenDocs.add(k);
+    documents.push(d);
+  };
+  const pushEntity = (e: { table: string; id?: string; name: string; subtitle?: string }) => {
+    const k = `${e.table}:${e.id || e.name}`.toLowerCase();
+    if (seenEntities.has(k)) return;
+    seenEntities.add(k);
+    entities.push(e);
+  };
+
+  const displayName = (row: any, table: string): string => {
+    if (!row) return "(sin nombre)";
+    if (table === "contactos") {
+      const full = [row.nombre, row.apellidos].filter(Boolean).join(" ").trim();
+      return full || row.email || row.empresa || row.id || "(contacto)";
+    }
+    return row.nombre || row.titulo || row.title || row.name || row.email || row.id || "(sin nombre)";
+  };
+  const subtitleOf = (row: any, table: string): string | undefined => {
+    if (!row) return undefined;
+    if (table === "operadores") return [row.sector, row.contacto_email].filter(Boolean).join(" · ") || undefined;
+    if (table === "contactos") return [row.cargo, row.empresa].filter(Boolean).join(" · ") || undefined;
+    if (table === "locales" || table === "activos") return [row.ciudad || row.direccion, row.codigo_postal].filter(Boolean).join(" · ") || undefined;
+    if (table === "proyectos") return row.descripcion ? String(row.descripcion).slice(0, 80) : undefined;
+    if (table === "negociaciones") return row.estado;
+    if (table === "matches") return row.score != null ? `score ${row.score}` : undefined;
+    return undefined;
+  };
+
+  for (const tr of toolResults) {
+    const tool = tr.tool || "";
+    const result = tr.result;
+    if (!result || result.error) continue;
+
+    // RAG search → result.matches or result.results or result.chunks (varies by rag-proxy version)
+    if (tool.startsWith("rag_search")) {
+      const dominio = tool.split(":")[1];
+      const matches = result.matches || result.results || result.chunks || result.sources || [];
+      if (Array.isArray(matches)) {
+        for (const m of matches.slice(0, 12)) {
+          pushDoc({
+            name: m.documento_nombre || m.nombre || m.title || m.metadata?.nombre || m.metadata?.title || "Documento sin título",
+            domain: dominio || m.dominio,
+            snippet: typeof m.contenido === "string" ? m.contenido.slice(0, 220) : (m.snippet || m.preview),
+            documento_id: m.documento_id || m.id,
+            score: typeof m.score === "number" ? m.score : (typeof m.similarity === "number" ? m.similarity : undefined),
+          });
+        }
+      }
+      // Some implementations return a list of documento ids and a synthesized answer
+      if (Array.isArray(result.documents)) {
+        for (const d of result.documents.slice(0, 12)) {
+          pushDoc({
+            name: d.nombre || d.title || "Documento",
+            domain: dominio,
+            documento_id: d.id,
+            snippet: d.resumen_ia || d.summary,
+          });
+        }
+      }
+    }
+
+    // read_system_document → result.documents
+    if (tool === "read_system_document" && result.found && Array.isArray(result.documents)) {
+      for (const d of result.documents) {
+        pushDoc({
+          name: d.nombre || "Documento",
+          documento_id: d.id,
+          snippet: d.resumen_ia || (typeof d.contenido === "string" ? d.contenido.slice(0, 220) : undefined),
+        });
+      }
+    }
+
+    // db_query:<table>
+    if (tool.startsWith("db_query:")) {
+      const table = tool.split(":")[1] || "";
+      if (Array.isArray(result)) {
+        for (const row of result.slice(0, 15)) {
+          pushEntity({ table, id: row.id, name: displayName(row, table), subtitle: subtitleOf(row, table) });
+        }
+      }
+    }
+
+    // search_data → result is { table: rows[] }
+    if (tool === "search_data" && result && typeof result === "object" && !Array.isArray(result)) {
+      for (const [table, rows] of Object.entries(result)) {
+        if (!Array.isArray(rows)) continue;
+        for (const row of (rows as any[]).slice(0, 10)) {
+          pushEntity({ table, id: row.id, name: displayName(row, table), subtitle: subtitleOf(row, table) });
+        }
+      }
+    }
+
+    // nearby_search → POIs via OpenStreetMap
+    if (tool.startsWith("nearby_search")) {
+      const query = tool.split(":")[1];
+      external.push({
+        source: "OpenStreetMap (Overpass API)",
+        label: `${result.count ?? 0} POIs · "${query || result.query || "búsqueda"}"`,
+        detail: result.center ? `Centro ${result.center.lat?.toFixed?.(4)}, ${result.center.lon?.toFixed?.(4)} · radio ${result.radius_m}m` : undefined,
+        url: "https://www.openstreetmap.org/",
+      });
+    }
+
+    // run_intelligence:<func>
+    if (tool.startsWith("run_intelligence")) {
+      const func = tool.split(":")[1] || "";
+      external.push({
+        source: "Motor predictivo AVA",
+        label: `Análisis ${func}`,
+        detail: result?.summary || result?.resumen || (typeof result === "object" ? "Resultado estructurado" : undefined),
+      });
+    }
+  }
+
+  return { documents, entities, external };
+}
