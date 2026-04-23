@@ -30,6 +30,52 @@ async function fetchAIWithRetry(url: string, init: RequestInit, maxAttempts = 3)
   throw lastErr ?? new Error("AI gateway unreachable");
 }
 
+async function fetchWithTimeout(
+  url: string,
+  init: RequestInit,
+  timeoutMs: number,
+): Promise<Response> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort("timeout"), timeoutMs);
+  try {
+    return await fetch(url, { ...init, signal: controller.signal });
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+async function fetchAIWithTimeoutAndRetry(
+  url: string,
+  init: RequestInit,
+  timeoutMs: number,
+  maxAttempts = 2,
+): Promise<Response> {
+  let lastErr: unknown = null;
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      const resp = await fetchWithTimeout(url, init, timeoutMs);
+      if (resp.ok) return resp;
+      if ([502, 503, 504].includes(resp.status) && attempt < maxAttempts) {
+        await new Promise(r => setTimeout(r, 300 * attempt));
+        continue;
+      }
+      return resp;
+    } catch (e) {
+      lastErr = e;
+      if (attempt < maxAttempts) await new Promise(r => setTimeout(r, 300 * attempt));
+    }
+  }
+  throw lastErr ?? new Error("Timed out");
+}
+
+function isAbortTimeoutError(error: unknown): boolean {
+  return error instanceof Error && (
+    error.name === "AbortError" ||
+    error.message.toLowerCase().includes("timeout") ||
+    error.message.toLowerCase().includes("aborted")
+  );
+}
+
 const SYSTEM_PROMPT = `Eres AVA, la asistente estratégica de F&G Real Estate especializada en retail e inmobiliario comercial. Tienes acceso a:
 1. BASE DE DATOS interna: locales, operadores, contactos, activos, proyectos/oportunidades, matches, negociaciones, documentos
 2. RAG HÍBRIDO (búsqueda textual + semántica con embeddings) sobre documentos indexados segmentados por dominio (centros_comerciales, legal, financiero, urbanismo, administrativo, comunicaciones, personal, general). **SIEMPRE** prueba rag_search primero cuando la pregunta menciona "documento", "contrato", "informe", "email", nombres de operadores o de proyectos/centros. **Respeta SIEMPRE el filtro de dominios activo del usuario** (no intentes saltártelo).
@@ -550,6 +596,7 @@ serve(async (req) => {
 
     const aiData = await aiResponse.json();
     const choice = aiData.choices?.[0]?.message;
+    const firstCallContent = choice?.content || "";
     const usage1 = aiData.usage || {};
     let totalTokensIn = usage1.prompt_tokens || 0;
     let totalTokensOut = usage1.completion_tokens || 0;
@@ -655,7 +702,7 @@ serve(async (req) => {
             result = { error: "Función no reconocida: " + args.function_name };
           } else {
             const fnUrl = Deno.env.get("SUPABASE_URL") + "/functions/v1/" + funcName;
-            const fnResp = await fetch(fnUrl, {
+            const fnResp = await fetchWithTimeout(fnUrl, {
               method: "POST",
               headers: {
                 "Content-Type": "application/json",
@@ -663,7 +710,7 @@ serve(async (req) => {
                 apikey: anonKey,
               },
               body: JSON.stringify(args.params || {}),
-            });
+            }, 20000);
             result = await fnResp.json();
           }
         } else if (fnName === "search_data") {
@@ -765,7 +812,7 @@ serve(async (req) => {
             toolLabel = "rag_search:" + (effectiveDomains ? effectiveDomains.join("+").slice(0, 60) : "all");
             const ragUrl = Deno.env.get("SUPABASE_URL") + "/functions/v1/rag-proxy";
             try {
-              const ragResp = await fetch(ragUrl, {
+              const ragResp = await fetchWithTimeout(ragUrl, {
                 method: "POST",
                 headers: {
                   "Content-Type": "application/json",
@@ -780,7 +827,7 @@ serve(async (req) => {
                     proyecto_id: args.proyecto_id || undefined,
                   },
                 }),
-              });
+              }, 25000);
               const ragData = await ragResp.json();
               result = ragData;
             } catch (e) {
@@ -794,7 +841,7 @@ serve(async (req) => {
           toolLabel = "generate_forge_document:" + (args.mode || "");
           try {
             const forgeUrl = Deno.env.get("SUPABASE_URL") + "/functions/v1/ai-forge";
-            const forgeResp = await fetch(forgeUrl, {
+            const forgeResp = await fetchWithTimeout(forgeUrl, {
               method: "POST",
               headers: {
                 "Content-Type": "application/json",
@@ -807,13 +854,13 @@ serve(async (req) => {
                 proyecto_id: args.proyecto_id,
                 format: "structured",
               }),
-            });
+            }, 45000);
             const forgeData = await forgeResp.json();
             if (!forgeResp.ok || forgeData?.error || !forgeData?.structured) {
               result = { success: false, error: forgeData?.error || "FORGE no devolvió estructura válida" };
             } else {
               const pdfUrl = Deno.env.get("SUPABASE_URL") + "/functions/v1/generate-pdf-v2";
-              const pdfResp = await fetch(pdfUrl, {
+              const pdfResp = await fetchWithTimeout(pdfUrl, {
                 method: "POST",
                 headers: {
                   "Content-Type": "application/json",
@@ -826,7 +873,7 @@ serve(async (req) => {
                   mode_label: args.mode,
                   output: "pdf",
                 }),
-              });
+              }, 45000);
               if (!pdfResp.ok) {
                 result = { success: false, error: `PDF render failed (${pdfResp.status})`, structured: forgeData.structured };
               } else {
@@ -906,7 +953,7 @@ serve(async (req) => {
           result = { error: "Tool no reconocida" };
         }
       } catch (e) {
-        result = { error: e instanceof Error ? e.message : "Error ejecutando tool" };
+        result = { error: isAbortTimeoutError(e) ? "La herramienta excedió el tiempo máximo permitido" : e instanceof Error ? e.message : "Error ejecutando tool" };
       }
 
       return { toolLabel, result, toolCallId: toolCall.id };
@@ -959,7 +1006,7 @@ serve(async (req) => {
     
     // Try synthesis up to 2 times
     for (let attempt = 0; attempt < 2; attempt++) {
-      const synthesisResponse = await fetchAIWithRetry("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      const synthesisResponse = await fetchAIWithTimeoutAndRetry("https://ai.gateway.lovable.dev/v1/chat/completions", {
         method: "POST",
         headers: {
           Authorization: `Bearer ${lovableKey}`,
@@ -973,7 +1020,7 @@ serve(async (req) => {
             { role: "user", content: `Pregunta del usuario: ${message}\n\nDatos obtenidos:\n${toolResultsSummary}\n\nResponde de forma completa y profesional.` },
           ],
         }),
-      });
+      }, 35000, 1);
 
       if (synthesisResponse.ok) {
         const synthesisData = await synthesisResponse.json();
