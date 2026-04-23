@@ -151,7 +151,11 @@ export default function FloatingChatPanel({ open, onClose }: FloatingChatPanelPr
             </div>
           )}
 
-          {messages.map(msg => (
+          {messages.map((msg, idx) => {
+            const prevUserMsg = msg.role === "assistant"
+              ? [...messages.slice(0, idx)].reverse().find(m => m.role === "user")
+              : undefined;
+            return (
             <div key={msg.id} className={`flex gap-2 ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
               {msg.role === "assistant" && (
                 <div className="shrink-0 w-6 h-6 rounded-full bg-accent/10 flex items-center justify-center">
@@ -169,7 +173,6 @@ export default function FloatingChatPanel({ open, onClose }: FloatingChatPanelPr
                   <p className="text-xs whitespace-pre-wrap">{msg.content}</p>
                 )}
 
-                {/* Attachments badges (user messages) */}
                 {msg.meta?.attachments && msg.meta.attachments.length > 0 && (
                   <div className="mt-1 flex flex-wrap gap-1">
                     {msg.meta.attachments.map((a, i) => (
@@ -180,7 +183,6 @@ export default function FloatingChatPanel({ open, onClose }: FloatingChatPanelPr
                   </div>
                 )}
 
-                {/* Forge PDF download block */}
                 {msg.meta?.forge_pdf && (
                   <div className="mt-2 p-2 rounded-lg border border-border bg-background">
                     <div className="flex items-center gap-2 mb-1.5">
@@ -219,6 +221,12 @@ export default function FloatingChatPanel({ open, onClose }: FloatingChatPanelPr
                   </div>
                 )}
 
+                {msg.role === "assistant" && msg.meta?.sources && (
+                  <div className="mt-2">
+                    <AvaSourcesPanel sources={msg.meta.sources} />
+                  </div>
+                )}
+
                 {msg.meta?.tools_used && msg.meta.tools_used.length > 0 && (
                   <div className="mt-1 flex flex-wrap gap-1">
                     {msg.meta.tools_used.map((t, i) => {
@@ -228,13 +236,15 @@ export default function FloatingChatPanel({ open, onClose }: FloatingChatPanelPr
                   </div>
                 )}
                 {msg.role === "assistant" && (
-                  <div className="mt-1">
+                  <div className="mt-1 flex items-center justify-between gap-1">
                     <AvaMessageFeedback messageId={msg.id} toolsUsed={msg.meta?.tools_used} />
+                    <ExportMessageMiniBtn message={msg} userQuestion={prevUserMsg?.content} />
                   </div>
                 )}
               </div>
             </div>
-          ))}
+            );
+          })}
 
           {loading && (
             <div className="flex gap-2">
