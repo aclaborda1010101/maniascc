@@ -13,8 +13,11 @@ const corsHeaders = {
 
 const EMBED_MODEL = "gemini-embedding-001";
 const EMBED_DIM = 768;
-const BATCH = 100;
+const BATCH = 50;
 const GOOGLE_URL = `https://generativelanguage.googleapis.com/v1beta/models/${EMBED_MODEL}:batchEmbedContents`;
+const MAX_RETRIES = 5;
+
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 async function embedTexts(texts: string[], apiKey: string): Promise<number[][]> {
   const requests = texts.map((t) => ({
@@ -22,17 +25,28 @@ async function embedTexts(texts: string[], apiKey: string): Promise<number[][]> 
     content: { parts: [{ text: (t || "").slice(0, 8000) }] },
     outputDimensionality: EMBED_DIM,
   }));
-  const resp = await fetch(`${GOOGLE_URL}?key=${apiKey}`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ requests }),
-  });
-  if (!resp.ok) {
+  let lastErr = "";
+  for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
+    const resp = await fetch(`${GOOGLE_URL}?key=${apiKey}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ requests }),
+    });
+    if (resp.ok) {
+      const data = await resp.json();
+      return (data.embeddings || []).map((e: any) => e.values as number[]);
+    }
     const txt = await resp.text();
-    throw new Error(`Google AI embeddings ${resp.status}: ${txt.slice(0, 300)}`);
+    lastErr = `Google AI embeddings ${resp.status}: ${txt.slice(0, 200)}`;
+    if (resp.status === 429 || resp.status >= 500) {
+      const wait = Math.min(60000, 2000 * Math.pow(2, attempt)) + Math.random() * 1000;
+      console.warn(`[embed] retry ${attempt + 1}/${MAX_RETRIES} after ${Math.round(wait)}ms — ${lastErr}`);
+      await sleep(wait);
+      continue;
+    }
+    throw new Error(lastErr);
   }
-  const data = await resp.json();
-  return (data.embeddings || []).map((e: any) => e.values as number[]);
+  throw new Error(`embed exhausted retries: ${lastErr}`);
 }
 
 Deno.serve(async (req) => {
