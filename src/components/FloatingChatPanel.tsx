@@ -108,13 +108,18 @@ export default function FloatingChatPanel({ open, onClose }: FloatingChatPanelPr
             <ChevronDown className="h-3 w-3 text-muted-foreground" />
           </button>
           <div className="flex items-center gap-1">
-            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => { createConversation(); setShowConvList(false); }}>
+            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => { createConversation(); setShowConvList(false); }} title="Nueva conversación">
               <Plus className="h-3.5 w-3.5 text-muted-foreground" />
             </Button>
             {messages.length > 0 && (
-              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={clearChat}>
-                <Trash2 className="h-3.5 w-3.5 text-muted-foreground" />
-              </Button>
+              <>
+                <Button variant="ghost" size="icon" className="h-7 w-7" onClick={handleExportConversation} disabled={exportingConv} title="Exportar conversación a PDF">
+                  {exportingConv ? <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" /> : <FileDown className="h-3.5 w-3.5 text-muted-foreground" />}
+                </Button>
+                <Button variant="ghost" size="icon" className="h-7 w-7" onClick={clearChat} title="Limpiar">
+                  <Trash2 className="h-3.5 w-3.5 text-muted-foreground" />
+                </Button>
+              </>
             )}
             <Button variant="ghost" size="icon" className="h-7 w-7" onClick={onClose}>
               <X className="h-4 w-4" />
