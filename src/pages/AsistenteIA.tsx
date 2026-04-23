@@ -177,6 +177,8 @@ export default function AsistenteIA() {
   const [editTitle, setEditTitle] = useState("");
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [callOpen, setCallOpen] = useState(false);
+  const [exportingConv, setExportingConv] = useState(false);
+  const { toast } = useToast();
   const [desktopSidebarOpen, setDesktopSidebarOpen] = useState(() => {
     if (typeof window === "undefined") return true;
     const v = localStorage.getItem("ava-conv-sidebar");
@@ -186,6 +188,29 @@ export default function AsistenteIA() {
     localStorage.setItem("ava-conv-sidebar", desktopSidebarOpen ? "1" : "0");
   }, [desktopSidebarOpen]);
   const isMobile = useIsMobile();
+
+  const handleExportConversation = async () => {
+    if (messages.length === 0 || exportingConv) return;
+    setExportingConv(true);
+    const activeConv = conversations.find((c: any) => c.id === activeConversationId);
+    const title = activeConv?.title || "Conversación AVA";
+    const { blob, error } = await exportAvaConversationToPdf(
+      title,
+      messages.map((m: any) => ({
+        role: m.role,
+        content: m.content,
+        timestamp: m.timestamp,
+        sources: m.meta?.sources,
+      }))
+    );
+    if (blob) {
+      downloadBlob(blob, `${title}.pdf`);
+      toast({ title: "Conversación exportada en PDF" });
+    } else {
+      toast({ title: "No se pudo exportar", description: error || "", variant: "destructive" });
+    }
+    setExportingConv(false);
+  };
 
   const startRename = (id: string, currentTitle: string) => {
     setEditingId(id);
@@ -259,9 +284,14 @@ export default function AsistenteIA() {
               </div>
             </div>
             {messages.length > 0 && (
-              <Button variant="ghost" size="sm" onClick={clearChat} className="gap-1 text-muted-foreground text-xs rounded-xl hover:bg-white/[0.06]">
-                <Trash2 className="h-3.5 w-3.5" /> Limpiar
-              </Button>
+              <div className="flex items-center gap-1">
+                <Button variant="ghost" size="sm" onClick={handleExportConversation} disabled={exportingConv} className="gap-1 text-muted-foreground text-xs rounded-xl hover:bg-white/[0.06]">
+                  {exportingConv ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <FileDown className="h-3.5 w-3.5" />} Exportar conversación
+                </Button>
+                <Button variant="ghost" size="sm" onClick={clearChat} className="gap-1 text-muted-foreground text-xs rounded-xl hover:bg-white/[0.06]">
+                  <Trash2 className="h-3.5 w-3.5" /> Limpiar
+                </Button>
+              </div>
             )}
           </div>
         )}
