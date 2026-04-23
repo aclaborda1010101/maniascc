@@ -2734,26 +2734,48 @@ export type Database = {
         }
         Returns: number
       }
-      rag_hybrid_search: {
-        Args: {
-          p_dominio?: string
-          p_limit?: number
-          p_proyecto_id?: string
-          p_query_embedding: string
-          p_question: string
-        }
-        Returns: {
-          contenido: string
-          documento_id: string
-          dominio: string
-          fts_rank: number
-          hybrid_score: number
-          id: string
-          metadata: Json
-          proyecto_id: string
-          vec_distance: number
-        }[]
-      }
+      rag_hybrid_search:
+        | {
+            Args: {
+              p_dominio?: string
+              p_limit?: number
+              p_proyecto_id?: string
+              p_query_embedding: string
+              p_question: string
+            }
+            Returns: {
+              contenido: string
+              documento_id: string
+              dominio: string
+              fts_rank: number
+              hybrid_score: number
+              id: string
+              metadata: Json
+              proyecto_id: string
+              vec_distance: number
+            }[]
+          }
+        | {
+            Args: {
+              p_dominio?: string
+              p_dominios?: string[]
+              p_limit?: number
+              p_proyecto_id?: string
+              p_query_embedding: string
+              p_question: string
+            }
+            Returns: {
+              contenido: string
+              documento_id: string
+              dominio: string
+              fts_rank: number
+              hybrid_score: number
+              id: string
+              metadata: Json
+              proyecto_id: string
+              vec_distance: number
+            }[]
+          }
       read_email_batch: {
         Args: { batch_size: number; queue_name: string; vt: number }
         Returns: {
