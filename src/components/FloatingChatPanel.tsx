@@ -1,15 +1,18 @@
 import { useState } from "react";
-import { Send, X, Trash2, Sparkles, Plus, ChevronDown, FileText, Download } from "lucide-react";
+import { Send, X, Trash2, Sparkles, Plus, ChevronDown, FileText, Download, FileDown, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useChatMessages, toolLabel } from "@/hooks/useChatMessages";
+import { useChatMessages, toolLabel, type ChatMessage } from "@/hooks/useChatMessages";
 import { AvaMessageFeedback } from "@/components/AvaMessageFeedback";
 import { AvaAttachmentBar } from "@/components/AvaAttachmentBar";
 import { AvaPendingActionCard } from "@/components/AvaPendingActionCard";
 import { AvaVoiceControls } from "@/components/AvaVoiceControls";
 import { AvaRealtimeOverlay, AvaCallButton } from "@/components/AvaRealtimeOverlay";
+import { AvaSourcesPanel } from "@/components/AvaSourcesPanel";
+import { exportAvaMessageToPdf, exportAvaConversationToPdf, downloadBlob } from "@/services/pdfService";
+import { useToast } from "@/hooks/use-toast";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 
@@ -18,9 +21,43 @@ interface FloatingChatPanelProps {
   onClose: () => void;
 }
 
+function ExportMessageMiniBtn({ message, userQuestion }: { message: ChatMessage; userQuestion?: string }) {
+  const { toast } = useToast();
+  const [exporting, setExporting] = useState(false);
+  const handleClick = async () => {
+    setExporting(true);
+    const title = `Respuesta AVA · ${new Date(message.timestamp).toLocaleDateString("es-ES")}`;
+    const { blob, error } = await exportAvaMessageToPdf(
+      { role: "assistant", content: message.content, timestamp: message.timestamp, sources: message.meta?.sources },
+      { title, userQuestion }
+    );
+    if (blob) {
+      downloadBlob(blob, `${title}.pdf`);
+      toast({ title: "Respuesta exportada en PDF" });
+    } else {
+      toast({ title: "No se pudo exportar", description: error || "", variant: "destructive" });
+    }
+    setExporting(false);
+  };
+  return (
+    <button
+      type="button"
+      onClick={handleClick}
+      disabled={exporting}
+      title="Exportar esta respuesta a PDF"
+      className="inline-flex items-center gap-1 text-[9px] text-muted-foreground hover:text-foreground transition-colors px-1.5 h-5 rounded hover:bg-white/[0.05]"
+    >
+      {exporting ? <Loader2 className="h-2.5 w-2.5 animate-spin" /> : <FileDown className="h-2.5 w-2.5" />}
+      Exportar
+    </button>
+  );
+}
+
 export default function FloatingChatPanel({ open, onClose }: FloatingChatPanelProps) {
+  const { toast } = useToast();
   const [showConvList, setShowConvList] = useState(false);
   const [callOpen, setCallOpen] = useState(false);
+  const [exportingConv, setExportingConv] = useState(false);
   const {
     conversations, activeConversationId, messages, input, setInput,
     loading, sendMessage, clearChat, scrollRef,
@@ -32,6 +69,28 @@ export default function FloatingChatPanel({ open, onClose }: FloatingChatPanelPr
   const activeConv = conversations.find(c => c.id === activeConversationId);
   const sortedConvs = [...conversations].sort((a, b) => b.updatedAt - a.updatedAt);
   const processing = pendingAttachments.some(a => a.status === "uploading" || a.status === "processing");
+
+  const handleExportConversation = async () => {
+    if (messages.length === 0 || exportingConv) return;
+    setExportingConv(true);
+    const title = activeConv?.title || "Conversación AVA";
+    const { blob, error } = await exportAvaConversationToPdf(
+      title,
+      messages.map(m => ({
+        role: m.role,
+        content: m.content,
+        timestamp: m.timestamp,
+        sources: m.meta?.sources,
+      }))
+    );
+    if (blob) {
+      downloadBlob(blob, `${title}.pdf`);
+      toast({ title: "Conversación exportada en PDF" });
+    } else {
+      toast({ title: "No se pudo exportar", description: error || "", variant: "destructive" });
+    }
+    setExportingConv(false);
+  };
 
   if (!open) return null;
 
