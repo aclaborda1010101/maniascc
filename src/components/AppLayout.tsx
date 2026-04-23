@@ -6,22 +6,18 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { useMatchNotifications } from "@/hooks/useMatchNotifications";
 import { NotificationCenter } from "@/components/NotificationCenter";
-import { FloatingChat } from "@/components/FloatingChat";
 import { BottomNav } from "@/components/BottomNav";
-import { useIsMobile } from "@/hooks/use-mobile";
+
 import { Sparkles } from "lucide-react";
 
 export function AppLayout() {
   const navigate = useNavigate();
   const location = useLocation();
   const { user, signOut } = useAuth();
-  const isMobile = useIsMobile();
+  
   useMatchNotifications();
 
   const initials = user?.email?.substring(0, 2).toUpperCase() || "AV";
-
-  // En móvil ocultamos el FloatingChat (lo sustituye el FAB del BottomNav).
-  const showFloatingChat = !isMobile && location.pathname !== "/asistente";
 
   return (
     <SidebarProvider>
@@ -94,7 +90,6 @@ export function AppLayout() {
             <Outlet />
           </main>
 
-          {showFloatingChat && <FloatingChat />}
           <BottomNav />
         </div>
       </div>
