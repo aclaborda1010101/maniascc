@@ -311,9 +311,14 @@ export default function AsistenteIA() {
                 <p className="text-[10px] text-muted-foreground">activa · escuchando</p>
               </div>
             </button>
-            <Button variant="ghost" size="sm" onClick={clearChat} className="gap-1 text-muted-foreground text-xs rounded-xl">
-              <Trash2 className="h-3.5 w-3.5" />
-            </Button>
+            <div className="flex items-center gap-1">
+              <Button variant="ghost" size="icon" onClick={handleExportConversation} disabled={exportingConv} className="h-8 w-8 rounded-xl text-muted-foreground" title="Exportar conversación a PDF">
+                {exportingConv ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <FileDown className="h-3.5 w-3.5" />}
+              </Button>
+              <Button variant="ghost" size="icon" onClick={clearChat} className="h-8 w-8 rounded-xl text-muted-foreground" title="Limpiar conversación">
+                <Trash2 className="h-3.5 w-3.5" />
+              </Button>
+            </div>
           </div>
         )}
 
