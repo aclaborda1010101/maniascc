@@ -265,7 +265,7 @@ function buildFullHtml(title: string, contentMd: string, modeLabel: string, date
 
   /* ════════ CONTENT ════════ */
   .content {
-    padding: 0 20mm;
+    padding: 4mm 20mm 0;
   }
   .content p {
     margin: 10px 0;
@@ -284,6 +284,7 @@ function buildFullHtml(title: string, contentMd: string, modeLabel: string, date
     padding-bottom: 8px;
     border-bottom: 2px solid var(--navy);
     page-break-after: avoid;
+    page-break-before: auto;
   }
   .content h2 {
     font-family: 'Inter', sans-serif;
