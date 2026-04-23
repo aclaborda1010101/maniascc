@@ -949,6 +949,7 @@ export type Database = {
         Row: {
           contacto_id: string | null
           created_at: string | null
+          dominio: string | null
           fase_rag: string
           fecha_documento: string | null
           hash_md5: string | null
@@ -975,6 +976,7 @@ export type Database = {
         Insert: {
           contacto_id?: string | null
           created_at?: string | null
+          dominio?: string | null
           fase_rag?: string
           fecha_documento?: string | null
           hash_md5?: string | null
@@ -1001,6 +1003,7 @@ export type Database = {
         Update: {
           contacto_id?: string | null
           created_at?: string | null
+          dominio?: string | null
           fase_rag?: string
           fecha_documento?: string | null
           hash_md5?: string | null
