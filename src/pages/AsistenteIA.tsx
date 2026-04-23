@@ -6,11 +6,11 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
-import { useChatMessages, toolLabel } from "@/hooks/useChatMessages";
+import { useChatMessages, toolLabel, type ChatMessage } from "@/hooks/useChatMessages";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { cn } from "@/lib/utils";
-import { generateProfessionalPdf, downloadBlob } from "@/services/pdfService";
+import { generateProfessionalPdf, downloadBlob, exportAvaMessageToPdf, exportAvaConversationToPdf } from "@/services/pdfService";
 import { useToast } from "@/hooks/use-toast";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useAuth } from "@/hooks/useAuth";
@@ -19,6 +19,7 @@ import { AvaAttachmentBar } from "@/components/AvaAttachmentBar";
 import { AvaPendingActionCard } from "@/components/AvaPendingActionCard";
 import { AvaVoiceControls } from "@/components/AvaVoiceControls";
 import { AvaRealtimeOverlay, AvaCallButton } from "@/components/AvaRealtimeOverlay";
+import { AvaSourcesPanel } from "@/components/AvaSourcesPanel";
 
 const SUGGESTIONS = [
   "Resumen del día",
@@ -62,6 +63,39 @@ function ForgePdfBlock({ forgePdf }: { forgePdf: { mode: string; file_name: stri
     >
       <Download className="h-3.5 w-3.5" /> Descargar {forgePdf.title || forgePdf.file_name}
     </a>
+  );
+}
+
+/** Export a single AVA assistant message (with its sources) as PDF. */
+function ExportMessageButton({ message, userQuestion }: { message: ChatMessage; userQuestion?: string }) {
+  const { toast } = useToast();
+  const [exporting, setExporting] = useState(false);
+  const handleClick = async () => {
+    setExporting(true);
+    const title = `Respuesta AVA · ${new Date(message.timestamp).toLocaleDateString("es-ES")}`;
+    const { blob, error } = await exportAvaMessageToPdf(
+      { role: "assistant", content: message.content, timestamp: message.timestamp, sources: message.meta?.sources },
+      { title, userQuestion }
+    );
+    if (blob) {
+      downloadBlob(blob, `${title}.pdf`);
+      toast({ title: "Respuesta exportada en PDF" });
+    } else {
+      toast({ title: "No se pudo exportar", description: error || "", variant: "destructive" });
+    }
+    setExporting(false);
+  };
+  return (
+    <button
+      type="button"
+      onClick={handleClick}
+      disabled={exporting}
+      title="Exportar esta respuesta a PDF"
+      className="inline-flex items-center gap-1 text-[10px] text-muted-foreground hover:text-foreground transition-colors px-2 h-6 rounded-md hover:bg-white/[0.05]"
+    >
+      {exporting ? <Loader2 className="h-3 w-3 animate-spin" /> : <FileDown className="h-3 w-3" />}
+      Exportar
+    </button>
   );
 }
 
@@ -143,6 +177,8 @@ export default function AsistenteIA() {
   const [editTitle, setEditTitle] = useState("");
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [callOpen, setCallOpen] = useState(false);
+  const [exportingConv, setExportingConv] = useState(false);
+  const { toast } = useToast();
   const [desktopSidebarOpen, setDesktopSidebarOpen] = useState(() => {
     if (typeof window === "undefined") return true;
     const v = localStorage.getItem("ava-conv-sidebar");
@@ -152,6 +188,29 @@ export default function AsistenteIA() {
     localStorage.setItem("ava-conv-sidebar", desktopSidebarOpen ? "1" : "0");
   }, [desktopSidebarOpen]);
   const isMobile = useIsMobile();
+
+  const handleExportConversation = async () => {
+    if (messages.length === 0 || exportingConv) return;
+    setExportingConv(true);
+    const activeConv = conversations.find((c: any) => c.id === activeConversationId);
+    const title = activeConv?.title || "Conversación AVA";
+    const { blob, error } = await exportAvaConversationToPdf(
+      title,
+      messages.map((m: any) => ({
+        role: m.role,
+        content: m.content,
+        timestamp: m.timestamp,
+        sources: m.meta?.sources,
+      }))
+    );
+    if (blob) {
+      downloadBlob(blob, `${title}.pdf`);
+      toast({ title: "Conversación exportada en PDF" });
+    } else {
+      toast({ title: "No se pudo exportar", description: error || "", variant: "destructive" });
+    }
+    setExportingConv(false);
+  };
 
   const startRename = (id: string, currentTitle: string) => {
     setEditingId(id);
@@ -225,9 +284,14 @@ export default function AsistenteIA() {
               </div>
             </div>
             {messages.length > 0 && (
-              <Button variant="ghost" size="sm" onClick={clearChat} className="gap-1 text-muted-foreground text-xs rounded-xl hover:bg-white/[0.06]">
-                <Trash2 className="h-3.5 w-3.5" /> Limpiar
-              </Button>
+              <div className="flex items-center gap-1">
+                <Button variant="ghost" size="sm" onClick={handleExportConversation} disabled={exportingConv} className="gap-1 text-muted-foreground text-xs rounded-xl hover:bg-white/[0.06]">
+                  {exportingConv ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <FileDown className="h-3.5 w-3.5" />} Exportar conversación
+                </Button>
+                <Button variant="ghost" size="sm" onClick={clearChat} className="gap-1 text-muted-foreground text-xs rounded-xl hover:bg-white/[0.06]">
+                  <Trash2 className="h-3.5 w-3.5" /> Limpiar
+                </Button>
+              </div>
             )}
           </div>
         )}
@@ -289,7 +353,11 @@ export default function AsistenteIA() {
           )}
 
           <div className="space-y-6 md:space-y-8 max-w-4xl mx-auto w-full">
-            {messages.map(msg => (
+            {messages.map((msg, idx) => {
+              const prevUserMsg = msg.role === "assistant"
+                ? [...messages.slice(0, idx)].reverse().find(m => m.role === "user")
+                : undefined;
+              return (
               <div key={msg.id}>
                 {msg.role === "user" ? (
                   <div className="flex gap-3 justify-end items-start">
@@ -339,6 +407,9 @@ export default function AsistenteIA() {
                             : "✖️ Acción cancelada por el usuario"}
                         </div>
                       )}
+                      {msg.meta?.sources && (
+                        <AvaSourcesPanel sources={msg.meta.sources} />
+                      )}
                       {msg.meta?.tools_used && msg.meta.tools_used.length > 0 && (
                         <div className="mt-4 pt-3 border-t border-white/[0.06] flex flex-wrap gap-1.5">
                           {msg.meta.tools_used.map((t: string, i: number) => {
@@ -347,14 +418,16 @@ export default function AsistenteIA() {
                           })}
                         </div>
                       )}
-                      <div className="mt-2 -ml-1">
+                      <div className="mt-2 -ml-1 flex items-center justify-between gap-2">
                         <AvaMessageFeedback messageId={msg.id} toolsUsed={msg.meta?.tools_used} />
+                        <ExportMessageButton message={msg} userQuestion={prevUserMsg?.content} />
                       </div>
                     </div>
                   </div>
                 )}
               </div>
-            ))}
+              );
+            })}
 
             {loading && (
               <div className="space-y-2">

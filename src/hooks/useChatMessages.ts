@@ -20,6 +20,11 @@ export interface ChatMessage {
       title: string;
     };
     attachments?: Array<{ file_name: string; mime_type: string; size?: number }>;
+    sources?: {
+      documents?: Array<{ name: string; domain?: string; snippet?: string; documento_id?: string; score?: number }>;
+      entities?: Array<{ table: string; id?: string; name: string; subtitle?: string }>;
+      external?: Array<{ source: string; label: string; detail?: string; url?: string }>;
+    };
     pending_action?: {
       table: string;
       action: "insert" | "update";
@@ -364,6 +369,7 @@ export function useChatMessages() {
       const meta: any = (!error && !data?.error) ? {
         tools_used: data?.tools_used,
         latency_ms: data?.latency_ms,
+        ...(data?.sources ? { sources: data.sources } : {}),
         ...(data?.pdf_content ? { pdf_content: data.pdf_content, pdf_title: data.pdf_title } : {}),
         ...(data?.forge_pdf ? { forge_pdf: data.forge_pdf } : {}),
         ...(data?.pending_action ? { pending_action: data.pending_action } : {}),
