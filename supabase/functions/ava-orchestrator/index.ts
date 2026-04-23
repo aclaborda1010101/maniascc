@@ -592,11 +592,11 @@ serve(async (req) => {
       });
     }
 
-    // Execute tool calls
+    // Execute tool calls IN PARALLEL to avoid 150s edge timeout
     const toolResults: Array<{ tool: string; result: any }> = [];
     const toolMessages: Array<{ role: string; content: string; tool_call_id?: string }> = [];
 
-    for (const toolCall of choice.tool_calls) {
+    const executed = await Promise.all(choice.tool_calls.map(async (toolCall: any) => {
       const fnName = toolCall.function.name;
       let args: any;
       try {
@@ -616,7 +616,6 @@ serve(async (req) => {
           if (!ALLOWED_TABLES.includes(args.table)) {
             result = { error: "Tabla no permitida: " + args.table };
           } else {
-            // Use user-scoped client so RLS policies enforce per-user access
             let query = authClient.from(args.table).select(args.select || "*");
             if (args.filters && Array.isArray(args.filters)) {
               for (const f of args.filters) {
@@ -640,7 +639,6 @@ serve(async (req) => {
           } else if (args.action === "update" && (!args.match || !args.match.id)) {
             result = { error: "Update requiere match.id" };
           } else {
-            // NO se ejecuta. Devuelve un payload que el cliente convertirá en tarjeta de confirmación.
             result = {
               proposed: true,
               table: args.table,
@@ -674,8 +672,9 @@ serve(async (req) => {
           const searchResults: Record<string, any[]> = {};
           const q = "%" + (args.query || "") + "%";
           const userId = user.id;
-          for (const t of searchTables) {
-            if (!ALLOWED_TABLES.includes(t)) continue;
+          // Parallel per-table search
+          await Promise.all(searchTables.map(async (t: string) => {
+            if (!ALLOWED_TABLES.includes(t)) return;
             let searchQuery;
             if (t === "locales") {
               searchQuery = admin.from(t).select("*").or("nombre.ilike." + q + ",ciudad.ilike." + q + ",direccion.ilike." + q).eq("created_by", userId).limit(10);
@@ -688,11 +687,11 @@ serve(async (req) => {
             } else if (t === "documentos_proyecto") {
               searchQuery = admin.from(t).select("*").or("nombre.ilike." + q).or(`visibility.in.(shared,global),owner_id.eq.${userId}`).limit(10);
             } else {
-              continue;
+              return;
             }
             const { data } = await searchQuery;
             if (data && data.length > 0) searchResults[t] = data;
-          }
+          }));
           result = searchResults;
         } else if (fnName === "nearby_search") {
           toolLabel = "nearby_search:" + (args.query || "");
@@ -701,7 +700,6 @@ serve(async (req) => {
           const lon = args.lon;
           const q = args.query || "";
 
-          // Map common queries to Overpass tags
           const tagMap: Record<string, string> = {
             restaurant: '["amenity"="restaurant"]',
             fast_food: '["amenity"="fast_food"]',
@@ -718,7 +716,6 @@ serve(async (req) => {
 
           let overpassFilter = tagMap[q];
           if (!overpassFilter) {
-            // Name search for specific brands
             overpassFilter = `["name"~"${q}",i]`;
           }
 
@@ -748,15 +745,12 @@ serve(async (req) => {
             result = { error: "Error consultando Overpass API: " + (e instanceof Error ? e.message : "desconocido") };
           }
         } else if (fnName === "rag_search") {
-          // Si el usuario tiene un filtro multi-dominio activo y no pidió uno específico, lo aplicamos.
-          // Si pidió uno específico pero NO está permitido, lo bloqueamos.
           let effectiveDomains: string[] | null = null;
           if (allowedDomains) {
             if (args.dominio) {
               if (allowedDomains.includes(args.dominio)) {
                 effectiveDomains = [args.dominio];
               } else {
-                // Petición de dominio bloqueado por el filtro del usuario
                 result = { error: `El dominio '${args.dominio}' está excluido por el filtro de dominios del usuario. Dominios permitidos: ${allowedDomains.join(", ")}.`, blocked_by_filter: true };
                 toolLabel = "rag_search:blocked";
               }
@@ -818,7 +812,6 @@ serve(async (req) => {
             if (!forgeResp.ok || forgeData?.error || !forgeData?.structured) {
               result = { success: false, error: forgeData?.error || "FORGE no devolvió estructura válida" };
             } else {
-              // Now render PDF via generate-pdf-v2 (returns binary PDF). Save to documentos_generados bucket.
               const pdfUrl = Deno.env.get("SUPABASE_URL") + "/functions/v1/generate-pdf-v2";
               const pdfResp = await fetch(pdfUrl, {
                 method: "POST",
@@ -849,7 +842,7 @@ serve(async (req) => {
                 } else {
                   const { data: signed } = await admin.storage
                     .from("documentos_generados")
-                    .createSignedUrl(storagePath, 60 * 60 * 24); // 24h
+                    .createSignedUrl(storagePath, 60 * 60 * 24);
                   result = {
                     success: true,
                     mode: args.mode,
@@ -888,9 +881,8 @@ serve(async (req) => {
             if (docs.length === 0) {
               result = { found: false, message: "No se encontró ningún documento accesible con ese nombre." };
             } else {
-              // Fetch chunks for each doc (also visibility-scoped)
-              const enriched = [];
-              for (const d of docs) {
+              // Parallel chunk fetching across docs
+              const enriched = await Promise.all(docs.map(async (d: any) => {
                 const { data: chunks } = await admin.from("document_chunks")
                   .select("contenido")
                   .eq("documento_id", d.id)
@@ -898,13 +890,13 @@ serve(async (req) => {
                   .order("chunk_index", { ascending: true })
                   .limit(20);
                 const fullText = (chunks || []).map((c: any) => c.contenido).join("\n\n").slice(0, 12000);
-                enriched.push({
+                return {
                   id: d.id,
                   nombre: d.nombre,
                   resumen_ia: d.resumen_ia,
                   contenido: fullText || "(sin chunks indexados, usa rag_search)",
-                });
-              }
+                };
+              }));
               result = { found: true, documents: enriched };
             }
           } catch (e) {
@@ -917,11 +909,15 @@ serve(async (req) => {
         result = { error: e instanceof Error ? e.message : "Error ejecutando tool" };
       }
 
-      toolResults.push({ tool: toolLabel, result });
+      return { toolLabel, result, toolCallId: toolCall.id };
+    }));
+
+    for (const ex of executed) {
+      toolResults.push({ tool: ex.toolLabel, result: ex.result });
       toolMessages.push({
         role: "tool",
-        content: JSON.stringify(result).substring(0, 8000),
-        tool_call_id: toolCall.id,
+        content: JSON.stringify(ex.result).substring(0, 8000),
+        tool_call_id: ex.toolCallId,
       });
     }
 
