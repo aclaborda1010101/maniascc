@@ -1,15 +1,18 @@
 import { useState } from "react";
-import { Send, X, Trash2, Sparkles, Plus, ChevronDown, FileText, Download } from "lucide-react";
+import { Send, X, Trash2, Sparkles, Plus, ChevronDown, FileText, Download, FileDown, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useChatMessages, toolLabel } from "@/hooks/useChatMessages";
+import { useChatMessages, toolLabel, type ChatMessage } from "@/hooks/useChatMessages";
 import { AvaMessageFeedback } from "@/components/AvaMessageFeedback";
 import { AvaAttachmentBar } from "@/components/AvaAttachmentBar";
 import { AvaPendingActionCard } from "@/components/AvaPendingActionCard";
 import { AvaVoiceControls } from "@/components/AvaVoiceControls";
 import { AvaRealtimeOverlay, AvaCallButton } from "@/components/AvaRealtimeOverlay";
+import { AvaSourcesPanel } from "@/components/AvaSourcesPanel";
+import { exportAvaMessageToPdf, exportAvaConversationToPdf, downloadBlob } from "@/services/pdfService";
+import { useToast } from "@/hooks/use-toast";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 
@@ -18,9 +21,43 @@ interface FloatingChatPanelProps {
   onClose: () => void;
 }
 
+function ExportMessageMiniBtn({ message, userQuestion }: { message: ChatMessage; userQuestion?: string }) {
+  const { toast } = useToast();
+  const [exporting, setExporting] = useState(false);
+  const handleClick = async () => {
+    setExporting(true);
+    const title = `Respuesta AVA · ${new Date(message.timestamp).toLocaleDateString("es-ES")}`;
+    const { blob, error } = await exportAvaMessageToPdf(
+      { role: "assistant", content: message.content, timestamp: message.timestamp, sources: message.meta?.sources },
+      { title, userQuestion }
+    );
+    if (blob) {
+      downloadBlob(blob, `${title}.pdf`);
+      toast({ title: "Respuesta exportada en PDF" });
+    } else {
+      toast({ title: "No se pudo exportar", description: error || "", variant: "destructive" });
+    }
+    setExporting(false);
+  };
+  return (
+    <button
+      type="button"
+      onClick={handleClick}
+      disabled={exporting}
+      title="Exportar esta respuesta a PDF"
+      className="inline-flex items-center gap-1 text-[9px] text-muted-foreground hover:text-foreground transition-colors px-1.5 h-5 rounded hover:bg-white/[0.05]"
+    >
+      {exporting ? <Loader2 className="h-2.5 w-2.5 animate-spin" /> : <FileDown className="h-2.5 w-2.5" />}
+      Exportar
+    </button>
+  );
+}
+
 export default function FloatingChatPanel({ open, onClose }: FloatingChatPanelProps) {
+  const { toast } = useToast();
   const [showConvList, setShowConvList] = useState(false);
   const [callOpen, setCallOpen] = useState(false);
+  const [exportingConv, setExportingConv] = useState(false);
   const {
     conversations, activeConversationId, messages, input, setInput,
     loading, sendMessage, clearChat, scrollRef,
@@ -32,6 +69,28 @@ export default function FloatingChatPanel({ open, onClose }: FloatingChatPanelPr
   const activeConv = conversations.find(c => c.id === activeConversationId);
   const sortedConvs = [...conversations].sort((a, b) => b.updatedAt - a.updatedAt);
   const processing = pendingAttachments.some(a => a.status === "uploading" || a.status === "processing");
+
+  const handleExportConversation = async () => {
+    if (messages.length === 0 || exportingConv) return;
+    setExportingConv(true);
+    const title = activeConv?.title || "Conversación AVA";
+    const { blob, error } = await exportAvaConversationToPdf(
+      title,
+      messages.map(m => ({
+        role: m.role,
+        content: m.content,
+        timestamp: m.timestamp,
+        sources: m.meta?.sources,
+      }))
+    );
+    if (blob) {
+      downloadBlob(blob, `${title}.pdf`);
+      toast({ title: "Conversación exportada en PDF" });
+    } else {
+      toast({ title: "No se pudo exportar", description: error || "", variant: "destructive" });
+    }
+    setExportingConv(false);
+  };
 
   if (!open) return null;
 
@@ -49,13 +108,18 @@ export default function FloatingChatPanel({ open, onClose }: FloatingChatPanelPr
             <ChevronDown className="h-3 w-3 text-muted-foreground" />
           </button>
           <div className="flex items-center gap-1">
-            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => { createConversation(); setShowConvList(false); }}>
+            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => { createConversation(); setShowConvList(false); }} title="Nueva conversación">
               <Plus className="h-3.5 w-3.5 text-muted-foreground" />
             </Button>
             {messages.length > 0 && (
-              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={clearChat}>
-                <Trash2 className="h-3.5 w-3.5 text-muted-foreground" />
-              </Button>
+              <>
+                <Button variant="ghost" size="icon" className="h-7 w-7" onClick={handleExportConversation} disabled={exportingConv} title="Exportar conversación a PDF">
+                  {exportingConv ? <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" /> : <FileDown className="h-3.5 w-3.5 text-muted-foreground" />}
+                </Button>
+                <Button variant="ghost" size="icon" className="h-7 w-7" onClick={clearChat} title="Limpiar">
+                  <Trash2 className="h-3.5 w-3.5 text-muted-foreground" />
+                </Button>
+              </>
             )}
             <Button variant="ghost" size="icon" className="h-7 w-7" onClick={onClose}>
               <X className="h-4 w-4" />
@@ -87,7 +151,11 @@ export default function FloatingChatPanel({ open, onClose }: FloatingChatPanelPr
             </div>
           )}
 
-          {messages.map(msg => (
+          {messages.map((msg, idx) => {
+            const prevUserMsg = msg.role === "assistant"
+              ? [...messages.slice(0, idx)].reverse().find(m => m.role === "user")
+              : undefined;
+            return (
             <div key={msg.id} className={`flex gap-2 ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
               {msg.role === "assistant" && (
                 <div className="shrink-0 w-6 h-6 rounded-full bg-accent/10 flex items-center justify-center">
@@ -105,7 +173,6 @@ export default function FloatingChatPanel({ open, onClose }: FloatingChatPanelPr
                   <p className="text-xs whitespace-pre-wrap">{msg.content}</p>
                 )}
 
-                {/* Attachments badges (user messages) */}
                 {msg.meta?.attachments && msg.meta.attachments.length > 0 && (
                   <div className="mt-1 flex flex-wrap gap-1">
                     {msg.meta.attachments.map((a, i) => (
@@ -116,7 +183,6 @@ export default function FloatingChatPanel({ open, onClose }: FloatingChatPanelPr
                   </div>
                 )}
 
-                {/* Forge PDF download block */}
                 {msg.meta?.forge_pdf && (
                   <div className="mt-2 p-2 rounded-lg border border-border bg-background">
                     <div className="flex items-center gap-2 mb-1.5">
@@ -155,6 +221,12 @@ export default function FloatingChatPanel({ open, onClose }: FloatingChatPanelPr
                   </div>
                 )}
 
+                {msg.role === "assistant" && msg.meta?.sources && (
+                  <div className="mt-2">
+                    <AvaSourcesPanel sources={msg.meta.sources} />
+                  </div>
+                )}
+
                 {msg.meta?.tools_used && msg.meta.tools_used.length > 0 && (
                   <div className="mt-1 flex flex-wrap gap-1">
                     {msg.meta.tools_used.map((t, i) => {
@@ -164,13 +236,15 @@ export default function FloatingChatPanel({ open, onClose }: FloatingChatPanelPr
                   </div>
                 )}
                 {msg.role === "assistant" && (
-                  <div className="mt-1">
+                  <div className="mt-1 flex items-center justify-between gap-1">
                     <AvaMessageFeedback messageId={msg.id} toolsUsed={msg.meta?.tools_used} />
+                    <ExportMessageMiniBtn message={msg} userQuestion={prevUserMsg?.content} />
                   </div>
                 )}
               </div>
             </div>
-          ))}
+            );
+          })}
 
           {loading && (
             <div className="flex gap-2">
