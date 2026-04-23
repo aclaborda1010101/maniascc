@@ -446,8 +446,8 @@ Deno.serve(async (req) => {
         apiKey,
         format: "A4",
         margin: {
-          top: "20mm",
-          bottom: "20mm",
+          top: "25mm",
+          bottom: "22mm",
           left: "0mm",
           right: "0mm",
         },
