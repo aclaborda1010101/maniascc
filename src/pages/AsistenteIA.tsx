@@ -323,7 +323,11 @@ export default function AsistenteIA() {
           )}
 
           <div className="space-y-6 md:space-y-8 max-w-4xl mx-auto w-full">
-            {messages.map(msg => (
+            {messages.map((msg, idx) => {
+              const prevUserMsg = msg.role === "assistant"
+                ? [...messages.slice(0, idx)].reverse().find(m => m.role === "user")
+                : undefined;
+              return (
               <div key={msg.id}>
                 {msg.role === "user" ? (
                   <div className="flex gap-3 justify-end items-start">
@@ -373,6 +377,9 @@ export default function AsistenteIA() {
                             : "✖️ Acción cancelada por el usuario"}
                         </div>
                       )}
+                      {msg.meta?.sources && (
+                        <AvaSourcesPanel sources={msg.meta.sources} />
+                      )}
                       {msg.meta?.tools_used && msg.meta.tools_used.length > 0 && (
                         <div className="mt-4 pt-3 border-t border-white/[0.06] flex flex-wrap gap-1.5">
                           {msg.meta.tools_used.map((t: string, i: number) => {
@@ -381,14 +388,16 @@ export default function AsistenteIA() {
                           })}
                         </div>
                       )}
-                      <div className="mt-2 -ml-1">
+                      <div className="mt-2 -ml-1 flex items-center justify-between gap-2">
                         <AvaMessageFeedback messageId={msg.id} toolsUsed={msg.meta?.tools_used} />
+                        <ExportMessageButton message={msg} userQuestion={prevUserMsg?.content} />
                       </div>
                     </div>
                   </div>
                 )}
               </div>
-            ))}
+              );
+            })}
 
             {loading && (
               <div className="space-y-2">
