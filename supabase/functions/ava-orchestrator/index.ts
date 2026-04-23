@@ -383,7 +383,12 @@ serve(async (req) => {
         status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
-    const { message, history, attachments_context } = body;
+    const { message, history, attachments_context, domain_filter } = body;
+    // Lista de dominios RAG permitidos por el usuario (multi-select). Si no llega, no se filtra (compat).
+    const allowedDomains: string[] | null =
+      Array.isArray(domain_filter) && domain_filter.every((d: any) => typeof d === "string") && domain_filter.length > 0
+        ? domain_filter
+        : null;
     if (!message) {
       return new Response(JSON.stringify({ error: "Mensaje requerido" }), {
         status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
