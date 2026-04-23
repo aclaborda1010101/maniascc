@@ -20,6 +20,11 @@ export interface ChatMessage {
       title: string;
     };
     attachments?: Array<{ file_name: string; mime_type: string; size?: number }>;
+    sources?: {
+      documents?: Array<{ name: string; domain?: string; snippet?: string; documento_id?: string; score?: number }>;
+      entities?: Array<{ table: string; id?: string; name: string; subtitle?: string }>;
+      external?: Array<{ source: string; label: string; detail?: string; url?: string }>;
+    };
     pending_action?: {
       table: string;
       action: "insert" | "update";
