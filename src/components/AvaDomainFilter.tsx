@@ -18,8 +18,6 @@ export const RAG_DOMAINS: { id: string; label: string; hint?: string }[] = [
   { id: "comunicaciones", label: "Comunicaciones", hint: "Emails operativos sin centro" },
   { id: "personal", label: "Personal", hint: "Gmail personal, colegio, viajes" },
   { id: "general", label: "General", hint: "Residuo neutro" },
-  // Dominios legacy presentes en chunks históricos
-  { id: "activos", label: "Activos (legacy)", hint: "Migrar a centros_comerciales" },
 ];
 
 /** Dominios activados por defecto si el usuario nunca tocó el filtro. */
