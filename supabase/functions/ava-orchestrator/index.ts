@@ -1000,10 +1000,14 @@ serve(async (req) => {
     const forgeTool = toolResults.find(tr => typeof tr.tool === "string" && tr.tool.startsWith("generate_forge_document") && tr.result?.success);
     const proposedAction = toolResults.find(tr => typeof tr.tool === "string" && tr.tool.startsWith("propose_action") && tr.result?.proposed);
 
+    // Build structured "sources" object for traceability UI
+    const sources = extractSources(toolResults);
+
     return new Response(JSON.stringify({
       answer: finalAnswer,
       tools_used: toolResults.map(tr => tr.tool),
       latency_ms: latencyMs,
+      sources,
       ...(pdfTool ? { pdf_content: pdfTool.result.content, pdf_title: pdfTool.result.title } : {}),
       ...(forgeTool ? {
         forge_pdf: {
