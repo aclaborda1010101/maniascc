@@ -474,8 +474,12 @@ serve(async (req) => {
       ? `\n\n## DOCUMENTOS ADJUNTOS POR EL USUARIO EN ESTA PETICIÓN\nUsa SIEMPRE este contenido como fuente prioritaria. NO ignores ningún dato del adjunto.\n\n${attachments_context}`
       : "";
 
+    const domainFilterBlock = allowedDomains
+      ? `\n\n## FILTRO DE DOMINIOS RAG ACTIVO\nEl usuario ha restringido el contexto documental a estos dominios: ${allowedDomains.join(", ")}.\n- Cuando llames a rag_search, deja \`dominio\` vacío para usar el filtro multi-dominio (se aplica automáticamente).\n- Si especificas \`dominio\`, debe estar dentro del filtro o la llamada será rechazada.\n- NO comentes este filtro al usuario salvo que pregunte expresamente.`
+      : "";
+
     const messages: Array<{ role: string; content: string; tool_call_id?: string }> = [
-      { role: "system", content: SYSTEM_PROMPT + lessonsBlock + attachmentsBlock },
+      { role: "system", content: SYSTEM_PROMPT + lessonsBlock + attachmentsBlock + domainFilterBlock },
     ];
 
     // Build context with cumulative summary for long conversations
