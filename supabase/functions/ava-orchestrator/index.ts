@@ -32,7 +32,7 @@ async function fetchAIWithRetry(url: string, init: RequestInit, maxAttempts = 3)
 
 const SYSTEM_PROMPT = `Eres AVA, la asistente estratégica de F&G Real Estate especializada en retail e inmobiliario comercial. Tienes acceso a:
 1. BASE DE DATOS interna: locales, operadores, contactos, activos, proyectos/oportunidades, matches, negociaciones, documentos
-2. RAG HÍBRIDO (búsqueda textual + semántica con embeddings) sobre documentos indexados segmentados por dominio (contratos, operadores, activos, centros_comerciales, comunicaciones, mercado, personas, general). **SIEMPRE** prueba rag_search primero cuando la pregunta menciona "documento", "contrato", "informe", "email", nombres de operadores o de proyectos/centros.
+2. RAG HÍBRIDO (búsqueda textual + semántica con embeddings) sobre documentos indexados segmentados por dominio (centros_comerciales, legal, financiero, urbanismo, administrativo, comunicaciones, personal, general, y los legacy: activos, contratos, operadores, mercado, personas). **SIEMPRE** prueba rag_search primero cuando la pregunta menciona "documento", "contrato", "informe", "email", nombres de operadores o de proyectos/centros. **Respeta SIEMPRE el filtro de dominios activo del usuario** (no intentes saltártelo).
 3. NEARBY SEARCH: análisis geográfico de POIs via OpenStreetMap
 4. INTELIGENCIA AVANZADA: localización, tenant mix, validación dossier, negociación
 5. TU CONOCIMIENTO GENERAL del sector retail, centros comerciales, demografía y mercado inmobiliario
@@ -204,12 +204,12 @@ const TOOLS = [
     type: "function",
     function: {
       name: "rag_search",
-      description: "Busca en los documentos RAG indexados (informes de mercado, contratos, benchmarks, análisis sectoriales). Usa para complementar datos de la BD con conocimiento documental. Dominios: contratos, operadores, activos, mercado, personas, general.",
+      description: "Busca en los documentos RAG indexados (informes de mercado, contratos, benchmarks, análisis sectoriales, emails). Usa para complementar datos de la BD con conocimiento documental. Dominios canónicos: centros_comerciales, legal, financiero, urbanismo, administrativo, comunicaciones, personal, general. Dominios legacy aún presentes: activos, contratos, operadores, mercado, personas.",
       parameters: {
         type: "object",
         properties: {
           question: { type: "string", description: "Pregunta o tema a buscar en los documentos RAG" },
-          dominio: { type: "string", enum: ["contratos", "operadores", "activos", "mercado", "personas", "general"], description: "Dominio/categoría de documentos a consultar. Opcional." },
+          dominio: { type: "string", enum: ["centros_comerciales", "legal", "financiero", "urbanismo", "administrativo", "comunicaciones", "personal", "general", "activos", "contratos", "operadores", "mercado", "personas"], description: "Dominio único. Opcional. Si el usuario tiene filtro multi-dominio activo, déjalo vacío para que se aplique automáticamente." },
           proyecto_id: { type: "string", description: "UUID del proyecto para filtrar documentos específicos. Opcional." },
         },
         required: ["question"],
@@ -383,7 +383,12 @@ serve(async (req) => {
         status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
-    const { message, history, attachments_context } = body;
+    const { message, history, attachments_context, domain_filter } = body;
+    // Lista de dominios RAG permitidos por el usuario (multi-select). Si no llega, no se filtra (compat).
+    const allowedDomains: string[] | null =
+      Array.isArray(domain_filter) && domain_filter.every((d: any) => typeof d === "string") && domain_filter.length > 0
+        ? domain_filter
+        : null;
     if (!message) {
       return new Response(JSON.stringify({ error: "Mensaje requerido" }), {
         status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -469,8 +474,12 @@ serve(async (req) => {
       ? `\n\n## DOCUMENTOS ADJUNTOS POR EL USUARIO EN ESTA PETICIÓN\nUsa SIEMPRE este contenido como fuente prioritaria. NO ignores ningún dato del adjunto.\n\n${attachments_context}`
       : "";
 
+    const domainFilterBlock = allowedDomains
+      ? `\n\n## FILTRO DE DOMINIOS RAG ACTIVO\nEl usuario ha restringido el contexto documental a estos dominios: ${allowedDomains.join(", ")}.\n- Cuando llames a rag_search, deja \`dominio\` vacío para usar el filtro multi-dominio (se aplica automáticamente).\n- Si especificas \`dominio\`, debe estar dentro del filtro o la llamada será rechazada.\n- NO comentes este filtro al usuario salvo que pregunte expresamente.`
+      : "";
+
     const messages: Array<{ role: string; content: string; tool_call_id?: string }> = [
-      { role: "system", content: SYSTEM_PROMPT + lessonsBlock + attachmentsBlock },
+      { role: "system", content: SYSTEM_PROMPT + lessonsBlock + attachmentsBlock + domainFilterBlock },
     ];
 
     // Build context with cumulative summary for long conversations
@@ -739,28 +748,50 @@ serve(async (req) => {
             result = { error: "Error consultando Overpass API: " + (e instanceof Error ? e.message : "desconocido") };
           }
         } else if (fnName === "rag_search") {
-          toolLabel = "rag_search:" + (args.dominio || "general");
-          const ragUrl = Deno.env.get("SUPABASE_URL") + "/functions/v1/rag-proxy";
-          try {
-            const ragResp = await fetch(ragUrl, {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-                Authorization: authHeader,
-                apikey: anonKey,
-              },
-              body: JSON.stringify({
-                question: args.question,
-                filters: {
-                  dominio: args.dominio || undefined,
-                  proyecto_id: args.proyecto_id || undefined,
+          // Si el usuario tiene un filtro multi-dominio activo y no pidió uno específico, lo aplicamos.
+          // Si pidió uno específico pero NO está permitido, lo bloqueamos.
+          let effectiveDomains: string[] | null = null;
+          if (allowedDomains) {
+            if (args.dominio) {
+              if (allowedDomains.includes(args.dominio)) {
+                effectiveDomains = [args.dominio];
+              } else {
+                // Petición de dominio bloqueado por el filtro del usuario
+                result = { error: `El dominio '${args.dominio}' está excluido por el filtro de dominios del usuario. Dominios permitidos: ${allowedDomains.join(", ")}.`, blocked_by_filter: true };
+                toolLabel = "rag_search:blocked";
+              }
+            } else {
+              effectiveDomains = allowedDomains;
+            }
+          } else if (args.dominio) {
+            effectiveDomains = [args.dominio];
+          }
+
+          if (!result) {
+            toolLabel = "rag_search:" + (effectiveDomains ? effectiveDomains.join("+").slice(0, 60) : "all");
+            const ragUrl = Deno.env.get("SUPABASE_URL") + "/functions/v1/rag-proxy";
+            try {
+              const ragResp = await fetch(ragUrl, {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                  Authorization: authHeader,
+                  apikey: anonKey,
                 },
-              }),
-            });
-            const ragData = await ragResp.json();
-            result = ragData;
-          } catch (e) {
-            result = { error: "Error consultando RAG: " + (e instanceof Error ? e.message : "desconocido") };
+                body: JSON.stringify({
+                  question: args.question,
+                  filters: {
+                    dominio: effectiveDomains && effectiveDomains.length === 1 ? effectiveDomains[0] : undefined,
+                    dominios: effectiveDomains && effectiveDomains.length > 1 ? effectiveDomains : undefined,
+                    proyecto_id: args.proyecto_id || undefined,
+                  },
+                }),
+              });
+              const ragData = await ragResp.json();
+              result = ragData;
+            } catch (e) {
+              result = { error: "Error consultando RAG: " + (e instanceof Error ? e.message : "desconocido") };
+            }
           }
         } else if (fnName === "generate_pdf_report") {
           toolLabel = "generate_pdf_report";

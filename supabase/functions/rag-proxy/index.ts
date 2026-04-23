@@ -61,29 +61,30 @@ serve(async (req) => {
     const admin = createClient(SUPABASE_URL, SERVICE_KEY);
     const proyectoId = filters?.proyecto_id;
     const dominio = filters?.dominio && filters.dominio !== "todos" ? filters.dominio : null;
+    const dominios: string[] | null = Array.isArray(filters?.dominios) && filters.dominios.length > 0
+      ? filters.dominios.filter((d: any) => typeof d === "string" && d.length > 0)
+      : null;
     const userId = claims.user.id;
-    // Visibility filter: user can see chunks they own OR shared/global ones
     const visibilityOr = `visibility.in.(shared,global),owner_id.eq.${userId}`;
 
-    // 1) HYBRID SEARCH (FTS + vector si hay embedding de query)
     let contextChunks: any[] = [];
     const queryEmbedding = await embedQuery(question, LOVABLE_API_KEY);
 
     if (queryEmbedding) {
-      const { data: hybrid } = await admin.rpc("rag_hybrid_search", {
+      const rpcArgs: Record<string, unknown> = {
         p_question: question,
         p_query_embedding: queryEmbedding as never,
-        p_dominio: dominio,
+        p_dominio: dominios ? null : dominio,
         p_proyecto_id: proyectoId || null,
         p_limit: 20,
-      });
-      // Filter hybrid results by visibility/ownership in-memory (RPC doesn't accept visibility filter)
+      };
+      if (dominios) rpcArgs.p_dominios = dominios;
+      const { data: hybrid } = await admin.rpc("rag_hybrid_search", rpcArgs as never);
       contextChunks = (hybrid || []).filter((c: any) =>
         c.owner_id === userId || ["shared", "global"].includes(c.visibility)
       );
     }
 
-    // 2) Fallback FTS clásico si la híbrida no devuelve nada
     if (contextChunks.length === 0) {
       let q = admin
         .from("document_chunks")
@@ -92,12 +93,12 @@ serve(async (req) => {
         .or(visibilityOr)
         .limit(15);
       if (proyectoId) q = q.eq("proyecto_id", proyectoId);
-      if (dominio) q = q.eq("dominio", dominio);
+      if (dominios) q = q.in("dominio", dominios);
+      else if (dominio) q = q.eq("dominio", dominio);
       const { data } = await q;
       contextChunks = data || [];
     }
 
-    // 3) Fallback ILIKE
     if (contextChunks.length === 0) {
       const words = question.split(/\s+/).filter((w: string) => w.length > 3).slice(0, 3);
       if (words.length > 0) {
@@ -108,7 +109,8 @@ serve(async (req) => {
           .or(visibilityOr)
           .limit(10);
         if (proyectoId) fb = fb.eq("proyecto_id", proyectoId);
-        if (dominio) fb = fb.eq("dominio", dominio);
+        if (dominios) fb = fb.in("dominio", dominios);
+        else if (dominio) fb = fb.eq("dominio", dominio);
         const { data } = await fb;
         contextChunks = data || [];
       }

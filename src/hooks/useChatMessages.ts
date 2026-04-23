@@ -64,7 +64,12 @@ function toolLabel(tool: string): { emoji: string; label: string } {
 
 export { toolLabel };
 
-export function useChatMessages() {
+export interface UseChatMessagesOptions {
+  /** Lista de dominios RAG permitidos. Se reenvía en cada llamada al orquestador como `domain_filter`. */
+  domainFilterRef?: React.MutableRefObject<string[] | null>;
+}
+
+export function useChatMessages(options: UseChatMessagesOptions = {}) {
   const { user } = useAuth();
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [activeConversationId, setActiveConversationId] = useState("");
@@ -74,6 +79,7 @@ export function useChatMessages() {
   const [initialLoading, setInitialLoading] = useState(true);
   const [pendingAttachments, setPendingAttachments] = useState<AvaAttachment[]>([]);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const domainFilterRef = options.domainFilterRef;
 
   const loading = loadingConvs.has(activeConversationId);
 
@@ -352,11 +358,13 @@ export function useChatMessages() {
         content: m.content,
       }));
 
+      const domainFilter = domainFilterRef?.current;
       const { data, error } = await supabase.functions.invoke("ava-orchestrator", {
         body: {
           message: q || `[Adjunto sin texto: ${readyAttachments.map(a => a.file_name).join(", ")}] Analiza el documento y resume su contenido.`,
           history: recentMessages.slice(0, -1),
           attachments_context: attachmentsContext || undefined,
+          domain_filter: Array.isArray(domainFilter) && domainFilter.length > 0 ? domainFilter : undefined,
         },
       });
 
