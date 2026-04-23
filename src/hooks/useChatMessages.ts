@@ -369,6 +369,7 @@ export function useChatMessages() {
       const meta: any = (!error && !data?.error) ? {
         tools_used: data?.tools_used,
         latency_ms: data?.latency_ms,
+        ...(data?.sources ? { sources: data.sources } : {}),
         ...(data?.pdf_content ? { pdf_content: data.pdf_content, pdf_title: data.pdf_title } : {}),
         ...(data?.forge_pdf ? { forge_pdf: data.forge_pdf } : {}),
         ...(data?.pending_action ? { pending_action: data.pending_action } : {}),
