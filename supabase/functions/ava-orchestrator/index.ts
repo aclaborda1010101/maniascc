@@ -739,28 +739,50 @@ serve(async (req) => {
             result = { error: "Error consultando Overpass API: " + (e instanceof Error ? e.message : "desconocido") };
           }
         } else if (fnName === "rag_search") {
-          toolLabel = "rag_search:" + (args.dominio || "general");
-          const ragUrl = Deno.env.get("SUPABASE_URL") + "/functions/v1/rag-proxy";
-          try {
-            const ragResp = await fetch(ragUrl, {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-                Authorization: authHeader,
-                apikey: anonKey,
-              },
-              body: JSON.stringify({
-                question: args.question,
-                filters: {
-                  dominio: args.dominio || undefined,
-                  proyecto_id: args.proyecto_id || undefined,
+          // Si el usuario tiene un filtro multi-dominio activo y no pidió uno específico, lo aplicamos.
+          // Si pidió uno específico pero NO está permitido, lo bloqueamos.
+          let effectiveDomains: string[] | null = null;
+          if (allowedDomains) {
+            if (args.dominio) {
+              if (allowedDomains.includes(args.dominio)) {
+                effectiveDomains = [args.dominio];
+              } else {
+                // Petición de dominio bloqueado por el filtro del usuario
+                result = { error: `El dominio '${args.dominio}' está excluido por el filtro de dominios del usuario. Dominios permitidos: ${allowedDomains.join(", ")}.`, blocked_by_filter: true };
+                toolLabel = "rag_search:blocked";
+              }
+            } else {
+              effectiveDomains = allowedDomains;
+            }
+          } else if (args.dominio) {
+            effectiveDomains = [args.dominio];
+          }
+
+          if (!result) {
+            toolLabel = "rag_search:" + (effectiveDomains ? effectiveDomains.join("+").slice(0, 60) : "all");
+            const ragUrl = Deno.env.get("SUPABASE_URL") + "/functions/v1/rag-proxy";
+            try {
+              const ragResp = await fetch(ragUrl, {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                  Authorization: authHeader,
+                  apikey: anonKey,
                 },
-              }),
-            });
-            const ragData = await ragResp.json();
-            result = ragData;
-          } catch (e) {
-            result = { error: "Error consultando RAG: " + (e instanceof Error ? e.message : "desconocido") };
+                body: JSON.stringify({
+                  question: args.question,
+                  filters: {
+                    dominio: effectiveDomains && effectiveDomains.length === 1 ? effectiveDomains[0] : undefined,
+                    dominios: effectiveDomains && effectiveDomains.length > 1 ? effectiveDomains : undefined,
+                    proyecto_id: args.proyecto_id || undefined,
+                  },
+                }),
+              });
+              const ragData = await ragResp.json();
+              result = ragData;
+            } catch (e) {
+              result = { error: "Error consultando RAG: " + (e instanceof Error ? e.message : "desconocido") };
+            }
           }
         } else if (fnName === "generate_pdf_report") {
           toolLabel = "generate_pdf_report";
