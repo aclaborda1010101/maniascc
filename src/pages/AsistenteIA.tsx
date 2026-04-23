@@ -20,6 +20,8 @@ import { AvaPendingActionCard } from "@/components/AvaPendingActionCard";
 import { AvaVoiceControls } from "@/components/AvaVoiceControls";
 import { AvaRealtimeOverlay, AvaCallButton } from "@/components/AvaRealtimeOverlay";
 import { AvaSourcesPanel } from "@/components/AvaSourcesPanel";
+import { AvaDomainFilter, loadDomainFilter, saveDomainFilter } from "@/components/AvaDomainFilter";
+import { useRef } from "react";
 
 const SUGGESTIONS = [
   "Resumen del día",
@@ -283,16 +285,19 @@ export default function AsistenteIA() {
                 <span>Asistente</span>
               </div>
             </div>
-            {messages.length > 0 && (
-              <div className="flex items-center gap-1">
-                <Button variant="ghost" size="sm" onClick={handleExportConversation} disabled={exportingConv} className="gap-1 text-muted-foreground text-xs rounded-xl hover:bg-white/[0.06]">
-                  {exportingConv ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <FileDown className="h-3.5 w-3.5" />} Exportar conversación
-                </Button>
-                <Button variant="ghost" size="sm" onClick={clearChat} className="gap-1 text-muted-foreground text-xs rounded-xl hover:bg-white/[0.06]">
-                  <Trash2 className="h-3.5 w-3.5" /> Limpiar
-                </Button>
-              </div>
-            )}
+            <div className="flex items-center gap-1">
+              <AvaDomainFilter value={domainFilter} onChange={setDomainFilter} />
+              {messages.length > 0 && (
+                <>
+                  <Button variant="ghost" size="sm" onClick={handleExportConversation} disabled={exportingConv} className="gap-1 text-muted-foreground text-xs rounded-xl hover:bg-white/[0.06]">
+                    {exportingConv ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <FileDown className="h-3.5 w-3.5" />} Exportar conversación
+                  </Button>
+                  <Button variant="ghost" size="sm" onClick={clearChat} className="gap-1 text-muted-foreground text-xs rounded-xl hover:bg-white/[0.06]">
+                    <Trash2 className="h-3.5 w-3.5" /> Limpiar
+                  </Button>
+                </>
+              )}
+            </div>
           </div>
         )}
 
@@ -312,6 +317,7 @@ export default function AsistenteIA() {
               </div>
             </button>
             <div className="flex items-center gap-1">
+              <AvaDomainFilter value={domainFilter} onChange={setDomainFilter} compact />
               <Button variant="ghost" size="icon" onClick={handleExportConversation} disabled={exportingConv} className="h-8 w-8 rounded-xl text-muted-foreground" title="Exportar conversación a PDF">
                 {exportingConv ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <FileDown className="h-3.5 w-3.5" />}
               </Button>
