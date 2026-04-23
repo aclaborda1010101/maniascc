@@ -1,0 +1,1 @@
+CREATE INDEX IF NOT EXISTS idx_chunks_doc_dom_tmp ON document_chunks(documento_id) WHERE dominio = 'general';

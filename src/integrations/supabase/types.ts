@@ -2734,6 +2734,14 @@ export type Database = {
         }
         Returns: number
       }
+      propagar_dominio_chunks_lote: {
+        Args: { p_limite?: number }
+        Returns: number
+      }
+      propagar_dominio_embeddings_lote: {
+        Args: { p_limite?: number }
+        Returns: number
+      }
       rag_hybrid_search:
         | {
             Args: {
