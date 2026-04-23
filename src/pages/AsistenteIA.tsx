@@ -6,11 +6,11 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
-import { useChatMessages, toolLabel } from "@/hooks/useChatMessages";
+import { useChatMessages, toolLabel, type ChatMessage } from "@/hooks/useChatMessages";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { cn } from "@/lib/utils";
-import { generateProfessionalPdf, downloadBlob } from "@/services/pdfService";
+import { generateProfessionalPdf, downloadBlob, exportAvaMessageToPdf, exportAvaConversationToPdf } from "@/services/pdfService";
 import { useToast } from "@/hooks/use-toast";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useAuth } from "@/hooks/useAuth";
@@ -19,6 +19,7 @@ import { AvaAttachmentBar } from "@/components/AvaAttachmentBar";
 import { AvaPendingActionCard } from "@/components/AvaPendingActionCard";
 import { AvaVoiceControls } from "@/components/AvaVoiceControls";
 import { AvaRealtimeOverlay, AvaCallButton } from "@/components/AvaRealtimeOverlay";
+import { AvaSourcesPanel } from "@/components/AvaSourcesPanel";
 
 const SUGGESTIONS = [
   "Resumen del día",
@@ -62,6 +63,39 @@ function ForgePdfBlock({ forgePdf }: { forgePdf: { mode: string; file_name: stri
     >
       <Download className="h-3.5 w-3.5" /> Descargar {forgePdf.title || forgePdf.file_name}
     </a>
+  );
+}
+
+/** Export a single AVA assistant message (with its sources) as PDF. */
+function ExportMessageButton({ message, userQuestion }: { message: ChatMessage; userQuestion?: string }) {
+  const { toast } = useToast();
+  const [exporting, setExporting] = useState(false);
+  const handleClick = async () => {
+    setExporting(true);
+    const title = `Respuesta AVA · ${new Date(message.timestamp).toLocaleDateString("es-ES")}`;
+    const { blob, error } = await exportAvaMessageToPdf(
+      { role: "assistant", content: message.content, timestamp: message.timestamp, sources: message.meta?.sources },
+      { title, userQuestion }
+    );
+    if (blob) {
+      downloadBlob(blob, `${title}.pdf`);
+      toast({ title: "Respuesta exportada en PDF" });
+    } else {
+      toast({ title: "No se pudo exportar", description: error || "", variant: "destructive" });
+    }
+    setExporting(false);
+  };
+  return (
+    <button
+      type="button"
+      onClick={handleClick}
+      disabled={exporting}
+      title="Exportar esta respuesta a PDF"
+      className="inline-flex items-center gap-1 text-[10px] text-muted-foreground hover:text-foreground transition-colors px-2 h-6 rounded-md hover:bg-white/[0.05]"
+    >
+      {exporting ? <Loader2 className="h-3 w-3 animate-spin" /> : <FileDown className="h-3 w-3" />}
+      Exportar
+    </button>
   );
 }
 
