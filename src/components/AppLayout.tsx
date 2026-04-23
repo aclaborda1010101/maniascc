@@ -7,14 +7,14 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { useMatchNotifications } from "@/hooks/useMatchNotifications";
 import { NotificationCenter } from "@/components/NotificationCenter";
 import { BottomNav } from "@/components/BottomNav";
-import { useIsMobile } from "@/hooks/use-mobile";
+
 import { Sparkles } from "lucide-react";
 
 export function AppLayout() {
   const navigate = useNavigate();
   const location = useLocation();
   const { user, signOut } = useAuth();
-  const isMobile = useIsMobile();
+  
   useMatchNotifications();
 
   const initials = user?.email?.substring(0, 2).toUpperCase() || "AV";
