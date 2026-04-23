@@ -165,13 +165,24 @@ function ConversationList({
 }
 
 export default function AsistenteIA() {
+  const [domainFilter, setDomainFilterState] = useState<string[]>(() => loadDomainFilter());
+  const domainFilterRef = useRef<string[] | null>(domainFilter);
+  const setDomainFilter = (next: string[]) => {
+    setDomainFilterState(next);
+    domainFilterRef.current = next;
+    saveDomainFilter(next);
+  };
+  useEffect(() => {
+    domainFilterRef.current = domainFilter;
+  }, [domainFilter]);
+
   const {
     conversations, activeConversationId, messages, input, setInput,
     loading, sendMessage, clearChat, scrollRef,
     createConversation, switchConversation, renameConversation, deleteConversation,
     pendingAttachments, addAttachments, removeAttachment, resolvePendingAction,
     appendInput, lastAssistantContent,
-  } = useChatMessages();
+  } = useChatMessages({ domainFilterRef });
   const { user } = useAuth();
   const userName = (user?.user_metadata?.nombre as string) || user?.email?.split("@")[0] || "";
 
