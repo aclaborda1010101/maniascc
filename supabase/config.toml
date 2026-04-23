@@ -50,3 +50,9 @@ verify_jwt = false
 
 [functions.process-email-queue]
 verify_jwt = true
+
+[functions.rag-batch-orchestrator]
+verify_jwt = false
+
+[functions.rag-embed-chunks]
+verify_jwt = false
