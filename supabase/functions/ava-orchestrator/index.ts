@@ -204,12 +204,12 @@ const TOOLS = [
     type: "function",
     function: {
       name: "rag_search",
-      description: "Busca en los documentos RAG indexados (informes de mercado, contratos, benchmarks, análisis sectoriales, emails). Usa para complementar datos de la BD con conocimiento documental. Dominios canónicos: centros_comerciales, legal, financiero, urbanismo, administrativo, comunicaciones, personal, general. Dominios legacy aún presentes: activos, contratos, operadores, mercado, personas.",
+      description: "Busca en los documentos RAG indexados (informes de mercado, contratos, benchmarks, análisis sectoriales, emails). Usa para complementar datos de la BD con conocimiento documental. Dominios canónicos: centros_comerciales, legal, financiero, urbanismo, administrativo, comunicaciones, personal, general.",
       parameters: {
         type: "object",
         properties: {
           question: { type: "string", description: "Pregunta o tema a buscar en los documentos RAG" },
-          dominio: { type: "string", enum: ["centros_comerciales", "legal", "financiero", "urbanismo", "administrativo", "comunicaciones", "personal", "general", "activos", "contratos", "operadores", "mercado", "personas"], description: "Dominio único. Opcional. Si el usuario tiene filtro multi-dominio activo, déjalo vacío para que se aplique automáticamente." },
+          dominio: { type: "string", enum: ["centros_comerciales", "legal", "financiero", "urbanismo", "administrativo", "comunicaciones", "personal", "general"], description: "Dominio único. Opcional. Si el usuario tiene filtro multi-dominio activo, déjalo vacío para que se aplique automáticamente." },
           proyecto_id: { type: "string", description: "UUID del proyecto para filtrar documentos específicos. Opcional." },
         },
         required: ["question"],
