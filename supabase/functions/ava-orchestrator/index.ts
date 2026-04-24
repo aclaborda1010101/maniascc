@@ -396,14 +396,16 @@ const TOOLS = [
     type: "function",
     function: {
       name: "add_entity_narrative",
-      description: "Guarda una historia, anécdota, experiencia o nota sobre una entidad (operador, contacto, activo, oportunidad/proyecto, subdivisión). Úsalo cuando el usuario te cuente algo relevante: 'la negociación con X fue dura porque…', 'Y siempre paga tarde', 'recuerda que con Z tuvimos un conflicto en…'. ANTES de proponer, resuelve el entity_id con db_query/search_data — si hay ambigüedad, pregunta al usuario.",
+      description: "Guarda una historia, anécdota, experiencia o nota sobre una entidad (operador, contacto, activo, oportunidad/proyecto, subdivisión). Úsalo cuando el usuario te cuente algo relevante: 'la negociación con X fue dura porque…', 'Y siempre paga tarde', 'recuerda que con Z tuvimos un conflicto en…'. ANTES de proponer, resuelve el entity_id con db_query/search_data — si hay ambigüedad, pregunta al usuario. Marca como 'private' las narrativas sensibles (relación personal, datos delicados); por defecto son 'shared'.",
       parameters: {
         type: "object",
         properties: {
           entity_type: { type: "string", enum: ["operador", "contacto", "activo", "proyecto", "subdivision"], description: "Tipo de entidad a la que se asocia la narrativa" },
           entity_id: { type: "string", description: "UUID de la entidad" },
-          tipo: { type: "string", enum: ["historia", "experiencia_buena", "experiencia_mala", "negociacion", "nota"], description: "Categoría de la narrativa" },
+          tipo: { type: "string", enum: ["historia", "experiencia_buena", "experiencia_mala", "negociacion", "nota", "relacion_personal", "contexto"], description: "Categoría de la narrativa. Usa 'relacion_personal' para datos personales del contacto (familia, hobbies, salud) y 'contexto' para información de mercado/empresa que no encaja en las otras." },
           narrativa: { type: "string", description: "Texto completo de la historia/nota tal como la cuenta el usuario, en su tono. No la resumas en exceso." },
+          tags: { type: "array", items: { type: "string" }, description: "Etiquetas cortas en minúscula para clasificar la narrativa (máx 8). Opcional." },
+          visibility: { type: "string", enum: ["shared", "private"], description: "'shared' (visible para el equipo, default) o 'private' (solo autor + admin). Para 'relacion_personal' usa siempre 'private' salvo indicación contraria." },
         },
         required: ["entity_type", "entity_id", "tipo", "narrativa"],
       },
@@ -833,8 +835,12 @@ serve(async (req) => {
         } else if (fnName === "add_entity_narrative") {
           toolLabel = "propose_action:entity_narratives:insert";
           const d = args || {};
+          const ALLOWED_TIPOS = ["historia", "experiencia_buena", "experiencia_mala", "negociacion", "nota", "relacion_personal", "contexto"];
+          const ALLOWED_VISIBILITY = ["shared", "private"];
           if (!d.entity_type || !d.entity_id || !d.tipo || !d.narrativa) {
             result = { error: "add_entity_narrative requiere entity_type, entity_id, tipo y narrativa" };
+          } else if (!ALLOWED_TIPOS.includes(d.tipo)) {
+            result = { error: `tipo inválido: ${d.tipo}. Permitidos: ${ALLOWED_TIPOS.join(", ")}` };
           } else {
             const tipoLabel: Record<string, string> = {
               historia: "historia",
@@ -842,9 +848,18 @@ serve(async (req) => {
               experiencia_mala: "experiencia negativa",
               negociacion: "nota de negociación",
               nota: "nota",
+              relacion_personal: "relación personal",
+              contexto: "contexto",
             };
+            const visibility = ALLOWED_VISIBILITY.includes(d.visibility)
+              ? d.visibility
+              : (d.tipo === "relacion_personal" ? "private" : "shared");
+            const tags = Array.isArray(d.tags)
+              ? d.tags.filter((t: unknown) => typeof t === "string" && t.trim().length > 0).slice(0, 8).map((t: string) => t.trim().toLowerCase())
+              : [];
             const preview = String(d.narrativa).slice(0, 90);
-            const summary = `Guardar ${tipoLabel[d.tipo] || d.tipo} sobre ${d.entity_type}: "${preview}${String(d.narrativa).length > 90 ? "…" : ""}"`;
+            const visLabel = visibility === "private" ? " 🔒" : "";
+            const summary = `Guardar ${tipoLabel[d.tipo] || d.tipo}${visLabel} sobre ${d.entity_type}: "${preview}${String(d.narrativa).length > 90 ? "…" : ""}"`;
             result = {
               proposed: true,
               table: "entity_narratives",
@@ -854,6 +869,8 @@ serve(async (req) => {
                 entity_id: d.entity_id,
                 tipo: d.tipo,
                 narrativa: d.narrativa,
+                tags,
+                visibility,
               },
               match: null,
               summary,

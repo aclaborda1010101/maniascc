@@ -1308,8 +1308,10 @@ export type Database = {
           entity_type: string
           id: string
           narrativa: string
+          tags: string[]
           tipo: string
           updated_at: string
+          visibility: string
         }
         Insert: {
           autor_id?: string | null
@@ -1319,8 +1321,10 @@ export type Database = {
           entity_type: string
           id?: string
           narrativa: string
+          tags?: string[]
           tipo: string
           updated_at?: string
+          visibility?: string
         }
         Update: {
           autor_id?: string | null
@@ -1330,8 +1334,10 @@ export type Database = {
           entity_type?: string
           id?: string
           narrativa?: string
+          tags?: string[]
           tipo?: string
           updated_at?: string
+          visibility?: string
         }
         Relationships: []
       }
