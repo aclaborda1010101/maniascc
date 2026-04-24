@@ -297,7 +297,7 @@ const TOOLS = [
       },
     },
   },
-  {
+    {
     type: "function",
     function: {
       name: "read_system_document",
@@ -308,6 +308,93 @@ const TOOLS = [
           query: { type: "string", description: "Texto a buscar en el nombre del documento" },
           documento_id: { type: "string", description: "UUID exacto si ya se conoce (opcional)" },
         },
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "upsert_operador",
+      description: "Crea o actualiza un operador (marca/retailer como Mercadona, Leroy Merlin, Aldi…). Si ya existe uno con ese nombre, lo actualiza con los campos nuevos. Devuelve una propuesta que el usuario debe confirmar.",
+      parameters: {
+        type: "object",
+        properties: {
+          nombre: { type: "string", description: "Nombre comercial del operador" },
+          sector: { type: "string", description: "Sector (alimentacion, bricolaje, restauracion, moda, etc.)" },
+          descripcion: { type: "string" },
+          contacto_nombre: { type: "string" },
+          contacto_email: { type: "string" },
+          contacto_telefono: { type: "string" },
+          presupuesto_min: { type: "number" },
+          presupuesto_max: { type: "number" },
+          superficie_min: { type: "number" },
+          superficie_max: { type: "number" },
+          logo_url: { type: "string" },
+        },
+        required: ["nombre"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "upsert_contacto",
+      description: "Crea o actualiza un contacto (persona). Si ya existe uno con ese email, lo actualiza. Devuelve una propuesta que el usuario debe confirmar. Si conoces el operador o el activo asociado, intenta resolver su id antes con db_query/search_data.",
+      parameters: {
+        type: "object",
+        properties: {
+          email: { type: "string", description: "Email del contacto (clave de upsert)" },
+          nombre: { type: "string" },
+          apellidos: { type: "string" },
+          empresa: { type: "string" },
+          cargo: { type: "string" },
+          telefono: { type: "string" },
+          whatsapp: { type: "string" },
+          linkedin_url: { type: "string" },
+          operador_id: { type: "string", description: "UUID del operador asociado (opcional)" },
+          activo_id: { type: "string", description: "UUID del activo asociado (opcional)" },
+          notas_perfil: { type: "string" },
+        },
+        required: ["email"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "upsert_activo",
+      description: "Crea o actualiza un activo/local. Si ya existe uno con el mismo nombre y ciudad, lo actualiza. Devuelve una propuesta que el usuario debe confirmar.",
+      parameters: {
+        type: "object",
+        properties: {
+          nombre: { type: "string" },
+          direccion: { type: "string" },
+          ciudad: { type: "string" },
+          codigo_postal: { type: "string" },
+          superficie_m2: { type: "number" },
+          precio_renta: { type: "number" },
+          descripcion: { type: "string" },
+          coordenadas_lat: { type: "number" },
+          coordenadas_lng: { type: "number" },
+        },
+        required: ["nombre"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "add_entity_narrative",
+      description: "Guarda una historia, anécdota, experiencia o nota sobre una entidad (operador, contacto, activo, oportunidad/proyecto, subdivisión). Úsalo cuando el usuario te cuente algo relevante: 'la negociación con X fue dura porque…', 'Y siempre paga tarde', 'recuerda que con Z tuvimos un conflicto en…'. ANTES de proponer, resuelve el entity_id con db_query/search_data — si hay ambigüedad, pregunta al usuario.",
+      parameters: {
+        type: "object",
+        properties: {
+          entity_type: { type: "string", enum: ["operador", "contacto", "activo", "proyecto", "subdivision"], description: "Tipo de entidad a la que se asocia la narrativa" },
+          entity_id: { type: "string", description: "UUID de la entidad" },
+          tipo: { type: "string", enum: ["historia", "experiencia_buena", "experiencia_mala", "negociacion", "nota"], description: "Categoría de la narrativa" },
+          narrativa: { type: "string", description: "Texto completo de la historia/nota tal como la cuenta el usuario, en su tono. No la resumas en exceso." },
+        },
+        required: ["entity_type", "entity_id", "tipo", "narrativa"],
       },
     },
   },
