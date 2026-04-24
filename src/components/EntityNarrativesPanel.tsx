@@ -312,12 +312,12 @@ export function EntityNarrativesPanel({
       </div>
 
       {/* Filtros */}
-      <div className="px-4 pb-3 flex items-center gap-2 border-b border-border/40">
+      <div className="relative px-4 pb-3 flex items-center gap-2 border-b border-[hsl(var(--acc-2)/0.15)]">
         <Select
           value={filterTipo}
           onValueChange={(v) => setFilterTipo(v as any)}
         >
-          <SelectTrigger className="h-8 text-[11px] flex-1 min-w-0 bg-background/60 border-border/60">
+          <SelectTrigger className="h-8 text-[11px] flex-1 min-w-0 bg-[hsl(200_35%_8%/0.7)] border-[hsl(var(--acc-2)/0.2)] text-foreground/90">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -335,7 +335,7 @@ export function EntityNarrativesPanel({
           value={filterVisibility}
           onValueChange={(v) => setFilterVisibility(v as any)}
         >
-          <SelectTrigger className="h-8 text-[11px] flex-1 min-w-0 bg-background/60 border-border/60">
+          <SelectTrigger className="h-8 text-[11px] flex-1 min-w-0 bg-[hsl(200_35%_8%/0.7)] border-[hsl(var(--acc-2)/0.2)] text-foreground/90">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -353,15 +353,15 @@ export function EntityNarrativesPanel({
       </div>
 
       {/* Lista */}
-      <div className="px-4 py-3">
+      <div className="relative px-4 py-3">
         {loading ? (
           <div className="flex items-center gap-2 text-xs text-muted-foreground py-4">
             <Loader2 className="h-3 w-3 animate-spin" /> Cargando…
           </div>
         ) : filtered.length === 0 ? (
           <div className="flex flex-col items-center justify-center gap-2 py-6 text-center">
-            <div className="h-10 w-10 rounded-full bg-muted/20 border border-border/40 grid place-items-center">
-              <Sparkles className="h-4 w-4 text-muted-foreground/60" />
+            <div className="h-10 w-10 rounded-full bg-[hsl(var(--acc-2)/0.12)] border border-[hsl(var(--acc-2)/0.3)] grid place-items-center shadow-[0_0_20px_-4px_hsl(var(--acc-2)/0.4)]">
+              <Sparkles className="h-4 w-4 text-[hsl(var(--acc-2))]" />
             </div>
             <p className="text-xs text-muted-foreground max-w-[280px]">
               {items.length === 0
@@ -377,7 +377,7 @@ export function EntityNarrativesPanel({
               return (
                 <div
                   key={it.id}
-                  className="rounded-xl border border-border/40 bg-background/30 hover:bg-background/50 transition-colors p-3 space-y-2"
+                  className="rounded-xl border border-[hsl(var(--acc-2)/0.15)] bg-[hsl(200_35%_8%/0.55)] hover:bg-[hsl(200_35%_10%/0.7)] hover:border-[hsl(var(--acc-2)/0.3)] transition-all p-3 space-y-2"
                 >
                   <div className="flex items-center justify-between gap-2 flex-wrap">
                     <div className="flex items-center gap-1.5 flex-wrap">
@@ -390,7 +390,7 @@ export function EntityNarrativesPanel({
                       {it.visibility === "private" ? (
                         <Badge
                           variant="outline"
-                          className="text-[10px] gap-1 bg-muted/40 border-border/50"
+                          className="text-[10px] gap-1 bg-rose-500/10 border-rose-400/30 text-rose-300"
                           title="Privada (solo tú o admin)"
                         >
                           <Lock className="h-3 w-3" /> privada
@@ -398,7 +398,7 @@ export function EntityNarrativesPanel({
                       ) : (
                         <Badge
                           variant="outline"
-                          className="text-[10px] gap-1 bg-muted/20 border-border/50"
+                          className="text-[10px] gap-1 bg-[hsl(var(--acc-2)/0.12)] border-[hsl(var(--acc-2)/0.3)] text-[hsl(var(--acc-2))]"
                           title="Compartida con el equipo"
                         >
                           <Globe className="h-3 w-3" /> compartida
@@ -427,7 +427,7 @@ export function EntityNarrativesPanel({
                         <Badge
                           key={t}
                           variant="outline"
-                          className="text-[10px] bg-accent/5 border-accent/20"
+                          className="text-[10px] bg-[hsl(var(--acc-1)/0.08)] border-[hsl(var(--acc-1)/0.25)] text-[hsl(var(--acc-1))]"
                         >
                           #{t}
                         </Badge>
@@ -442,14 +442,14 @@ export function EntityNarrativesPanel({
       </div>
 
       {/* Composer — sección dedicada */}
-      <div className="border-t border-border/40 bg-background/20 px-4 py-4 space-y-3">
-        <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-wider text-muted-foreground/80">
+      <div className="relative border-t border-[hsl(var(--acc-2)/0.18)] bg-[hsl(200_35%_5%/0.5)] px-4 py-4 space-y-3">
+        <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-wider text-[hsl(var(--acc-2)/0.85)] font-medium">
           <Plus className="h-3 w-3" /> Añadir entrada
         </div>
 
         <div className="flex gap-2 flex-wrap">
           <Select value={tipo} onValueChange={(v) => handleTipoChange(v as NarrativeTipo)}>
-            <SelectTrigger className="h-8 text-xs flex-1 min-w-[160px] bg-background/60 border-border/60">
+            <SelectTrigger className="h-8 text-xs flex-1 min-w-[160px] bg-[hsl(200_35%_8%/0.7)] border-[hsl(var(--acc-2)/0.2)] text-foreground/90">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -464,7 +464,7 @@ export function EntityNarrativesPanel({
             value={visibility}
             onValueChange={(v) => setVisibility(v as NarrativeVisibility)}
           >
-            <SelectTrigger className="h-8 text-xs flex-1 min-w-[140px] bg-background/60 border-border/60">
+            <SelectTrigger className="h-8 text-xs flex-1 min-w-[140px] bg-[hsl(200_35%_8%/0.7)] border-[hsl(var(--acc-2)/0.2)] text-foreground/90">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -483,18 +483,18 @@ export function EntityNarrativesPanel({
           onChange={(e) => setText(e.target.value)}
           placeholder="Escribe una historia, anécdota o nota… (ej: 'la negociación con Aldi en Pinto fue dura porque querían reducir la renta un 15%')"
           rows={3}
-          className="text-xs resize-none bg-background/40 border-border/60 focus-visible:ring-accent/40"
+          className="text-xs resize-none bg-[hsl(200_35%_8%/0.6)] border-[hsl(var(--acc-2)/0.2)] focus-visible:ring-[hsl(var(--acc-2)/0.5)] focus-visible:border-[hsl(var(--acc-2)/0.5)] placeholder:text-muted-foreground/60"
         />
 
         {/* Tags */}
         <div className="space-y-1.5">
           <div className="flex items-center gap-2 flex-wrap">
-            <Tag className="h-3 w-3 text-muted-foreground" />
+            <Tag className="h-3 w-3 text-[hsl(var(--acc-2)/0.7)]" />
             {tags.map((t) => (
               <Badge
                 key={t}
                 variant="outline"
-                className="text-[10px] gap-1 bg-accent/10 border-accent/30"
+                className="text-[10px] gap-1 bg-[hsl(var(--acc-1)/0.12)] border-[hsl(var(--acc-1)/0.35)] text-[hsl(var(--acc-1))]"
               >
                 #{t}
                 <button
@@ -512,7 +512,7 @@ export function EntityNarrativesPanel({
               onChange={(e) => setTagInput(e.target.value)}
               onKeyDown={onTagKeyDown}
               placeholder="añade tag…"
-              className="h-6 text-[11px] w-[120px] bg-background/60 border-border/60"
+              className="h-6 text-[11px] w-[120px] bg-[hsl(200_35%_8%/0.7)] border-[hsl(var(--acc-2)/0.2)] placeholder:text-muted-foreground/60"
             />
           </div>
           {tagSuggestions.length > 0 && tags.length === 0 && (
@@ -525,7 +525,7 @@ export function EntityNarrativesPanel({
                   key={s}
                   type="button"
                   onClick={() => addTag(s)}
-                  className="text-[10px] text-muted-foreground hover:text-foreground border border-border/40 rounded-full px-2 py-0.5 transition-colors hover:bg-accent/10 hover:border-accent/30"
+                  className="text-[10px] text-muted-foreground hover:text-[hsl(var(--acc-2))] border border-[hsl(var(--acc-2)/0.2)] rounded-full px-2 py-0.5 transition-colors hover:bg-[hsl(var(--acc-2)/0.1)] hover:border-[hsl(var(--acc-2)/0.4)]"
                 >
                   #{s}
                 </button>
@@ -539,7 +539,7 @@ export function EntityNarrativesPanel({
             size="sm"
             onClick={handleSave}
             disabled={saving || !text.trim()}
-            className="gap-1.5 h-8 text-xs bg-accent/15 text-foreground border border-accent/25 hover:bg-accent/25 backdrop-blur-md"
+            className="gap-1.5 h-8 text-xs bg-[hsl(var(--acc-2)/0.18)] text-[hsl(var(--acc-2))] border border-[hsl(var(--acc-2)/0.4)] hover:bg-[hsl(var(--acc-2)/0.28)] hover:text-foreground backdrop-blur-md shadow-[0_0_16px_-4px_hsl(var(--acc-2)/0.5)]"
           >
             {saving ? (
               <Loader2 className="h-3 w-3 animate-spin" />
