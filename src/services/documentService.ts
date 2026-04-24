@@ -43,17 +43,30 @@ export async function fetchTaxonomias(): Promise<Taxonomia[]> {
   return (data as Taxonomia[]) || [];
 }
 
-export async function fetchDocumentos(filters: { taxonomia?: string; origen?: string; search?: string } = {}): Promise<DocumentoExt[]> {
+export interface FetchDocumentosResult {
+  rows: DocumentoExt[];
+  total: number;
+}
+
+export async function fetchDocumentos(
+  filters: { taxonomia?: string; origen?: string; search?: string } = {},
+  range: { from?: number; to?: number } = {},
+): Promise<FetchDocumentosResult> {
+  const from = range.from ?? 0;
+  const to = range.to ?? from + 99; // default 100 por página
   let q = supabase
     .from("documentos_proyecto")
-    .select("*, taxonomia:taxonomia_id(id,codigo,nombre,icono,color)")
+    .select("*, taxonomia:taxonomia_id(id,codigo,nombre,icono,color)", { count: "exact" })
     .order("created_at", { ascending: false })
-    .limit(500);
+    .range(from, to);
   if (filters.taxonomia) q = q.eq("taxonomia_id", filters.taxonomia);
   if (filters.origen) q = q.eq("origen", filters.origen);
   if (filters.search) q = q.ilike("nombre", `%${filters.search}%`);
-  const { data } = await q;
-  return (data as unknown as DocumentoExt[]) || [];
+  const { data, count } = await q;
+  return {
+    rows: (data as unknown as DocumentoExt[]) || [],
+    total: count ?? 0,
+  };
 }
 
 export async function classifyDocument(documentoId: string, sample?: string) {
