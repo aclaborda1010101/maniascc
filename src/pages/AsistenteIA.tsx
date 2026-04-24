@@ -203,6 +203,22 @@ export default function AsistenteIA() {
   }, [desktopSidebarOpen]);
   const isMobile = useIsMobile();
 
+  // Pre-fill composer when navigating with ?prompt=...
+  // (e.g. from "+ Añadir nota" en el detalle de un contacto).
+  // No auto-envía: el usuario edita y manda manualmente.
+  const [searchParams, setSearchParams] = useSearchParams();
+  useEffect(() => {
+    const p = searchParams.get("prompt");
+    if (p) {
+      setInput(p);
+      // limpia el query param para no re-pre-llenar al re-render
+      const next = new URLSearchParams(searchParams);
+      next.delete("prompt");
+      setSearchParams(next, { replace: true });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const handleExportConversation = async () => {
     if (messages.length === 0 || exportingConv) return;
     setExportingConv(true);
