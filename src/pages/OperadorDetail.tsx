@@ -11,7 +11,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ArrowLeft, Save, Trash2, Sparkles, CheckCircle, Plus, Building2, UserPlus, Mail, Phone, FileText, ChevronDown, ChevronRight } from "lucide-react";
+import { ArrowLeft, Save, Trash2, Sparkles, CheckCircle, Plus, Building2, UserPlus, Mail, Phone, FileText, ChevronDown, ChevronRight, LayoutDashboard } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
@@ -20,6 +20,11 @@ import { UploadZone } from "@/components/UploadZone";
 import { QuickCreateContactDialog } from "@/components/QuickCreateContactDialog";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { useAuth } from "@/hooks/useAuth";
+import { OperadorInfoCard } from "@/components/operador/OperadorInfoCard";
+import { ContactosAsociadosTable } from "@/components/operador/ContactosAsociadosTable";
+import { SubdivisionesGrid } from "@/components/operador/SubdivisionesGrid";
+import { DocumentosLinkeadosList } from "@/components/operador/DocumentosLinkeadosList";
+import { ProyectosCard } from "@/components/operador/ProyectosCard";
 
 const SECTORES = [
   "Alimentación", "Moda", "Restauración", "Hogar", "Electrónica",
@@ -42,7 +47,7 @@ export default function OperadorDetail() {
   const [submittingSub, setSubmittingSub] = useState(false);
   const [showAddContact, setShowAddContact] = useState<string | null>(null);
   const [activos, setActivos] = useState<any[]>([]);
-  const [tab, setTab] = useState("info");
+  const [tab, setTab] = useState("vista");
 
   useEffect(() => {
     supabase.from("operadores").select("*").eq("id", id).single().then(({ data }) => {
@@ -80,6 +85,7 @@ export default function OperadorDetail() {
       presupuesto_min: op.presupuesto_min, presupuesto_max: op.presupuesto_max,
       superficie_min: op.superficie_min, superficie_max: op.superficie_max,
       descripcion: op.descripcion, activo: op.activo,
+      contacto_nombre: op.contacto_nombre, contacto_email: op.contacto_email, contacto_telefono: op.contacto_telefono,
     } as any).eq("id", id);
     setSaving(false);
     if (error) toast({ title: "Error", description: error.message, variant: "destructive" });
@@ -161,7 +167,8 @@ export default function OperadorDetail() {
           <Select value={tab} onValueChange={setTab}>
             <SelectTrigger className="w-full h-11"><SelectValue /></SelectTrigger>
             <SelectContent>
-              <SelectItem value="info">Información General</SelectItem>
+              <SelectItem value="vista">Vista 360</SelectItem>
+              <SelectItem value="info">Editar datos</SelectItem>
               <SelectItem value="perfil-ia">Perfil IA</SelectItem>
               <SelectItem value="suboperadores">Sub-operadores ({subOps.length})</SelectItem>
             </SelectContent>
@@ -169,10 +176,24 @@ export default function OperadorDetail() {
         </div>
         {/* Desktop: tabs */}
         <TabsList className="hidden md:inline-flex">
-          <TabsTrigger value="info">Información General</TabsTrigger>
+          <TabsTrigger value="vista" className="gap-2"><LayoutDashboard className="h-4 w-4" /> Vista 360</TabsTrigger>
+          <TabsTrigger value="info">Editar datos</TabsTrigger>
           <TabsTrigger value="perfil-ia">Perfil IA</TabsTrigger>
           <TabsTrigger value="suboperadores">Sub-operadores ({subOps.length})</TabsTrigger>
         </TabsList>
+
+        {/* === VISTA 360 === */}
+        <TabsContent value="vista" className="space-y-4">
+          <div className="grid gap-4 lg:grid-cols-2">
+            <OperadorInfoCard operador={op} />
+            <ProyectosCard operadorId={id!} />
+          </div>
+          <SubdivisionesGrid operadorId={id!} />
+          <div className="grid gap-4 lg:grid-cols-2">
+            <ContactosAsociadosTable operadorId={id!} />
+            <DocumentosLinkeadosList operadorId={id!} />
+          </div>
+        </TabsContent>
 
         <TabsContent value="info">
           <Card>
@@ -191,6 +212,14 @@ export default function OperadorDetail() {
                 </div>
               </div>
               <div className="space-y-2"><Label>Dirección</Label><Input value={op.direccion || ""} onChange={(e) => setOp({ ...op, direccion: e.target.value })} placeholder="Calle, número, ciudad" /></div>
+              <div className="rounded-lg border border-white/10 bg-white/[0.02] p-3 space-y-3">
+                <p className="text-xs uppercase tracking-wider text-white/55">Contacto principal</p>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                  <div className="space-y-2"><Label>Nombre</Label><Input value={op.contacto_nombre || ""} onChange={(e) => setOp({ ...op, contacto_nombre: e.target.value })} /></div>
+                  <div className="space-y-2"><Label>Email</Label><Input type="email" value={op.contacto_email || ""} onChange={(e) => setOp({ ...op, contacto_email: e.target.value })} /></div>
+                  <div className="space-y-2"><Label>Teléfono</Label><Input value={op.contacto_telefono || ""} onChange={(e) => setOp({ ...op, contacto_telefono: e.target.value })} /></div>
+                </div>
+              </div>
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2"><Label>Presupuesto Min (€/mes)</Label><Input type="number" value={op.presupuesto_min} onChange={(e) => setOp({ ...op, presupuesto_min: Number(e.target.value) })} /></div>
                 <div className="space-y-2"><Label>Presupuesto Max (€/mes)</Label><Input type="number" value={op.presupuesto_max} onChange={(e) => setOp({ ...op, presupuesto_max: Number(e.target.value) })} /></div>
