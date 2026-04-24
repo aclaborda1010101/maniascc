@@ -765,10 +765,10 @@ serve(async (req) => {
           }
         } else if (fnName === "propose_action") {
           toolLabel = "propose_action:" + (args.table || "") + ":" + (args.action || "");
-          const ALLOWED_MUTATE = ["contactos", "operadores", "activos", "locales", "proyectos", "negociaciones", "matches"];
+          const ALLOWED_MUTATE = ["contactos", "operadores", "activos", "locales", "proyectos", "negociaciones", "matches", "entity_narratives"];
           if (!ALLOWED_MUTATE.includes(args.table)) {
             result = { error: "Tabla no permitida para acciones: " + args.table };
-          } else if (!["insert", "update"].includes(args.action)) {
+          } else if (!["insert", "update", "upsert"].includes(args.action)) {
             result = { error: "Acción no soportada" };
           } else if (args.action === "update" && (!args.match || !args.match.id)) {
             result = { error: "Update requiere match.id" };
@@ -780,6 +780,72 @@ serve(async (req) => {
               data: args.data || {},
               match: args.match || null,
               summary: args.summary || `${args.action} en ${args.table}`,
+            };
+          }
+        } else if (fnName === "upsert_operador") {
+          toolLabel = "propose_action:operadores:upsert";
+          const d = args || {};
+          const summary = `Guardar operador "${d.nombre}"${d.sector ? ` (${d.sector})` : ""}${d.contacto_email ? ` — contacto ${d.contacto_email}` : ""}`;
+          result = {
+            proposed: true,
+            table: "operadores",
+            action: "upsert",
+            data: d,
+            match: null,
+            summary,
+          };
+        } else if (fnName === "upsert_contacto") {
+          toolLabel = "propose_action:contactos:upsert";
+          const d = args || {};
+          const fullName = [d.nombre, d.apellidos].filter(Boolean).join(" ").trim() || d.email;
+          const summary = `Guardar contacto ${fullName}${d.cargo ? ` (${d.cargo}` : ""}${d.empresa ? `${d.cargo ? ", " : " ("}${d.empresa})` : d.cargo ? ")" : ""} — ${d.email}`;
+          result = {
+            proposed: true,
+            table: "contactos",
+            action: "upsert",
+            data: d,
+            match: null,
+            summary,
+          };
+        } else if (fnName === "upsert_activo") {
+          toolLabel = "propose_action:activos:upsert";
+          const d = args || {};
+          const summary = `Guardar activo "${d.nombre}"${d.ciudad ? ` (${d.ciudad})` : ""}${d.superficie_m2 ? ` — ${d.superficie_m2} m²` : ""}`;
+          result = {
+            proposed: true,
+            table: "activos",
+            action: "upsert",
+            data: d,
+            match: null,
+            summary,
+          };
+        } else if (fnName === "add_entity_narrative") {
+          toolLabel = "propose_action:entity_narratives:insert";
+          const d = args || {};
+          if (!d.entity_type || !d.entity_id || !d.tipo || !d.narrativa) {
+            result = { error: "add_entity_narrative requiere entity_type, entity_id, tipo y narrativa" };
+          } else {
+            const tipoLabel: Record<string, string> = {
+              historia: "historia",
+              experiencia_buena: "experiencia positiva",
+              experiencia_mala: "experiencia negativa",
+              negociacion: "nota de negociación",
+              nota: "nota",
+            };
+            const preview = String(d.narrativa).slice(0, 90);
+            const summary = `Guardar ${tipoLabel[d.tipo] || d.tipo} sobre ${d.entity_type}: "${preview}${String(d.narrativa).length > 90 ? "…" : ""}"`;
+            result = {
+              proposed: true,
+              table: "entity_narratives",
+              action: "insert",
+              data: {
+                entity_type: d.entity_type,
+                entity_id: d.entity_id,
+                tipo: d.tipo,
+                narrativa: d.narrativa,
+              },
+              match: null,
+              summary,
             };
           }
         } else if (fnName === "run_intelligence") {
