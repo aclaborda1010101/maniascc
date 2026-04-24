@@ -200,7 +200,7 @@ export default function Documentos() {
 
       {/* KPIs */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <KPI icon={<Database className="h-4 w-4 text-chart-1" />} label="Documentos" value={stats.total} />
+        <KPI icon={<Database className="h-4 w-4 text-chart-1" />} label="Documentos" value={totalDocs.toLocaleString("es-ES")} />
         <KPI icon={<Tags className="h-4 w-4 text-chart-2" />} label="Sin clasificar" value={stats.pendingClassify} accent={stats.pendingClassify > 0 ? "warning" : undefined} />
         <KPI icon={<Sparkles className="h-4 w-4 text-chart-3" />} label="En cola RAG" value={stats.queued} />
         <KPI icon={<CheckCircle2 className="h-4 w-4 text-chart-2" />} label="Indexados RAG" value={stats.indexed} />
@@ -270,11 +270,25 @@ export default function Documentos() {
                   <p className="text-sm text-muted-foreground">No hay documentos. Sube archivos o sincroniza OneDrive.</p>
                 </div>
               ) : (
-                <div className="divide-y">
-                  {documentos.map((d) => (
-                    <DocumentoRow key={d.id} doc={d} onClassify={() => handleClassify(d.id)} />
-                  ))}
-                </div>
+                <>
+                  <div className="divide-y">
+                    {documentos.map((d) => (
+                      <DocumentoRow key={d.id} doc={d} onClassify={() => handleClassify(d.id)} />
+                    ))}
+                  </div>
+                  <div className="flex items-center justify-between gap-3 px-4 py-3 border-t bg-muted/20 text-xs text-muted-foreground">
+                    <span>
+                      Mostrando <strong className="text-foreground">{documentos.length.toLocaleString("es-ES")}</strong> de{" "}
+                      <strong className="text-foreground">{totalDocs.toLocaleString("es-ES")}</strong> documentos
+                    </span>
+                    {documentos.length < totalDocs && (
+                      <Button size="sm" variant="outline" onClick={loadMore} disabled={loadingMore} className="h-7 text-xs">
+                        {loadingMore ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : null}
+                        Cargar más ({Math.min(PAGE_SIZE, totalDocs - documentos.length)})
+                      </Button>
+                    )}
+                  </div>
+                </>
               )}
             </CardContent>
           </Card>
