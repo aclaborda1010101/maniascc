@@ -166,7 +166,8 @@ export default function OperadorDetail() {
           <Select value={tab} onValueChange={setTab}>
             <SelectTrigger className="w-full h-11"><SelectValue /></SelectTrigger>
             <SelectContent>
-              <SelectItem value="info">Información General</SelectItem>
+              <SelectItem value="vista">Vista 360</SelectItem>
+              <SelectItem value="info">Editar datos</SelectItem>
               <SelectItem value="perfil-ia">Perfil IA</SelectItem>
               <SelectItem value="suboperadores">Sub-operadores ({subOps.length})</SelectItem>
             </SelectContent>
@@ -174,10 +175,24 @@ export default function OperadorDetail() {
         </div>
         {/* Desktop: tabs */}
         <TabsList className="hidden md:inline-flex">
-          <TabsTrigger value="info">Información General</TabsTrigger>
+          <TabsTrigger value="vista" className="gap-2"><LayoutDashboard className="h-4 w-4" /> Vista 360</TabsTrigger>
+          <TabsTrigger value="info">Editar datos</TabsTrigger>
           <TabsTrigger value="perfil-ia">Perfil IA</TabsTrigger>
           <TabsTrigger value="suboperadores">Sub-operadores ({subOps.length})</TabsTrigger>
         </TabsList>
+
+        {/* === VISTA 360 === */}
+        <TabsContent value="vista" className="space-y-4">
+          <div className="grid gap-4 lg:grid-cols-2">
+            <OperadorInfoCard operador={op} />
+            <ProyectosCard operadorId={id!} />
+          </div>
+          <SubdivisionesGrid operadorId={id!} />
+          <div className="grid gap-4 lg:grid-cols-2">
+            <ContactosAsociadosTable operadorId={id!} />
+            <DocumentosLinkeadosList operadorId={id!} />
+          </div>
+        </TabsContent>
 
         <TabsContent value="info">
           <Card>
