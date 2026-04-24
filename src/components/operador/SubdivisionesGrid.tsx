@@ -107,7 +107,7 @@ export function SubdivisionesGrid({ operadorId }: { operadorId: string }) {
                   {s.activos.map((a) => (
                     <Link
                       key={a.id}
-                      to={`/locales/${a.id}`}
+                      to={`/activos/${a.id}`}
                       className="flex items-start gap-2 text-xs text-accent hover:underline"
                     >
                       <MapPin className="h-3 w-3 mt-0.5 shrink-0" />

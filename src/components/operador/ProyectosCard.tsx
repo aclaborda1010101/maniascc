@@ -63,7 +63,7 @@ export function ProyectosCard({ operadorId }: { operadorId: string }) {
             {rows.map((r) => r.proyecto && (
               <Link
                 key={r.id}
-                to={`/proyectos/${r.proyecto.id}`}
+                to={`/oportunidades/${r.proyecto.id}`}
                 className="flex items-center justify-between gap-2 rounded-md border border-white/10 bg-white/[0.02] px-3 py-2 hover:bg-white/[0.06] transition-colors"
               >
                 <div className="min-w-0">
