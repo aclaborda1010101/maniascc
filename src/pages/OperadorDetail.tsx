@@ -11,7 +11,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ArrowLeft, Save, Trash2, Sparkles, CheckCircle, Plus, Building2, UserPlus, Mail, Phone, FileText, ChevronDown, ChevronRight } from "lucide-react";
+import { ArrowLeft, Save, Trash2, Sparkles, CheckCircle, Plus, Building2, UserPlus, Mail, Phone, FileText, ChevronDown, ChevronRight, LayoutDashboard } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
@@ -20,6 +20,11 @@ import { UploadZone } from "@/components/UploadZone";
 import { QuickCreateContactDialog } from "@/components/QuickCreateContactDialog";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { useAuth } from "@/hooks/useAuth";
+import { OperadorInfoCard } from "@/components/operador/OperadorInfoCard";
+import { ContactosAsociadosTable } from "@/components/operador/ContactosAsociadosTable";
+import { SubdivisionesGrid } from "@/components/operador/SubdivisionesGrid";
+import { DocumentosLinkeadosList } from "@/components/operador/DocumentosLinkeadosList";
+import { ProyectosCard } from "@/components/operador/ProyectosCard";
 
 const SECTORES = [
   "Alimentación", "Moda", "Restauración", "Hogar", "Electrónica",
@@ -42,7 +47,7 @@ export default function OperadorDetail() {
   const [submittingSub, setSubmittingSub] = useState(false);
   const [showAddContact, setShowAddContact] = useState<string | null>(null);
   const [activos, setActivos] = useState<any[]>([]);
-  const [tab, setTab] = useState("info");
+  const [tab, setTab] = useState("vista");
 
   useEffect(() => {
     supabase.from("operadores").select("*").eq("id", id).single().then(({ data }) => {
