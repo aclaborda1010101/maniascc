@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
+import { EntityNarrativesPanel } from "@/components/EntityNarrativesPanel";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -381,6 +382,7 @@ export default function OperadorDetail() {
           )}
         </TabsContent>
       </Tabs>
+      {id && <EntityNarrativesPanel entityType="operador" entityId={id} className="mt-4" />}
     </div>
   );
 }

@@ -140,10 +140,21 @@ IMPORTANTE SOBRE GENERACIÓN DE DOCUMENTOS:
 - Si el usuario adjunta un archivo en el chat, su contenido aparecerá en la sección "DOCUMENTOS ADJUNTOS POR EL USUARIO". Trátalo como fuente prioritaria.
 
 IMPORTANTE SOBRE ACCIONES (CRUD):
-- Cuando el usuario te pida CREAR o ACTUALIZAR datos (un contacto, un operador, un activo, un proyecto, una negociación, un local, un match), usa **propose_action**. Esta tool NO ejecuta nada: solo prepara una propuesta que el usuario verá como tarjeta con botones ✅/❌ en el chat.
-- En el campo \`summary\` escribe una frase clara en español de qué vas a hacer (ej: "Crear el contacto Juan Pérez (Director Expansión, Mercadona, juan@mercadona.es)").
+- Cuando el usuario te pida CREAR o ACTUALIZAR datos (un contacto, un operador, un activo, un proyecto, una negociación, un local, un match), usa **propose_action** o las herramientas semánticas **upsert_operador / upsert_contacto / upsert_activo**. Esta tool NO ejecuta nada: solo prepara una propuesta que el usuario verá como tarjeta con botones ✅/❌ en el chat.
+- En el campo \`summary\` (cuando uses propose_action) escribe una frase clara en español de qué vas a hacer.
 - En \`data\` incluye SOLO los campos que el usuario haya dado o que puedas inferir con confianza. No inventes IDs ni fechas.
-- Después de llamar a propose_action, en tu respuesta de texto explica brevemente que has preparado la acción y que espere confirmación. NO repitas todo el detalle: la tarjeta lo mostrará.`;
+- Después de llamar a propose_action o a un upsert_*, en tu respuesta de texto explica brevemente que has preparado la acción y que espere confirmación. NO repitas todo el detalle: la tarjeta lo mostrará.
+
+## MEMORIA NARRATIVA DE ENTIDADES
+Tienes acceso a una "memoria narrativa": pequeñas historias, anécdotas, experiencias buenas/malas y notas de negociación asociadas a cada operador, contacto, activo o proyecto. Esta memoria se mezcla automáticamente con el RAG documental cuando llamas a \`rag_search\`.
+
+Cuándo usar **add_entity_narrative**:
+- El usuario te cuenta algo cualitativo sobre una entidad: "la negociación con Aldi en Pinto fue dura porque querían reducir la renta un 15%", "Mercadona Atalayuela terminó mal", "Juan siempre responde tarde pero cierra", "ojo con Leroy, el año pasado nos cambiaron el interlocutor tres veces".
+- Detecta el \`tipo\` correcto: \`historia\` (relato neutro), \`experiencia_buena\`, \`experiencia_mala\`, \`negociacion\` (proceso comercial), \`nota\` (apunte breve).
+- ANTES de proponer la narrativa, **resuelve el \`entity_id\`** con \`db_query\` o \`search_data\`. Si encuentras varias coincidencias, pregunta al usuario antes de elegir. Nunca inventes UUIDs.
+- Conserva el tono y los detalles del usuario en \`narrativa\` — no la reescribas en estilo corporativo, no la resumas en exceso.
+
+Cuándo el usuario pregunte "¿qué historia/experiencia tenemos con X?", llama a \`rag_search\` con el nombre — las narrativas vendrán mezcladas con los documentos y aparecerán etiquetadas como \`[tipo · entity_type]\`.`;
 
 const TOOLS = [
   {
@@ -297,7 +308,7 @@ const TOOLS = [
       },
     },
   },
-  {
+    {
     type: "function",
     function: {
       name: "read_system_document",
@@ -308,6 +319,93 @@ const TOOLS = [
           query: { type: "string", description: "Texto a buscar en el nombre del documento" },
           documento_id: { type: "string", description: "UUID exacto si ya se conoce (opcional)" },
         },
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "upsert_operador",
+      description: "Crea o actualiza un operador (marca/retailer como Mercadona, Leroy Merlin, Aldi…). Si ya existe uno con ese nombre, lo actualiza con los campos nuevos. Devuelve una propuesta que el usuario debe confirmar.",
+      parameters: {
+        type: "object",
+        properties: {
+          nombre: { type: "string", description: "Nombre comercial del operador" },
+          sector: { type: "string", description: "Sector (alimentacion, bricolaje, restauracion, moda, etc.)" },
+          descripcion: { type: "string" },
+          contacto_nombre: { type: "string" },
+          contacto_email: { type: "string" },
+          contacto_telefono: { type: "string" },
+          presupuesto_min: { type: "number" },
+          presupuesto_max: { type: "number" },
+          superficie_min: { type: "number" },
+          superficie_max: { type: "number" },
+          logo_url: { type: "string" },
+        },
+        required: ["nombre"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "upsert_contacto",
+      description: "Crea o actualiza un contacto (persona). Si ya existe uno con ese email, lo actualiza. Devuelve una propuesta que el usuario debe confirmar. Si conoces el operador o el activo asociado, intenta resolver su id antes con db_query/search_data.",
+      parameters: {
+        type: "object",
+        properties: {
+          email: { type: "string", description: "Email del contacto (clave de upsert)" },
+          nombre: { type: "string" },
+          apellidos: { type: "string" },
+          empresa: { type: "string" },
+          cargo: { type: "string" },
+          telefono: { type: "string" },
+          whatsapp: { type: "string" },
+          linkedin_url: { type: "string" },
+          operador_id: { type: "string", description: "UUID del operador asociado (opcional)" },
+          activo_id: { type: "string", description: "UUID del activo asociado (opcional)" },
+          notas_perfil: { type: "string" },
+        },
+        required: ["email"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "upsert_activo",
+      description: "Crea o actualiza un activo/local. Si ya existe uno con el mismo nombre y ciudad, lo actualiza. Devuelve una propuesta que el usuario debe confirmar.",
+      parameters: {
+        type: "object",
+        properties: {
+          nombre: { type: "string" },
+          direccion: { type: "string" },
+          ciudad: { type: "string" },
+          codigo_postal: { type: "string" },
+          superficie_m2: { type: "number" },
+          precio_renta: { type: "number" },
+          descripcion: { type: "string" },
+          coordenadas_lat: { type: "number" },
+          coordenadas_lng: { type: "number" },
+        },
+        required: ["nombre"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "add_entity_narrative",
+      description: "Guarda una historia, anécdota, experiencia o nota sobre una entidad (operador, contacto, activo, oportunidad/proyecto, subdivisión). Úsalo cuando el usuario te cuente algo relevante: 'la negociación con X fue dura porque…', 'Y siempre paga tarde', 'recuerda que con Z tuvimos un conflicto en…'. ANTES de proponer, resuelve el entity_id con db_query/search_data — si hay ambigüedad, pregunta al usuario.",
+      parameters: {
+        type: "object",
+        properties: {
+          entity_type: { type: "string", enum: ["operador", "contacto", "activo", "proyecto", "subdivision"], description: "Tipo de entidad a la que se asocia la narrativa" },
+          entity_id: { type: "string", description: "UUID de la entidad" },
+          tipo: { type: "string", enum: ["historia", "experiencia_buena", "experiencia_mala", "negociacion", "nota"], description: "Categoría de la narrativa" },
+          narrativa: { type: "string", description: "Texto completo de la historia/nota tal como la cuenta el usuario, en su tono. No la resumas en exceso." },
+        },
+        required: ["entity_type", "entity_id", "tipo", "narrativa"],
       },
     },
   },
@@ -678,10 +776,10 @@ serve(async (req) => {
           }
         } else if (fnName === "propose_action") {
           toolLabel = "propose_action:" + (args.table || "") + ":" + (args.action || "");
-          const ALLOWED_MUTATE = ["contactos", "operadores", "activos", "locales", "proyectos", "negociaciones", "matches"];
+          const ALLOWED_MUTATE = ["contactos", "operadores", "activos", "locales", "proyectos", "negociaciones", "matches", "entity_narratives"];
           if (!ALLOWED_MUTATE.includes(args.table)) {
             result = { error: "Tabla no permitida para acciones: " + args.table };
-          } else if (!["insert", "update"].includes(args.action)) {
+          } else if (!["insert", "update", "upsert"].includes(args.action)) {
             result = { error: "Acción no soportada" };
           } else if (args.action === "update" && (!args.match || !args.match.id)) {
             result = { error: "Update requiere match.id" };
@@ -693,6 +791,72 @@ serve(async (req) => {
               data: args.data || {},
               match: args.match || null,
               summary: args.summary || `${args.action} en ${args.table}`,
+            };
+          }
+        } else if (fnName === "upsert_operador") {
+          toolLabel = "propose_action:operadores:upsert";
+          const d = args || {};
+          const summary = `Guardar operador "${d.nombre}"${d.sector ? ` (${d.sector})` : ""}${d.contacto_email ? ` — contacto ${d.contacto_email}` : ""}`;
+          result = {
+            proposed: true,
+            table: "operadores",
+            action: "upsert",
+            data: d,
+            match: null,
+            summary,
+          };
+        } else if (fnName === "upsert_contacto") {
+          toolLabel = "propose_action:contactos:upsert";
+          const d = args || {};
+          const fullName = [d.nombre, d.apellidos].filter(Boolean).join(" ").trim() || d.email;
+          const summary = `Guardar contacto ${fullName}${d.cargo ? ` (${d.cargo}` : ""}${d.empresa ? `${d.cargo ? ", " : " ("}${d.empresa})` : d.cargo ? ")" : ""} — ${d.email}`;
+          result = {
+            proposed: true,
+            table: "contactos",
+            action: "upsert",
+            data: d,
+            match: null,
+            summary,
+          };
+        } else if (fnName === "upsert_activo") {
+          toolLabel = "propose_action:activos:upsert";
+          const d = args || {};
+          const summary = `Guardar activo "${d.nombre}"${d.ciudad ? ` (${d.ciudad})` : ""}${d.superficie_m2 ? ` — ${d.superficie_m2} m²` : ""}`;
+          result = {
+            proposed: true,
+            table: "activos",
+            action: "upsert",
+            data: d,
+            match: null,
+            summary,
+          };
+        } else if (fnName === "add_entity_narrative") {
+          toolLabel = "propose_action:entity_narratives:insert";
+          const d = args || {};
+          if (!d.entity_type || !d.entity_id || !d.tipo || !d.narrativa) {
+            result = { error: "add_entity_narrative requiere entity_type, entity_id, tipo y narrativa" };
+          } else {
+            const tipoLabel: Record<string, string> = {
+              historia: "historia",
+              experiencia_buena: "experiencia positiva",
+              experiencia_mala: "experiencia negativa",
+              negociacion: "nota de negociación",
+              nota: "nota",
+            };
+            const preview = String(d.narrativa).slice(0, 90);
+            const summary = `Guardar ${tipoLabel[d.tipo] || d.tipo} sobre ${d.entity_type}: "${preview}${String(d.narrativa).length > 90 ? "…" : ""}"`;
+            result = {
+              proposed: true,
+              table: "entity_narratives",
+              action: "insert",
+              data: {
+                entity_type: d.entity_type,
+                entity_id: d.entity_id,
+                tipo: d.tipo,
+                narrativa: d.narrativa,
+              },
+              match: null,
+              summary,
             };
           }
         } else if (fnName === "run_intelligence") {

@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
+import { EntityNarrativesPanel } from "@/components/EntityNarrativesPanel";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -271,6 +272,7 @@ export default function ProyectoDetail() {
           </CardContent></Card>
         </TabsContent>
       </Tabs>
+      {id && <EntityNarrativesPanel entityType="proyecto" entityId={id} className="mt-4" />}
     </div>
   );
 }

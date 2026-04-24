@@ -1299,6 +1299,42 @@ export type Database = {
         }
         Relationships: []
       }
+      entity_narratives: {
+        Row: {
+          autor_id: string | null
+          created_at: string
+          embedding: string | null
+          entity_id: string
+          entity_type: string
+          id: string
+          narrativa: string
+          tipo: string
+          updated_at: string
+        }
+        Insert: {
+          autor_id?: string | null
+          created_at?: string
+          embedding?: string | null
+          entity_id: string
+          entity_type: string
+          id?: string
+          narrativa: string
+          tipo: string
+          updated_at?: string
+        }
+        Update: {
+          autor_id?: string | null
+          created_at?: string
+          embedding?: string | null
+          entity_id?: string
+          entity_type?: string
+          id?: string
+          narrativa?: string
+          tipo?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       ingestion_jobs: {
         Row: {
           completado_en: string | null

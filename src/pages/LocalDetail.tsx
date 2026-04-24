@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
+import { EntityNarrativesPanel } from "@/components/EntityNarrativesPanel";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -334,6 +335,7 @@ export default function LocalDetail() {
           <QuickCreateContactDialog open={showAddContact} onOpenChange={setShowAddContact} activoId={id} onCreated={fetchContactos} />
         </TabsContent>
       </Tabs>
+      {id && <EntityNarrativesPanel entityType="activo" entityId={id} className="mt-4" />}
     </div>
   );
 }

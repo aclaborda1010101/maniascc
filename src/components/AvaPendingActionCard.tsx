@@ -5,7 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 
 export interface PendingAction {
   table: string;
-  action: "insert" | "update";
+  action: "insert" | "update" | "upsert";
   data: Record<string, any>;
   match: { id?: string } | null;
   summary: string;
@@ -24,6 +24,13 @@ const TABLE_LABEL: Record<string, string> = {
   proyectos: "oportunidad",
   negociaciones: "negociación",
   matches: "match",
+  entity_narratives: "narrativa",
+};
+
+const VERB_LABEL: Record<string, string> = {
+  insert: "Crear",
+  update: "Actualizar",
+  upsert: "Guardar",
 };
 
 export function AvaPendingActionCard({ action, onResolved }: Props) {
@@ -31,7 +38,7 @@ export function AvaPendingActionCard({ action, onResolved }: Props) {
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   const label = TABLE_LABEL[action.table] || action.table;
-  const verb = action.action === "insert" ? "Crear" : "Actualizar";
+  const verb = VERB_LABEL[action.action] || action.action;
 
   const dataEntries = Object.entries(action.data || {})
     .filter(([k, v]) => v !== null && v !== undefined && v !== "")
