@@ -212,6 +212,14 @@ export default function OperadorDetail() {
                 </div>
               </div>
               <div className="space-y-2"><Label>Dirección</Label><Input value={op.direccion || ""} onChange={(e) => setOp({ ...op, direccion: e.target.value })} placeholder="Calle, número, ciudad" /></div>
+              <div className="rounded-lg border border-white/10 bg-white/[0.02] p-3 space-y-3">
+                <p className="text-xs uppercase tracking-wider text-white/55">Contacto principal</p>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                  <div className="space-y-2"><Label>Nombre</Label><Input value={op.contacto_nombre || ""} onChange={(e) => setOp({ ...op, contacto_nombre: e.target.value })} /></div>
+                  <div className="space-y-2"><Label>Email</Label><Input type="email" value={op.contacto_email || ""} onChange={(e) => setOp({ ...op, contacto_email: e.target.value })} /></div>
+                  <div className="space-y-2"><Label>Teléfono</Label><Input value={op.contacto_telefono || ""} onChange={(e) => setOp({ ...op, contacto_telefono: e.target.value })} /></div>
+                </div>
+              </div>
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2"><Label>Presupuesto Min (€/mes)</Label><Input type="number" value={op.presupuesto_min} onChange={(e) => setOp({ ...op, presupuesto_min: Number(e.target.value) })} /></div>
                 <div className="space-y-2"><Label>Presupuesto Max (€/mes)</Label><Input type="number" value={op.presupuesto_max} onChange={(e) => setOp({ ...op, presupuesto_max: Number(e.target.value) })} /></div>
