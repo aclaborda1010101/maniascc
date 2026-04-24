@@ -79,4 +79,49 @@ export const perfilIaMock: PerfilIA = {
     "Valora la transparencia financiera",
   ],
   generated_at: "2026-04-22T18:00:00Z",
+  perfil_profesional: {
+    cargo_actual: "Director de Expansión",
+    empresa_actual: "Aldi España",
+    sector: "Retail alimentación",
+    nivel_decision: "decisor",
+    trayectoria: [
+      "Lidl (2012–2018, Expansion Manager)",
+      "Mercadona (2018–2021, Real Estate)",
+      "Aldi (2021–actualidad, Director Expansión)",
+    ],
+    proyectos_mencionados: [
+      "La Milla Arganda",
+      "Parque Sur Móstoles",
+      "Centro Henares",
+    ],
+    skills_detectadas: [
+      "Análisis de ubicación",
+      "Negociación de rentas",
+      "Lectura de planimetrías",
+      "Modelado financiero",
+    ],
+    estilo_comunicacion:
+      "Formal y directo, prefiere datos concretos sobre narrativa. Responde en menos de 24h.",
+    fortalezas: [
+      "Conocimiento profundo del mercado retail",
+      "Decisor real (no necesita comité)",
+      "Capacidad de cierre rápida cuando los números cuadran",
+    ],
+    patrones_negociacion: [
+      "Pide siempre rebaja del 8–12% en primera contraoferta",
+      "Cierra los viernes por la tarde",
+      "Usa silencio estratégico tras propuesta económica",
+    ],
+  },
+  perfil_personal: {
+    intereses: ["ciclismo", "vinos de Rioja", "F1", "running"],
+    personalidad: ["directo", "analítico", "cercano", "competitivo"],
+    relacion_con_fran:
+      "Profesional histórica con tono cordial. Coincidieron en eventos sectoriales (IFEMA, MAPIC).",
+    eventos_personales: [
+      "Mencionó nacimiento de su segundo hijo en marzo 2025",
+      "Operación de rodilla menor en otoño 2024",
+    ],
+    tono_emocional_promedio: "positivo",
+  },
 };

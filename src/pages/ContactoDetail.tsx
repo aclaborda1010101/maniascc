@@ -30,6 +30,8 @@ import { EvolucionReciente } from "@/components/contacto/EvolucionReciente";
 import { DatosClaveChips } from "@/components/contacto/DatosClaveChips";
 import { MetricasComunicacion } from "@/components/contacto/MetricasComunicacion";
 import { LineaDelTiempo } from "@/components/contacto/LineaDelTiempo";
+import { PerfilProfesionalCard } from "@/components/contacto/PerfilProfesionalCard";
+import { PerfilPersonalCard } from "@/components/contacto/PerfilPersonalCard";
 
 const estiloLabels: Record<string, string> = {
   colaborativo: "Colaborativo",
@@ -265,6 +267,21 @@ export default function ContactoDetail() {
           </div>
         )}
       </PerfilIaSection>
+
+      {/* Perfiles profesional + personal (extensión perfil_ia) */}
+      {(perfil?.perfil_profesional || perfil?.perfil_personal) && (
+        <div className="grid md:grid-cols-2 gap-4">
+          {perfil.perfil_profesional && (
+            <PerfilProfesionalCard data={perfil.perfil_profesional} />
+          )}
+          {perfil.perfil_personal && (
+            <PerfilPersonalCard
+              data={perfil.perfil_personal}
+              contactoId={contacto.id}
+            />
+          )}
+        </div>
+      )}
 
       {/* Info + Notas */}
       <div className="grid gap-6 md:grid-cols-2">

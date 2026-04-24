@@ -55,6 +55,40 @@ export interface EvolutionBlock {
   recent_evolution: { when: string; desc: string }[];
 }
 
+export type NivelDecision = "decisor" | "ejecutor" | "influencer" | "info";
+
+export type TonoEmocional = "positivo" | "neutral" | "tenso" | "variable";
+
+export interface PerfilProfesional {
+  cargo_actual: string;
+  empresa_actual: string;
+  sector: string;
+  nivel_decision: NivelDecision;
+  /** menciones a empresas/cargos pasados */
+  trayectoria: string[];
+  /** deals/proyectos donde aparece */
+  proyectos_mencionados: string[];
+  /** habilidades/expertise detectada */
+  skills_detectadas: string[];
+  /** "formal y directo", "cercano y detallado"... */
+  estilo_comunicacion: string;
+  fortalezas: string[];
+  /** "negocia última hora", "ofrece contrapropuestas rápidas"... */
+  patrones_negociacion: string[];
+}
+
+export interface PerfilPersonal {
+  /** hobbies, temas recurrentes */
+  intereses: string[];
+  /** adjetivos detectados ("directo","cauto","cálido") */
+  personalidad: string[];
+  /** "profesional histórica", "amistosa reciente"... */
+  relacion_con_fran: string;
+  /** familia, salud, viajes si los menciona (sensibles) */
+  eventos_personales: string[];
+  tono_emocional_promedio: TonoEmocional;
+}
+
 export interface PerfilIA {
   timeline: TimelinePoint[];
   stats: PerfilStats;
@@ -64,6 +98,10 @@ export interface PerfilIA {
   datos_clave: string[];
   /** ISO timestamp de generación */
   generated_at: string;
+  /** Bloque profesional inferido (visible por defecto). */
+  perfil_profesional?: PerfilProfesional;
+  /** Bloque personal inferido (sensible, oculto tras toggle). */
+  perfil_personal?: PerfilPersonal;
 }
 
 /**
@@ -95,6 +133,14 @@ export function parsePerfilIA(raw: unknown): PerfilIA | null {
       : [],
     generated_at:
       typeof r.generated_at === "string" ? (r.generated_at as string) : "",
+    perfil_profesional:
+      r.perfil_profesional && typeof r.perfil_profesional === "object"
+        ? (r.perfil_profesional as PerfilProfesional)
+        : undefined,
+    perfil_personal:
+      r.perfil_personal && typeof r.perfil_personal === "object"
+        ? (r.perfil_personal as PerfilPersonal)
+        : undefined,
   };
 }
 
