@@ -93,6 +93,45 @@ export const EvolutionBlockSchema = z.object({
   ),
 });
 
+/* ────────────────────────────────────────────────────────────────────────── */
+/* Bloques opcionales: perfil_profesional + perfil_personal                   */
+/* ────────────────────────────────────────────────────────────────────────── */
+
+export const NivelDecisionSchema = z.enum([
+  "decisor",
+  "ejecutor",
+  "influencer",
+  "info",
+]);
+
+export const TonoEmocionalSchema = z.enum([
+  "positivo",
+  "neutral",
+  "tenso",
+  "variable",
+]);
+
+export const PerfilProfesionalSchema = z.object({
+  cargo_actual: z.string(),
+  empresa_actual: z.string(),
+  sector: z.string(),
+  nivel_decision: NivelDecisionSchema,
+  trayectoria: z.array(z.string()),
+  proyectos_mencionados: z.array(z.string()),
+  skills_detectadas: z.array(z.string()),
+  estilo_comunicacion: z.string(),
+  fortalezas: z.array(z.string()),
+  patrones_negociacion: z.array(z.string()),
+});
+
+export const PerfilPersonalSchema = z.object({
+  intereses: z.array(z.string()),
+  personalidad: z.array(z.string()),
+  relacion_con_fran: z.string(),
+  eventos_personales: z.array(z.string()),
+  tono_emocional_promedio: TonoEmocionalSchema,
+});
+
 export const PerfilIaSchema = z.object({
   timeline: z.array(TimelinePointSchema),
   stats: PerfilStatsSchema,
@@ -100,6 +139,8 @@ export const PerfilIaSchema = z.object({
   evolution: EvolutionBlockSchema,
   datos_clave: z.array(z.string().min(1)),
   generated_at: IsoDateTimeSchema,
+  perfil_profesional: PerfilProfesionalSchema.optional(),
+  perfil_personal: PerfilPersonalSchema.optional(),
 });
 
 /* ────────────────────────────────────────────────────────────────────────── */
