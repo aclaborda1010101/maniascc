@@ -85,6 +85,7 @@ export default function OperadorDetail() {
       presupuesto_min: op.presupuesto_min, presupuesto_max: op.presupuesto_max,
       superficie_min: op.superficie_min, superficie_max: op.superficie_max,
       descripcion: op.descripcion, activo: op.activo,
+      contacto_nombre: op.contacto_nombre, contacto_email: op.contacto_email, contacto_telefono: op.contacto_telefono,
     } as any).eq("id", id);
     setSaving(false);
     if (error) toast({ title: "Error", description: error.message, variant: "destructive" });
