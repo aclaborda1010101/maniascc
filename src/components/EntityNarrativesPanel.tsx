@@ -277,29 +277,36 @@ export function EntityNarrativesPanel({
 
   return (
     <Card
-      className={`relative overflow-hidden p-0 bg-gradient-to-b from-card/60 to-card/30 backdrop-blur-xl border-border/60 shadow-[0_1px_0_0_hsl(var(--border)/0.4)_inset] ${
+      className={`relative overflow-hidden p-0 backdrop-blur-xl border border-[hsl(var(--acc-2)/0.22)] shadow-[0_8px_32px_-12px_hsl(var(--acc-2)/0.25),0_1px_0_0_hsl(var(--acc-2)/0.18)_inset] ${
         className || ""
       }`}
+      style={{
+        backgroundImage:
+          "radial-gradient(120% 80% at 0% 0%, hsl(var(--acc-2) / 0.18) 0%, transparent 55%), radial-gradient(120% 80% at 100% 100%, hsl(var(--acc-1) / 0.12) 0%, transparent 55%), linear-gradient(180deg, hsl(var(--acc-2) / 0.06) 0%, hsl(200 35% 6% / 0.55) 100%)",
+      }}
     >
-      {/* Halo superior sutil (visionOS) */}
-      <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-accent/40 to-transparent" />
+      {/* Halo superior teal */}
+      <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-[hsl(var(--acc-2)/0.7)] to-transparent" />
+      {/* Glow esquina */}
+      <div className="pointer-events-none absolute -top-16 -left-16 h-40 w-40 rounded-full bg-[hsl(var(--acc-2)/0.18)] blur-3xl" />
+      <div className="pointer-events-none absolute -bottom-20 -right-12 h-44 w-44 rounded-full bg-[hsl(var(--acc-1)/0.12)] blur-3xl" />
 
       {/* Header */}
-      <div className="px-4 pt-4 pb-3 flex items-start justify-between gap-3">
+      <div className="relative px-4 pt-4 pb-3 flex items-start justify-between gap-3">
         <div className="flex items-start gap-3 min-w-0">
-          <div className="h-8 w-8 rounded-lg bg-accent/15 border border-accent/25 grid place-items-center shrink-0">
-            <Sparkles className="h-4 w-4 text-accent" />
+          <div className="h-8 w-8 rounded-lg bg-[hsl(var(--acc-2)/0.18)] border border-[hsl(var(--acc-2)/0.35)] grid place-items-center shrink-0 shadow-[0_0_16px_-4px_hsl(var(--acc-2)/0.5)]">
+            <Sparkles className="h-4 w-4 text-[hsl(var(--acc-2))]" />
           </div>
           <div className="min-w-0">
-            <h3 className="text-sm font-semibold tracking-wide truncate">
+            <h3 className="text-sm font-semibold tracking-wide truncate text-foreground">
               Narrativas y memoria
             </h3>
-            <p className="text-[10px] uppercase tracking-wider text-muted-foreground/70 mt-0.5">
+            <p className="text-[10px] uppercase tracking-wider text-[hsl(var(--acc-2)/0.75)] mt-0.5">
               Memoria contextual
             </p>
           </div>
         </div>
-        <span className="inline-flex items-center rounded-full border border-border/50 bg-background/40 px-2.5 py-0.5 text-[10px] text-muted-foreground shrink-0">
+        <span className="inline-flex items-center rounded-full border border-[hsl(var(--acc-2)/0.3)] bg-[hsl(var(--acc-2)/0.1)] px-2.5 py-0.5 text-[10px] text-[hsl(var(--acc-2))] shrink-0 font-medium">
           {filtered.length}/{items.length}
         </span>
       </div>
