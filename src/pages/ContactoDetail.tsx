@@ -251,6 +251,7 @@ export default function ContactoDetail() {
           </CardContent>
         )}
       </Card>
+      {id && <EntityNarrativesPanel entityType="contacto" entityId={id} />}
     </div>
   );
 }

@@ -382,6 +382,7 @@ export default function OperadorDetail() {
           )}
         </TabsContent>
       </Tabs>
+      {id && <EntityNarrativesPanel entityType="operador" entityId={id} className="mt-4" />}
     </div>
   );
 }

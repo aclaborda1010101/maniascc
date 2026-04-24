@@ -335,6 +335,7 @@ export default function LocalDetail() {
           <QuickCreateContactDialog open={showAddContact} onOpenChange={setShowAddContact} activoId={id} onCreated={fetchContactos} />
         </TabsContent>
       </Tabs>
+      {id && <EntityNarrativesPanel entityType="activo" entityId={id} className="mt-4" />}
     </div>
   );
 }

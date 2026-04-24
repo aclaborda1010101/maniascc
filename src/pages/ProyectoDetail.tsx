@@ -272,6 +272,7 @@ export default function ProyectoDetail() {
           </CardContent></Card>
         </TabsContent>
       </Tabs>
+      {id && <EntityNarrativesPanel entityType="proyecto" entityId={id} className="mt-4" />}
     </div>
   );
 }
