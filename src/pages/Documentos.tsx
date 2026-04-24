@@ -44,9 +44,13 @@ const FASE_LABEL: Record<string, { label: string; cls: string }> = {
   error: { label: "Error", cls: "bg-destructive/15 text-destructive" },
 };
 
+const PAGE_SIZE = 100;
+
 export default function Documentos() {
   const { user } = useAuth();
   const [documentos, setDocumentos] = useState<DocumentoExt[]>([]);
+  const [totalDocs, setTotalDocs] = useState(0);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [taxonomias, setTaxonomias] = useState<Taxonomia[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -67,17 +71,19 @@ export default function Documentos() {
 
   const loadAll = useCallback(async () => {
     setLoading(true);
-    const [docs, tax, c, m] = await Promise.all([
-      fetchDocumentos({
-        taxonomia: taxFilter !== "todas" ? taxFilter : undefined,
-        origen: origenFilter !== "todos" ? origenFilter : undefined,
-        search: search || undefined,
-      }),
+    const filters = {
+      taxonomia: taxFilter !== "todas" ? taxFilter : undefined,
+      origen: origenFilter !== "todos" ? origenFilter : undefined,
+      search: search || undefined,
+    };
+    const [docsRes, tax, c, m] = await Promise.all([
+      fetchDocumentos(filters, { from: 0, to: PAGE_SIZE - 1 }),
       fetchTaxonomias(),
       supabase.storage.from("documentos_contratos").list("general", { limit: 100, sortBy: { column: "created_at", order: "desc" } }),
       supabase.storage.from("multimedia_locales").list("general", { limit: 100, sortBy: { column: "created_at", order: "desc" } }),
     ]);
-    setDocumentos(docs);
+    setDocumentos(docsRes.rows);
+    setTotalDocs(docsRes.total);
     setTaxonomias(tax);
     setContratosFiles(((c.data || []) as { name: string; created_at?: string }[]).filter((f) => f.name !== ".emptyFolderPlaceholder"));
     setMultimediaFiles(((m.data || []) as { name: string; created_at?: string }[]).filter((f) => f.name !== ".emptyFolderPlaceholder"));
@@ -88,6 +94,21 @@ export default function Documentos() {
     }
     setLoading(false);
   }, [search, taxFilter, origenFilter, user?.id]);
+
+  const loadMore = useCallback(async () => {
+    if (loadingMore || documentos.length >= totalDocs) return;
+    setLoadingMore(true);
+    const filters = {
+      taxonomia: taxFilter !== "todas" ? taxFilter : undefined,
+      origen: origenFilter !== "todos" ? origenFilter : undefined,
+      search: search || undefined,
+    };
+    const from = documentos.length;
+    const docsRes = await fetchDocumentos(filters, { from, to: from + PAGE_SIZE - 1 });
+    setDocumentos((prev) => [...prev, ...docsRes.rows]);
+    setTotalDocs(docsRes.total);
+    setLoadingMore(false);
+  }, [documentos.length, totalDocs, loadingMore, taxFilter, origenFilter, search]);
 
   useEffect(() => { loadAll(); }, [loadAll]);
 
