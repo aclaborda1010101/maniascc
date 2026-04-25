@@ -16,15 +16,24 @@ interface Props {
 }
 
 const sentimentColor: Record<string, string> = {
-  good: "hsl(var(--chart-2))",
-  neutral: "hsl(var(--muted-foreground))",
-  bad: "hsl(var(--destructive))",
+  good: "hsl(var(--acc-3))",       // verde menta
+  neutral: "hsl(var(--acc-1))",    // cian (neutral pero vivo)
+  bad: "hsl(var(--destructive))",  // rojo
+};
+
+const sentimentLabel: Record<string, string> = {
+  good: "Buena",
+  neutral: "Neutra",
+  bad: "Tensa",
 };
 
 /**
  * Gráfica principal de la línea de vida (mensajes por mes).
- * Si hay menos de 3 puntos, no renderiza nada (el padre puede
- * mostrar fallback con métricas/evolución).
+ * - La línea cambia de color a lo largo del tiempo según sentiment dominante
+ *   (gradiente segmentado por punto).
+ * - Cada dot se pinta con el color del sentiment de ese mes.
+ * - ReferenceDot extra (halo) sólo en puntos con label.
+ * Si hay menos de 3 puntos, no renderiza nada.
  */
 export function LineaDeVida({ timeline }: Props) {
   if (!timeline || timeline.length < 3) return null;
@@ -37,6 +46,16 @@ export function LineaDeVida({ timeline }: Props) {
   }));
 
   const labeledPoints = data.filter((d) => !!d.label);
+  const n = data.length;
+
+  // Stops del gradiente: cada punto fija un stop con su color de sentiment.
+  // Esto produce una transición suave de verde→cian→rojo a lo largo de la línea.
+  const gradientStops = data.map((d, i) => ({
+    offset: `${(i / Math.max(1, n - 1)) * 100}%`,
+    color: sentimentColor[d.sentiment] || sentimentColor.neutral,
+  }));
+
+  const presentSentiments = Array.from(new Set(data.map((d) => d.sentiment)));
 
   return (
     <div className="space-y-2">
@@ -47,10 +66,17 @@ export function LineaDeVida({ timeline }: Props) {
       <div className="h-44 w-full">
         <ResponsiveContainer width="100%" height="100%">
           <LineChart data={data} margin={{ top: 8, right: 12, left: -16, bottom: 0 }}>
+            <defs>
+              <linearGradient id="lineaVidaGradient" x1="0" y1="0" x2="1" y2="0">
+                {gradientStops.map((s, i) => (
+                  <stop key={i} offset={s.offset} stopColor={s.color} stopOpacity={1} />
+                ))}
+              </linearGradient>
+            </defs>
             <CartesianGrid
               strokeDasharray="3 3"
               stroke="hsl(var(--border))"
-              opacity={0.3}
+              opacity={0.25}
             />
             <XAxis
               dataKey="month"
@@ -67,18 +93,39 @@ export function LineaDeVida({ timeline }: Props) {
             <Tooltip
               contentStyle={{
                 background: "hsl(var(--popover))",
-                border: "1px solid hsl(var(--border))",
+                border: "1px solid hsl(var(--border) / 0.2)",
                 borderRadius: 8,
                 fontSize: 12,
               }}
               labelStyle={{ color: "hsl(var(--muted-foreground))" }}
+              formatter={(value: number, _name, props) => {
+                const s = (props?.payload?.sentiment as string) || "neutral";
+                return [`${value} · ${sentimentLabel[s] || s}`, "Mensajes"];
+              }}
             />
             <Line
               type="monotone"
               dataKey="count"
-              stroke="hsl(var(--accent))"
-              strokeWidth={2}
-              dot={{ r: 3, fill: "hsl(var(--accent))", strokeWidth: 0 }}
+              stroke="url(#lineaVidaGradient)"
+              strokeWidth={2.25}
+              dot={(props: any) => {
+                const { cx, cy, payload, index } = props;
+                if (cx == null || cy == null) return <g key={index} />;
+                const color =
+                  sentimentColor[payload?.sentiment as string] ||
+                  sentimentColor.neutral;
+                return (
+                  <circle
+                    key={index}
+                    cx={cx}
+                    cy={cy}
+                    r={3}
+                    fill={color}
+                    stroke="hsl(var(--background))"
+                    strokeWidth={1}
+                  />
+                );
+              }}
               activeDot={{ r: 5 }}
             />
             {labeledPoints.map((p) => (
@@ -86,7 +133,7 @@ export function LineaDeVida({ timeline }: Props) {
                 key={p.month}
                 x={p.month}
                 y={p.count}
-                r={5}
+                r={6}
                 fill={sentimentColor[p.sentiment] || sentimentColor.neutral}
                 stroke="hsl(var(--background))"
                 strokeWidth={2}
@@ -95,21 +142,36 @@ export function LineaDeVida({ timeline }: Props) {
           </LineChart>
         </ResponsiveContainer>
       </div>
-      {labeledPoints.length > 0 && (
+
+      {/* Leyenda + eventos etiquetados */}
+      <div className="space-y-1.5">
         <div className="flex flex-wrap gap-x-3 gap-y-1 text-[10px] text-muted-foreground">
-          {labeledPoints.map((p) => (
-            <span key={p.month}>
+          {presentSentiments.map((s) => (
+            <span key={s} className="inline-flex items-center gap-1">
               <span
-                className="inline-block w-1.5 h-1.5 rounded-full mr-1 align-middle"
-                style={{
-                  background: sentimentColor[p.sentiment] || sentimentColor.neutral,
-                }}
+                className="inline-block w-1.5 h-1.5 rounded-full"
+                style={{ background: sentimentColor[s] || sentimentColor.neutral }}
               />
-              {p.month} · {p.label}
+              {sentimentLabel[s] || s}
             </span>
           ))}
         </div>
-      )}
+        {labeledPoints.length > 0 && (
+          <div className="flex flex-wrap gap-x-3 gap-y-1 text-[10px] text-muted-foreground/80">
+            {labeledPoints.map((p) => (
+              <span key={p.month} className="inline-flex items-center gap-1">
+                <span
+                  className="inline-block w-1.5 h-1.5 rounded-full"
+                  style={{
+                    background: sentimentColor[p.sentiment] || sentimentColor.neutral,
+                  }}
+                />
+                {p.month} · {p.label}
+              </span>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 }

@@ -12,6 +12,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import {
   FileText, Image as ImageIcon, FolderOpen, Cloud, Search, Tags, Sparkles,
   RefreshCw, Lock, Globe2, Users as UsersIcon, AlertCircle, CheckCircle2, Loader2, Upload, Database, Wand2,
+  ChevronLeft, ChevronRight,
 } from "lucide-react";
 import { toast } from "sonner";
 import { UploadZone } from "@/components/UploadZone";
@@ -44,13 +45,13 @@ const FASE_LABEL: Record<string, { label: string; cls: string }> = {
   error: { label: "Error", cls: "bg-destructive/15 text-destructive" },
 };
 
-const PAGE_SIZE = 100;
+const PAGE_SIZE = 50;
 
 export default function Documentos() {
   const { user } = useAuth();
   const [documentos, setDocumentos] = useState<DocumentoExt[]>([]);
   const [totalDocs, setTotalDocs] = useState(0);
-  const [loadingMore, setLoadingMore] = useState(false);
+  const [page, setPage] = useState(0); // 0-indexed
   const [taxonomias, setTaxonomias] = useState<Taxonomia[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -76,8 +77,10 @@ export default function Documentos() {
       origen: origenFilter !== "todos" ? origenFilter : undefined,
       search: search || undefined,
     };
+    const from = page * PAGE_SIZE;
+    const to = from + PAGE_SIZE - 1;
     const [docsRes, tax, c, m] = await Promise.all([
-      fetchDocumentos(filters, { from: 0, to: PAGE_SIZE - 1 }),
+      fetchDocumentos(filters, { from, to }),
       fetchTaxonomias(),
       supabase.storage.from("documentos_contratos").list("general", { limit: 100, sortBy: { column: "created_at", order: "desc" } }),
       supabase.storage.from("multimedia_locales").list("general", { limit: 100, sortBy: { column: "created_at", order: "desc" } }),
@@ -93,24 +96,16 @@ export default function Documentos() {
       setJobs(j);
     }
     setLoading(false);
-  }, [search, taxFilter, origenFilter, user?.id]);
+  }, [search, taxFilter, origenFilter, user?.id, page]);
 
-  const loadMore = useCallback(async () => {
-    if (loadingMore || documentos.length >= totalDocs) return;
-    setLoadingMore(true);
-    const filters = {
-      taxonomia: taxFilter !== "todas" ? taxFilter : undefined,
-      origen: origenFilter !== "todos" ? origenFilter : undefined,
-      search: search || undefined,
-    };
-    const from = documentos.length;
-    const docsRes = await fetchDocumentos(filters, { from, to: from + PAGE_SIZE - 1 });
-    setDocumentos((prev) => [...prev, ...docsRes.rows]);
-    setTotalDocs(docsRes.total);
-    setLoadingMore(false);
-  }, [documentos.length, totalDocs, loadingMore, taxFilter, origenFilter, search]);
+  // Reset a página 0 cuando cambian filtros/búsqueda
+  useEffect(() => {
+    setPage(0);
+  }, [search, taxFilter, origenFilter]);
 
   useEffect(() => { loadAll(); }, [loadAll]);
+
+  const totalPages = Math.max(1, Math.ceil(totalDocs / PAGE_SIZE));
 
   const handleClassify = async (docId: string) => {
     try {
@@ -276,17 +271,69 @@ export default function Documentos() {
                       <DocumentoRow key={d.id} doc={d} onClassify={() => handleClassify(d.id)} />
                     ))}
                   </div>
-                  <div className="flex items-center justify-between gap-3 px-4 py-3 border-t bg-muted/20 text-xs text-muted-foreground">
+                  <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 border-t bg-muted/20 text-xs text-muted-foreground">
                     <span>
-                      Mostrando <strong className="text-foreground">{documentos.length.toLocaleString("es-ES")}</strong> de{" "}
+                      Página <strong className="text-foreground">{page + 1}</strong> de{" "}
+                      <strong className="text-foreground">{totalPages.toLocaleString("es-ES")}</strong>
+                      {" · "}
                       <strong className="text-foreground">{totalDocs.toLocaleString("es-ES")}</strong> documentos
                     </span>
-                    {documentos.length < totalDocs && (
-                      <Button size="sm" variant="outline" onClick={loadMore} disabled={loadingMore} className="h-7 text-xs">
-                        {loadingMore ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : null}
-                        Cargar más ({Math.min(PAGE_SIZE, totalDocs - documentos.length)})
+                    <div className="flex items-center gap-1">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => setPage((p) => Math.max(0, p - 1))}
+                        disabled={page === 0 || loading}
+                        className="h-7 px-2 text-xs bg-accent/5 border-accent/20 hover:bg-accent/15 backdrop-blur-md"
+                      >
+                        <ChevronLeft className="h-3 w-3" /> Anterior
                       </Button>
-                    )}
+                      {/* Páginas numeradas (máx 5 visibles centradas) */}
+                      {(() => {
+                        const pages: (number | "...")[] = [];
+                        const window = 2;
+                        const start = Math.max(0, page - window);
+                        const end = Math.min(totalPages - 1, page + window);
+                        if (start > 0) {
+                          pages.push(0);
+                          if (start > 1) pages.push("...");
+                        }
+                        for (let i = start; i <= end; i++) pages.push(i);
+                        if (end < totalPages - 1) {
+                          if (end < totalPages - 2) pages.push("...");
+                          pages.push(totalPages - 1);
+                        }
+                        return pages.map((p, i) =>
+                          p === "..." ? (
+                            <span key={`e-${i}`} className="px-1 text-muted-foreground/60">…</span>
+                          ) : (
+                            <Button
+                              key={p}
+                              size="sm"
+                              variant={p === page ? "default" : "outline"}
+                              onClick={() => setPage(p)}
+                              disabled={loading}
+                              className={`h-7 w-7 p-0 text-xs ${
+                                p === page
+                                  ? "bg-accent/25 text-foreground border-accent/40 backdrop-blur-md"
+                                  : "bg-accent/5 border-accent/20 hover:bg-accent/15 backdrop-blur-md"
+                              }`}
+                            >
+                              {p + 1}
+                            </Button>
+                          ),
+                        );
+                      })()}
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
+                        disabled={page >= totalPages - 1 || loading}
+                        className="h-7 px-2 text-xs bg-accent/5 border-accent/20 hover:bg-accent/15 backdrop-blur-md"
+                      >
+                        Siguiente <ChevronRight className="h-3 w-3" />
+                      </Button>
+                    </div>
                   </div>
                 </>
               )}
