@@ -16,6 +16,7 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell, Legend,
 } from "recharts";
+import PendientesHoyWidget from "@/components/dashboard/PendientesHoyWidget";
 
 const PIE_COLORS = ["hsl(142,71%,45%)", "hsl(38,92%,50%)", "hsl(0,84%,60%)", "hsl(217,91%,60%)", "hsl(262,83%,58%)", "hsl(180,70%,45%)"];
 
@@ -273,6 +274,9 @@ export default function Dashboard() {
           </div>
         ))}
       </div>
+
+      {/* Pendientes hoy (tareas + alertas de contactos) */}
+      <PendientesHoyWidget />
 
       {/* Notificaciones */}
       <Card className="shadow-sm">
