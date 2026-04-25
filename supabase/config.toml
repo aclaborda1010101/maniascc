@@ -56,3 +56,6 @@ verify_jwt = false
 
 [functions.rag-embed-chunks]
 verify_jwt = false
+
+[functions.wa-evolution-webhook]
+verify_jwt = false
