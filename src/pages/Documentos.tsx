@@ -12,6 +12,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import {
   FileText, Image as ImageIcon, FolderOpen, Cloud, Search, Tags, Sparkles,
   RefreshCw, Lock, Globe2, Users as UsersIcon, AlertCircle, CheckCircle2, Loader2, Upload, Database, Wand2,
+  ChevronLeft, ChevronRight,
 } from "lucide-react";
 import { toast } from "sonner";
 import { UploadZone } from "@/components/UploadZone";
@@ -44,13 +45,13 @@ const FASE_LABEL: Record<string, { label: string; cls: string }> = {
   error: { label: "Error", cls: "bg-destructive/15 text-destructive" },
 };
 
-const PAGE_SIZE = 100;
+const PAGE_SIZE = 50;
 
 export default function Documentos() {
   const { user } = useAuth();
   const [documentos, setDocumentos] = useState<DocumentoExt[]>([]);
   const [totalDocs, setTotalDocs] = useState(0);
-  const [loadingMore, setLoadingMore] = useState(false);
+  const [page, setPage] = useState(0); // 0-indexed
   const [taxonomias, setTaxonomias] = useState<Taxonomia[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -76,8 +77,10 @@ export default function Documentos() {
       origen: origenFilter !== "todos" ? origenFilter : undefined,
       search: search || undefined,
     };
+    const from = page * PAGE_SIZE;
+    const to = from + PAGE_SIZE - 1;
     const [docsRes, tax, c, m] = await Promise.all([
-      fetchDocumentos(filters, { from: 0, to: PAGE_SIZE - 1 }),
+      fetchDocumentos(filters, { from, to }),
       fetchTaxonomias(),
       supabase.storage.from("documentos_contratos").list("general", { limit: 100, sortBy: { column: "created_at", order: "desc" } }),
       supabase.storage.from("multimedia_locales").list("general", { limit: 100, sortBy: { column: "created_at", order: "desc" } }),
@@ -93,24 +96,16 @@ export default function Documentos() {
       setJobs(j);
     }
     setLoading(false);
-  }, [search, taxFilter, origenFilter, user?.id]);
+  }, [search, taxFilter, origenFilter, user?.id, page]);
 
-  const loadMore = useCallback(async () => {
-    if (loadingMore || documentos.length >= totalDocs) return;
-    setLoadingMore(true);
-    const filters = {
-      taxonomia: taxFilter !== "todas" ? taxFilter : undefined,
-      origen: origenFilter !== "todos" ? origenFilter : undefined,
-      search: search || undefined,
-    };
-    const from = documentos.length;
-    const docsRes = await fetchDocumentos(filters, { from, to: from + PAGE_SIZE - 1 });
-    setDocumentos((prev) => [...prev, ...docsRes.rows]);
-    setTotalDocs(docsRes.total);
-    setLoadingMore(false);
-  }, [documentos.length, totalDocs, loadingMore, taxFilter, origenFilter, search]);
+  // Reset a página 0 cuando cambian filtros/búsqueda
+  useEffect(() => {
+    setPage(0);
+  }, [search, taxFilter, origenFilter]);
 
   useEffect(() => { loadAll(); }, [loadAll]);
+
+  const totalPages = Math.max(1, Math.ceil(totalDocs / PAGE_SIZE));
 
   const handleClassify = async (docId: string) => {
     try {
