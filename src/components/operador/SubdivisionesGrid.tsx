@@ -21,7 +21,6 @@ export function SubdivisionesGrid({ operadorId }: { operadorId: string }) {
   useEffect(() => {
     let cancel = false;
     (async () => {
-      // 1) subdivisiones del operador
       const { data: rawSubs } = await supabase
         .from("operador_subdivisiones")
         .select("id, nombre, descripcion")
@@ -35,7 +34,6 @@ export function SubdivisionesGrid({ operadorId }: { operadorId: string }) {
       }
       const subIds = subRows.map((s) => s.id);
 
-      // 2) activos por subdivision via subdivision_activos + locales
       const [{ data: rawSA }, { data: rawContactos }] = await Promise.all([
         supabase
           .from("subdivision_activos")
@@ -77,9 +75,19 @@ export function SubdivisionesGrid({ operadorId }: { operadorId: string }) {
 
   if (subs.length === 0) {
     return (
-      <Card>
-        <CardContent className="py-8 text-center text-sm text-white/50">
-          Este operador no tiene subdivisiones (presencias en centros) registradas.
+      <Card
+        className="relative overflow-hidden border-0 backdrop-blur-xl"
+        style={{
+          backgroundImage:
+            "radial-gradient(120% 80% at 50% 0%, hsl(var(--acc-2) / 0.08) 0%, transparent 55%), linear-gradient(180deg, hsl(var(--acc-2) / 0.03) 0%, hsl(200 35% 6% / 0.5) 100%)",
+        }}
+      >
+        <CardContent className="py-8 text-center text-sm text-muted-foreground space-y-2">
+          <Network className="h-8 w-8 text-muted-foreground/40 mx-auto" />
+          <p>Este operador no tiene subdivisiones (presencias en centros) registradas.</p>
+          <p className="text-[11px] text-muted-foreground/70">
+            Las subdivisiones se crean automáticamente al detectar presencia del operador en centros comerciales.
+          </p>
         </CardContent>
       </Card>
     );
@@ -89,21 +97,32 @@ export function SubdivisionesGrid({ operadorId }: { operadorId: string }) {
     <div className="space-y-3">
       <div className="flex items-center gap-2">
         <Network className="h-4 w-4 text-accent" />
-        <h2 className="text-sm font-semibold text-white">
-          Presencias en centros <span className="text-white/50 font-normal">({subs.length})</span>
+        <h2 className="text-sm font-semibold text-foreground">
+          Presencias en centros{" "}
+          <span className="text-muted-foreground font-normal">({subs.length})</span>
         </h2>
       </div>
       <div className="grid gap-3 md:grid-cols-2">
         {subs.map((s) => (
-          <Card key={s.id}>
+          <Card
+            key={s.id}
+            className="relative overflow-hidden border-0 backdrop-blur-xl"
+            style={{
+              backgroundImage:
+                "radial-gradient(120% 80% at 0% 0%, hsl(var(--acc-2) / 0.10) 0%, transparent 55%), linear-gradient(180deg, hsl(var(--acc-2) / 0.04) 0%, hsl(200 35% 6% / 0.5) 100%)",
+              boxShadow: "0 1px 0 0 hsl(var(--acc-2) / 0.12) inset",
+            }}
+          >
             <CardHeader className="pb-2">
-              <CardTitle className="text-sm">{s.nombre}</CardTitle>
-              {s.descripcion && <p className="text-xs text-white/50">{s.descripcion}</p>}
+              <CardTitle className="text-sm text-foreground">{s.nombre}</CardTitle>
+              {s.descripcion && <p className="text-xs text-muted-foreground">{s.descripcion}</p>}
             </CardHeader>
             <CardContent className="space-y-2.5">
               {s.activos.length > 0 && (
                 <div>
-                  <p className="text-[10px] uppercase tracking-wider text-white/50 mb-1">Activos</p>
+                  <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">
+                    Activos
+                  </p>
                   {s.activos.map((a) => (
                     <Link
                       key={a.id}
@@ -113,7 +132,9 @@ export function SubdivisionesGrid({ operadorId }: { operadorId: string }) {
                       <MapPin className="h-3 w-3 mt-0.5 shrink-0" />
                       <span>
                         {a.nombre}
-                        {a.direccion && <span className="text-white/50"> · {a.direccion}</span>}
+                        {a.direccion && (
+                          <span className="text-muted-foreground"> · {a.direccion}</span>
+                        )}
                       </span>
                     </Link>
                   ))}
@@ -121,7 +142,7 @@ export function SubdivisionesGrid({ operadorId }: { operadorId: string }) {
               )}
               {s.contactos.length > 0 ? (
                 <div>
-                  <p className="text-[10px] uppercase tracking-wider text-white/50 mb-1">
+                  <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">
                     Contactos asignados
                   </p>
                   <div className="flex flex-wrap gap-1.5">
@@ -129,7 +150,7 @@ export function SubdivisionesGrid({ operadorId }: { operadorId: string }) {
                       <Link key={c.id} to={`/contactos/${c.id}`}>
                         <Badge
                           variant="outline"
-                          className="text-[10px] gap-1 hover:bg-accent/10 cursor-pointer"
+                          className="text-[10px] gap-1 border-border/30 hover:bg-accent/10 cursor-pointer"
                         >
                           <Users className="h-2.5 w-2.5" />
                           {c.nombre} {c.apellidos || ""}
@@ -139,7 +160,7 @@ export function SubdivisionesGrid({ operadorId }: { operadorId: string }) {
                   </div>
                 </div>
               ) : (
-                <p className="text-[11px] text-white/40">Sin contactos asignados.</p>
+                <p className="text-[11px] text-muted-foreground/70">Sin contactos asignados.</p>
               )}
             </CardContent>
           </Card>
