@@ -592,6 +592,50 @@ export type Database = {
         }
         Relationships: []
       }
+      contact_alerts: {
+        Row: {
+          contact_id: string
+          created_at: string
+          dismissed_at: string | null
+          id: string
+          mensaje: string
+          owner_id: string
+          payload: Json | null
+          severity: string
+          tipo: string
+        }
+        Insert: {
+          contact_id: string
+          created_at?: string
+          dismissed_at?: string | null
+          id?: string
+          mensaje: string
+          owner_id: string
+          payload?: Json | null
+          severity?: string
+          tipo: string
+        }
+        Update: {
+          contact_id?: string
+          created_at?: string
+          dismissed_at?: string | null
+          id?: string
+          mensaje?: string
+          owner_id?: string
+          payload?: Json | null
+          severity?: string
+          tipo?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "contact_alerts_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "contactos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       contact_interactions: {
         Row: {
           contact_email: string
@@ -642,6 +686,242 @@ export type Database = {
           visibility?: string
         }
         Relationships: []
+      }
+      contact_links: {
+        Row: {
+          contact_a: string
+          contact_b: string
+          created_at: string
+          id: string
+          notas: string | null
+          owner_id: string
+          tipo: string
+        }
+        Insert: {
+          contact_a: string
+          contact_b: string
+          created_at?: string
+          id?: string
+          notas?: string | null
+          owner_id: string
+          tipo?: string
+        }
+        Update: {
+          contact_a?: string
+          contact_b?: string
+          created_at?: string
+          id?: string
+          notas?: string | null
+          owner_id?: string
+          tipo?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "contact_links_contact_a_fkey"
+            columns: ["contact_a"]
+            isOneToOne: false
+            referencedRelation: "contactos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contact_links_contact_b_fkey"
+            columns: ["contact_b"]
+            isOneToOne: false
+            referencedRelation: "contactos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      contact_messages: {
+        Row: {
+          body_snippet: string | null
+          body_text: string | null
+          channel: string
+          contact_id: string | null
+          created_at: string
+          direction: string
+          external_id: string | null
+          from_email: string | null
+          from_name: string | null
+          id: string
+          metadata: Json | null
+          owner_id: string
+          processed_at: string | null
+          sent_at: string
+          sentiment: string | null
+          subject: string | null
+          thread_external_id: string | null
+          to_emails: string[] | null
+        }
+        Insert: {
+          body_snippet?: string | null
+          body_text?: string | null
+          channel: string
+          contact_id?: string | null
+          created_at?: string
+          direction: string
+          external_id?: string | null
+          from_email?: string | null
+          from_name?: string | null
+          id?: string
+          metadata?: Json | null
+          owner_id: string
+          processed_at?: string | null
+          sent_at: string
+          sentiment?: string | null
+          subject?: string | null
+          thread_external_id?: string | null
+          to_emails?: string[] | null
+        }
+        Update: {
+          body_snippet?: string | null
+          body_text?: string | null
+          channel?: string
+          contact_id?: string | null
+          created_at?: string
+          direction?: string
+          external_id?: string | null
+          from_email?: string | null
+          from_name?: string | null
+          id?: string
+          metadata?: Json | null
+          owner_id?: string
+          processed_at?: string | null
+          sent_at?: string
+          sentiment?: string | null
+          subject?: string | null
+          thread_external_id?: string | null
+          to_emails?: string[] | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "contact_messages_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "contactos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      contact_milestones: {
+        Row: {
+          auto_generated: boolean
+          contact_id: string
+          created_at: string
+          description: string | null
+          event_at: string
+          id: string
+          owner_id: string
+          score: string
+          source_message_id: string | null
+          tipo: string
+          title: string
+        }
+        Insert: {
+          auto_generated?: boolean
+          contact_id: string
+          created_at?: string
+          description?: string | null
+          event_at: string
+          id?: string
+          owner_id: string
+          score?: string
+          source_message_id?: string | null
+          tipo: string
+          title: string
+        }
+        Update: {
+          auto_generated?: boolean
+          contact_id?: string
+          created_at?: string
+          description?: string | null
+          event_at?: string
+          id?: string
+          owner_id?: string
+          score?: string
+          source_message_id?: string | null
+          tipo?: string
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "contact_milestones_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "contactos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contact_milestones_source_message_id_fkey"
+            columns: ["source_message_id"]
+            isOneToOne: false
+            referencedRelation: "contact_messages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      contact_tasks: {
+        Row: {
+          completed_at: string | null
+          contact_id: string | null
+          created_at: string
+          description: string | null
+          due_at: string | null
+          id: string
+          owner_id: string
+          priority: number
+          source: string
+          source_message_id: string | null
+          status: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          completed_at?: string | null
+          contact_id?: string | null
+          created_at?: string
+          description?: string | null
+          due_at?: string | null
+          id?: string
+          owner_id: string
+          priority?: number
+          source?: string
+          source_message_id?: string | null
+          status?: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          completed_at?: string | null
+          contact_id?: string | null
+          created_at?: string
+          description?: string | null
+          due_at?: string | null
+          id?: string
+          owner_id?: string
+          priority?: number
+          source?: string
+          source_message_id?: string | null
+          status?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "contact_tasks_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "contactos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contact_tasks_source_message_id_fkey"
+            columns: ["source_message_id"]
+            isOneToOne: false
+            referencedRelation: "contact_messages"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       contactos: {
         Row: {
@@ -2552,6 +2832,36 @@ export type Database = {
           id?: string
           metadata?: Json | null
           reason?: string
+        }
+        Relationships: []
+      }
+      sync_state: {
+        Row: {
+          channel: string
+          cursor: string | null
+          id: string
+          last_synced_at: string | null
+          metadata: Json | null
+          owner_id: string
+          updated_at: string
+        }
+        Insert: {
+          channel: string
+          cursor?: string | null
+          id?: string
+          last_synced_at?: string | null
+          metadata?: Json | null
+          owner_id: string
+          updated_at?: string
+        }
+        Update: {
+          channel?: string
+          cursor?: string | null
+          id?: string
+          last_synced_at?: string | null
+          metadata?: Json | null
+          owner_id?: string
+          updated_at?: string
         }
         Relationships: []
       }
