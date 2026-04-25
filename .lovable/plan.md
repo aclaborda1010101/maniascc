@@ -1,85 +1,69 @@
-## Problema
+## Diagnóstico previo (verificado contra BD)
 
-La caja **"Narrativas y memoria"** (componente `EntityNarrativesPanel`) que aparece en `ContactoDetail`, `LocalDetail`, `OperadorDetail`, `ProyectoDetail` y `Patrones` desentona con el resto de la app:
+Antes de tocar nada, el estado real es distinto del esperado:
 
-- Header plano (icono pequeño + texto), sin la jerarquía visionOS de las demás cards (`PerfilProfesionalCard`, `PerfilPersonalCard`, etc.).
-- Borde duro `border-border` y glass plano `bg-card/40` — el resto usa `border-border/60` con halo + gradiente sutil.
-- Selectores de filtro embutidos en el header se atropellan en mobile y desplazan el badge contador.
-- Composer (Textarea + selectores + tags + botón) sin separación visual: parece "pegado" debajo de la lista, sin la pestaña/sección dedicada que tienen las demás cards colapsables.
-- Tarjetas internas de cada narrativa con `bg-background/40` y borde sólido — rompen la continuidad de glass.
-- Inputs y `Textarea` sin el `bg-background/60 border-border/60` consistente con el resto.
+| Frente | Supuesto bug | Realidad en BD/código |
+|---|---|---|
+| `LineaDeVida` gris | Falta sentiment | El código YA pinta sentiment. De 11.210 puntos: **8.343 tienen label** (se pintan), **2.654 son good/bad pero solo 51 sin label**. La línea principal va en cian (`--accent`) por diseño. |
+| `Documentos` paginación 500 | Límite fijo 500 | Ya está paginado a 100/página con "Cargar más" (total real **68.967 docs**). No hay límite de 500 en el código. |
+| `OperadorDetail` vacío | Bug en queries | Queries correctas. **Datos linkeados escasos**: solo 34 operadores con contactos, 49 con doc_links, 52 subdivision_activos, 33 matrices con `contacto_*` poblado. |
 
-## Rediseño (sólo `EntityNarrativesPanel.tsx`)
+Los tres componentes funcionan. Lo que falta son **mejoras UX** que hagan visible el enriquecimiento.
 
-Mantengo lógica, schema y RLS intactos. Solo cambia presentación.
+## Cambios propuestos
 
-### 1. Card contenedora — estilo visionOS unificado
+### 1. `LineaDeVida` — colorear la línea, no solo los puntos
 
-```tsx
-<Card className="relative overflow-hidden p-0 bg-gradient-to-b from-card/60 to-card/30 backdrop-blur-xl border-border/60 shadow-[0_1px_0_0_hsl(var(--border)/0.4)_inset]">
-  {/* halo sutil arriba */}
-  <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-accent/40 to-transparent" />
-  …
-</Card>
-```
+**Problema real**: la línea principal es cian uniforme. El sentiment se ve solo en `ReferenceDot` etiquetados. Resultado visual: parece "monocromo" aunque haya datos.
 
-### 2. Header rediseñado
+**Cambio** (`src/components/contacto/LineaDeVida.tsx`):
+- Reemplazar `<Line>` única por un `<defs><linearGradient>` con stops por mes según sentiment dominante (verde/cian/rojo) → la línea cambia de color a lo largo del tiempo.
+- Pintar **todos** los `dot` con color de sentiment (no solo los etiquetados): `dot={(props) => <Dot fill={sentimentColor[p.sentiment]} … />}`.
+- Mantener `ReferenceDot` con halo más grande solo para puntos con `label`.
+- Añadir leyenda discreta abajo: ● Buena · ● Neutra · ● Tensa.
 
-- Icono `Sparkles` dentro de un **pill glass** (`h-8 w-8 rounded-lg bg-accent/15 border border-accent/25 grid place-items-center`).
-- Título `text-sm font-semibold tracking-wide` + subtítulo `text-[10px] uppercase tracking-wider text-muted-foreground/70` ("Memoria contextual").
-- Contador de narrativas a la derecha como **chip discreto** (no badge cuadrado).
-- Filtros se mueven a una **fila propia** debajo del header, con separador `border-b border-border/40`. En mobile se apilan limpiamente.
+### 2. `Documentos` — paginación más usable
 
-### 3. Lista de narrativas
+**Problema real**: con 68k docs, "Cargar más" de 100 en 100 es lento. Pero scroll infinito real es peor. Mejor: **paginación numerada + página más grande**.
 
-Cada item pasa a:
+**Cambio** (`src/pages/Documentos.tsx`):
+- Subir `PAGE_SIZE` de 100 → 50, pero añadir paginación numerada (Anterior / 1 2 3 … N / Siguiente) en lugar de "Cargar más" acumulativo.
+- Refactor a `currentPage` state, `fetchDocumentos({ from: page*50, to: page*50+49 })`.
+- Mantener filtros y búsqueda; resetear a página 1 cuando cambian.
+- Añadir indicador "Página X de Y · Z documentos".
+- Estilo visionOS coherente (botones glass como en otros sitios).
 
-```tsx
-<div className="rounded-xl border border-border/40 bg-background/30 hover:bg-background/50 transition-colors p-3 space-y-2">
-```
+### 3. `OperadorDetail` Vista 360 — placeholders honestos + enrichment fallback
 
-- Borde más suave (`/40`), hover sutil, esquinas `rounded-xl` (consistente con `PerfilProfesionalCard`).
-- Badges de tipo y visibilidad sin cambios de color (la paleta semántica ya está bien); sólo se ajusta tamaño/spacing.
-- Timestamp a la derecha en `text-[10px]` con punto separador en lugar de "·" pegado al nombre.
+**Problema real**: para los ~20 operadores enriquecidos los componentes funcionan. Para el resto se ven 4 cards vacías.
 
-### 4. Composer como sección "Añadir entrada"
+**Cambios**:
 
-Encapsulado en su propio bloque para diferenciarlo:
+**a) `OperadorInfoCard`**: si `contacto_email` está vacío pero hay contactos en `contactos.operador_id`, mostrar el primer contacto como "contacto inferido de la red" con badge sutil.
 
-```tsx
-<div className="border-t border-border/40 bg-background/20 px-4 py-4 space-y-3">
-  <div className="flex items-center gap-2 text-[10px] uppercase tracking-wider text-muted-foreground/80">
-    <Plus className="h-3 w-3" /> Añadir entrada
-  </div>
-  …
-</div>
-```
+**b) `ContactosAsociadosTable`** (`src/components/operador/ContactosAsociadosTable.tsx`): además de `operador_id`, hacer fallback por dominio email del operador → encontrar contactos cuyo email coincide con el dominio del `contacto_email` de la matriz. Marcar como "vínculo inferido".
 
-- Selectores con `h-8 text-xs bg-background/60 border-border/60`.
-- `Textarea` con `bg-background/40 border-border/60 focus-visible:ring-accent/40`.
-- Botón final con la misma variante glass que usa `TabHistorialIA`: `bg-accent/15 text-foreground border border-accent/25 hover:bg-accent/25 backdrop-blur-md`.
+**c) `DocumentosLinkeadosList`**: añadir 3er fallback — buscar documentos cuyo `nombre_normalizado` ILIKE `%{operador.nombre}%` (limitado a 20). Útil para operadores grandes (Mercadona, Lidl) sin links explícitos.
 
-### 5. Responsive (mobile-first, ≤390px)
+**d) `SubdivisionesGrid`**: si no hay subdivisiones, mostrar empty state claro con CTA "Crear subdivisión" en lugar de card vacía silenciosa.
 
-- Header: título arriba, fila de filtros debajo (no en línea).
-- Selectores de filtros con `flex-1 min-w-0` para que no provoquen scroll horizontal (regla de `mem://style/mobile-ux`).
-- Lista interna mantiene `max-h-[420px]` con scroll vertical.
+**e) Aplicar estilo glass visionOS** (gradiente teal/cian sutil, `backdrop-blur-xl`, halos) a los 4 cards para alinear con `EntityNarrativesPanel` rediseñado.
 
-### 6. Empty state
+## Lo que NO se toca
 
-Pequeño rediseño con icono atenuado centrado (`Sparkles` en círculo `bg-muted/20`) y la frase actual debajo, en lugar de un párrafo italic suelto.
+- Schema de BD, RLS, edge functions.
+- `EntityNarrativesPanel` (ya rediseñado).
+- Lógica de enriquecimiento backend (eso lo lanza Fran/Gorka cuando se libere quota).
+- `PerfilIaSection` y derivados.
 
-## Archivos a modificar
+## Detalles técnicos
 
-- `src/components/EntityNarrativesPanel.tsx` — refactor visual completo (sin tocar `load`, `handleSave`, queries, ni tipos).
-
-## Lo que **no** cambia
-
-- Schema `entity_narratives`, RLS, edge function `ava-execute-action`.
-- Tipos `NarrativeTipo`, `NarrativeVisibility`, `TIPO_META` (paleta semántica de tipos se conserva).
-- Lógica de filtros, tags, sugerencias y default visibility.
-- Props del componente: sigue siendo drop-in en las 5 páginas que lo usan.
+- `LineaDeVida`: reescribir el `<Line>` con `stroke="url(#lineaVidaGradient)"` y generar stops dinámicos basados en `data.map((p,i) => ({ offset: i/(n-1), color: sentimentColor[p.sentiment] }))`.
+- `Documentos`: `Math.ceil(totalDocs / PAGE_SIZE)` para totalPages; renderizar máximo 5 páginas centradas en la actual + ellipsis.
+- `OperadorDetail`: parallel queries dentro de cada subcomponente con `Promise.all` para no encadenar latencia. Queries de fallback solo si la principal devuelve 0 resultados.
 
 ## Resultado esperado
 
-La caja queda visualmente alineada con `PerfilProfesionalCard` / `PerfilPersonalCard` / `MetricasComunicacion` y el resto del sistema visionOS dark del proyecto: glass cohesivo, jerarquía clara header → lista → composer, y cero scroll horizontal en mobile.
+- Timelines visualmente vivos (línea coloreada por sentiment, no solo dots).
+- Navegación fluida en 68k docs (página 1 a página 1.380 sin scroll infinito).
+- Vista 360 de operador útil incluso para los no enriquecidos (vía fallbacks por dominio/nombre).
