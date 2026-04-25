@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useCallback } from "react";
 import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { EntityNarrativesPanel } from "@/components/EntityNarrativesPanel";
 import { supabase } from "@/integrations/supabase/client";
@@ -6,6 +6,21 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
 import {
   ArrowLeft,
   Mail,
@@ -18,6 +33,7 @@ import {
   ChevronDown,
   ChevronUp,
   Plus,
+  Brain,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import ReactMarkdown from "react-markdown";
@@ -32,6 +48,20 @@ import { MetricasComunicacion } from "@/components/contacto/MetricasComunicacion
 import { LineaDelTiempo } from "@/components/contacto/LineaDelTiempo";
 import { PerfilProfesionalCard } from "@/components/contacto/PerfilProfesionalCard";
 import { PerfilPersonalCard } from "@/components/contacto/PerfilPersonalCard";
+
+// Vista 360
+import { ProximaAccionCard } from "@/components/contacto/ProximaAccionCard";
+import {
+  TareasPendientesCard,
+  ContactTask,
+} from "@/components/contacto/TareasPendientesCard";
+import { AlertasCard, ContactAlert } from "@/components/contacto/AlertasCard";
+import { LineaRelacion, Milestone } from "@/components/contacto/LineaRelacion";
+import { ContactosVinculadosPanel } from "@/components/contacto/ContactosVinculadosPanel";
+import {
+  ConversacionFeed,
+  ContactMessage,
+} from "@/components/contacto/ConversacionFeed";
 
 const estiloLabels: Record<string, string> = {
   colaborativo: "Colaborativo",
@@ -57,41 +87,95 @@ export default function ContactoDetail() {
   const [contacto, setContacto] = useState<any>(null);
   const [operador, setOperador] = useState<any>(null);
   const [negociaciones, setNegociaciones] = useState<any[]>([]);
+  const [messages, setMessages] = useState<ContactMessage[]>([]);
+  const [tasks, setTasks] = useState<ContactTask[]>([]);
+  const [milestones, setMilestones] = useState<Milestone[]>([]);
+  const [alerts, setAlerts] = useState<ContactAlert[]>([]);
+  const [ownerId, setOwnerId] = useState<string | null>(null);
+
   const [loading, setLoading] = useState(true);
   const [briefLoading, setBriefLoading] = useState(false);
   const [brief, setBrief] = useState<string | null>(null);
   const [briefExpanded, setBriefExpanded] = useState(true);
+  const [extracting, setExtracting] = useState(false);
+  const [syncing, setSyncing] = useState(false);
 
-  // QA visual: ?mock=1 inyecta perfil_ia de referencia.
+  const [taskDialogOpen, setTaskDialogOpen] = useState(false);
+  const [newTaskTitle, setNewTaskTitle] = useState("");
+  const [newTaskDue, setNewTaskDue] = useState("");
+
   const useMock = searchParams.get("mock") === "1";
 
-  useEffect(() => {
+  const loadAll = useCallback(async () => {
     if (!id) return;
-    const load = async () => {
-      setLoading(true);
-      const [{ data: c }, { data: negs }] = await Promise.all([
-        supabase.from("contactos").select("*").eq("id", id).single(),
-        supabase
-          .from("negociaciones")
-          .select("*, operadores(nombre), activos(nombre)")
-          .eq("contacto_interlocutor_id", id)
-          .order("created_at", { ascending: false })
-          .limit(20),
-      ]);
-      setContacto(c);
-      setNegociaciones(negs || []);
-      if (c?.operador_id) {
-        const { data: op } = await supabase
-          .from("operadores")
-          .select("id, nombre, sector")
-          .eq("id", c.operador_id)
-          .single();
-        setOperador(op);
-      }
-      setLoading(false);
-    };
-    load();
+    setLoading(true);
+    const { data: { user } } = await supabase.auth.getUser();
+    setOwnerId(user?.id ?? null);
+
+    const [
+      { data: c },
+      { data: negs },
+      { data: msgs },
+      { data: ts },
+      { data: ms },
+      { data: as },
+    ] = await Promise.all([
+      supabase.from("contactos").select("*").eq("id", id).single(),
+      supabase
+        .from("negociaciones")
+        .select("*, operadores(nombre), activos(nombre)")
+        .eq("contacto_interlocutor_id", id)
+        .order("created_at", { ascending: false })
+        .limit(20),
+      supabase
+        .from("contact_messages")
+        .select("*")
+        .eq("contact_id", id)
+        .order("sent_at", { ascending: false })
+        .limit(100),
+      supabase
+        .from("contact_tasks")
+        .select("*")
+        .eq("contact_id", id)
+        .order("due_at", { ascending: true, nullsFirst: false })
+        .limit(50),
+      supabase
+        .from("contact_milestones")
+        .select("*")
+        .eq("contact_id", id)
+        .order("event_at", { ascending: true })
+        .limit(50),
+      supabase
+        .from("contact_alerts")
+        .select("*")
+        .eq("contact_id", id)
+        .is("dismissed_at", null)
+        .order("created_at", { ascending: false }),
+    ]);
+
+    setContacto(c);
+    setNegociaciones(negs || []);
+    setMessages((msgs || []) as ContactMessage[]);
+    setTasks((ts || []) as ContactTask[]);
+    setMilestones((ms || []) as Milestone[]);
+    setAlerts((as || []) as ContactAlert[]);
+
+    if (c?.operador_id) {
+      const { data: op } = await supabase
+        .from("operadores")
+        .select("id, nombre, sector")
+        .eq("id", c.operador_id)
+        .single();
+      setOperador(op);
+    } else {
+      setOperador(null);
+    }
+    setLoading(false);
   }, [id]);
+
+  useEffect(() => {
+    loadAll();
+  }, [loadAll]);
 
   const perfil = useMemo(() => {
     if (useMock) return perfilIaMock;
@@ -99,12 +183,113 @@ export default function ContactoDetail() {
   }, [contacto?.perfil_ia, useMock]);
 
   const empty = isPerfilEmpty(perfil);
+  const proximaAccion = (contacto?.perfil_ia as any)?.proxima_accion ?? null;
 
   const handleAddNote = () => {
     if (!contacto) return;
     const nombre = `${contacto.nombre || ""} ${contacto.apellidos || ""}`.trim();
     const prompt = `Añade una nota al contacto ${nombre}: `;
     navigate(`/asistente?prompt=${encodeURIComponent(prompt)}`);
+  };
+
+  const runExtractor = async () => {
+    if (!id) return;
+    setExtracting(true);
+    try {
+      const { data, error } = await supabase.functions.invoke(
+        "contact-extract-signals",
+        { body: { contact_id: id, force: messages.length > 0 } }
+      );
+      if (error) throw error;
+      toast({
+        title: "Análisis IA completado",
+        description: `${data?.tasks_created || 0} tareas, ${data?.milestones_created || 0} hitos detectados.`,
+      });
+      await loadAll();
+    } catch (e: any) {
+      toast({
+        title: "Error en análisis",
+        description: e.message,
+        variant: "destructive",
+      });
+    } finally {
+      setExtracting(false);
+    }
+  };
+
+  const syncEmails = async () => {
+    setSyncing(true);
+    try {
+      const [outlook, gmail] = await Promise.allSettled([
+        supabase.functions.invoke("email-sync-outlook", { body: {} }),
+        supabase.functions.invoke("email-sync-gmail", { body: {} }),
+      ]);
+      const okMsgs: string[] = [];
+      const errMsgs: string[] = [];
+      if (outlook.status === "fulfilled" && !outlook.value.error) {
+        okMsgs.push(`Outlook: ${(outlook.value.data as any)?.matched ?? 0}`);
+      } else if (outlook.status === "fulfilled") {
+        errMsgs.push(`Outlook: ${(outlook.value.error as any)?.message || "error"}`);
+      }
+      if (gmail.status === "fulfilled" && !gmail.value.error) {
+        okMsgs.push(`Gmail: ${(gmail.value.data as any)?.matched ?? 0}`);
+      } else if (gmail.status === "fulfilled") {
+        errMsgs.push(`Gmail: ${(gmail.value.error as any)?.message || "error"}`);
+      }
+      toast({
+        title: "Sincronización",
+        description:
+          [...okMsgs, ...errMsgs].join(" · ") || "Sin cambios",
+      });
+      await loadAll();
+    } catch (e: any) {
+      toast({ title: "Error sync", description: e.message, variant: "destructive" });
+    } finally {
+      setSyncing(false);
+    }
+  };
+
+  const toggleTask = async (taskId: string, done: boolean) => {
+    await supabase
+      .from("contact_tasks")
+      .update({
+        status: done ? "done" : "pending",
+        completed_at: done ? new Date().toISOString() : null,
+      })
+      .eq("id", taskId);
+    setTasks((prev) =>
+      prev.map((t) =>
+        t.id === taskId ? { ...t, status: done ? "done" : "pending" } : t
+      )
+    );
+  };
+
+  const addTask = async () => {
+    if (!newTaskTitle.trim() || !ownerId || !id) return;
+    const { error } = await supabase.from("contact_tasks").insert({
+      owner_id: ownerId,
+      contact_id: id,
+      title: newTaskTitle.trim(),
+      due_at: newTaskDue ? new Date(newTaskDue).toISOString() : null,
+      source: "manual",
+      priority: 3,
+    });
+    if (error) {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+      return;
+    }
+    setNewTaskTitle("");
+    setNewTaskDue("");
+    setTaskDialogOpen(false);
+    loadAll();
+  };
+
+  const dismissAlert = async (alertId: string) => {
+    await supabase
+      .from("contact_alerts")
+      .update({ dismissed_at: new Date().toISOString() })
+      .eq("id", alertId);
+    setAlerts((prev) => prev.filter((a) => a.id !== alertId));
   };
 
   const generateBrief = async () => {
@@ -127,6 +312,24 @@ export default function ContactoDetail() {
         .filter(Boolean)
         .join("\n");
 
+      const milestonesCtx = milestones.length
+        ? "\n\nHitos clave:\n" +
+          milestones
+            .slice(-10)
+            .map(
+              (m) => `- ${m.event_at.slice(0, 10)} [${m.score}] ${m.title}`
+            )
+            .join("\n")
+        : "";
+
+      const tasksCtx = tasks.filter((t) => t.status === "pending").length
+        ? "\n\nTareas pendientes:\n" +
+          tasks
+            .filter((t) => t.status === "pending")
+            .map((t) => `- ${t.title}${t.due_at ? ` (${t.due_at.slice(0, 10)})` : ""}`)
+            .join("\n")
+        : "";
+
       const negsContext =
         negociaciones.length > 0
           ? "\n\nHistorial de negociaciones:\n" +
@@ -135,12 +338,12 @@ export default function ContactoDetail() {
                 (n) =>
                   `- Estado: ${n.estado}, Resultado: ${
                     n.resultado || "pendiente"
-                  }, Prob. cierre: ${
-                    n.probabilidad_cierre ?? "N/A"
-                  }%, Notas: ${n.notas || "sin notas"}`
+                  }, Prob. cierre: ${n.probabilidad_cierre ?? "N/A"}%, Notas: ${
+                    n.notas || "sin notas"
+                  }`
               )
               .join("\n")
-          : "\nSin negociaciones previas registradas.";
+          : "";
 
       const { data, error } = await supabase.functions.invoke(
         "expert-forge-proxy",
@@ -148,7 +351,7 @@ export default function ContactoDetail() {
           body: {
             action: "chat",
             question: `Genera un brief de negociación profesional para la próxima reunión con este contacto. Incluye: resumen del perfil, puntos clave a tratar, estrategia recomendada según su estilo, riesgos a evitar, y tácticas sugeridas. Sé específico y accionable.`,
-            context: `${context}${negsContext}`,
+            context: `${context}${milestonesCtx}${tasksCtx}${negsContext}`,
           },
         }
       );
@@ -233,191 +436,253 @@ export default function ContactoDetail() {
         <Button
           size="sm"
           variant="outline"
-          onClick={handleAddNote}
+          onClick={runExtractor}
+          disabled={extracting}
           className="gap-1.5 bg-accent/10 border-accent/30 hover:bg-accent/20"
         >
-          <Plus className="h-4 w-4" /> Añadir nota
+          <Brain className={`h-4 w-4 ${extracting ? "animate-pulse" : ""}`} />
+          {extracting ? "Analizando..." : "Análisis IA"}
+        </Button>
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={handleAddNote}
+          className="gap-1.5"
+        >
+          <Plus className="h-4 w-4" /> Nota
         </Button>
       </div>
 
-      {/* Línea de Vida (perfil_ia) */}
-      <PerfilIaSection generatedAt={perfil?.generated_at} empty={empty}>
-        {perfil && (
-          <div className="space-y-5">
-            {/* Top: gráfica o fallback */}
-            {!showChartFallback && <LineaDeVida timeline={perfil.timeline} />}
-
-            {/* Datos clave en chips */}
-            {perfil.datos_clave?.length > 0 && (
-              <DatosClaveChips datos={perfil.datos_clave} />
-            )}
-
-            {/* Grid: evolución + métricas */}
-            <div className="grid gap-5 md:grid-cols-2">
-              {perfil.evolution && (
-                <EvolucionReciente evolution={perfil.evolution} />
-              )}
-              {perfil.stats && <MetricasComunicacion stats={perfil.stats} />}
-            </div>
-
-            {/* Eventos clave */}
-            {perfil.key_events?.length > 0 && (
-              <LineaDelTiempo events={perfil.key_events} />
-            )}
-          </div>
-        )}
-      </PerfilIaSection>
-
-      {/* Perfiles profesional + personal (extensión perfil_ia) */}
-      {(perfil?.perfil_profesional || perfil?.perfil_personal) && (
-        <div className="grid md:grid-cols-2 gap-4">
-          {perfil.perfil_profesional && (
-            <PerfilProfesionalCard data={perfil.perfil_profesional} />
-          )}
-          {perfil.perfil_personal && (
-            <PerfilPersonalCard
-              data={perfil.perfil_personal}
-              contactoId={contacto.id}
-            />
-          )}
-        </div>
-      )}
-
-      {/* Info + Notas */}
-      <div className="grid gap-6 md:grid-cols-2">
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Información de contacto</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {contacto.email && (
-              <div className="flex items-center gap-2 text-sm">
-                <Mail className="h-4 w-4 text-muted-foreground" />
-                <a
-                  href={`mailto:${contacto.email}`}
-                  className="text-accent hover:underline"
-                >
-                  {contacto.email}
-                </a>
-              </div>
-            )}
-            {contacto.telefono && (
-              <div className="flex items-center gap-2 text-sm">
-                <Phone className="h-4 w-4 text-muted-foreground" />
-                <span>{contacto.telefono}</span>
-              </div>
-            )}
-            {(contacto as any).whatsapp && (
-              <div className="flex items-center gap-2 text-sm">
-                <MessageCircle className="h-4 w-4 text-muted-foreground" />
-                <a
-                  href={`https://wa.me/${(contacto as any).whatsapp.replace(
-                    /\D/g,
-                    ""
-                  )}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-accent hover:underline"
-                >
-                  {(contacto as any).whatsapp}
-                </a>
-              </div>
-            )}
-            {contacto.linkedin_url && (
-              <div className="flex items-center gap-2 text-sm">
-                <Linkedin className="h-4 w-4 text-muted-foreground" />
-                <a
-                  href={contacto.linkedin_url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-accent hover:underline truncate max-w-[200px]"
-                >
-                  {contacto.linkedin_url.replace(
-                    /https?:\/\/(www\.)?linkedin\.com\/in\/?/,
-                    ""
-                  )}
-                </a>
-              </div>
-            )}
-            {operador && (
-              <div className="flex items-center gap-2 text-sm pt-2 border-t">
-                <Building2 className="h-4 w-4 text-muted-foreground" />
-                <span>
-                  Operador:{" "}
-                  <button
-                    onClick={() => navigate(`/operadores/${operador.id}`)}
-                    className="text-accent hover:underline font-medium"
-                  >
-                    {operador.nombre}
-                  </button>
-                </span>
-                <Badge variant="outline" className="text-xs">
-                  {operador.sector}
-                </Badge>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Notas / Historial</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {contacto.notas_perfil ? (
-              <p className="text-sm whitespace-pre-wrap">
-                {contacto.notas_perfil}
-              </p>
-            ) : (
-              <p className="text-sm text-muted-foreground">
-                Sin notas registradas.
-              </p>
-            )}
-          </CardContent>
-        </Card>
+      {/* ZONA 1 — Resumen accionable */}
+      <div className="grid gap-3 md:grid-cols-3">
+        <ProximaAccionCard
+          action={proximaAccion}
+          onGenerate={runExtractor}
+          generating={extracting}
+        />
+        <TareasPendientesCard
+          tasks={tasks}
+          onToggle={toggleTask}
+          onAdd={() => setTaskDialogOpen(true)}
+        />
+        <AlertasCard alerts={alerts} onDismiss={dismissAlert} />
       </div>
 
-      {/* Negociaciones */}
-      {negociaciones.length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">
-              Negociaciones ({negociaciones.length})
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-2">
-              {negociaciones.map((n) => (
-                <div
-                  key={n.id}
-                  className="flex items-center justify-between rounded-lg border p-3 text-sm"
-                >
-                  <div className="flex items-center gap-2">
-                    <Briefcase className="h-4 w-4 text-muted-foreground" />
-                    <span className="font-medium">
-                      {(n as any).operadores?.nombre || "Sin operador"}
-                    </span>
-                    <span className="text-muted-foreground">·</span>
-                    <span className="text-muted-foreground">
-                      {(n as any).activos?.nombre || "Sin activo"}
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Badge variant="outline" className="text-xs">
-                      {n.estado}
-                    </Badge>
-                    {n.probabilidad_cierre != null && (
-                      <span className="text-xs text-muted-foreground">
-                        {n.probabilidad_cierre}%
-                      </span>
+      {/* ZONA 2 — Línea de la relación (hitos buenos/malos) */}
+      <LineaRelacion milestones={milestones} />
+
+      {/* ZONA 3 — Conversaciones (feed unificado) */}
+      <ConversacionFeed
+        messages={messages}
+        onSync={syncEmails}
+        syncing={syncing}
+      />
+
+      {/* ZONA 4 — Perfil IA detallado (acordeón) */}
+      <Accordion type="multiple" defaultValue={["perfil"]} className="space-y-3">
+        <AccordionItem
+          value="perfil"
+          className="border border-border/40 rounded-xl bg-card/40 backdrop-blur-md px-4"
+        >
+          <AccordionTrigger className="text-sm font-semibold">
+            Perfil IA y actividad
+          </AccordionTrigger>
+          <AccordionContent>
+            <PerfilIaSection generatedAt={perfil?.generated_at} empty={empty}>
+              {perfil && (
+                <div className="space-y-5">
+                  {!showChartFallback && (
+                    <LineaDeVida timeline={perfil.timeline} />
+                  )}
+                  {perfil.datos_clave?.length > 0 && (
+                    <DatosClaveChips datos={perfil.datos_clave} />
+                  )}
+                  <div className="grid gap-5 md:grid-cols-2">
+                    {perfil.evolution && (
+                      <EvolucionReciente evolution={perfil.evolution} />
+                    )}
+                    {perfil.stats && (
+                      <MetricasComunicacion stats={perfil.stats} />
                     )}
                   </div>
+                  {perfil.key_events?.length > 0 && (
+                    <LineaDelTiempo events={perfil.key_events} />
+                  )}
                 </div>
-              ))}
+              )}
+            </PerfilIaSection>
+
+            {(perfil?.perfil_profesional || perfil?.perfil_personal) && (
+              <div className="grid md:grid-cols-2 gap-4 mt-4">
+                {perfil.perfil_profesional && (
+                  <PerfilProfesionalCard data={perfil.perfil_profesional} />
+                )}
+                {perfil.perfil_personal && (
+                  <PerfilPersonalCard
+                    data={perfil.perfil_personal}
+                    contactoId={contacto.id}
+                  />
+                )}
+              </div>
+            )}
+          </AccordionContent>
+        </AccordionItem>
+
+        <AccordionItem
+          value="red"
+          className="border border-border/40 rounded-xl bg-card/40 backdrop-blur-md px-4"
+        >
+          <AccordionTrigger className="text-sm font-semibold">
+            Red y contactos vinculados
+          </AccordionTrigger>
+          <AccordionContent>
+            {ownerId && (
+              <ContactosVinculadosPanel
+                contactId={contacto.id}
+                ownerId={ownerId}
+              />
+            )}
+          </AccordionContent>
+        </AccordionItem>
+
+        <AccordionItem
+          value="info"
+          className="border border-border/40 rounded-xl bg-card/40 backdrop-blur-md px-4"
+        >
+          <AccordionTrigger className="text-sm font-semibold">
+            Información de contacto y notas
+          </AccordionTrigger>
+          <AccordionContent>
+            <div className="grid gap-4 md:grid-cols-2 pt-2">
+              <div className="space-y-2.5">
+                {contacto.email && (
+                  <div className="flex items-center gap-2 text-sm">
+                    <Mail className="h-4 w-4 text-muted-foreground" />
+                    <a
+                      href={`mailto:${contacto.email}`}
+                      className="text-accent hover:underline"
+                    >
+                      {contacto.email}
+                    </a>
+                  </div>
+                )}
+                {contacto.telefono && (
+                  <div className="flex items-center gap-2 text-sm">
+                    <Phone className="h-4 w-4 text-muted-foreground" />
+                    <span>{contacto.telefono}</span>
+                  </div>
+                )}
+                {(contacto as any).whatsapp && (
+                  <div className="flex items-center gap-2 text-sm">
+                    <MessageCircle className="h-4 w-4 text-muted-foreground" />
+                    <a
+                      href={`https://wa.me/${(contacto as any).whatsapp.replace(
+                        /\D/g,
+                        ""
+                      )}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-accent hover:underline"
+                    >
+                      {(contacto as any).whatsapp}
+                    </a>
+                  </div>
+                )}
+                {contacto.linkedin_url && (
+                  <div className="flex items-center gap-2 text-sm">
+                    <Linkedin className="h-4 w-4 text-muted-foreground" />
+                    <a
+                      href={contacto.linkedin_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-accent hover:underline truncate max-w-[200px]"
+                    >
+                      {contacto.linkedin_url.replace(
+                        /https?:\/\/(www\.)?linkedin\.com\/in\/?/,
+                        ""
+                      )}
+                    </a>
+                  </div>
+                )}
+                {operador && (
+                  <div className="flex items-center gap-2 text-sm pt-2 border-t border-border/30">
+                    <Building2 className="h-4 w-4 text-muted-foreground" />
+                    <span>
+                      Operador:{" "}
+                      <button
+                        onClick={() => navigate(`/operadores/${operador.id}`)}
+                        className="text-accent hover:underline font-medium"
+                      >
+                        {operador.nombre}
+                      </button>
+                    </span>
+                    <Badge variant="outline" className="text-xs">
+                      {operador.sector}
+                    </Badge>
+                  </div>
+                )}
+              </div>
+
+              <div>
+                <p className="text-xs uppercase tracking-wider text-muted-foreground mb-2">
+                  Notas
+                </p>
+                {contacto.notas_perfil ? (
+                  <p className="text-sm whitespace-pre-wrap text-foreground/90">
+                    {contacto.notas_perfil}
+                  </p>
+                ) : (
+                  <p className="text-sm text-muted-foreground">
+                    Sin notas registradas.
+                  </p>
+                )}
+              </div>
             </div>
-          </CardContent>
-        </Card>
-      )}
+          </AccordionContent>
+        </AccordionItem>
+
+        {negociaciones.length > 0 && (
+          <AccordionItem
+            value="negociaciones"
+            className="border border-border/40 rounded-xl bg-card/40 backdrop-blur-md px-4"
+          >
+            <AccordionTrigger className="text-sm font-semibold">
+              Negociaciones ({negociaciones.length})
+            </AccordionTrigger>
+            <AccordionContent>
+              <div className="space-y-2 pt-2">
+                {negociaciones.map((n) => (
+                  <div
+                    key={n.id}
+                    className="flex items-center justify-between rounded-lg border border-border/40 bg-background/40 p-3 text-sm"
+                  >
+                    <div className="flex items-center gap-2">
+                      <Briefcase className="h-4 w-4 text-muted-foreground" />
+                      <span className="font-medium">
+                        {(n as any).operadores?.nombre || "Sin operador"}
+                      </span>
+                      <span className="text-muted-foreground">·</span>
+                      <span className="text-muted-foreground">
+                        {(n as any).activos?.nombre || "Sin activo"}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Badge variant="outline" className="text-xs">
+                        {n.estado}
+                      </Badge>
+                      {n.probabilidad_cierre != null && (
+                        <span className="text-xs text-muted-foreground">
+                          {n.probabilidad_cierre}%
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </AccordionContent>
+          </AccordionItem>
+        )}
+      </Accordion>
 
       {/* Brief de Negociación */}
       <Card>
@@ -485,6 +750,34 @@ export default function ContactoDetail() {
       </Card>
 
       {id && <EntityNarrativesPanel entityType="contacto" entityId={id} />}
+
+      {/* Dialog crear tarea */}
+      <Dialog open={taskDialogOpen} onOpenChange={setTaskDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Nueva tarea</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <Input
+              placeholder="¿Qué tienes que hacer?"
+              value={newTaskTitle}
+              onChange={(e) => setNewTaskTitle(e.target.value)}
+              autoFocus
+            />
+            <Input
+              type="datetime-local"
+              value={newTaskDue}
+              onChange={(e) => setNewTaskDue(e.target.value)}
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setTaskDialogOpen(false)}>
+              Cancelar
+            </Button>
+            <Button onClick={addTask}>Crear</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
