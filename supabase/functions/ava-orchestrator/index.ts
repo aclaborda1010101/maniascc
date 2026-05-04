@@ -1422,7 +1422,7 @@ serve(async (req) => {
 
     // Audit
     await admin.from("auditoria_ia").insert({
-      modelo: DEFAULT_MODEL,
+      modelo: synthesisModel,
       funcion_ia: "ava-orchestrator",
       latencia_ms: latencyMs,
       tokens_entrada: totalTokensIn,
@@ -1436,13 +1436,18 @@ serve(async (req) => {
     await admin.from("usage_logs").insert({
       user_id: user.id,
       action_type: "chat",
-      agent_label: "AVA Orchestrator",
-      model: DEFAULT_MODEL,
+      agent_label: escalated ? "AVA Orchestrator (escalated)" : "AVA Orchestrator",
+      model: synthesisModel,
       tokens_input: totalTokensIn,
       tokens_output: totalTokensOut,
       cost_eur: costEur,
       latency_ms: latencyMs,
-      metadata: { tools_used: toolResults.map(tr => tr.tool), message: message?.slice(0, 200) },
+      metadata: {
+        tools_used: toolResults.map(tr => tr.tool),
+        message: message?.slice(0, 200),
+        escalated,
+        escalation_reason: escalationReason,
+      },
     });
 
     // Check if generate_pdf_report or generate_forge_document was used
