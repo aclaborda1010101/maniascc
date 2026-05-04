@@ -1,101 +1,42 @@
 
-# Plan: Optimización RAG — fase 1 (función híbrida + cache de embeddings)
+# Plan aprobado: rag_hybrid_search v2 + cache integrado en rag-proxy
 
-## Objetivo
+## 1. Migración SQL
 
-Reducir la latencia de cada consulta RAG eliminando trabajo redundante en SQL y evitando llamar al gateway de embeddings cuando la pregunta ya se ha hecho antes.
+- `DROP` + `CREATE OR REPLACE` de `public.rag_hybrid_search` (firma de 6 parámetros) con:
+  - `v_tsquery` cacheada en `DECLARE` (una sola tokenización de la pregunta).
+  - Narrativas separadas en `narr_fts` (usa GIN) y `narr_vec` (usa HNSW).
+  - `DISTINCT ON (u.id)` en lugar del `GROUP BY` sobre `contenido` y `metadata`.
+  - `RETURNS TABLE` extendido con `owner_id uuid` y `visibility text` propagados desde cada CTE → arregla el filtro post-RPC roto en `rag-proxy` (líneas 83-85).
+  - `to_tsvector('spanish', c.contenido)` inline (la columna materializada se hará en una migración separada cuando el usuario la lance desde el SQL Editor).
+- Eliminar también la sobrecarga vieja de 5 parámetros si existe.
+- `REVOKE EXECUTE ... FROM PUBLIC, anon, authenticated` y `GRANT EXECUTE ... TO service_role` sobre `get_cached_embedding`, `cache_query_embedding`, `cleanup_query_cache`. Limpia 3 warnings 0028 del linter.
 
-Objetivo medible:
-- **Cache HIT**: respuesta < 50 ms en la fase de embedding (hoy 300–500 ms).
-- **`rag_hybrid_search`**: ~30–40% menos tiempo CPU eliminando doble `to_tsvector` y `GROUP BY` sobre texto.
+## 2. Edge function `supabase/functions/rag-proxy/index.ts`
 
-## Hallazgos previos a aplicar tu propuesta
+- Sustituir `embedQuery(question, key)` por `getQueryEmbedding(admin, question, key)`:
+  - Helper `parseEmbedding(raw)` que acepta array directo o string serializado de pgvector.
+  - `console.time("rag:embed:cache-lookup")` → `admin.rpc("get_cached_embedding", { p_query: question })`. Si HIT, devuelve y log `rag:embed: HIT (768d)`.
+  - Si MISS: `console.time("rag:embed:gateway")` → `fetch` al Lovable Gateway (igual que hoy, mismo modelo `google/text-embedding-004`).
+  - Fire-and-forget `admin.rpc("cache_query_embedding", { p_query, p_embedding })` con `.then` que solo loggea error.
+- Envolver la llamada a `rag_hybrid_search` con `console.time("rag:hybrid")`.
+- Arreglar filtro post-RPC: como la nueva RPC ahora sí devuelve `owner_id` y `visibility`, el filtro `c.owner_id === userId || ["shared","global"].includes(c.visibility)` ya funcionará correctamente y dejará de descartar todo.
 
-1. **`entity_narratives` está vacía hoy (0 filas)** y solo tiene HNSW, **no tiene índice GIN de FTS**. La CTE `narr_fts` que propones haría seq-scan en cuanto se pueble. Hay que añadir el índice GIN.
-2. **El embedding NO se pide a Google directamente** sino al **Lovable AI Gateway** (`ai.gateway.lovable.dev/v1/embeddings`, modelo `google/text-embedding-004`). El cache sigue siendo igual de valioso, solo cambia el `fetch` que hay que rodear.
-3. **Bug latente en `rag-proxy`** (líneas 83-85): filtra el resultado por `c.owner_id` y `c.visibility`, **pero `rag_hybrid_search` no devuelve esas columnas** → ese filtro hoy descarta todo y siempre cae al fallback FTS. Aprovechamos esta migración para arreglarlo añadiendo `owner_id` y `visibility` al `RETURNS TABLE`.
-4. `pg_cron` y `pgcrypto` ya están instalados → la limpieza programada y `digest()` funcionan sin extensiones nuevas.
+## 3. Validación
 
-## Cambios a aplicar
+- `supabase--deploy_edge_functions(["rag-proxy"])`.
+- Llamar 2 veces a `/rag-proxy` con la misma pregunta vía `curl_edge_functions`.
+- Leer `edge_function_logs` y confirmar:
+  - 1ª llamada: aparece `rag:embed:gateway` (~300-500ms) y NO aparece `rag:embed: HIT`.
+  - 2ª llamada: aparece `rag:embed: HIT` y `rag:embed:cache-lookup` < 50ms.
+- `SELECT query_text, hit_count FROM query_embeddings_cache ORDER BY last_used_at DESC LIMIT 5` → `hit_count >= 2`.
 
-### 1. Migración SQL (schema)
+## Fuera de alcance
 
-```text
-ALTER TABLE document_chunks
-  ADD COLUMN fts_vector tsvector
-  GENERATED ALWAYS AS (to_tsvector('spanish', contenido)) STORED;
+- `ALTER TABLE document_chunks ADD COLUMN fts_vector ... GENERATED STORED` (timeout HTTP). El usuario lo lanzará desde SQL Editor; tras eso, una migración corta cambiará `to_tsvector(...)` por `c.fts_vector`.
+- HNSW parciales por dominio (fase 2).
 
-CREATE INDEX idx_chunks_fts_stored ON document_chunks USING gin(fts_vector);
-DROP INDEX idx_document_chunks_fts;          -- el viejo basado en expresión
+## Riesgos
 
-CREATE INDEX idx_narratives_fts ON entity_narratives
-  USING gin(to_tsvector('spanish', narrativa));   -- faltaba
-
-CREATE TABLE query_embeddings_cache (
-  id           uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  query_hash   text NOT NULL UNIQUE,
-  query_text   text NOT NULL,
-  embedding    vector(768) NOT NULL,
-  hit_count    integer DEFAULT 1,
-  created_at   timestamptz DEFAULT now(),
-  last_used_at timestamptz DEFAULT now(),
-  expires_at   timestamptz DEFAULT now() + interval '7 days'
-);
-CREATE INDEX idx_qec_hash    ON query_embeddings_cache(query_hash);
-CREATE INDEX idx_qec_expires ON query_embeddings_cache(expires_at);
-ALTER TABLE query_embeddings_cache ENABLE ROW LEVEL SECURITY;
--- RLS: solo service_role puede leer/escribir (las RPC son SECURITY DEFINER)
-```
-
-> **Nota**: añadir la columna generada en 565K filas tarda 1–3 minutos y bloquea escrituras en la tabla durante el rewrite. Lo avisamos en el mensaje al usuario antes de lanzar.
-
-### 2. Funciones SQL
-
-- **`rag_hybrid_search`** reescrita con tu propuesta + dos ajustes:
-  - Añadir `owner_id uuid` y `visibility text` al `RETURNS TABLE` y propagarlos en cada CTE (arregla el bug de filtrado).
-  - `v_tsquery` cacheada en `DECLARE` (una sola tokenización).
-  - `c.fts_vector @@ v_tsquery` en lugar de `to_tsvector(...) @@ ...`.
-  - Narrativas separadas en `narr_fts` y `narr_vec` para que cada rama use su índice.
-  - `DISTINCT ON (u.id)` con `ORDER BY u.id, fts_rank DESC NULLS LAST, vec_distance ASC NULLS LAST` en lugar del `GROUP BY` sobre texto/jsonb.
-- **`get_cached_embedding(text) RETURNS vector`** — `SECURITY DEFINER`, hace `UPDATE ... RETURNING` para registrar hit y extender TTL en una sola query.
-- **`cache_query_embedding(text, vector) RETURNS void`** — `SECURITY DEFINER`, upsert por hash.
-- **`cleanup_query_cache() RETURNS integer`** — borra expirados.
-- **`pg_cron`**: `cron.schedule('cleanup-query-embeddings-cache','0 4 * * *', $$SELECT public.cleanup_query_cache()$$)`.
-
-Hash normalizado: `encode(digest(lower(trim(regexp_replace(p_query,'\s+',' ','g'))),'sha256'),'hex')`.
-
-### 3. Edge function `supabase/functions/rag-proxy/index.ts`
-
-Cambios mínimos quirúrgicos:
-
-- Refactor `embedQuery` → `getQueryEmbedding(question)` que:
-  1. `admin.rpc('get_cached_embedding', { p_query: question })` → si devuelve vector, úsalo.
-  2. Si no, llama al Lovable Gateway (mismo `fetch` que hoy, no cambia el endpoint).
-  3. Fire-and-forget `admin.rpc('cache_query_embedding', { p_query, p_embedding })`.
-  4. Logs `console.time` / `console.timeEnd` en cada fase para que podamos medir el impacto real en los logs de la edge function.
-- Quitar el filtro post-RPC roto de las líneas 83-85 — ya no hace falta porque la RPC ahora devuelve `owner_id`/`visibility` y podemos filtrar correctamente (o, mejor, mover el filtro **dentro** de las CTEs de la función para no traer chunks ajenos a la edge en absoluto). Decisión: lo mantenemos en SQL para minimizar payload de red.
-
-### 4. Lo que NO hacemos en esta fase
-
-- **Índices HNSW parciales por dominio** (legal, centros_comerciales, comunicaciones). Lo dejamos para fase 2 cuando midamos cuánto impacto tiene el filtro post-HNSW con el cache ya activo.
-- **`SET LOCAL hnsw.ef_search`** dinámico — esperamos a ver si sigue siendo cuello tras los cambios.
-- Reembedding de chunks ni cambios en `rag-embed-chunks`.
-
-## Riesgos y mitigaciones
-
-| Riesgo | Mitigación |
-|---|---|
-| `ALTER TABLE ADD COLUMN GENERATED` bloquea escrituras 1-3 min | Lanzar migración fuera de horas pico; avisar al usuario antes |
-| Cambiar `RETURNS TABLE` rompe llamadas con tipos antiguos | Solo hay 1 caller (`rag-proxy`); lo actualizamos en el mismo deploy |
-| Cache devuelve embedding obsoleto si cambiamos modelo | TTL de 7 días + queda invalidado al hacer `TRUNCATE` manual; documentado en comentario de la tabla |
-| `entity_narratives` sigue vacía → CTEs `narr_*` añaden overhead mínimo | Aceptable: ambas hacen lookup indexado y devuelven 0 filas en <1ms |
-
-## Cómo validamos el resultado
-
-1. Tras el deploy, ejecutar la misma pregunta dos veces y comparar logs de `rag-proxy`:
-   - 1ª: `1b-google-embed: ~400ms`
-   - 2ª: `1a-cache-lookup: ~3ms` + `Cache HIT`
-2. `EXPLAIN ANALYZE` de la nueva `rag_hybrid_search` con un embedding sintético, comparado con el baseline anterior (~85 ms para FTS+vec con filtro de dominio).
-3. Verificar en `query_embeddings_cache` que `hit_count` empieza a subir en queries repetidas.
-
-¿Procedemos con esto?
+- La nueva RPC añade columnas al `RETURNS TABLE`. Único caller: `rag-proxy`. Lo desplegamos en el mismo turno → ventana sin riesgo.
+- Si un cliente antiguo cacheado en el navegador llamara a la RPC con la firma vieja, recibirá las columnas extra (no rompe — es JSON adicional).
