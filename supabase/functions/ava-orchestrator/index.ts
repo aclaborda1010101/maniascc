@@ -1463,6 +1463,9 @@ serve(async (req) => {
       tools_used: toolResults.map(tr => tr.tool),
       latency_ms: latencyMs,
       sources,
+      model: synthesisModel,
+      escalated,
+      ...(escalated && escalationReason ? { escalation_reason: escalationReason } : {}),
       ...(pdfTool ? { pdf_content: pdfTool.result.content, pdf_title: pdfTool.result.title } : {}),
       ...(forgeTool ? {
         forge_pdf: {
