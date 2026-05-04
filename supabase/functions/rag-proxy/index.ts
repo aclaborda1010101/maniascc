@@ -70,7 +70,8 @@ async function getQueryEmbedding(
     });
     console.timeEnd("rag:embed:gateway");
     if (!r.ok) {
-      console.warn("rag:embed: gateway", r.status);
+      const errText = await r.text().catch(() => "<no body>");
+      console.warn(`rag:embed: gateway ${r.status} body=${errText.slice(0, 300)}`);
       return null;
     }
     const d = await r.json();
