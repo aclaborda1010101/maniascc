@@ -17,18 +17,77 @@ const DOMAIN_SYSTEM_PROMPTS: Record<string, string> = {
   general: `Eres un asistente experto en el sector inmobiliario comercial.`,
 };
 
-async function embedQuery(question: string, lovableKey: string): Promise<number[] | null> {
+// Convierte el valor que devuelve la RPC `get_cached_embedding` (puede llegar como
+// array directo o como string serializado de pgvector "[0.1,0.2,...]") a number[].
+function parseEmbedding(raw: unknown): number[] | null {
+  if (!raw) return null;
+  if (Array.isArray(raw)) return raw as number[];
+  if (typeof raw === "string") {
+    try {
+      const arr = JSON.parse(raw);
+      return Array.isArray(arr) ? arr : null;
+    } catch {
+      return null;
+    }
+  }
+  return null;
+}
+
+async function getQueryEmbedding(
+  // deno-lint-ignore no-explicit-any
+  admin: any,
+  question: string,
+  lovableKey: string,
+): Promise<number[] | null> {
   if (!lovableKey) return null;
+
+  // 1) Cache lookup (RPC SECURITY DEFINER)
+  console.time("rag:embed:cache-lookup");
+  try {
+    const { data: cached, error } = await admin.rpc("get_cached_embedding", { p_query: question });
+    console.timeEnd("rag:embed:cache-lookup");
+    if (error) {
+      console.warn("rag:embed: cache lookup error", error.message);
+    } else {
+      const parsed = parseEmbedding(cached);
+      if (parsed && parsed.length > 0) {
+        console.log(`rag:embed: HIT (${parsed.length}d)`);
+        return parsed;
+      }
+    }
+  } catch (err) {
+    console.timeEnd("rag:embed:cache-lookup");
+    console.warn("rag:embed: cache lookup failed", err);
+  }
+
+  // 2) Cache MISS → llamar al Lovable AI Gateway
+  console.time("rag:embed:gateway");
   try {
     const r = await fetch("https://ai.gateway.lovable.dev/v1/embeddings", {
       method: "POST",
       headers: { Authorization: `Bearer ${lovableKey}`, "Content-Type": "application/json" },
       body: JSON.stringify({ model: "google/text-embedding-004", input: question.slice(0, 8000) }),
     });
-    if (!r.ok) return null;
+    console.timeEnd("rag:embed:gateway");
+    if (!r.ok) {
+      console.warn("rag:embed: gateway", r.status);
+      return null;
+    }
     const d = await r.json();
-    return d.data?.[0]?.embedding ?? null;
-  } catch {
+    const embedding: number[] | null = d.data?.[0]?.embedding ?? null;
+    if (!embedding) return null;
+
+    // 3) Fire-and-forget cache write (no bloquea respuesta)
+    admin
+      .rpc("cache_query_embedding", { p_query: question, p_embedding: embedding })
+      .then(({ error }: { error: unknown }) => {
+        if (error) console.warn("rag:embed: cache write failed", error);
+      });
+
+    return embedding;
+  } catch (err) {
+    console.timeEnd("rag:embed:gateway");
+    console.warn("rag:embed: gateway exception", err);
     return null;
   }
 }
