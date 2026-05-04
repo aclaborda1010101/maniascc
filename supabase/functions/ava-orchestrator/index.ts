@@ -767,7 +767,7 @@ serve(async (req) => {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "google/gemini-3.1-pro-preview",
+        model: DEFAULT_MODEL,
         messages,
         tools: TOOLS,
         tool_choice: "auto",
@@ -803,16 +803,17 @@ serve(async (req) => {
     let totalTokensIn = usage1.prompt_tokens || 0;
     let totalTokensOut = usage1.completion_tokens || 0;
 
-    // Gemini 3.1 Pro Preview pricing (estimated same tier)
-    const GEMINI_INPUT = 1.25 / 1_000_000 * 0.92;
-    const GEMINI_OUTPUT = 10.00 / 1_000_000 * 0.92;
+    // Pricing for the active default model
+    const _pricing = MODEL_PRICING[DEFAULT_MODEL] || MODEL_PRICING["google/gemini-2.5-flash"];
+    const GEMINI_INPUT = _pricing.in;
+    const GEMINI_OUTPUT = _pricing.out;
 
     // If no tool calls, return direct response
     if (!choice?.tool_calls || choice.tool_calls.length === 0) {
       const latencyMs = Date.now() - startTime;
       const costEur = totalTokensIn * GEMINI_INPUT + totalTokensOut * GEMINI_OUTPUT;
       await admin.from("auditoria_ia").insert({
-        modelo: "google/gemini-3.1-pro-preview",
+        modelo: DEFAULT_MODEL,
         funcion_ia: "ava-orchestrator",
         latencia_ms: latencyMs,
         tokens_entrada: totalTokensIn,
@@ -825,7 +826,7 @@ serve(async (req) => {
         user_id: user.id,
         action_type: "chat",
         agent_label: "AVA Orchestrator",
-      model: "google/gemini-3.1-pro-preview",
+      model: DEFAULT_MODEL,
         tokens_input: totalTokensIn,
         tokens_output: totalTokensOut,
         cost_eur: costEur,
