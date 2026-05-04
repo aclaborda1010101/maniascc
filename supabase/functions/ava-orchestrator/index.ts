@@ -1297,7 +1297,7 @@ serve(async (req) => {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          model: "google/gemini-3.1-pro-preview",
+          model: DEFAULT_MODEL,
           messages: attempt === 0 ? synthesisMessages : [
             // Simplified retry: just system + tool results + question
             { role: "system", content: "Eres AVA, asistente estratégica de inmobiliario comercial con un sarcasmo sutil y elegante (estilo consultor británico). Responde en español con markdown rico. El humor irónico va sobre datos o mercado, nunca sobre el usuario; una pincelada por respuesta basta." },
@@ -1330,7 +1330,7 @@ serve(async (req) => {
 
     // Audit
     await admin.from("auditoria_ia").insert({
-      modelo: "google/gemini-3.1-pro-preview",
+      modelo: DEFAULT_MODEL,
       funcion_ia: "ava-orchestrator",
       latencia_ms: latencyMs,
       tokens_entrada: totalTokensIn,
@@ -1345,7 +1345,7 @@ serve(async (req) => {
       user_id: user.id,
       action_type: "chat",
       agent_label: "AVA Orchestrator",
-      model: "google/gemini-3.1-pro-preview",
+      model: DEFAULT_MODEL,
       tokens_input: totalTokensIn,
       tokens_output: totalTokensOut,
       cost_eur: costEur,
