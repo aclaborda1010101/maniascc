@@ -146,7 +146,9 @@ serve(async (req) => {
     const visibilityOr = `visibility.in.(shared,global),owner_id.eq.${userId}`;
 
     let contextChunks: any[] = [];
-    const queryEmbedding = await getQueryEmbedding(admin, question, LOVABLE_API_KEY);
+    const queryEmbedding = GOOGLE_AI_API_KEY
+      ? await getQueryEmbedding(admin, question, GOOGLE_AI_API_KEY)
+      : null;
 
     if (queryEmbedding) {
       const rpcArgs: Record<string, unknown> = {
