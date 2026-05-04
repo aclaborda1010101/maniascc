@@ -568,6 +568,83 @@ serve(async (req) => {
 
     const startTime = Date.now();
 
+    // ─────────────────────────────────────────────────────────────
+    // FAST-PATH: small-talk (greetings, thanks, ack)
+    // Skip patterns/lessons/tools/RAG → respond with flash-lite ~500ms
+    // Only triggers if there are no attachments (those need full pipeline).
+    // ─────────────────────────────────────────────────────────────
+    if (isSmallTalk(message) && !attachments_context) {
+      console.log(`[fast-path] small-talk detected: "${message}"`);
+      try {
+        const recent = Array.isArray(history) ? history.slice(-4) : [];
+        const stMessages = [
+          {
+            role: "system",
+            content:
+              "Eres AVA, asistente estratégica de F&G Real Estate. Responde de forma BREVE (1-2 frases máximo), cálida pero profesional, con un toque de sarcasmo sutil estilo consultor británico dirigido a los datos, no al usuario. NO uses herramientas, NO menciones bases de datos. Si el usuario solo saluda, devuelve el saludo y ofrécete brevemente.",
+          },
+          ...recent.map((h: any) => ({ role: h.role, content: h.content })),
+          { role: "user", content: message },
+        ];
+        const stResp = await fetchAIWithTimeoutAndRetry(
+          "https://ai.gateway.lovable.dev/v1/chat/completions",
+          {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${lovableKey}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ model: SMALLTALK_MODEL, messages: stMessages }),
+          },
+          8000,
+          2,
+        );
+        if (stResp.ok) {
+          const stData = await stResp.json();
+          const stAnswer = stData.choices?.[0]?.message?.content || "Hola 👋 ¿En qué te ayudo?";
+          const stUsage = stData.usage || {};
+          const stIn = stUsage.prompt_tokens || 0;
+          const stOut = stUsage.completion_tokens || 0;
+          const pricing = MODEL_PRICING[SMALLTALK_MODEL];
+          const stCost = stIn * pricing.in + stOut * pricing.out;
+          const stLat = Date.now() - startTime;
+          // Best-effort audit (non-blocking)
+          admin.from("auditoria_ia").insert({
+            modelo: SMALLTALK_MODEL,
+            funcion_ia: "ava-orchestrator",
+            latencia_ms: stLat,
+            tokens_entrada: stIn,
+            tokens_salida: stOut,
+            coste_estimado: stCost,
+            exito: true,
+            created_by: user.id,
+          }).then(() => {});
+          admin.from("usage_logs").insert({
+            user_id: user.id,
+            action_type: "chat",
+            agent_label: "AVA Orchestrator (fast-path)",
+            model: SMALLTALK_MODEL,
+            tokens_input: stIn,
+            tokens_output: stOut,
+            cost_eur: stCost,
+            latency_ms: stLat,
+            metadata: { fast_path: true, message: message?.slice(0, 200) },
+          }).then(() => {});
+          return new Response(JSON.stringify({
+            answer: stAnswer,
+            tools_used: [],
+            latency_ms: stLat,
+            fast_path: true,
+          }), {
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+        console.warn("[fast-path] failed, falling back to full pipeline:", stResp.status);
+      } catch (e) {
+        console.warn("[fast-path] error, falling back:", e);
+      }
+    }
+
     // Infer current topic to filter relevant corrections
     const currentTopic = inferTopic(message, []);
 
