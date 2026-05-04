@@ -1287,8 +1287,11 @@ serve(async (req) => {
     );
 
     let finalAnswer: string = "";
+    let synthesisModel: string = DEFAULT_MODEL;
+    let escalatedTokensIn = 0;
+    let escalatedTokensOut = 0;
     
-    // Try synthesis up to 2 times
+    // Try synthesis up to 2 times with the default (fast) model
     for (let attempt = 0; attempt < 2; attempt++) {
       const synthesisResponse = await fetchAIWithTimeoutAndRetry("https://ai.gateway.lovable.dev/v1/chat/completions", {
         method: "POST",
@@ -1320,13 +1323,102 @@ serve(async (req) => {
       }
     }
 
+    // ─────────────────────────────────────────────────────────────
+    // DYNAMIC ESCALATION → gemini-3.1-pro-preview
+    // Trigger when the fast model produces a low-confidence / incomplete
+    // answer despite having tool results to ground it.
+    // ─────────────────────────────────────────────────────────────
+    function needsEscalation(answer: string, toolsUsed: number, toolErrors: number): boolean {
+      if (!answer) return true; // empty → definitely escalate
+      const a = answer.trim().toLowerCase();
+      // Very short answers when we DID gather data
+      if (toolsUsed > 0 && answer.trim().length < 220) return true;
+      // Explicit hedging / incompleteness markers
+      const hedgePatterns = [
+        "no tengo información", "no dispongo de", "no puedo determinar",
+        "no encuentro", "no he encontrado", "no se ha encontrado",
+        "no es posible", "no puedo responder", "no puedo formular",
+        "información insuficiente", "datos insuficientes",
+        "no estoy seguro", "no estoy segura",
+        "lo siento, no", "disculpa, no",
+        "i don't have", "i cannot", "insufficient",
+      ];
+      if (hedgePatterns.some(p => a.includes(p))) return true;
+      // Truncated / cut off mid-sentence (no terminal punctuation, long enough to suspect)
+      if (answer.length > 400 && !/[.!?…)\]}"`'`]\s*$/.test(answer.trim())) return true;
+      // If multiple tool errors occurred, the pro model handles ambiguity better
+      if (toolErrors >= 2 && toolsUsed > 0) return true;
+      return false;
+    }
+
+    const toolsUsedCount = Array.isArray(toolResults) ? toolResults.length : 0;
+    const toolErrorsCount = Array.isArray(toolResults)
+      ? toolResults.filter((t: any) => t?.error || t?.result?.error).length
+      : 0;
+    let escalated = false;
+    let escalationReason: string | null = null;
+
+    if (needsEscalation(finalAnswer, toolsUsedCount, toolErrorsCount)) {
+      escalationReason = !finalAnswer
+        ? "empty"
+        : finalAnswer.trim().length < 220
+          ? "too_short"
+          : "low_confidence";
+      console.log(`[escalation] → gemini-3.1-pro-preview (reason=${escalationReason}, len=${finalAnswer.length}, tools=${toolsUsedCount})`);
+      try {
+        const escResp = await fetchAIWithTimeoutAndRetry(
+          "https://ai.gateway.lovable.dev/v1/chat/completions",
+          {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${lovableKey}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              model: "google/gemini-3.1-pro-preview",
+              messages: synthesisMessages,
+            }),
+          },
+          60000,
+          1,
+        );
+        if (escResp.ok) {
+          const escData = await escResp.json();
+          const escAnswer = escData.choices?.[0]?.message?.content || "";
+          if (escAnswer && escAnswer.trim().length >= Math.max(40, finalAnswer.trim().length / 2)) {
+            finalAnswer = escAnswer;
+            synthesisModel = "google/gemini-3.1-pro-preview";
+            escalated = true;
+            const escUsage = escData.usage || {};
+            escalatedTokensIn = escUsage.prompt_tokens || 0;
+            escalatedTokensOut = escUsage.completion_tokens || 0;
+          } else {
+            console.warn(`[escalation] pro model returned weak answer (len=${escAnswer.length}), keeping flash output`);
+          }
+        } else {
+          console.error(`[escalation] failed: ${escResp.status} ${await escResp.text().catch(() => "")}`);
+        }
+      } catch (e) {
+        console.error("[escalation] error:", e);
+      }
+    }
+
     // Final fallback
     if (!finalAnswer) {
       finalAnswer = firstCallContent || formatToolResultsFallback(toolResults);
     }
 
     const latencyMs = Date.now() - startTime;
-    const costEur = totalTokensIn * GEMINI_INPUT + totalTokensOut * GEMINI_OUTPUT;
+    // Cost: base tokens at flash pricing + escalation tokens at pro pricing (if any)
+    const proPricing = MODEL_PRICING["google/gemini-3.1-pro-preview"];
+    const costEur =
+      totalTokensIn * GEMINI_INPUT +
+      totalTokensOut * GEMINI_OUTPUT +
+      escalatedTokensIn * proPricing.in +
+      escalatedTokensOut * proPricing.out;
+    totalTokensIn += escalatedTokensIn;
+    totalTokensOut += escalatedTokensOut;
+
 
     // Audit
     await admin.from("auditoria_ia").insert({
