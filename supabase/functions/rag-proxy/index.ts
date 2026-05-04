@@ -127,7 +127,7 @@ serve(async (req) => {
     const visibilityOr = `visibility.in.(shared,global),owner_id.eq.${userId}`;
 
     let contextChunks: any[] = [];
-    const queryEmbedding = await embedQuery(question, LOVABLE_API_KEY);
+    const queryEmbedding = await getQueryEmbedding(admin, question, LOVABLE_API_KEY);
 
     if (queryEmbedding) {
       const rpcArgs: Record<string, unknown> = {
@@ -138,10 +138,15 @@ serve(async (req) => {
         p_limit: 20,
       };
       if (dominios) rpcArgs.p_dominios = dominios;
-      const { data: hybrid } = await admin.rpc("rag_hybrid_search", rpcArgs as never);
+      console.time("rag:hybrid");
+      const { data: hybrid, error: hybridErr } = await admin.rpc("rag_hybrid_search", rpcArgs as never);
+      console.timeEnd("rag:hybrid");
+      if (hybridErr) console.warn("rag:hybrid error", hybridErr.message);
+      // La RPC v2 devuelve owner_id y visibility → el filtro ya funciona correctamente.
       contextChunks = (hybrid || []).filter((c: any) =>
         c.owner_id === userId || ["shared", "global"].includes(c.visibility)
       );
+      console.log(`rag:hybrid: ${hybrid?.length ?? 0} candidates → ${contextChunks.length} after visibility filter`);
     }
 
     if (contextChunks.length === 0) {
