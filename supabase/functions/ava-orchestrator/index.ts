@@ -76,6 +76,31 @@ function isAbortTimeoutError(error: unknown): boolean {
   );
 }
 
+// ============================================================
+// Default model: gemini-2.5-flash (fast + tool-calling capable)
+// Previously gemini-3.1-pro-preview was used → too slow for chat.
+// ============================================================
+const DEFAULT_MODEL = "google/gemini-2.5-flash";
+const SMALLTALK_MODEL = "google/gemini-2.5-flash-lite";
+
+// gemini-2.5-flash pricing (EUR, ~0.92 USD→EUR)
+const MODEL_PRICING: Record<string, { in: number; out: number }> = {
+  "google/gemini-2.5-flash":      { in: 0.30 / 1_000_000 * 0.92, out: 2.50 / 1_000_000 * 0.92 },
+  "google/gemini-2.5-flash-lite": { in: 0.10 / 1_000_000 * 0.92, out: 0.40 / 1_000_000 * 0.92 },
+  "google/gemini-3.1-pro-preview":{ in: 1.25 / 1_000_000 * 0.92, out: 10.00 / 1_000_000 * 0.92 },
+};
+
+// Detect trivial messages (greetings, thanks, ack) that should NOT
+// trigger the full orchestration with tools.
+function isSmallTalk(text: string): boolean {
+  if (!text) return false;
+  const t = text.trim().toLowerCase();
+  if (t.length > 40) return false;
+  // Greetings / farewells / thanks / acks in ES + EN
+  const re = /^(hola+|holi|holaa|buenas|buenos d[ií]as|buenas tardes|buenas noches|hey|hi+|hello+|saludos|qu[eé] tal|c[oó]mo (est[aá]s|vas)|gracias|muchas gracias|mil gracias|thank(s| you)|ok|okay|vale|perfecto|genial|entendido|de acuerdo|adi[oó]s|chao|hasta luego|bye|test|prueba|ping)[\s.!?¿¡]*$/i;
+  return re.test(t);
+}
+
 const SYSTEM_PROMPT = `Eres AVA, la asistente estratégica de F&G Real Estate especializada en retail e inmobiliario comercial. Tienes acceso a:
 1. BASE DE DATOS interna: locales, operadores, contactos, activos, proyectos/oportunidades, matches, negociaciones, documentos
 2. RAG HÍBRIDO (búsqueda textual + semántica con embeddings) sobre documentos indexados segmentados por dominio (centros_comerciales, legal, financiero, urbanismo, administrativo, comunicaciones, personal, general). **SIEMPRE** prueba rag_search primero cuando la pregunta menciona "documento", "contrato", "informe", "email", nombres de operadores o de proyectos/centros. **Respeta SIEMPRE el filtro de dominios activo del usuario** (no intentes saltártelo).
@@ -543,6 +568,83 @@ serve(async (req) => {
 
     const startTime = Date.now();
 
+    // ─────────────────────────────────────────────────────────────
+    // FAST-PATH: small-talk (greetings, thanks, ack)
+    // Skip patterns/lessons/tools/RAG → respond with flash-lite ~500ms
+    // Only triggers if there are no attachments (those need full pipeline).
+    // ─────────────────────────────────────────────────────────────
+    if (isSmallTalk(message) && !attachments_context) {
+      console.log(`[fast-path] small-talk detected: "${message}"`);
+      try {
+        const recent = Array.isArray(history) ? history.slice(-4) : [];
+        const stMessages = [
+          {
+            role: "system",
+            content:
+              "Eres AVA, asistente estratégica de F&G Real Estate. Responde de forma BREVE (1-2 frases máximo), cálida pero profesional, con un toque de sarcasmo sutil estilo consultor británico dirigido a los datos, no al usuario. NO uses herramientas, NO menciones bases de datos. Si el usuario solo saluda, devuelve el saludo y ofrécete brevemente.",
+          },
+          ...recent.map((h: any) => ({ role: h.role, content: h.content })),
+          { role: "user", content: message },
+        ];
+        const stResp = await fetchAIWithTimeoutAndRetry(
+          "https://ai.gateway.lovable.dev/v1/chat/completions",
+          {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${lovableKey}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ model: SMALLTALK_MODEL, messages: stMessages }),
+          },
+          8000,
+          2,
+        );
+        if (stResp.ok) {
+          const stData = await stResp.json();
+          const stAnswer = stData.choices?.[0]?.message?.content || "Hola 👋 ¿En qué te ayudo?";
+          const stUsage = stData.usage || {};
+          const stIn = stUsage.prompt_tokens || 0;
+          const stOut = stUsage.completion_tokens || 0;
+          const pricing = MODEL_PRICING[SMALLTALK_MODEL];
+          const stCost = stIn * pricing.in + stOut * pricing.out;
+          const stLat = Date.now() - startTime;
+          // Best-effort audit (non-blocking)
+          admin.from("auditoria_ia").insert({
+            modelo: SMALLTALK_MODEL,
+            funcion_ia: "ava-orchestrator",
+            latencia_ms: stLat,
+            tokens_entrada: stIn,
+            tokens_salida: stOut,
+            coste_estimado: stCost,
+            exito: true,
+            created_by: user.id,
+          }).then(() => {});
+          admin.from("usage_logs").insert({
+            user_id: user.id,
+            action_type: "chat",
+            agent_label: "AVA Orchestrator (fast-path)",
+            model: SMALLTALK_MODEL,
+            tokens_input: stIn,
+            tokens_output: stOut,
+            cost_eur: stCost,
+            latency_ms: stLat,
+            metadata: { fast_path: true, message: message?.slice(0, 200) },
+          }).then(() => {});
+          return new Response(JSON.stringify({
+            answer: stAnswer,
+            tools_used: [],
+            latency_ms: stLat,
+            fast_path: true,
+          }), {
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+        console.warn("[fast-path] failed, falling back to full pipeline:", stResp.status);
+      } catch (e) {
+        console.warn("[fast-path] error, falling back:", e);
+      }
+    }
+
     // Infer current topic to filter relevant corrections
     const currentTopic = inferTopic(message, []);
 
@@ -665,7 +767,7 @@ serve(async (req) => {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "google/gemini-3.1-pro-preview",
+        model: DEFAULT_MODEL,
         messages,
         tools: TOOLS,
         tool_choice: "auto",
@@ -701,16 +803,17 @@ serve(async (req) => {
     let totalTokensIn = usage1.prompt_tokens || 0;
     let totalTokensOut = usage1.completion_tokens || 0;
 
-    // Gemini 3.1 Pro Preview pricing (estimated same tier)
-    const GEMINI_INPUT = 1.25 / 1_000_000 * 0.92;
-    const GEMINI_OUTPUT = 10.00 / 1_000_000 * 0.92;
+    // Pricing for the active default model
+    const _pricing = MODEL_PRICING[DEFAULT_MODEL] || MODEL_PRICING["google/gemini-2.5-flash"];
+    const GEMINI_INPUT = _pricing.in;
+    const GEMINI_OUTPUT = _pricing.out;
 
     // If no tool calls, return direct response
     if (!choice?.tool_calls || choice.tool_calls.length === 0) {
       const latencyMs = Date.now() - startTime;
       const costEur = totalTokensIn * GEMINI_INPUT + totalTokensOut * GEMINI_OUTPUT;
       await admin.from("auditoria_ia").insert({
-        modelo: "google/gemini-3.1-pro-preview",
+        modelo: DEFAULT_MODEL,
         funcion_ia: "ava-orchestrator",
         latencia_ms: latencyMs,
         tokens_entrada: totalTokensIn,
@@ -723,7 +826,7 @@ serve(async (req) => {
         user_id: user.id,
         action_type: "chat",
         agent_label: "AVA Orchestrator",
-      model: "google/gemini-3.1-pro-preview",
+      model: DEFAULT_MODEL,
         tokens_input: totalTokensIn,
         tokens_output: totalTokensOut,
         cost_eur: costEur,
@@ -1194,7 +1297,7 @@ serve(async (req) => {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          model: "google/gemini-3.1-pro-preview",
+          model: DEFAULT_MODEL,
           messages: attempt === 0 ? synthesisMessages : [
             // Simplified retry: just system + tool results + question
             { role: "system", content: "Eres AVA, asistente estratégica de inmobiliario comercial con un sarcasmo sutil y elegante (estilo consultor británico). Responde en español con markdown rico. El humor irónico va sobre datos o mercado, nunca sobre el usuario; una pincelada por respuesta basta." },
@@ -1227,7 +1330,7 @@ serve(async (req) => {
 
     // Audit
     await admin.from("auditoria_ia").insert({
-      modelo: "google/gemini-3.1-pro-preview",
+      modelo: DEFAULT_MODEL,
       funcion_ia: "ava-orchestrator",
       latencia_ms: latencyMs,
       tokens_entrada: totalTokensIn,
@@ -1242,7 +1345,7 @@ serve(async (req) => {
       user_id: user.id,
       action_type: "chat",
       agent_label: "AVA Orchestrator",
-      model: "google/gemini-3.1-pro-preview",
+      model: DEFAULT_MODEL,
       tokens_input: totalTokensIn,
       tokens_output: totalTokensOut,
       cost_eur: costEur,
