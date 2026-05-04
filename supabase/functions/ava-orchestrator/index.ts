@@ -76,6 +76,31 @@ function isAbortTimeoutError(error: unknown): boolean {
   );
 }
 
+// ============================================================
+// Default model: gemini-2.5-flash (fast + tool-calling capable)
+// Previously gemini-3.1-pro-preview was used → too slow for chat.
+// ============================================================
+const DEFAULT_MODEL = "google/gemini-2.5-flash";
+const SMALLTALK_MODEL = "google/gemini-2.5-flash-lite";
+
+// gemini-2.5-flash pricing (EUR, ~0.92 USD→EUR)
+const MODEL_PRICING: Record<string, { in: number; out: number }> = {
+  "google/gemini-2.5-flash":      { in: 0.30 / 1_000_000 * 0.92, out: 2.50 / 1_000_000 * 0.92 },
+  "google/gemini-2.5-flash-lite": { in: 0.10 / 1_000_000 * 0.92, out: 0.40 / 1_000_000 * 0.92 },
+  "google/gemini-3.1-pro-preview":{ in: 1.25 / 1_000_000 * 0.92, out: 10.00 / 1_000_000 * 0.92 },
+};
+
+// Detect trivial messages (greetings, thanks, ack) that should NOT
+// trigger the full orchestration with tools.
+function isSmallTalk(text: string): boolean {
+  if (!text) return false;
+  const t = text.trim().toLowerCase();
+  if (t.length > 40) return false;
+  // Greetings / farewells / thanks / acks in ES + EN
+  const re = /^(hola+|holi|holaa|buenas|buenos d[ií]as|buenas tardes|buenas noches|hey|hi+|hello+|saludos|qu[eé] tal|c[oó]mo (est[aá]s|vas)|gracias|muchas gracias|mil gracias|thank(s| you)|ok|okay|vale|perfecto|genial|entendido|de acuerdo|adi[oó]s|chao|hasta luego|bye|test|prueba|ping)[\s.!?¿¡]*$/i;
+  return re.test(t);
+}
+
 const SYSTEM_PROMPT = `Eres AVA, la asistente estratégica de F&G Real Estate especializada en retail e inmobiliario comercial. Tienes acceso a:
 1. BASE DE DATOS interna: locales, operadores, contactos, activos, proyectos/oportunidades, matches, negociaciones, documentos
 2. RAG HÍBRIDO (búsqueda textual + semántica con embeddings) sobre documentos indexados segmentados por dominio (centros_comerciales, legal, financiero, urbanismo, administrativo, comunicaciones, personal, general). **SIEMPRE** prueba rag_search primero cuando la pregunta menciona "documento", "contrato", "informe", "email", nombres de operadores o de proyectos/centros. **Respeta SIEMPRE el filtro de dominios activo del usuario** (no intentes saltártelo).
