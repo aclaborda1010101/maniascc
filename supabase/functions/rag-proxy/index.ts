@@ -33,13 +33,21 @@ function parseEmbedding(raw: unknown): number[] | null {
   return null;
 }
 
+// Modelo de embedding usado para indexar todos los chunks (768d, compatible con HNSW existente).
+// El Lovable AI Gateway no expone modelos de embedding, por lo que usamos Google AI Studio
+// directamente con la misma API key que `rag-embed-chunks`.
+const EMBED_MODEL = "gemini-embedding-001";
+const EMBED_DIM = 768;
+const GOOGLE_EMBED_URL =
+  `https://generativelanguage.googleapis.com/v1beta/models/${EMBED_MODEL}:embedContent`;
+
 async function getQueryEmbedding(
   // deno-lint-ignore no-explicit-any
   admin: any,
   question: string,
-  lovableKey: string,
+  googleKey: string,
 ): Promise<number[] | null> {
-  if (!lovableKey) return null;
+  if (!googleKey) return null;
 
   // 1) Cache lookup (RPC SECURITY DEFINER)
   console.time("rag:embed:cache-lookup");
@@ -60,23 +68,30 @@ async function getQueryEmbedding(
     console.warn("rag:embed: cache lookup failed", err);
   }
 
-  // 2) Cache MISS → llamar al Lovable AI Gateway
-  console.time("rag:embed:gateway");
+  // 2) Cache MISS → llamar a Google AI Studio
+  console.time("rag:embed:google");
   try {
-    const r = await fetch("https://ai.gateway.lovable.dev/v1/embeddings", {
+    const r = await fetch(`${GOOGLE_EMBED_URL}?key=${googleKey}`, {
       method: "POST",
-      headers: { Authorization: `Bearer ${lovableKey}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ model: "google/text-embedding-004", input: question.slice(0, 8000) }),
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: `models/${EMBED_MODEL}`,
+        content: { parts: [{ text: question.slice(0, 8000) }] },
+        outputDimensionality: EMBED_DIM,
+      }),
     });
-    console.timeEnd("rag:embed:gateway");
+    console.timeEnd("rag:embed:google");
     if (!r.ok) {
       const errText = await r.text().catch(() => "<no body>");
-      console.warn(`rag:embed: gateway ${r.status} body=${errText.slice(0, 300)}`);
+      console.warn(`rag:embed: google ${r.status} body=${errText.slice(0, 300)}`);
       return null;
     }
     const d = await r.json();
-    const embedding: number[] | null = d.data?.[0]?.embedding ?? null;
-    if (!embedding) return null;
+    const embedding: number[] | null = d.embedding?.values ?? null;
+    if (!embedding || embedding.length === 0) {
+      console.warn("rag:embed: google returned empty embedding");
+      return null;
+    }
 
     // 3) Fire-and-forget cache write (no bloquea respuesta)
     admin
@@ -87,11 +102,12 @@ async function getQueryEmbedding(
 
     return embedding;
   } catch (err) {
-    console.timeEnd("rag:embed:gateway");
-    console.warn("rag:embed: gateway exception", err);
+    console.timeEnd("rag:embed:google");
+    console.warn("rag:embed: google exception", err);
     return null;
   }
 }
+
 
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
