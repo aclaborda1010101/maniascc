@@ -2693,6 +2693,39 @@ export type Database = {
           },
         ]
       }
+      query_embeddings_cache: {
+        Row: {
+          created_at: string
+          embedding: string
+          expires_at: string
+          hit_count: number
+          id: string
+          last_used_at: string
+          query_hash: string
+          query_text: string
+        }
+        Insert: {
+          created_at?: string
+          embedding: string
+          expires_at?: string
+          hit_count?: number
+          id?: string
+          last_used_at?: string
+          query_hash: string
+          query_text: string
+        }
+        Update: {
+          created_at?: string
+          embedding?: string
+          expires_at?: string
+          hit_count?: number
+          id?: string
+          last_used_at?: string
+          query_hash?: string
+          query_text?: string
+        }
+        Relationships: []
+      }
       rag_reprocess_queue: {
         Row: {
           created_at: string
@@ -3061,6 +3094,11 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      cache_query_embedding: {
+        Args: { p_embedding: string; p_query: string }
+        Returns: undefined
+      }
+      cleanup_query_cache: { Args: never; Returns: number }
       dashboard_stats: { Args: never; Returns: Json }
       delete_email: {
         Args: { message_id: number; queue_name: string }
@@ -3070,6 +3108,7 @@ export type Database = {
         Args: { payload: Json; queue_name: string }
         Returns: number
       }
+      get_cached_embedding: { Args: { p_query: string }; Returns: string }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
