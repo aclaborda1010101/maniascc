@@ -757,6 +757,11 @@ serve(async (req) => {
     // Infer current topic to filter relevant corrections
     const currentTopic = inferTopic(message, []);
 
+    // Load persistent user memory (top 30 facts) — non-blocking on failure
+    const userMemoryFacts = await loadUserMemory(admin, user.id);
+    const userMemoryBlock = formatUserMemoryBlock(userMemoryFacts);
+    console.log(`[user_memory] loaded ${userMemoryFacts.length} facts for user ${user.id}`);
+
     // Load learned patterns + recent corrections to inject as system context
     let lessonsBlock = "";
     try {
@@ -836,7 +841,7 @@ serve(async (req) => {
       : "";
 
     const messages: Array<{ role: string; content: string; tool_call_id?: string }> = [
-      { role: "system", content: SYSTEM_PROMPT + lessonsBlock + attachmentsBlock + domainFilterBlock },
+      { role: "system", content: SYSTEM_PROMPT + USER_MEMORY_RULES + userMemoryBlock + lessonsBlock + attachmentsBlock + domainFilterBlock },
     ];
 
     // Build context with cumulative summary for long conversations
@@ -1414,7 +1419,7 @@ serve(async (req) => {
 
     // Build synthesis messages with cumulative summary + lessons
     const synthesisMessages: Array<{ role: string; content: string }> = [
-      { role: "system", content: SYSTEM_PROMPT + lessonsBlock + attachmentsBlock },
+      { role: "system", content: SYSTEM_PROMPT + USER_MEMORY_RULES + userMemoryBlock + lessonsBlock + attachmentsBlock },
     ];
     
     if (cumulativeSummary) {
