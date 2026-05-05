@@ -1,59 +1,47 @@
-He revisado el estado real de la base y el aviso sigue teniendo sentido: aunque has ampliado capacidad, el backend todavía tiene un volumen de datos RAG desproporcionado. La nueva memoria de AVA no es el problema.
+He revisado el estado real de la base de datos ahora mismo. La cifra interna ya no cuadra con el aviso de “97%”.
 
-Diagnóstico actual:
-
-```text
-Tamaño total DB: ~12 GB
-
-public.document_chunks       ~7.6 GB
-  - tabla:   ~2.1 GB
-  - índices: ~3.2 GB
-  - índice HNSW embeddings: ~2.5 GB
-  - filas: ~565k chunks, todos con embedding
-
-public.document_embeddings   ~3.5 GB
-  - tabla legacy JSONB de embeddings
-  - filas: ~465k
-  - no aparece usada por frontend ni funciones actuales
-
-Resto de tablas: marginal frente a RAG
-```
-
-Conclusión: el aviso no viene del deploy de memoria, sino de que el sistema conserva dos capas de embeddings: la actual (`document_chunks.embedding`, usada por `rag-proxy`) y una tabla legacy (`document_embeddings`) que aparentemente ya no usa la app. Además, `document_chunks` tiene un índice vectorial HNSW grande, esperable para 565k embeddings.
-
-Plan propuesto para quitar el aviso de raíz sin romper AVA/RAG:
-
-1. Confirmar dependencia cero de `document_embeddings`
-   - Verificar en código y base que ninguna función activa consulta `document_embeddings`.
-   - Ya hay indicio fuerte: búsquedas en `src/` y `supabase/functions/` solo muestran referencias reales a `document_chunks`; `document_embeddings` aparece principalmente en migraciones/types.
-
-2. Crear migración segura de limpieza legacy
-   - Eliminar la tabla legacy `public.document_embeddings` si se confirma que no está en uso.
-   - Esto debería liberar aproximadamente 3.5 GB.
-   - No tocar `document_chunks`, porque es la fuente activa del RAG híbrido.
-
-3. Añadir mantenimiento preventivo de cache/query embeddings
-   - Mantener `query_embeddings_cache` pequeño usando la función existente de limpieza de expirados.
-   - Si procede, añadir/ajustar una política de retención en tablas auxiliares pequeñas, sin afectar conocimiento activo.
-
-4. Diagnóstico posterior a la migración
-   - Recalcular tamaños por tabla.
-   - Confirmar que `document_chunks` sigue intacta y con embeddings.
-   - Validar una consulta RAG/AVA normal contra `rag-proxy`/`ava-orchestrator` para asegurar que la búsqueda documental sigue funcionando.
-
-5. Si el aviso persiste tras liberar legacy
-   - El siguiente foco será reducir `document_chunks` sin perder calidad: deduplicación por `documento_id + chunk_index/contenido`, eliminación de documentos duplicados, o estrategia de archivado por dominios/proyectos.
-   - Esto lo dejaría como segunda fase, porque sí puede afectar cobertura RAG si se hace sin auditoría.
-
-Cambios previstos:
+Datos actuales comprobados:
 
 ```text
-Migrations:
-- drop seguro de public.document_embeddings tras validación final
-
-No se prevén cambios frontend.
-No se prevén cambios en ava-orchestrator.
-No se toca document_chunks ni su índice HNSW en esta fase.
+Tamaño real de base de datos: 8.48 GB
+Tablespace principal:         8.50 GB
+WAL / registros internos:     2.00 GB aprox.
+Total estimado real:          ~10.5 GB + overhead
 ```
 
-Riesgo: bajo si `document_embeddings` está efectivamente obsoleta. Beneficio: liberar una parte grande del disco y reducir presión de recursos sin degradar el RAG actual.
+Es decir: después de eliminar la tabla legacy, la base ya está muy por debajo del escenario crítico. El aviso que ves parece ser una métrica cacheada/desfasada de Lovable Cloud, no el estado real actual de los datos.
+
+También he detectado dos cosas relevantes:
+
+```text
+document_chunks        ~7.56 GB   Activo, NO tocar ahora: es el RAG principal.
+cron.job_run_details   ~762 MB    Historial técnico de tareas automáticas, se puede limpiar.
+```
+
+## Plan propuesto
+
+1. Esperar/forzar refresco de métricas de Cloud
+   - Recargar la vista de Cloud → Advanced Settings.
+   - Si el panel sigue mostrando 97%, esperar algo más porque las métricas de infraestructura pueden tardar más que las métricas SQL internas.
+   - La base ya marca 8.48 GB, por lo que no parece haber riesgo inmediato real.
+
+2. Hacer una limpieza segura adicional del historial técnico
+   - Limpiar `cron.job_run_details`, que ocupa ~762 MB y solo contiene historial de ejecuciones automáticas.
+   - Mantener, como máximo, los registros recientes necesarios para diagnóstico.
+   - Esto no afecta a documentos, RAG, usuarios, AVA ni memoria de usuario.
+
+3. Revisar el job de email que corre cada 5 segundos
+   - Hay una tarea automática de cola de emails ejecutándose cada 5 segundos.
+   - Eso genera muchísimo historial técnico aunque no haya actividad real.
+   - Ajustaría su frecuencia a algo menos agresivo, por ejemplo cada 30 o 60 segundos, si no hay una razón crítica para mantener 5 segundos.
+
+4. No tocar `document_chunks` en esta fase
+   - Es la fuente activa del RAG.
+   - Reducirla requiere una fase aparte: deduplicación, archivado o reindexado selectivo.
+   - Ahora mismo no lo recomiendo porque el problema aparente ya no viene de ahí, sino del aviso desfasado y algo de historial técnico acumulado.
+
+## Resultado esperado
+
+Después de aprobar este plan, ejecutaré una limpieza conservadora del historial técnico y revisaré la programación del job repetitivo. Eso debería reducir algo más el uso real y ayudar a que Lovable Cloud deje de marcar la instancia como crítica cuando sus métricas se actualicen.
+
+Si después de eso el panel siguiera mostrando 97%, ya no sería un problema de datos de la app, sino de refresco/estado de la métrica de Cloud, y habría que tratarlo como incidencia de la plataforma desde Advanced Settings.
