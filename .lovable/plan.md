@@ -1,27 +1,38 @@
-He confirmado que los buckets existen y que los ficheros están intactos: hay 4 buckets (`ava_attachments`, `documentos_contratos`, `documentos_generados`, `multimedia_locales`) con unos 130 MB en total. El fallo no parece ser pérdida de datos.
+Tienes razón: la corrección anterior no atacó el punto que sigue fallando en tu pantalla.
 
-El punto sospechoso es que `storage.buckets` tiene RLS activado pero no tiene ninguna política de lectura sobre buckets. Eso puede hacer que el panel de Storage no consiga listar los buckets aunque `storage.objects` sí tenga políticas para los archivos.
+He comprobado algo más concreto: la base de datos sí tiene los buckets, pero el endpoint que usa el panel de Cloud para listar Storage está devolviendo `[]` cuando entra como cliente público/anónimo. Eso explica por qué la UI sigue enseñando “Error loading buckets” aunque la tabla `storage.buckets` exista y aunque haya una política para usuarios autenticados.
 
 Plan de corrección:
 
-1. Añadir una migración segura para permitir listar buckets
-   - Crear políticas de `SELECT` sobre `storage.buckets` para usuarios autenticados.
-   - Mantener los buckets privados como privados; esto solo permite ver la lista/metadatos de buckets, no leer archivos privados.
-   - No tocar datos ni borrar archivos.
+1. Corregir permisos de listado de buckets para el panel de Cloud
+   - Añadir una política `SELECT` en `storage.buckets` también para el rol público/anónimo.
+   - Esto solo permite ver la lista/metadatos de buckets, no los archivos privados.
+   - Mantener los permisos reales de ficheros en `storage.objects`, que seguirán protegiendo `documentos_contratos`, `documentos_generados` y `ava_attachments`.
 
-2. Verificar políticas existentes de archivos
-   - Mantener las políticas actuales de `storage.objects` por bucket.
-   - Revisar si hay duplicados inofensivos, por ejemplo en `multimedia_locales`, pero no hacer limpieza agresiva salvo que sea necesario.
+2. Mantener privacidad de archivos
+   - No tocar las políticas de lectura/escritura de objetos privados.
+   - Los documentos privados seguirán siendo accesibles solo por su propietario o por roles permitidos.
+   - El bucket público `multimedia_locales` seguirá siendo público como ya estaba.
 
-3. Probar desde SQL que el estado queda coherente
-   - Confirmar que `storage.buckets` tiene políticas de lectura.
-   - Confirmar que siguen existiendo los 4 buckets y sus objetos.
+3. Verificar desde el endpoint real de Storage
+   - Probar `storage/v1/bucket` con la clave pública del proyecto.
+   - El resultado esperado después del cambio es que devuelva los 4 buckets en vez de `[]`.
+   - Si devuelve los buckets, Cloud → Storage debería dejar de fallar al pulsar “Try again” o al recargar.
 
-4. Indicaciones posteriores
-   - Después de aplicar la migración, recargar Cloud → Storage y pulsar “Try again”.
-   - Si el panel aún falla, el siguiente diagnóstico sería ya de plataforma/Cloud UI, porque la base de datos y las políticas quedarían correctas.
+4. Si después de eso la UI aún falla
+   - El problema ya no estaría en RLS/permisos de la base de datos, sino en el propio panel de Lovable Cloud o en la alerta de recursos/disk.
+   - En ese caso te indicaré abrir Backend → Logs/Advanced y, si procede, ampliar storage porque también estás viendo una alerta independiente de disco al 97%.
 
-Resultado esperado:
-- El panel Storage debería dejar de mostrar “Error loading buckets”.
-- No cambia la privacidad de los documentos ni de los adjuntos.
-- No afecta al RAG ni al almacenamiento real de la app.
+Cambio SQL previsto:
+
+```sql
+DROP POLICY IF EXISTS "Public can list bucket metadata" ON storage.buckets;
+
+CREATE POLICY "Public can list bucket metadata"
+ON storage.buckets
+FOR SELECT
+TO public
+USING (true);
+```
+
+Impacto: bajo. No borra datos, no cambia buckets, no hace públicos los archivos privados; solo permite que el listado de buckets sea visible para el cliente que usa el panel.
