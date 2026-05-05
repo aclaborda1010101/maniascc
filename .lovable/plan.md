@@ -1,47 +1,27 @@
-He revisado el estado real de la base de datos ahora mismo. La cifra interna ya no cuadra con el aviso de “97%”.
+He confirmado que los buckets existen y que los ficheros están intactos: hay 4 buckets (`ava_attachments`, `documentos_contratos`, `documentos_generados`, `multimedia_locales`) con unos 130 MB en total. El fallo no parece ser pérdida de datos.
 
-Datos actuales comprobados:
+El punto sospechoso es que `storage.buckets` tiene RLS activado pero no tiene ninguna política de lectura sobre buckets. Eso puede hacer que el panel de Storage no consiga listar los buckets aunque `storage.objects` sí tenga políticas para los archivos.
 
-```text
-Tamaño real de base de datos: 8.48 GB
-Tablespace principal:         8.50 GB
-WAL / registros internos:     2.00 GB aprox.
-Total estimado real:          ~10.5 GB + overhead
-```
+Plan de corrección:
 
-Es decir: después de eliminar la tabla legacy, la base ya está muy por debajo del escenario crítico. El aviso que ves parece ser una métrica cacheada/desfasada de Lovable Cloud, no el estado real actual de los datos.
+1. Añadir una migración segura para permitir listar buckets
+   - Crear políticas de `SELECT` sobre `storage.buckets` para usuarios autenticados.
+   - Mantener los buckets privados como privados; esto solo permite ver la lista/metadatos de buckets, no leer archivos privados.
+   - No tocar datos ni borrar archivos.
 
-También he detectado dos cosas relevantes:
+2. Verificar políticas existentes de archivos
+   - Mantener las políticas actuales de `storage.objects` por bucket.
+   - Revisar si hay duplicados inofensivos, por ejemplo en `multimedia_locales`, pero no hacer limpieza agresiva salvo que sea necesario.
 
-```text
-document_chunks        ~7.56 GB   Activo, NO tocar ahora: es el RAG principal.
-cron.job_run_details   ~762 MB    Historial técnico de tareas automáticas, se puede limpiar.
-```
+3. Probar desde SQL que el estado queda coherente
+   - Confirmar que `storage.buckets` tiene políticas de lectura.
+   - Confirmar que siguen existiendo los 4 buckets y sus objetos.
 
-## Plan propuesto
+4. Indicaciones posteriores
+   - Después de aplicar la migración, recargar Cloud → Storage y pulsar “Try again”.
+   - Si el panel aún falla, el siguiente diagnóstico sería ya de plataforma/Cloud UI, porque la base de datos y las políticas quedarían correctas.
 
-1. Esperar/forzar refresco de métricas de Cloud
-   - Recargar la vista de Cloud → Advanced Settings.
-   - Si el panel sigue mostrando 97%, esperar algo más porque las métricas de infraestructura pueden tardar más que las métricas SQL internas.
-   - La base ya marca 8.48 GB, por lo que no parece haber riesgo inmediato real.
-
-2. Hacer una limpieza segura adicional del historial técnico
-   - Limpiar `cron.job_run_details`, que ocupa ~762 MB y solo contiene historial de ejecuciones automáticas.
-   - Mantener, como máximo, los registros recientes necesarios para diagnóstico.
-   - Esto no afecta a documentos, RAG, usuarios, AVA ni memoria de usuario.
-
-3. Revisar el job de email que corre cada 5 segundos
-   - Hay una tarea automática de cola de emails ejecutándose cada 5 segundos.
-   - Eso genera muchísimo historial técnico aunque no haya actividad real.
-   - Ajustaría su frecuencia a algo menos agresivo, por ejemplo cada 30 o 60 segundos, si no hay una razón crítica para mantener 5 segundos.
-
-4. No tocar `document_chunks` en esta fase
-   - Es la fuente activa del RAG.
-   - Reducirla requiere una fase aparte: deduplicación, archivado o reindexado selectivo.
-   - Ahora mismo no lo recomiendo porque el problema aparente ya no viene de ahí, sino del aviso desfasado y algo de historial técnico acumulado.
-
-## Resultado esperado
-
-Después de aprobar este plan, ejecutaré una limpieza conservadora del historial técnico y revisaré la programación del job repetitivo. Eso debería reducir algo más el uso real y ayudar a que Lovable Cloud deje de marcar la instancia como crítica cuando sus métricas se actualicen.
-
-Si después de eso el panel siguiera mostrando 97%, ya no sería un problema de datos de la app, sino de refresco/estado de la métrica de Cloud, y habría que tratarlo como incidencia de la plataforma desde Advanced Settings.
+Resultado esperado:
+- El panel Storage debería dejar de mostrar “Error loading buckets”.
+- No cambia la privacidad de los documentos ni de los adjuntos.
+- No afecta al RAG ni al almacenamiento real de la app.
