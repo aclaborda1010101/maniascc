@@ -547,6 +547,42 @@ export type Database = {
           },
         ]
       }
+      ava_user_memory: {
+        Row: {
+          category: string | null
+          created_at: string
+          id: string
+          key: string
+          last_used_at: string
+          source: string
+          updated_at: string
+          user_id: string
+          value: string
+        }
+        Insert: {
+          category?: string | null
+          created_at?: string
+          id?: string
+          key: string
+          last_used_at?: string
+          source?: string
+          updated_at?: string
+          user_id: string
+          value: string
+        }
+        Update: {
+          category?: string | null
+          created_at?: string
+          id?: string
+          key?: string
+          last_used_at?: string
+          source?: string
+          updated_at?: string
+          user_id?: string
+          value?: string
+        }
+        Relationships: []
+      }
       configuraciones_tenant_mix: {
         Row: {
           centro_nombre: string

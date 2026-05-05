@@ -77,6 +77,84 @@ function isAbortTimeoutError(error: unknown): boolean {
 }
 
 // ============================================================
+// AVA USER MEMORY (memoria global persistente por usuario)
+// ============================================================
+interface UserMemoryFact {
+  key: string;
+  value: string;
+  category: string | null;
+  source: string;
+}
+
+async function loadUserMemory(admin: any, userId: string): Promise<UserMemoryFact[]> {
+  try {
+    const { data, error } = await admin
+      .from("ava_user_memory")
+      .select("id, key, value, category, source")
+      .eq("user_id", userId)
+      .order("last_used_at", { ascending: false })
+      .limit(30);
+    if (error) {
+      console.warn("[user_memory] load failed:", error.message);
+      return [];
+    }
+    const facts = (data || []) as Array<UserMemoryFact & { id: string }>;
+    if (facts.length > 0) {
+      const ids = facts.map(f => f.id);
+      // Fire-and-forget: refrescar last_used_at con cliente admin (no bloquea)
+      admin
+        .from("ava_user_memory")
+        .update({ last_used_at: new Date().toISOString() })
+        .in("id", ids)
+        .then(() => {})
+        .catch(() => {});
+    }
+    return facts.map(({ key, value, category, source }) => ({ key, value, category, source }));
+  } catch (e) {
+    console.warn("[user_memory] load exception:", e);
+    return [];
+  }
+}
+
+function formatUserMemoryBlock(facts: UserMemoryFact[]): string {
+  if (facts.length === 0) {
+    return `\n\n## SOBRE EL USUARIO\n(Aún no tienes hechos guardados sobre este usuario. Si en la conversación detectas datos persistentes — proyecto principal, operadores con los que trabaja habitualmente, preferencias estables — propón guardarlos con remember_fact siguiendo las reglas de abajo.)`;
+  }
+  const byCategory = new Map<string, string[]>();
+  for (const f of facts) {
+    const cat = f.category || "general";
+    if (!byCategory.has(cat)) byCategory.set(cat, []);
+    byCategory.get(cat)!.push(`- **${f.key}**: ${f.value}`);
+  }
+  const sections = Array.from(byCategory.entries())
+    .map(([cat, lines]) => `### ${cat}\n${lines.join("\n")}`)
+    .join("\n\n");
+  return `\n\n## SOBRE EL USUARIO (memoria persistente)\nUsa estos hechos como contexto silencioso. NO los recites salvo que aporten valor a la respuesta. Si alguno está obsoleto o el usuario lo corrige, llama a forget_fact o remember_fact para actualizarlo.\n\n${sections}`;
+}
+
+const USER_MEMORY_RULES = `
+
+## REGLAS DE MEMORIA PERSISTENTE (remember_fact / forget_fact)
+Tienes una memoria global del usuario que persiste entre conversaciones.
+
+**Guardar SIN preguntar (source="user_explicit"):**
+- El usuario dice "recuerda que…", "siempre prefiero…", "anota que…", "para futuras conversaciones…".
+- El usuario corrige un hecho ya guardado.
+
+**PREGUNTAR antes de guardar (source="ai_inferred"):**
+- Detectas un dato estable repetido en varias consultas (mismo operador 3+ veces, zona geográfica recurrente, etc.).
+- Ejemplo: "He notado que mencionas Mercadona a menudo. ¿Quieres que lo recuerde como operador habitual?"
+- Solo si el usuario confirma, llama a remember_fact con source="ai_inferred".
+
+**NUNCA guardes:**
+- Datos puntuales de una consulta concreta.
+- Información volátil (estado de una negociación, fechas próximas).
+- Datos sensibles no solicitados.
+
+**Formato de key:** snake_case corto y semántico (proyecto_principal, operadores_habituales, zona_foco, estilo_reportes). NUNCA uses keys efímeras como ultima_consulta_X.
+`;
+
+// ============================================================
 // Default model: gemini-2.5-flash (fast + tool-calling capable)
 // Previously gemini-3.1-pro-preview was used → too slow for chat.
 // ============================================================
@@ -436,6 +514,37 @@ const TOOLS = [
       },
     },
   },
+  {
+    type: "function",
+    function: {
+      name: "remember_fact",
+      description: "Guarda un hecho persistente sobre el usuario en su memoria global (visible en futuras conversaciones). USA SIEMPRE source='user_explicit' si el usuario lo pide directamente ('recuerda que…', 'siempre prefiero…') o si corrige un hecho previo. USA source='ai_inferred' SOLO después de pedirle confirmación cuando hayas detectado un patrón repetido. NUNCA guardes datos puntuales o volátiles.",
+      parameters: {
+        type: "object",
+        properties: {
+          key: { type: "string", description: "Identificador snake_case corto y estable. Ejemplos: proyecto_principal, operadores_habituales, zona_foco, estilo_reportes, modelo_negocio." },
+          value: { type: "string", description: "Valor del hecho en lenguaje natural breve (1-2 frases máx)." },
+          category: { type: "string", description: "Categoría libre opcional para agrupar (proyectos, operadores, preferencias, contexto). Default: general." },
+          source: { type: "string", enum: ["user_explicit", "ai_inferred"], description: "user_explicit: el usuario lo pidió o corrigió. ai_inferred: AVA lo dedujo y el usuario CONFIRMÓ guardarlo." },
+        },
+        required: ["key", "value", "source"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "forget_fact",
+      description: "Elimina un hecho de la memoria persistente del usuario. Úsalo cuando el usuario diga 'olvida que…', 'ya no…' o cuando corrija un hecho previo (en ese caso, primero forget_fact + luego remember_fact con el nuevo valor).",
+      parameters: {
+        type: "object",
+        properties: {
+          key: { type: "string", description: "Identificador exacto del hecho a borrar." },
+        },
+        required: ["key"],
+      },
+    },
+  },
 ];
 
 const INTELLIGENCE_FUNCTIONS: Record<string, string> = {
@@ -648,6 +757,11 @@ serve(async (req) => {
     // Infer current topic to filter relevant corrections
     const currentTopic = inferTopic(message, []);
 
+    // Load persistent user memory (top 30 facts) — non-blocking on failure
+    const userMemoryFacts = await loadUserMemory(admin, user.id);
+    const userMemoryBlock = formatUserMemoryBlock(userMemoryFacts);
+    console.log(`[user_memory] loaded ${userMemoryFacts.length} facts for user ${user.id}`);
+
     // Load learned patterns + recent corrections to inject as system context
     let lessonsBlock = "";
     try {
@@ -727,7 +841,7 @@ serve(async (req) => {
       : "";
 
     const messages: Array<{ role: string; content: string; tool_call_id?: string }> = [
-      { role: "system", content: SYSTEM_PROMPT + lessonsBlock + attachmentsBlock + domainFilterBlock },
+      { role: "system", content: SYSTEM_PROMPT + USER_MEMORY_RULES + userMemoryBlock + lessonsBlock + attachmentsBlock + domainFilterBlock },
     ];
 
     // Build context with cumulative summary for long conversations
@@ -978,6 +1092,51 @@ serve(async (req) => {
               match: null,
               summary,
             };
+          }
+        } else if (fnName === "remember_fact") {
+          toolLabel = "remember_fact";
+          const k = typeof args.key === "string" ? args.key.trim().toLowerCase().replace(/\s+/g, "_") : "";
+          const v = typeof args.value === "string" ? args.value.trim() : "";
+          const cat = typeof args.category === "string" && args.category.trim() ? args.category.trim().toLowerCase() : null;
+          const src = args.source === "ai_inferred" ? "ai_inferred" : "user_explicit";
+          if (!k || !v) {
+            result = { error: "remember_fact requiere key y value no vacíos" };
+          } else {
+            const { error: memErr } = await admin
+              .from("ava_user_memory")
+              .upsert(
+                {
+                  user_id: user.id,
+                  key: k,
+                  value: v,
+                  category: cat,
+                  source: src,
+                  last_used_at: new Date().toISOString(),
+                },
+                { onConflict: "user_id,key" }
+              );
+            if (memErr) {
+              result = { error: memErr.message };
+            } else {
+              result = { saved: true, key: k, source: src };
+            }
+          }
+        } else if (fnName === "forget_fact") {
+          toolLabel = "forget_fact";
+          const k = typeof args.key === "string" ? args.key.trim().toLowerCase().replace(/\s+/g, "_") : "";
+          if (!k) {
+            result = { error: "forget_fact requiere key" };
+          } else {
+            const { error: delErr } = await admin
+              .from("ava_user_memory")
+              .delete()
+              .eq("user_id", user.id)
+              .eq("key", k);
+            if (delErr) {
+              result = { error: delErr.message };
+            } else {
+              result = { deleted: true, key: k };
+            }
           }
         } else if (fnName === "run_intelligence") {
           toolLabel = "run_intelligence:" + (args.function_name || "");
@@ -1260,7 +1419,7 @@ serve(async (req) => {
 
     // Build synthesis messages with cumulative summary + lessons
     const synthesisMessages: Array<{ role: string; content: string }> = [
-      { role: "system", content: SYSTEM_PROMPT + lessonsBlock + attachmentsBlock },
+      { role: "system", content: SYSTEM_PROMPT + USER_MEMORY_RULES + userMemoryBlock + lessonsBlock + attachmentsBlock },
     ];
     
     if (cumulativeSummary) {

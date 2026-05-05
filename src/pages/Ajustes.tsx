@@ -10,8 +10,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   MessageSquare, Mail, CheckCircle2, Loader2, QrCode, Settings,
-  Shield, Sparkles, CheckCircle, Link2, User,
+  Shield, Sparkles, CheckCircle, Link2, User, Brain,
 } from "lucide-react";
+import { MemoriaUsuarioPanel } from "@/components/MemoriaUsuarioPanel";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
@@ -447,6 +448,7 @@ export default function Ajustes() {
         <TabsList>
           <TabsTrigger value="perfil"><User className="h-3 w-3" /> Perfil</TabsTrigger>
           <TabsTrigger value="conexiones"><Link2 className="h-3 w-3" /> Conexiones</TabsTrigger>
+          <TabsTrigger value="memoria"><Brain className="h-3 w-3" /> Memoria</TabsTrigger>
           <TabsTrigger value="auditoria"><Shield className="h-3 w-3" /> Auditoría</TabsTrigger>
           <TabsTrigger value="config"><Settings className="h-3 w-3" /> Configuración</TabsTrigger>
         </TabsList>
@@ -454,6 +456,7 @@ export default function Ajustes() {
         <div className="mt-5">
           <TabsContent value="perfil"><TabPerfil /></TabsContent>
           <TabsContent value="conexiones"><TabConexiones /></TabsContent>
+          <TabsContent value="memoria"><MemoriaUsuarioPanel /></TabsContent>
           <TabsContent value="auditoria"><TabAuditoria /></TabsContent>
           <TabsContent value="config"><TabConfiguracion /></TabsContent>
         </div>
