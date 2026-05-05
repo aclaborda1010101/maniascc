@@ -77,6 +77,84 @@ function isAbortTimeoutError(error: unknown): boolean {
 }
 
 // ============================================================
+// AVA USER MEMORY (memoria global persistente por usuario)
+// ============================================================
+interface UserMemoryFact {
+  key: string;
+  value: string;
+  category: string | null;
+  source: string;
+}
+
+async function loadUserMemory(admin: any, userId: string): Promise<UserMemoryFact[]> {
+  try {
+    const { data, error } = await admin
+      .from("ava_user_memory")
+      .select("id, key, value, category, source")
+      .eq("user_id", userId)
+      .order("last_used_at", { ascending: false })
+      .limit(30);
+    if (error) {
+      console.warn("[user_memory] load failed:", error.message);
+      return [];
+    }
+    const facts = (data || []) as Array<UserMemoryFact & { id: string }>;
+    if (facts.length > 0) {
+      const ids = facts.map(f => f.id);
+      // Fire-and-forget: refrescar last_used_at con cliente admin (no bloquea)
+      admin
+        .from("ava_user_memory")
+        .update({ last_used_at: new Date().toISOString() })
+        .in("id", ids)
+        .then(() => {})
+        .catch(() => {});
+    }
+    return facts.map(({ key, value, category, source }) => ({ key, value, category, source }));
+  } catch (e) {
+    console.warn("[user_memory] load exception:", e);
+    return [];
+  }
+}
+
+function formatUserMemoryBlock(facts: UserMemoryFact[]): string {
+  if (facts.length === 0) {
+    return `\n\n## SOBRE EL USUARIO\n(Aún no tienes hechos guardados sobre este usuario. Si en la conversación detectas datos persistentes — proyecto principal, operadores con los que trabaja habitualmente, preferencias estables — propón guardarlos con remember_fact siguiendo las reglas de abajo.)`;
+  }
+  const byCategory = new Map<string, string[]>();
+  for (const f of facts) {
+    const cat = f.category || "general";
+    if (!byCategory.has(cat)) byCategory.set(cat, []);
+    byCategory.get(cat)!.push(`- **${f.key}**: ${f.value}`);
+  }
+  const sections = Array.from(byCategory.entries())
+    .map(([cat, lines]) => `### ${cat}\n${lines.join("\n")}`)
+    .join("\n\n");
+  return `\n\n## SOBRE EL USUARIO (memoria persistente)\nUsa estos hechos como contexto silencioso. NO los recites salvo que aporten valor a la respuesta. Si alguno está obsoleto o el usuario lo corrige, llama a forget_fact o remember_fact para actualizarlo.\n\n${sections}`;
+}
+
+const USER_MEMORY_RULES = `
+
+## REGLAS DE MEMORIA PERSISTENTE (remember_fact / forget_fact)
+Tienes una memoria global del usuario que persiste entre conversaciones.
+
+**Guardar SIN preguntar (source="user_explicit"):**
+- El usuario dice "recuerda que…", "siempre prefiero…", "anota que…", "para futuras conversaciones…".
+- El usuario corrige un hecho ya guardado.
+
+**PREGUNTAR antes de guardar (source="ai_inferred"):**
+- Detectas un dato estable repetido en varias consultas (mismo operador 3+ veces, zona geográfica recurrente, etc.).
+- Ejemplo: "He notado que mencionas Mercadona a menudo. ¿Quieres que lo recuerde como operador habitual?"
+- Solo si el usuario confirma, llama a remember_fact con source="ai_inferred".
+
+**NUNCA guardes:**
+- Datos puntuales de una consulta concreta.
+- Información volátil (estado de una negociación, fechas próximas).
+- Datos sensibles no solicitados.
+
+**Formato de key:** snake_case corto y semántico (proyecto_principal, operadores_habituales, zona_foco, estilo_reportes). NUNCA uses keys efímeras como ultima_consulta_X.
+`;
+
+// ============================================================
 // Default model: gemini-2.5-flash (fast + tool-calling capable)
 // Previously gemini-3.1-pro-preview was used → too slow for chat.
 // ============================================================
