@@ -514,6 +514,37 @@ const TOOLS = [
       },
     },
   },
+  {
+    type: "function",
+    function: {
+      name: "remember_fact",
+      description: "Guarda un hecho persistente sobre el usuario en su memoria global (visible en futuras conversaciones). USA SIEMPRE source='user_explicit' si el usuario lo pide directamente ('recuerda que…', 'siempre prefiero…') o si corrige un hecho previo. USA source='ai_inferred' SOLO después de pedirle confirmación cuando hayas detectado un patrón repetido. NUNCA guardes datos puntuales o volátiles.",
+      parameters: {
+        type: "object",
+        properties: {
+          key: { type: "string", description: "Identificador snake_case corto y estable. Ejemplos: proyecto_principal, operadores_habituales, zona_foco, estilo_reportes, modelo_negocio." },
+          value: { type: "string", description: "Valor del hecho en lenguaje natural breve (1-2 frases máx)." },
+          category: { type: "string", description: "Categoría libre opcional para agrupar (proyectos, operadores, preferencias, contexto). Default: general." },
+          source: { type: "string", enum: ["user_explicit", "ai_inferred"], description: "user_explicit: el usuario lo pidió o corrigió. ai_inferred: AVA lo dedujo y el usuario CONFIRMÓ guardarlo." },
+        },
+        required: ["key", "value", "source"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "forget_fact",
+      description: "Elimina un hecho de la memoria persistente del usuario. Úsalo cuando el usuario diga 'olvida que…', 'ya no…' o cuando corrija un hecho previo (en ese caso, primero forget_fact + luego remember_fact con el nuevo valor).",
+      parameters: {
+        type: "object",
+        properties: {
+          key: { type: "string", description: "Identificador exacto del hecho a borrar." },
+        },
+        required: ["key"],
+      },
+    },
+  },
 ];
 
 const INTELLIGENCE_FUNCTIONS: Record<string, string> = {
