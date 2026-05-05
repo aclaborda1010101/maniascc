@@ -10,8 +10,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   MessageSquare, Mail, CheckCircle2, Loader2, QrCode, Settings,
-  Shield, Sparkles, CheckCircle, Link2, User,
+  Shield, Sparkles, CheckCircle, Link2, User, Brain,
 } from "lucide-react";
+import { MemoriaUsuarioPanel } from "@/components/MemoriaUsuarioPanel";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
