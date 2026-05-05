@@ -1124,51 +1124,6 @@ export type Database = {
           },
         ]
       }
-      document_embeddings: {
-        Row: {
-          chunk_id: string | null
-          contenido_normalizado: string | null
-          created_at: string | null
-          documento_id: string | null
-          dominio: string | null
-          embedding_json: Json | null
-          entidades_detectadas: Json | null
-          id: string
-          keywords: string[] | null
-          modelo_embedding: string | null
-          proyecto_id: string | null
-          relevancia_calculada: number | null
-        }
-        Insert: {
-          chunk_id?: string | null
-          contenido_normalizado?: string | null
-          created_at?: string | null
-          documento_id?: string | null
-          dominio?: string | null
-          embedding_json?: Json | null
-          entidades_detectadas?: Json | null
-          id?: string
-          keywords?: string[] | null
-          modelo_embedding?: string | null
-          proyecto_id?: string | null
-          relevancia_calculada?: number | null
-        }
-        Update: {
-          chunk_id?: string | null
-          contenido_normalizado?: string | null
-          created_at?: string | null
-          documento_id?: string | null
-          dominio?: string | null
-          embedding_json?: Json | null
-          entidades_detectadas?: Json | null
-          id?: string
-          keywords?: string[] | null
-          modelo_embedding?: string | null
-          proyecto_id?: string | null
-          relevancia_calculada?: number | null
-        }
-        Relationships: []
-      }
       document_links: {
         Row: {
           created_at: string
