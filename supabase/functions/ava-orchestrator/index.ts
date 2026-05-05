@@ -1088,6 +1088,51 @@ serve(async (req) => {
               summary,
             };
           }
+        } else if (fnName === "remember_fact") {
+          toolLabel = "remember_fact";
+          const k = typeof args.key === "string" ? args.key.trim().toLowerCase().replace(/\s+/g, "_") : "";
+          const v = typeof args.value === "string" ? args.value.trim() : "";
+          const cat = typeof args.category === "string" && args.category.trim() ? args.category.trim().toLowerCase() : null;
+          const src = args.source === "ai_inferred" ? "ai_inferred" : "user_explicit";
+          if (!k || !v) {
+            result = { error: "remember_fact requiere key y value no vacíos" };
+          } else {
+            const { error: memErr } = await admin
+              .from("ava_user_memory")
+              .upsert(
+                {
+                  user_id: user.id,
+                  key: k,
+                  value: v,
+                  category: cat,
+                  source: src,
+                  last_used_at: new Date().toISOString(),
+                },
+                { onConflict: "user_id,key" }
+              );
+            if (memErr) {
+              result = { error: memErr.message };
+            } else {
+              result = { saved: true, key: k, source: src };
+            }
+          }
+        } else if (fnName === "forget_fact") {
+          toolLabel = "forget_fact";
+          const k = typeof args.key === "string" ? args.key.trim().toLowerCase().replace(/\s+/g, "_") : "";
+          if (!k) {
+            result = { error: "forget_fact requiere key" };
+          } else {
+            const { error: delErr } = await admin
+              .from("ava_user_memory")
+              .delete()
+              .eq("user_id", user.id)
+              .eq("key", k);
+            if (delErr) {
+              result = { error: delErr.message };
+            } else {
+              result = { deleted: true, key: k };
+            }
+          }
         } else if (fnName === "run_intelligence") {
           toolLabel = "run_intelligence:" + (args.function_name || "");
           const funcName = INTELLIGENCE_FUNCTIONS[args.function_name];
