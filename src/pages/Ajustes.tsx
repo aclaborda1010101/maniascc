@@ -448,6 +448,7 @@ export default function Ajustes() {
         <TabsList>
           <TabsTrigger value="perfil"><User className="h-3 w-3" /> Perfil</TabsTrigger>
           <TabsTrigger value="conexiones"><Link2 className="h-3 w-3" /> Conexiones</TabsTrigger>
+          <TabsTrigger value="memoria"><Brain className="h-3 w-3" /> Memoria</TabsTrigger>
           <TabsTrigger value="auditoria"><Shield className="h-3 w-3" /> Auditoría</TabsTrigger>
           <TabsTrigger value="config"><Settings className="h-3 w-3" /> Configuración</TabsTrigger>
         </TabsList>
@@ -455,6 +456,7 @@ export default function Ajustes() {
         <div className="mt-5">
           <TabsContent value="perfil"><TabPerfil /></TabsContent>
           <TabsContent value="conexiones"><TabConexiones /></TabsContent>
+          <TabsContent value="memoria"><MemoriaUsuarioPanel /></TabsContent>
           <TabsContent value="auditoria"><TabAuditoria /></TabsContent>
           <TabsContent value="config"><TabConfiguracion /></TabsContent>
         </div>
