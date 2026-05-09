@@ -13,6 +13,7 @@ import {
   Shield, Sparkles, CheckCircle, Link2, User, Brain,
 } from "lucide-react";
 import { MemoriaUsuarioPanel } from "@/components/MemoriaUsuarioPanel";
+import { ThemeToggle } from "@/components/ThemeToggle";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
