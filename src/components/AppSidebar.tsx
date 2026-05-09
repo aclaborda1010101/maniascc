@@ -65,9 +65,9 @@ export function AppSidebar() {
           >
             <NavLink to={item.url} end={item.url === "/dashboard"} className="" activeClassName="">
               <span
-                className={`relative flex items-center gap-3 rounded-xl px-2.5 py-2 w-full transition-all
+                className={`sidebar-item relative flex items-center gap-3 rounded-xl px-2.5 py-2 w-full transition-all
                   ${active
-                    ? "text-white"
+                    ? "sidebar-item-active text-white"
                     : "text-white/70 hover:text-white hover:bg-white/[0.04]"}`}
                 style={active ? {
                   background: "linear-gradient(135deg, hsl(var(--acc-1) / 0.18), hsl(var(--acc-2) / 0.14))",
