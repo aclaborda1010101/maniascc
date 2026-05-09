@@ -66,6 +66,7 @@ export function AppLayout() {
                 </span>
               </button>
 
+              <ThemeToggle compact />
               <NotificationCenter />
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
