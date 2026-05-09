@@ -587,15 +587,19 @@
 /* Prose/markdown tablas con white/X */
 .light .bg-white\/\[0\.02\] { background-color: hsl(200 30% 18% / 0.025); }
 
-/* Light theme — capturar también clases arbitrarias bg-white/[0.0X] etc. */
-.light [class*="bg-white\/"] {
+/* Light theme — capturar clases arbitrarias bg-white/[0.0X] etc.,
+   excluyendo variantes hover:/focus:/active: para no aplicar en reposo */
+.light [class*="bg-white\/"]:not([class*="hover\:bg-white"]):not([class*="focus\:bg-white"]):not([class*="active\:bg-white"]):not([class*="data-\[state\=active\]\:bg-white"]) {
   background-color: hsl(200 30% 18% / 0.05);
 }
-.light [class*="border-white\/"] {
+.light [class*="border-white\/"]:not([class*="hover\:border-white"]):not([class*="focus\:border-white"]) {
   border-color: hsl(200 30% 18% / 0.10);
 }
 .light [class*="hover\:bg-white\/"]:hover {
   background-color: hsl(200 30% 18% / 0.07);
+}
+.light [class*="hover\:border-white\/"]:hover {
+  border-color: hsl(200 30% 18% / 0.14);
 }
 
 /* Sidebar hover/active legible en claro */
