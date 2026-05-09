@@ -69,8 +69,60 @@
     --chart-5: var(--acc-5);
   }
 
+  /* Base background token (used by inline styles) — overridden in .light */
+  :root { --bg-base: 200 35% 6%; }
+
+  /* ── Light theme ─────────────────────────────────── */
+  .light {
+    --bg-base: 200 30% 97%;
+    --background: 200 30% 97%;
+    --foreground: 200 40% 12%;
+
+    --card: 200 30% 20%;          /* alpha applied — dark tints over light bg */
+    --card-foreground: 200 40% 12%;
+    --card-elevated: 200 30% 20%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 200 40% 12%;
+
+    --primary: 200 95% 42%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 200 30% 20%;
+    --secondary-foreground: 200 40% 12%;
+
+    --muted: 200 30% 20%;
+    --muted-foreground: 200 15% 38%;
+
+    --accent: 175 70% 38%;
+    --accent-foreground: 0 0% 100%;
+
+    --destructive: 0 75% 50%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 200 30% 20%;
+    --input: 200 30% 20%;
+    --ring: 200 95% 42%;
+
+    --acc-1: 210 90% 50%;
+    --acc-2: 175 75% 38%;
+    --acc-3: 155 65% 40%;
+    --acc-4: 190 85% 42%;
+    --acc-5: 145 55% 38%;
+
+    --sidebar-background: 200 30% 97%;
+    --sidebar-foreground: 200 40% 12%;
+    --sidebar-primary: var(--acc-1);
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 200 30% 20% / 0;
+    --sidebar-accent-foreground: 200 40% 12%;
+    --sidebar-border: 200 30% 20%;
+    --sidebar-ring: var(--acc-1);
+  }
+
   /* Forced dark — keep .dark mirroring :root for any old references */
   .dark {
+    --bg-base: 200 35% 6%;
     --background: 200 35% 6%;
     --foreground: 0 0% 96%;
     --card: 0 0% 100%;
