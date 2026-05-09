@@ -50,7 +50,7 @@ function PageLoader() {
 }
 
 const App = () => (
-  <ThemeProvider attribute="class" defaultTheme="dark" enableSystem={false} forcedTheme="dark">
+  <ThemeProvider attribute="class" defaultTheme="dark" enableSystem disableTransitionOnChange>
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
         <Toaster />
