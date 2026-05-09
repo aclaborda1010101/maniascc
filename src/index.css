@@ -170,7 +170,7 @@
   body {
     @apply bg-background text-foreground antialiased;
     font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'SF Pro Text', 'Inter', system-ui, sans-serif;
-    background-color: hsl(200 35% 5%);
+    background-color: hsl(var(--bg-base));
     font-size: 14px;
     line-height: 1.5;
     letter-spacing: -0.005em;
