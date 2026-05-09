@@ -7,6 +7,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { useMatchNotifications } from "@/hooks/useMatchNotifications";
 import { NotificationCenter } from "@/components/NotificationCenter";
 import { BottomNav } from "@/components/BottomNav";
+import { ThemeToggle } from "@/components/ThemeToggle";
 
 import { Sparkles } from "lucide-react";
 
