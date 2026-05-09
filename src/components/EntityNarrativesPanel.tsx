@@ -282,7 +282,7 @@ export function EntityNarrativesPanel({
       }`}
       style={{
         backgroundImage:
-          "radial-gradient(120% 80% at 0% 0%, hsl(var(--acc-2) / 0.18) 0%, transparent 55%), radial-gradient(120% 80% at 100% 100%, hsl(var(--acc-1) / 0.12) 0%, transparent 55%), linear-gradient(180deg, hsl(var(--acc-2) / 0.06) 0%, hsl(200 35% 6% / 0.55) 100%)",
+          "radial-gradient(120% 80% at 0% 0%, hsl(var(--acc-2) / 0.18) 0%, transparent 55%), radial-gradient(120% 80% at 100% 100%, hsl(var(--acc-1) / 0.12) 0%, transparent 55%), linear-gradient(180deg, hsl(var(--acc-2) / 0.06) 0%, hsl(var(--bg-base) / 0.55) 100%)",
       }}
     >
       {/* Halo superior teal */}

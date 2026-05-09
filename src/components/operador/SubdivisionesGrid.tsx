@@ -79,7 +79,7 @@ export function SubdivisionesGrid({ operadorId }: { operadorId: string }) {
         className="relative overflow-hidden border-0 backdrop-blur-xl"
         style={{
           backgroundImage:
-            "radial-gradient(120% 80% at 50% 0%, hsl(var(--acc-2) / 0.08) 0%, transparent 55%), linear-gradient(180deg, hsl(var(--acc-2) / 0.03) 0%, hsl(200 35% 6% / 0.5) 100%)",
+            "radial-gradient(120% 80% at 50% 0%, hsl(var(--acc-2) / 0.08) 0%, transparent 55%), linear-gradient(180deg, hsl(var(--acc-2) / 0.03) 0%, hsl(var(--bg-base) / 0.5) 100%)",
         }}
       >
         <CardContent className="py-8 text-center text-sm text-muted-foreground space-y-2">
@@ -109,7 +109,7 @@ export function SubdivisionesGrid({ operadorId }: { operadorId: string }) {
             className="relative overflow-hidden border-0 backdrop-blur-xl"
             style={{
               backgroundImage:
-                "radial-gradient(120% 80% at 0% 0%, hsl(var(--acc-2) / 0.10) 0%, transparent 55%), linear-gradient(180deg, hsl(var(--acc-2) / 0.04) 0%, hsl(200 35% 6% / 0.5) 100%)",
+                "radial-gradient(120% 80% at 0% 0%, hsl(var(--acc-2) / 0.10) 0%, transparent 55%), linear-gradient(180deg, hsl(var(--acc-2) / 0.04) 0%, hsl(var(--bg-base) / 0.5) 100%)",
               boxShadow: "0 1px 0 0 hsl(var(--acc-2) / 0.12) inset",
             }}
           >
