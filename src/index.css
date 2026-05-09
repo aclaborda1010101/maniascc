@@ -604,3 +604,61 @@
 
 /* Sidebar hover/active legible en claro */
 .light .glass [class*="text-white"] { color: hsl(var(--foreground)); }
+
+/* ═══════════════════════════════════════════════════════
+   LIGHT THEME — preservar texto blanco sobre superficies
+   con gradiente (incluye inline style="linear-gradient(...)")
+   ═══════════════════════════════════════════════════════ */
+.light [style*="linear-gradient"].text-white,
+.light [style*="linear-gradient"] .text-white,
+.light [style*="gradient"].text-white,
+.light [style*="gradient"] .text-white,
+.light .keep-white,
+.light .keep-white * {
+  color: #fff !important;
+}
+.light [style*="linear-gradient"] [class*="text-white\\/"],
+.light [style*="gradient"] [class*="text-white\\/"] {
+  color: hsl(0 0% 100% / 0.85) !important;
+}
+
+/* Botones primary/secondary/outline: en claro mejorar contraste */
+.light .bg-primary\/15 { background-color: hsl(var(--primary) / 0.10); }
+.light .bg-primary\/25 { background-color: hsl(var(--primary) / 0.18); }
+.light .border-primary\/20 { border-color: hsl(var(--primary) / 0.25); }
+.light .border-primary\/25 { border-color: hsl(var(--primary) / 0.30); }
+
+/* Iconos lucide dentro de superficies claras: que hereden foreground */
+.light .glass svg:not([class*="text-"]):not([fill]),
+.light button svg:not([class*="text-"]):not([fill]) {
+  color: currentColor;
+}
+
+/* Cards de selección (tiles del Generador) — mejor borde y sombra en claro */
+.light [class*="ring-2"][class*="ring-primary"] {
+  --tw-ring-color: hsl(var(--primary) / 0.45);
+  box-shadow: 0 0 0 2px hsl(var(--primary) / 0.45), 0 8px 24px -10px hsl(var(--primary) / 0.25);
+}
+
+/* Inputs y textareas: fondo blanco sólido en claro para legibilidad */
+.light input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
+.light textarea,
+.light [role="combobox"],
+.light .light\:bg-white {
+  background-color: hsl(0 0% 100% / 0.95);
+  color: hsl(var(--foreground));
+}
+.light input::placeholder,
+.light textarea::placeholder {
+  color: hsl(var(--foreground) / 0.45);
+}
+
+/* SelectTrigger / dropdowns con bg-white/X en reposo: aclarar a blanco */
+.light [data-radix-select-trigger],
+.light [data-radix-popper-content-wrapper] [role="listbox"],
+.light [data-radix-popover-content],
+.light [data-radix-dropdown-menu-content] {
+  background-color: hsl(0 0% 100% / 0.98);
+  color: hsl(var(--foreground));
+  border-color: hsl(200 30% 20% / 0.12);
+}
