@@ -445,6 +445,16 @@ export default function Ajustes() {
         <p className="text-sm text-muted-foreground">Perfil, conexiones, auditoría y configuración del sistema</p>
       </div>
 
+      <Card className="glass">
+        <CardHeader>
+          <CardTitle className="text-lg">Apariencia</CardTitle>
+          <CardDescription>Elige el tema de la interfaz: claro, oscuro o automático según tu sistema.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <ThemeToggle />
+        </CardContent>
+      </Card>
+
       <Tabs defaultValue="perfil">
         <TabsList>
           <TabsTrigger value="perfil"><User className="h-3 w-3" /> Perfil</TabsTrigger>
