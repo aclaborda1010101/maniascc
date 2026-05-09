@@ -7,6 +7,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { useMatchNotifications } from "@/hooks/useMatchNotifications";
 import { NotificationCenter } from "@/components/NotificationCenter";
 import { BottomNav } from "@/components/BottomNav";
+import { ThemeToggle } from "@/components/ThemeToggle";
 
 import { Sparkles } from "lucide-react";
 
@@ -21,7 +22,7 @@ export function AppLayout() {
 
   return (
     <SidebarProvider>
-      <div className="min-h-screen flex w-full overflow-x-hidden" style={{ background: "hsl(200 35% 5%)" }}>
+      <div className="min-h-screen flex w-full overflow-x-hidden" style={{ background: "hsl(var(--bg-base))" }}>
         {/* Ambient iridescent blobs (fixed, behind everything) */}
         <div className="ambient" aria-hidden>
           <div className="ambient-blob-3" />
@@ -37,7 +38,7 @@ export function AppLayout() {
           <header
             className="hidden md:flex h-14 items-center px-6 gap-4 shrink-0 sticky top-0 z-20"
             style={{
-              background: "hsl(200 35% 6% / 0.55)",
+              background: "hsl(var(--bg-base) / 0.55)",
               backdropFilter: "blur(40px) saturate(1.6)",
               WebkitBackdropFilter: "blur(40px) saturate(1.6)",
               borderBottom: "1px solid hsl(240 30% 100% / 0.07)",
@@ -65,6 +66,7 @@ export function AppLayout() {
                 </span>
               </button>
 
+              <ThemeToggle compact />
               <NotificationCenter />
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>

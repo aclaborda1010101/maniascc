@@ -1,38 +1,37 @@
-Tienes razón: la corrección anterior no atacó el punto que sigue fallando en tu pantalla.
+## Añadir modo de tema claro
 
-He comprobado algo más concreto: la base de datos sí tiene los buckets, pero el endpoint que usa el panel de Cloud para listar Storage está devolviendo `[]` cuando entra como cliente público/anónimo. Eso explica por qué la UI sigue enseñando “Error loading buckets” aunque la tabla `storage.buckets` exista y aunque haya una política para usuarios autenticados.
+Actualmente la app está bloqueada en modo oscuro (`forcedTheme="dark"` en `App.tsx`) y varios componentes tienen colores oscuros "hardcoded" en línea (fondos `hsl(200 35% 5%)`, headers translúcidos oscuros, etc.). Para soportar tema claro hay que:
 
-Plan de corrección:
+### 1. Definir paleta clara en `src/index.css`
+- Añadir un bloque `.light { ... }` (o usar `:root` para light y `.dark` para dark, invirtiendo el actual) con tokens HSL equivalentes:
+  - `--background`, `--foreground`, `--card`, `--popover`, `--muted`, `--border`, `--sidebar-*` adaptados a fondo claro (p. ej. `--background: 200 30% 97%`, `--foreground: 200 35% 10%`).
+  - Mantener los acentos iridiscentes (`--acc-1..5`) iguales para preservar identidad de marca; ajustar solo luminosidad si se ve mal sobre claro.
+- Revisar reglas globales `glass`, `ambient-blob-*`, gradientes que asumen fondo oscuro y crear variantes claras (mismas clases, distintos valores según `.dark`/`.light`).
 
-1. Corregir permisos de listado de buckets para el panel de Cloud
-   - Añadir una política `SELECT` en `storage.buckets` también para el rol público/anónimo.
-   - Esto solo permite ver la lista/metadatos de buckets, no los archivos privados.
-   - Mantener los permisos reales de ficheros en `storage.objects`, que seguirán protegiendo `documentos_contratos`, `documentos_generados` y `ava_attachments`.
+### 2. Habilitar conmutación en `App.tsx`
+- Quitar `forcedTheme="dark"`, dejar `defaultTheme="dark"` y `enableSystem={true}` (o configurable).
+- Añadir `disableTransitionOnChange` para evitar flashes.
 
-2. Mantener privacidad de archivos
-   - No tocar las políticas de lectura/escritura de objetos privados.
-   - Los documentos privados seguirán siendo accesibles solo por su propietario o por roles permitidos.
-   - El bucket público `multimedia_locales` seguirá siendo público como ya estaba.
+### 3. Sustituir colores hardcoded por tokens
+Ficheros con `hsl(200 35% ...)` u otros valores fijos detectados (al menos):
+- `src/components/AppLayout.tsx` (fondo wrapper y header desktop).
+- `src/components/BottomNav.tsx`, `AppSidebar.tsx`, `NotificationCenter.tsx`, paneles AVA, etc.
+- Reemplazar por `hsl(var(--background))`, `hsl(var(--card) / 0.55)`, `border-border`, `text-foreground/55`, etc.
+- Recorrer con `rg "hsl\("` para localizar todos los casos y migrar de forma sistemática.
 
-3. Verificar desde el endpoint real de Storage
-   - Probar `storage/v1/bucket` con la clave pública del proyecto.
-   - El resultado esperado después del cambio es que devuelva los 4 buckets en vez de `[]`.
-   - Si devuelve los buckets, Cloud → Storage debería dejar de fallar al pulsar “Try again” o al recargar.
+### 4. Añadir un selector de tema
+- Crear `ThemeToggle` (icono Sol/Luna/Sistema) usando `useTheme()` de `next-themes`.
+- Colocarlo en:
+  - Topbar desktop de `AppLayout` (junto a la campana y avatar).
+  - Página `Ajustes` como sección "Apariencia" con tres opciones: Claro / Oscuro / Sistema (persistencia automática vía `next-themes` en `localStorage`).
 
-4. Si después de eso la UI aún falla
-   - El problema ya no estaría en RLS/permisos de la base de datos, sino en el propio panel de Lovable Cloud o en la alerta de recursos/disk.
-   - En ese caso te indicaré abrir Backend → Logs/Advanced y, si procede, ampliar storage porque también estás viendo una alerta independiente de disco al 97%.
+### 5. QA visual
+- Revisar Dashboard, Asistente, fichas Plan A/B/C, Operadores, Documentos en ambos temas para detectar contrastes rotos y ajustar tokens puntuales.
 
-Cambio SQL previsto:
+### Notas técnicas
+- `next-themes` ya está integrado; basta con quitar el `forcedTheme` y montar el toggle.
+- El sistema de glassmorphism funcionará en claro siempre que los blobs ambient y los `backdrop-filter` se calibren con tokens (no con valores literales).
+- No se toca lógica de negocio, solo presentación.
 
-```sql
-DROP POLICY IF EXISTS "Public can list bucket metadata" ON storage.buckets;
-
-CREATE POLICY "Public can list bucket metadata"
-ON storage.buckets
-FOR SELECT
-TO public
-USING (true);
-```
-
-Impacto: bajo. No borra datos, no cambia buckets, no hace públicos los archivos privados; solo permite que el listado de buckets sea visible para el cliente que usa el panel.
+### Alcance opcional (confirmar)
+¿Quieres que el tema claro también afecte a documentos generados (PDFs / informes McKinsey-style) o solo a la UI de la app? Por defecto **solo UI** — los PDFs mantienen su estética actual.

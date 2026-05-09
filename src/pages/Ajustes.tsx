@@ -13,6 +13,7 @@ import {
   Shield, Sparkles, CheckCircle, Link2, User, Brain,
 } from "lucide-react";
 import { MemoriaUsuarioPanel } from "@/components/MemoriaUsuarioPanel";
+import { ThemeToggle } from "@/components/ThemeToggle";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
@@ -443,6 +444,16 @@ export default function Ajustes() {
         </h1>
         <p className="text-sm text-muted-foreground">Perfil, conexiones, auditoría y configuración del sistema</p>
       </div>
+
+      <Card className="glass">
+        <CardHeader>
+          <CardTitle className="text-lg">Apariencia</CardTitle>
+          <CardDescription>Elige el tema de la interfaz: claro, oscuro o automático según tu sistema.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <ThemeToggle />
+        </CardContent>
+      </Card>
 
       <Tabs defaultValue="perfil">
         <TabsList>

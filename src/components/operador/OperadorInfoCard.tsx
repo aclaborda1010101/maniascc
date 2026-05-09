@@ -56,7 +56,7 @@ export function OperadorInfoCard({ operador }: Props) {
       className="relative overflow-hidden border-0 backdrop-blur-xl"
       style={{
         backgroundImage:
-          "radial-gradient(120% 80% at 100% 0%, hsl(var(--acc-2) / 0.18) 0%, transparent 55%), linear-gradient(180deg, hsl(var(--acc-2) / 0.05) 0%, hsl(200 35% 6% / 0.55) 100%)",
+          "radial-gradient(120% 80% at 100% 0%, hsl(var(--acc-2) / 0.18) 0%, transparent 55%), linear-gradient(180deg, hsl(var(--acc-2) / 0.05) 0%, hsl(var(--bg-base) / 0.55) 100%)",
         boxShadow: "0 1px 0 0 hsl(var(--acc-2) / 0.2) inset",
       }}
     >
