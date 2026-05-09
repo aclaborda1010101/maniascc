@@ -586,3 +586,17 @@
 
 /* Prose/markdown tablas con white/X */
 .light .bg-white\/\[0\.02\] { background-color: hsl(200 30% 18% / 0.025); }
+
+/* Light theme — capturar también clases arbitrarias bg-white/[0.0X] etc. */
+.light [class*="bg-white\/"] {
+  background-color: hsl(200 30% 18% / 0.05);
+}
+.light [class*="border-white\/"] {
+  border-color: hsl(200 30% 18% / 0.10);
+}
+.light [class*="hover\:bg-white\/"]:hover {
+  background-color: hsl(200 30% 18% / 0.07);
+}
+
+/* Sidebar hover/active legible en claro */
+.light .glass [class*="text-white"] { color: hsl(var(--foreground)); }
