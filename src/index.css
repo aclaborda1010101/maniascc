@@ -461,3 +461,72 @@
   background: hsl(0 0% 100% / 0.02);
   border-color: hsl(0 0% 100% / 0.05);
 }
+
+/* ═══════════════════════════════════════════════════════
+   LIGHT THEME OVERRIDES — surfaces, glass, chips, prose
+   ═══════════════════════════════════════════════════════ */
+.light .glass {
+  background: linear-gradient(180deg,
+    hsl(0 0% 100% / 0.85) 0%,
+    hsl(0 0% 100% / 0.70) 100%);
+  border: 1px solid hsl(200 30% 20% / 0.10);
+  box-shadow:
+    0 1px 0 hsl(0 0% 100% / 0.9) inset,
+    0 16px 40px -16px hsl(200 40% 20% / 0.18);
+}
+.light .glass-strong {
+  background: linear-gradient(180deg,
+    hsl(0 0% 100% / 0.95) 0%,
+    hsl(0 0% 100% / 0.80) 100%);
+  border: 1px solid hsl(200 30% 20% / 0.14);
+  box-shadow:
+    0 1px 0 hsl(0 0% 100% / 0.9) inset,
+    0 20px 50px -18px hsl(200 40% 20% / 0.22);
+}
+.light .glass-tinted {
+  background:
+    linear-gradient(135deg,
+      hsl(var(--acc-1) / 0.05) 0%,
+      hsl(var(--acc-2) / 0.04) 50%,
+      hsl(var(--acc-3) / 0.05) 100%),
+    linear-gradient(180deg,
+      hsl(0 0% 100% / 0.85) 0%,
+      hsl(0 0% 100% / 0.70) 100%);
+  border: 1px solid hsl(200 30% 20% / 0.10);
+}
+.light .card-elevated { background: hsl(0 0% 100% / 0.85); }
+
+.light .chip {
+  background: hsl(200 30% 20% / 0.06);
+  border: 1px solid hsl(200 30% 20% / 0.12);
+  color: hsl(200 40% 18%);
+}
+.light .input-glass {
+  background: hsl(0 0% 100% / 0.9);
+  border: 1px solid hsl(200 30% 20% / 0.12);
+  color: hsl(200 40% 12%);
+}
+.light .tabs-glass {
+  background: hsl(0 0% 100% / 0.85);
+  border: 1px solid hsl(200 30% 20% / 0.10);
+}
+.light .tab-glass { color: hsl(200 30% 30%); }
+
+.light .ambient::before, .light .ambient::after, .light .ambient-blob-3 { opacity: 0.18; }
+
+.light .prose code:not(pre code) { background: hsl(200 30% 20% / 0.06); }
+.light .prose pre {
+  background: hsl(200 30% 20% / 0.04);
+  border: 1px solid hsl(200 30% 20% / 0.08);
+}
+.light .prose thead th { background: hsl(200 30% 20% / 0.06); border-color: hsl(200 30% 20% / 0.12); }
+.light .prose tbody td { border-color: hsl(200 30% 20% / 0.10); }
+.light .prose tbody tr:nth-child(even) { background: hsl(200 30% 20% / 0.03); }
+.light .prose hr { border-color: hsl(200 30% 20% / 0.14); }
+
+.light .ava-report h2 { border-bottom-color: hsl(200 30% 20% / 0.12); }
+.light .ava-report hr { border-color: hsl(200 30% 20% / 0.12); }
+.light .ava-report pre {
+  background: hsl(200 30% 20% / 0.03);
+  border-color: hsl(200 30% 20% / 0.08);
+}
