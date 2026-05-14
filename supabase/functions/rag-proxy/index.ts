@@ -232,11 +232,32 @@ serve(async (req) => {
       }
     }
 
+    // Último fallback: si tenemos proyecto_id (por filtro o resuelto por nombre)
+    // y aún no hay chunks, traer una muestra representativa del proyecto.
+    if (contextChunks.length === 0 && proyectoId) {
+      console.log(`rag:fallback-by-proyecto ${proyectoId}`);
+      let fbp = admin
+        .from("document_chunks")
+        .select("id, contenido, chunk_index, metadata, documento_id, dominio")
+        .eq("proyecto_id", proyectoId)
+        .or(visibilityOr)
+        .order("created_at", { ascending: false })
+        .limit(20);
+      if (dominios) fbp = fbp.in("dominio", dominios);
+      else if (dominio) fbp = fbp.eq("dominio", dominio);
+      const { data } = await fbp;
+      contextChunks = data || [];
+    }
+
     if (contextChunks.length === 0) {
+      const noResultMsg = resolvedProyecto
+        ? `No encontré chunks relevantes en el RAG para "${resolvedProyecto.nombre}" con esta consulta. Hay documentos indexados del proyecto pero ninguno coincide semánticamente — prueba a reformular la pregunta o sé más específico.`
+        : "No se encontraron documentos relevantes. Asegúrate de haber subido e indexado documentos.";
       return new Response(JSON.stringify({
-        answer: "No se encontraron documentos relevantes. Asegúrate de haber subido e indexado documentos.",
+        answer: noResultMsg,
         citations: [],
         confidence: 0,
+        resolved_proyecto: resolvedProyecto,
       }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
