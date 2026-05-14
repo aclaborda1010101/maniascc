@@ -1,105 +1,62 @@
+## Resumen honesto
 
-## Objetivo
+**Sobre la limpieza de coste**: Lo ya hecho (cron 30s→2min + purga de logs) fue útil y de coste 0. Lo que NO recomiendo: re-chunking ni borrar dominios — el ahorro es marginal y arriesga calidad. Mejor monitorizar 48h.
 
-Reducir el gasto **horario** de Lovable Cloud (instancia + actividad continua) atacando las dos únicas causas que corren 24/7 sin que tú hagas nada:
-
-1. **Tamaño de la BD** (7,84 GB → forzando instancia grande). El 96% es `document_chunks` (7,5 GB / 565.413 filas).
-2. **Cron `process-email-queue`** ejecutándose cada 30s (2.880 ejec/día).
-
----
-
-## Diagnóstico actual
-
-| Concepto | Valor |
-|---|---|
-| BD total | 7,84 GB |
-| `document_chunks` | 7.565 MB · 565.413 filas |
-| `documentos_proyecto` | 97 MB · 68.967 docs (todos cargados en abril 2026, un batch) |
-| Chunks huérfanos | 0 |
-| Chunks sin embedding | 0 |
-| Cron emails | cada 30s, 24/7 |
-| Llamadas IA últimas 24h | 0 |
-
-Reparto de chunks por dominio:
-
-```text
-centros_comerciales   134.340   518 MB
-legal                 117.136   451 MB
-comunicaciones        104.162   413 MB
-financiero             63.684   247 MB
-personal               56.468   212 MB
-urbanismo              35.325   135 MB
-administrativo         29.081   110 MB
-general                25.217    98 MB
-```
-
-No hay basura evidente: la BD es grande porque **se indexó masivamente un corpus de 69k documentos** y los embeddings de 768 dim ocupan ~3 KB por chunk.
+**Sobre el bug del RAG con La Milla Arganda**: Verificado en BD — los 1.957 chunks del proyecto están `visibility='shared'`. AVA NO los rechaza por privacidad. El problema es de **recuperación**: al preguntar en lenguaje natural sobre un proyecto sin tenerlo seleccionado, el orquestrador llama al RAG sin `proyecto_id`, y la búsqueda semántica entre 565k chunks no encuentra los relevantes con queries genéricas como "dame toda la info histórica".
 
 ---
 
 ## Plan de acción
 
-### 1. Ralentizar el cron de emails (impacto inmediato, sin riesgo)
+### 1. NO ejecutar (quedan descartados)
+- Re-chunking masivo (opción C)
+- Borrado de dominios poco usados
+- Purga de docs antiguos sin auditar uso
 
-Pasar de cada 30s a **cada 2 minutos**. Reduce ejecuciones de 2.880 → 720/día (−75%). Si la cola está vacía la mayor parte del tiempo, el impacto en latencia de envío es despreciable.
+### 2. Fix del RAG: detección de proyecto por nombre
 
-```sql
-SELECT cron.unschedule('process-email-queue');
-SELECT cron.schedule(
-  'process-email-queue',
-  '*/2 * * * *',
-  $$ <mismo cuerpo actual> $$
-);
+**Cambio en `supabase/functions/ava-orchestrator/index.ts`** (o en `rag-proxy`):
+
+a) **Resolver proyecto por nombre antes de buscar**: cuando la pregunta del usuario contenga un sustantivo propio que coincide con `proyectos.nombre`, inyectar automáticamente `filters.proyecto_id` antes de llamar a `rag-proxy`.
+
+```text
+query: "info histórica sobre la milla de arganda"
+  → match contra proyectos.nombre (ILIKE / similarity)
+  → encontrado: a2308471-... "La Milla Arganda"
+  → llama rag-proxy con filters.proyecto_id = a2308471-...
 ```
 
-### 2. Auditoría de `document_chunks` antes de borrar nada
+b) **Fallback agresivo en `rag-proxy`**: cuando el RAG no encuentra chunks (top-20 vacío/irrelevante), hacer una segunda pasada con `ILIKE` sobre nombres de documentos vinculados al proyecto detectado (ya existe el bloque `fb` en líneas 200-215, pero solo busca por palabras de la pregunta — añadir búsqueda por nombre de documento + `documentos_proyecto.proyecto_id`).
 
-Antes de purgar, quiero confirmar contigo qué se puede eliminar. Voy a generar un informe con:
+c) **Mejorar log de trazabilidad**: cuando el RAG devuelva 0 resultados o baja confianza, AVA debe decir explícitamente *"no encontré chunks relevantes para X criterio"* en vez de la respuesta evasiva actual ("información bien guardada bajo llave"). Esto hace el bug visible en lugar de invisible.
 
-- Documentos nunca citados por RAG (cruzar `documentos_proyecto.id` contra citas en `auditoria_ia` y `ava_messages.meta`).
-- Documentos > 6 meses sin acceso.
-- Duplicados por `hash_md5`.
-- Top 50 documentos más pesados (chunks generados).
+### 3. Mejora UX: badge de proyecto activo en el chat
 
-### 3. Recortes posibles según el informe (a aprobar uno por uno)
+Cuando el usuario está en `/proyectos/:id` y abre AVA, pasar `proyecto_id` automáticamente como filtro implícito (probablemente ya se hace en `ProyectoRAG.tsx` pero no en el chat global). Verificar y, si falta, añadir.
 
-| Acción | Ahorro estimado | Riesgo |
-|---|---|---|
-| Borrar duplicados por `hash_md5` | 5–15% de chunks | Nulo |
-| Purgar dominio `general` poco usado | ~98 MB | Bajo |
-| Borrar docs sin citaciones en 6 meses | 20–40% | Medio (revisión previa) |
-| Re-chunking con tamaño 2x (1500 → 3000 chars) | ~50% del total | Medio (requiere re-ingest) |
+### 4. Validación
 
-Con un recorte combinado realista se puede bajar a **~3–4 GB**, lo que **probablemente permite un tier de instancia menor** y reduce el coste fijo horario de forma estructural.
+Después de los cambios, repetir manualmente:
+- "dime toda la información histórica que tienes sobre La Milla Arganda"
+- "qué operadores hay en La Milla Arganda"
+- "negociaciones recientes con [operador X]"
 
-### 4. Limpieza de logs históricos (ahorro pequeño pero gratis)
-
-```sql
-DELETE FROM cron.job_run_details WHERE start_time < now() - interval '7 days';
-DELETE FROM auditoria_ia WHERE created_at < now() - interval '90 days';
-```
-
-### 5. Verificación
-
-Tras aplicar 1, 2 y 4:
-
-- `SELECT pg_size_pretty(pg_database_size(current_database()));`
-- Comprobar en **Backend → Advanced settings** si aparece opción de bajar de instancia.
-- Confirmar que el cron sigue procesando emails correctamente (mirar `email_send_log`).
+Y comprobar en logs de `rag-proxy` que `proyecto_id` viaja en los filtros y que `contextChunks.length > 0`.
 
 ---
 
-## Detalles técnicos
+## Detalles técnicos (para referencia)
 
-- El cron se modifica con `cron.unschedule` + `cron.schedule` (requiere `pg_cron`, ya activo).
-- Las purgas usan `DELETE` normales, NO migración. Borrar chunks no rompe nada porque RAG hace fallback a FTS y a búsqueda por palabras (visto en `rag-proxy/index.ts`).
-- Re-chunking implicaría re-ejecutar `rag-ingest` con `CHUNK_SIZE` mayor, no entra en este plan inicial.
-- El cambio de tier de instancia lo haces tú manualmente desde **Backend → Advanced settings** una vez liberado el espacio.
+**Estado actual verificado**:
+- `proyectos` tiene `id=a2308471-698b-43a2-b928-9816b9a3d4c8` para "La Milla Arganda"
+- 1.957 chunks `dominio='general'`, `visibility='shared'` para ese proyecto
+- 30 documentos en `documentos_proyecto` con `visibility='shared'`, `owner_id=NULL`
+- RLS de `document_chunks`: `visibility IN ('shared','global') OR owner_id = auth.uid()` → permite acceso a `admin@atlas.fg`
+- Filtro post-RPC en `rag-proxy:177-180` también pasa para `shared`
 
----
+**Conclusión**: el bug es 100% de **recuperación semántica**, no de seguridad ni de RLS.
 
-## Lo que NO incluye este plan
-
-- Cambios en el modelo de IA del orchestrator (ya hablado, va aparte si quieres).
-- Re-ingestar documentos con chunk size mayor (segunda fase, tras confirmar ahorros de fase 1).
-- Tocar buckets de storage (`documentos_*`, `ava_attachments`) — pendiente de pedir tamaños si quieres.
+**Archivos a tocar**:
+- `supabase/functions/ava-orchestrator/index.ts` — añadir resolver de proyecto por nombre
+- `supabase/functions/rag-proxy/index.ts` — mejorar fallback con `ILIKE` sobre `documentos_proyecto.nombre`
+- (Opcional) `src/components/FloatingChat.tsx` o el contexto del chat — pasar `proyecto_id` cuando estás dentro de un proyecto

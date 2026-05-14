@@ -137,7 +137,44 @@ serve(async (req) => {
     }
 
     const admin = createClient(SUPABASE_URL, SERVICE_KEY);
-    const proyectoId = filters?.proyecto_id;
+    let proyectoId: string | null = filters?.proyecto_id || null;
+    let resolvedProyecto: { id: string; nombre: string } | null = null;
+
+    // Auto-resolver proyecto_id por nombre cuando no viene en filtros.
+    // Permite que preguntas tipo "info sobre La Milla Arganda" enfoquen la búsqueda.
+    if (!proyectoId) {
+      try {
+        const { data: proyectos } = await admin
+          .from("proyectos")
+          .select("id, nombre")
+          .limit(500);
+        if (proyectos && proyectos.length > 0) {
+          const norm = (s: string) =>
+            s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+          const STOP = new Set(["de","la","el","los","las","del","y","en","a"]);
+          const qn = norm(question);
+          const sorted = [...proyectos].sort((a: any, b: any) => (b.nombre?.length || 0) - (a.nombre?.length || 0));
+          for (const p of sorted) {
+            const pn = norm(p.nombre || "");
+            if (pn.length < 4) continue;
+            // Match exacto (substring)
+            if (qn.includes(pn)) {
+              proyectoId = p.id; resolvedProyecto = { id: p.id, nombre: p.nombre };
+              console.log(`rag:proyecto-resolved exact: "${p.nombre}"`); break;
+            }
+            // Match flexible: todas las palabras significativas (≥3 chars, no stopwords) presentes
+            const tokens = pn.split(/\s+/).filter((t) => t.length >= 3 && !STOP.has(t));
+            if (tokens.length >= 2 && tokens.every((t) => qn.includes(t))) {
+              proyectoId = p.id; resolvedProyecto = { id: p.id, nombre: p.nombre };
+              console.log(`rag:proyecto-resolved tokens: "${p.nombre}"`); break;
+            }
+          }
+        }
+      } catch (e) {
+        console.warn("rag:proyecto-resolve error", e);
+      }
+    }
+
     const dominio = filters?.dominio && filters.dominio !== "todos" ? filters.dominio : null;
     const dominios: string[] | null = Array.isArray(filters?.dominios) && filters.dominios.length > 0
       ? filters.dominios.filter((d: any) => typeof d === "string" && d.length > 0)
@@ -201,11 +238,32 @@ serve(async (req) => {
       }
     }
 
+    // Último fallback: si tenemos proyecto_id (por filtro o resuelto por nombre)
+    // y aún no hay chunks, traer una muestra representativa del proyecto.
+    if (contextChunks.length === 0 && proyectoId) {
+      console.log(`rag:fallback-by-proyecto ${proyectoId}`);
+      let fbp = admin
+        .from("document_chunks")
+        .select("id, contenido, chunk_index, metadata, documento_id, dominio")
+        .eq("proyecto_id", proyectoId)
+        .or(visibilityOr)
+        .order("created_at", { ascending: false })
+        .limit(20);
+      if (dominios) fbp = fbp.in("dominio", dominios);
+      else if (dominio) fbp = fbp.eq("dominio", dominio);
+      const { data } = await fbp;
+      contextChunks = data || [];
+    }
+
     if (contextChunks.length === 0) {
+      const noResultMsg = resolvedProyecto
+        ? `No encontré chunks relevantes en el RAG para "${resolvedProyecto.nombre}" con esta consulta. Hay documentos indexados del proyecto pero ninguno coincide semánticamente — prueba a reformular la pregunta o sé más específico.`
+        : "No se encontraron documentos relevantes. Asegúrate de haber subido e indexado documentos.";
       return new Response(JSON.stringify({
-        answer: "No se encontraron documentos relevantes. Asegúrate de haber subido e indexado documentos.",
+        answer: noResultMsg,
         citations: [],
         confidence: 0,
+        resolved_proyecto: resolvedProyecto,
       }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
@@ -328,6 +386,7 @@ PREGUNTA: ${question}`;
       domain: dominantDomain,
       domains_found: Object.keys(domainCounts),
       hybrid: !!queryEmbedding,
+      resolved_proyecto: resolvedProyecto,
     }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
   } catch (e) {
     console.error("rag-proxy error:", e);
