@@ -151,16 +151,22 @@ serve(async (req) => {
         if (proyectos && proyectos.length > 0) {
           const norm = (s: string) =>
             s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+          const STOP = new Set(["de","la","el","los","las","del","y","en","a"]);
           const qn = norm(question);
-          // Match por nombre completo (longest first para evitar colisiones)
           const sorted = [...proyectos].sort((a: any, b: any) => (b.nombre?.length || 0) - (a.nombre?.length || 0));
           for (const p of sorted) {
             const pn = norm(p.nombre || "");
-            if (pn.length >= 4 && qn.includes(pn)) {
-              proyectoId = p.id;
-              resolvedProyecto = { id: p.id, nombre: p.nombre };
-              console.log(`rag:proyecto-resolved by name: "${p.nombre}" → ${p.id}`);
-              break;
+            if (pn.length < 4) continue;
+            // Match exacto (substring)
+            if (qn.includes(pn)) {
+              proyectoId = p.id; resolvedProyecto = { id: p.id, nombre: p.nombre };
+              console.log(`rag:proyecto-resolved exact: "${p.nombre}"`); break;
+            }
+            // Match flexible: todas las palabras significativas (≥3 chars, no stopwords) presentes
+            const tokens = pn.split(/\s+/).filter((t) => t.length >= 3 && !STOP.has(t));
+            if (tokens.length >= 2 && tokens.every((t) => qn.includes(t))) {
+              proyectoId = p.id; resolvedProyecto = { id: p.id, nombre: p.nombre };
+              console.log(`rag:proyecto-resolved tokens: "${p.nombre}"`); break;
             }
           }
         }
