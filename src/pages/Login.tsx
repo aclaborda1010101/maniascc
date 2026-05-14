@@ -12,9 +12,30 @@ export default function Login() {
   const [password, setPassword] = useState("");
   const [nombre, setNombre] = useState("");
   const [isSignUp, setIsSignUp] = useState(false);
+  const [isForgot, setIsForgot] = useState(false);
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
   const { toast } = useToast();
+
+  const handleForgot = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${window.location.origin}/reset-password`,
+      });
+      if (error) throw error;
+      toast({
+        title: "Correo enviado",
+        description: "Revisa tu bandeja para restablecer la contraseña.",
+      });
+      setIsForgot(false);
+    } catch (error: any) {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -62,12 +83,16 @@ export default function Login() {
             <span className="ava-text-gradient">AVA</span>
           </h1>
           <p className="mt-2 text-sm text-muted-foreground">
-            {isSignUp ? "Crea tu cuenta para empezar" : "Inicia sesión para continuar"}
+            {isForgot
+              ? "Te enviaremos un enlace para restablecerla"
+              : isSignUp
+              ? "Crea tu cuenta para empezar"
+              : "Inicia sesión para continuar"}
           </p>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
-          {isSignUp && (
+        <form onSubmit={isForgot ? handleForgot : handleSubmit} className="space-y-4">
+          {isSignUp && !isForgot && (
             <div className="space-y-2">
               <Label htmlFor="nombre" className="text-xs uppercase tracking-wider text-muted-foreground">
                 Nombre
@@ -96,37 +121,64 @@ export default function Login() {
               className="rounded-2xl h-11 bg-secondary/40 border-border/60"
             />
           </div>
-          <div className="space-y-2">
-            <Label htmlFor="password" className="text-xs uppercase tracking-wider text-muted-foreground">
-              Contraseña
-            </Label>
-            <Input
-              id="password"
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="••••••••"
-              required
-              minLength={6}
-              className="rounded-2xl h-11 bg-secondary/40 border-border/60"
-            />
-          </div>
+          {!isForgot && (
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <Label htmlFor="password" className="text-xs uppercase tracking-wider text-muted-foreground">
+                  Contraseña
+                </Label>
+                {!isSignUp && (
+                  <button
+                    type="button"
+                    className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+                    onClick={() => setIsForgot(true)}
+                  >
+                    ¿Olvidaste tu contraseña?
+                  </button>
+                )}
+              </div>
+              <Input
+                id="password"
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="••••••••"
+                required
+                minLength={6}
+                className="rounded-2xl h-11 bg-secondary/40 border-border/60"
+              />
+            </div>
+          )}
 
           <Button
             type="submit"
             className="w-full h-12 rounded-2xl ava-gradient text-white font-semibold hover:opacity-95 border-0 mt-2"
             disabled={loading}
           >
-            {loading ? "Cargando..." : isSignUp ? "Crear cuenta" : "Iniciar sesión"}
+            {loading
+              ? "Cargando..."
+              : isForgot
+              ? "Enviar enlace"
+              : isSignUp
+              ? "Crear cuenta"
+              : "Iniciar sesión"}
           </Button>
 
           <button
             type="button"
             className="w-full text-sm text-muted-foreground hover:text-foreground transition-colors pt-2"
-            onClick={() => setIsSignUp(!isSignUp)}
+            onClick={() => {
+              if (isForgot) setIsForgot(false);
+              else setIsSignUp(!isSignUp);
+            }}
           >
-            {isSignUp ? "¿Ya tienes cuenta? Inicia sesión" : "¿No tienes cuenta? Regístrate"}
+            {isForgot
+              ? "Volver al inicio de sesión"
+              : isSignUp
+              ? "¿Ya tienes cuenta? Inicia sesión"
+              : "¿No tienes cuenta? Regístrate"}
           </button>
+
         </form>
       </div>
     </div>

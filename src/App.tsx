@@ -12,6 +12,7 @@ import { ThemeProvider } from "next-themes";
 import NotFound from "./pages/NotFound";
 
 const Login = lazy(() => import("./pages/Login"));
+const ResetPassword = lazy(() => import("./pages/ResetPassword"));
 const Dashboard = lazy(() => import("./pages/Dashboard"));
 const Proyectos = lazy(() => import("./pages/Proyectos"));
 const ProyectoDetail = lazy(() => import("./pages/ProyectoDetail"));
@@ -60,6 +61,7 @@ const App = () => (
             <Suspense fallback={<PageLoader />}>
               <Routes>
                 <Route path="/login" element={<Login />} />
+                <Route path="/reset-password" element={<ResetPassword />} />
                 <Route path="/" element={<Navigate to="/dashboard" replace />} />
                 <Route element={<ProtectedRoute><NotificationProvider><AppLayout /></NotificationProvider></ProtectedRoute>}>
                   <Route path="/dashboard" element={<Dashboard />} />
