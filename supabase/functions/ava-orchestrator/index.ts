@@ -1274,6 +1274,9 @@ serve(async (req) => {
                 }),
               }, 25000);
               const ragData = await ragResp.json();
+              if (domainFallbackWarning && ragData && typeof ragData === "object") {
+                ragData.domain_fallback_warning = domainFallbackWarning;
+              }
               result = ragData;
             } catch (e) {
               result = { error: "Error consultando RAG: " + (e instanceof Error ? e.message : "desconocido") };
