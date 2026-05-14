@@ -837,7 +837,7 @@ serve(async (req) => {
       : "";
 
     const domainFilterBlock = allowedDomains
-      ? `\n\n## FILTRO DE DOMINIOS RAG ACTIVO\nEl usuario ha restringido el contexto documental a estos dominios: ${allowedDomains.join(", ")}.\n- Cuando llames a rag_search, deja \`dominio\` vacío para usar el filtro multi-dominio (se aplica automáticamente).\n- Si especificas \`dominio\`, debe estar dentro del filtro o la llamada será rechazada.\n- NO comentes este filtro al usuario salvo que pregunte expresamente.`
+      ? `\n\n## FILTRO DE DOMINIOS RAG ACTIVO\nEl usuario ha restringido el contexto documental a estos dominios: ${allowedDomains.join(", ")}.\n- Cuando llames a rag_search, deja \`dominio\` vacío para que se apliquen automáticamente todos los dominios permitidos.\n- Si especificas un \`dominio\` fuera del filtro, la búsqueda NO se rechaza: se ejecuta automáticamente sobre los dominios permitidos y recibirás un campo \`domain_fallback_warning\` en el resultado. Solo menciona esto al usuario si el dominio solicitado era crítico.\n- NO comentes este filtro al usuario salvo que pregunte expresamente.`
       : "";
 
     const messages: Array<{ role: string; content: string; tool_call_id?: string }> = [
