@@ -380,6 +380,7 @@ PREGUNTA: ${question}`;
       domain: dominantDomain,
       domains_found: Object.keys(domainCounts),
       hybrid: !!queryEmbedding,
+      resolved_proyecto: resolvedProyecto,
     }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
   } catch (e) {
     console.error("rag-proxy error:", e);
