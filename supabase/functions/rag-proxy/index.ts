@@ -137,7 +137,38 @@ serve(async (req) => {
     }
 
     const admin = createClient(SUPABASE_URL, SERVICE_KEY);
-    const proyectoId = filters?.proyecto_id;
+    let proyectoId: string | null = filters?.proyecto_id || null;
+    let resolvedProyecto: { id: string; nombre: string } | null = null;
+
+    // Auto-resolver proyecto_id por nombre cuando no viene en filtros.
+    // Permite que preguntas tipo "info sobre La Milla Arganda" enfoquen la búsqueda.
+    if (!proyectoId) {
+      try {
+        const { data: proyectos } = await admin
+          .from("proyectos")
+          .select("id, nombre")
+          .limit(500);
+        if (proyectos && proyectos.length > 0) {
+          const norm = (s: string) =>
+            s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+          const qn = norm(question);
+          // Match por nombre completo (longest first para evitar colisiones)
+          const sorted = [...proyectos].sort((a: any, b: any) => (b.nombre?.length || 0) - (a.nombre?.length || 0));
+          for (const p of sorted) {
+            const pn = norm(p.nombre || "");
+            if (pn.length >= 4 && qn.includes(pn)) {
+              proyectoId = p.id;
+              resolvedProyecto = { id: p.id, nombre: p.nombre };
+              console.log(`rag:proyecto-resolved by name: "${p.nombre}" → ${p.id}`);
+              break;
+            }
+          }
+        }
+      } catch (e) {
+        console.warn("rag:proyecto-resolve error", e);
+      }
+    }
+
     const dominio = filters?.dominio && filters.dominio !== "todos" ? filters.dominio : null;
     const dominios: string[] | null = Array.isArray(filters?.dominios) && filters.dominios.length > 0
       ? filters.dominios.filter((d: any) => typeof d === "string" && d.length > 0)
