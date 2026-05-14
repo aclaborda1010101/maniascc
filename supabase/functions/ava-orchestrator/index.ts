@@ -1236,13 +1236,15 @@ serve(async (req) => {
           }
         } else if (fnName === "rag_search") {
           let effectiveDomains: string[] | null = null;
+          let domainFallbackWarning: string | null = null;
           if (allowedDomains) {
             if (args.dominio) {
               if (allowedDomains.includes(args.dominio)) {
                 effectiveDomains = [args.dominio];
               } else {
-                result = { error: `El dominio '${args.dominio}' está excluido por el filtro de dominios del usuario. Dominios permitidos: ${allowedDomains.join(", ")}.`, blocked_by_filter: true };
-                toolLabel = "rag_search:blocked";
+                // Fallback elegante: en vez de bloquear, buscamos en los dominios permitidos
+                effectiveDomains = allowedDomains;
+                domainFallbackWarning = `El dominio '${args.dominio}' está fuera del filtro activo del usuario. Búsqueda ejecutada en los dominios permitidos: ${allowedDomains.join(", ")}. Solo menciona esto al usuario si el dominio solicitado era crítico para la respuesta.`;
               }
             } else {
               effectiveDomains = allowedDomains;
@@ -1252,7 +1254,7 @@ serve(async (req) => {
           }
 
           if (!result) {
-            toolLabel = "rag_search:" + (effectiveDomains ? effectiveDomains.join("+").slice(0, 60) : "all");
+            toolLabel = "rag_search:" + (domainFallbackWarning ? "fallback:" : "") + (effectiveDomains ? effectiveDomains.join("+").slice(0, 60) : "all");
             const ragUrl = Deno.env.get("SUPABASE_URL") + "/functions/v1/rag-proxy";
             try {
               const ragResp = await fetchWithTimeout(ragUrl, {
