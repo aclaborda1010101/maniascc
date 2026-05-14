@@ -12,6 +12,7 @@ import { ThemeProvider } from "next-themes";
 import NotFound from "./pages/NotFound";
 
 const Login = lazy(() => import("./pages/Login"));
+const ResetPassword = lazy(() => import("./pages/ResetPassword"));
 const Dashboard = lazy(() => import("./pages/Dashboard"));
 const Proyectos = lazy(() => import("./pages/Proyectos"));
 const ProyectoDetail = lazy(() => import("./pages/ProyectoDetail"));
