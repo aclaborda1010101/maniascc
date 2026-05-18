@@ -1,61 +1,102 @@
-## Diagnóstico
+## Auditoría — de dónde salen los 107 € de Lovable Cloud
 
-`⚙️ rag_search:blocked` aparece cuando concurren **dos cosas**:
+He medido los cinco sospechosos contra tu base de datos real. Resultado: **uno solo concentra la mayor parte del coste**, y dos son ruido.
 
-1. **Filtro de dominios activo en el cliente** (`AvaDomainFilter`). Por defecto está activo con todos los dominios menos `personal` (`DEFAULT_DOMAINS` en `src/components/AvaDomainFilter.tsx:24-26`).
-2. **El modelo decide buscar explícitamente en un dominio fuera del filtro** (típicamente `personal`, o cuando el usuario reduce más el filtro y AVA elige uno excluido).
+---
 
-Entonces el orquestador (`supabase/functions/ava-orchestrator/index.ts:1239-1247`) rechaza la llamada y devuelve `blocked_by_filter: true`, marcándola como `rag_search:blocked`.
+### 🔴 Causa principal: la tabla `document_chunks` está fuera de control
 
-NO es el RAG quien bloquea. NO hay datos privados ocultos. NO hay bug de RLS. Es la propia política del filtro de dominios la que el modelo está saltándose y el orquestador la frena.
+| Métrica | Valor |
+|---|---|
+| Filas (chunks) | **565.413** |
+| Tamaño total tabla + índices | **7,5 GB** |
+| Índice vectorial HNSW principal | **2,5 GB** |
+| Segundo índice (HNSW/IVF) | **576 MB** |
+| Texto bruto almacenado | 527 MB |
+| Tamaño total de la base de datos | dominada por esta tabla |
 
-## Cambio propuesto: degradación elegante en lugar de bloqueo
+Esto obliga a la instancia de Cloud a mantener **mucha RAM** (los índices HNSW se cargan en memoria para buscar rápido). Es casi seguro el motivo por el que la instancia está en un tier alto: no es que la subieras tú, es que el RAG no cabe en la pequeña.
 
-En vez de devolver error y dejar al modelo sin contexto, **convertir el bloqueo en un fallback automático**: si el modelo pide un dominio fuera del filtro, se ejecuta igualmente la búsqueda usando los dominios permitidos como `dominios[]`, y se le devuelve un aviso informativo en el resultado (no un error).
+#### Y además: documentos duplicados ingestados N veces
 
-### 1. `supabase/functions/ava-orchestrator/index.ts` (≈línea 1239)
+| Documento | Copias | Chunks acumulados |
+|---|---:|---:|
+| `Producto_HG.xlsx` | **7** | 15.257 |
+| `RV_ Acqua Sapone.eml` | 2 | 8.683 |
+| `Atlas Tape EoApr'23.xlsx` | 2 | 3.830 |
+| `RE: [EXTERNAL] Re: Fuencarral 45` | **50** | 653 |
+| `¡Glovo confirmado!` | **466** | 466 |
+| `Re:` (asunto vacío) | **88** | 390 |
+| …docenas más | — | — |
 
-Antes:
-```ts
-if (allowedDomains.includes(args.dominio)) { effectiveDomains = [args.dominio]; }
-else { result = { error: "...", blocked_by_filter: true }; toolLabel = "rag_search:blocked"; }
+Los emails se están reingestando una y otra vez (probablemente el sync los trae con asuntos repetidos y no hay deduplicación por `message_id` / hash).
+
+---
+
+### 🟡 Causa secundaria: tabla `documentos_proyecto` (97 MB)
+
+Guarda el **texto extraído completo** de cada documento, además de chunkearlo. Es duplicación de información: el texto vive dos veces (una en `documentos_proyecto.contenido_extraido`, otra troceada en `document_chunks.contenido`).
+
+### 🟡 `cron.job_run_details` — 123 MB
+
+721 ejecuciones en las últimas 24h (cron de email cada 2 min). El cron en sí está bien diseñado (no llama a la función si la cola está vacía), pero el **historial de runs no se purga** y crece sin parar.
+
+---
+
+### ✅ Sospechosos descartados
+
+| Sospechoso | Veredicto | Datos |
+|---|---|---|
+| **Storage de adjuntos** (Plaud, Forge, contratos) | **No es el problema** | Total: 131 MB en los 3 buckets (contratos 103 MB, ava_attachments 17 MB, generados 11 MB). Coste despreciable. |
+| **Sync email/WhatsApp en bucle** | **No está descontrolado** | El cron cada 2 min sólo dispara HTTP si hay mensajes en `pgmq`. Sin embargo **sí está alimentando los duplicados** del RAG. |
+| **OneDrive sync** | No hay rastro de ejecuciones recientes | — |
+| **rag-batch-orchestrator reprocesando** | Cola `rag_reprocess_queue` sólo pesa 440 kB | No está en bucle |
+| **Uso de IA (Gemini, embeddings)** | **Muy bajo** | Sólo 20 llamadas en 14 días, ~180k tokens input totales. Coste IA real < 1 € en el periodo |
+
+---
+
+### 📊 Resumen del gasto probable
+
+```text
+~80%  Compute de la instancia DB grande (forzada por 7,5 GB de chunks + índices HNSW en RAM)
+~10%  Egress de queries vectoriales sobre esos índices
+~ 5%  Logs cron + tabla documentos_proyecto inflada
+~ 5%  Resto (storage, edge functions, realtime)
 ```
 
-Después:
-```ts
-if (allowedDomains.includes(args.dominio)) {
-  effectiveDomains = [args.dominio];
-} else {
-  // No bloqueamos: ejecutamos en los dominios permitidos y avisamos
-  effectiveDomains = allowedDomains;
-  warnings.push(`Dominio '${args.dominio}' fuera del filtro. Buscando en: ${allowedDomains.join(", ")}.`);
-  toolLabel = "rag_search:fallback";
-}
-```
+El IA y el storage **no son** el problema. El RAG sí.
 
-Y la respuesta de la tool incluye `warnings` para que el modelo lo cite si es relevante, pero ya tiene resultados reales con los que trabajar.
+---
 
-### 2. Ajustar el system prompt (línea 184 y 839-842)
+## Plan de acción recomendado (3 niveles, de menos a más radical)
 
-Reescribir el bloque del filtro para reflejar el nuevo comportamiento:
-- "Si pides un dominio fuera del filtro activo, la búsqueda se hará automáticamente en los dominios permitidos. Avisa al usuario solo si el dominio pedido era crítico."
+### Nivel 1 — Limpieza inmediata (gana 60-70% de espacio sin perder valor)
 
-### 3. (Opcional, recomendado) Revisar el `DEFAULT_DOMAINS`
+1. **Deduplicar `documentos_proyecto`** por (`nombre`, `hash_contenido` o `tamano_bytes`) — borrar copias, cascadear a `document_chunks`. Los 7 `Producto_HG.xlsx` solos liberan ~15k chunks (≈200 MB).
+2. **Borrar emails-basura ingestados** ("Re:", "¡Glovo confirmado!", confirmaciones automáticas). Filtro por asuntos genéricos / dominios noreply.
+3. **Purgar `cron.job_run_details`** y crear un cron diario que mantenga sólo los últimos 7 días.
+4. **Vacuum + reindex** de `document_chunks` tras los borrados (libera espacio físico real, no sólo lógico).
 
-Hoy `personal` viene desactivado por defecto. Si tu RAG personal tiene 56k chunks y son una fuente legítima, plantearse activarlo por defecto. **No lo cambio sin tu OK.**
+Estimación: pasar de 7,5 GB → ~2-3 GB.
 
-## Lo que NO cambia
+### Nivel 2 — Arquitectura del RAG (gana otro 40% y reduce RAM)
 
-- El usuario sigue pudiendo apagar dominios desde el filtro.
-- La búsqueda sigue respetando el filtro (no vamos a buscar en dominios apagados).
-- No se toca RLS ni la lógica RAG.
+5. **Filtro de ingesta**: bloquear que se indexen emails con `body < 500 chars`, asuntos en lista negra, o adjuntos vacíos. Deduplicar por `message_id` antes de chunkear.
+6. **Quitar `contenido_extraido` de `documentos_proyecto`** una vez chunkeado (o moverlo a Storage en frío). Ahorra ~97 MB y, sobre todo, evita el doble guardado futuro.
+7. **Cambiar embeddings `vector(768)` → `halfvec(768)`** en `document_chunks`. Mismo recall, **mitad de RAM** en el índice HNSW (2,5 GB → ~1,2 GB). Es el cambio con mejor ratio coste/beneficio.
 
-## Resultado visible para ti
+### Nivel 3 — Bajar de instancia (la palanca real sobre la factura)
 
-- En vez de `⚙️ rag_search:blocked` → verás `⚙️ rag_search` con resultados reales.
-- AVA dejará de quedarse muda cuando el modelo elige mal el dominio.
-- Si quieres ampliar la cobertura, solo tienes que abrir el filtro arriba del chat y activar más dominios (especialmente `personal`).
+8. Tras Nivel 1+2, con la DB en ~1,5 GB y los índices en ~1,2 GB, **bajar el tier de la instancia Cloud** desde **Backend → Lovable Cloud → Advanced settings**. Aquí es donde se nota en la factura.
 
-## Archivos a tocar
+---
 
-- `supabase/functions/ava-orchestrator/index.ts` (lógica de bloqueo + system prompt).
+## Qué necesito de ti para ejecutar
+
+Antes de tocar nada destructivo:
+
+- ¿Apruebas borrar los duplicados de `documentos_proyecto` (manteniendo la copia más antigua de cada nombre)?
+- ¿Quieres que defina la lista negra de asuntos de email a purgar, o me das tú criterios?
+- ¿Avanzo con el cambio a `halfvec` (requiere migración + re-creación del índice HNSW, ~5-10 min con la base bloqueada para escrituras)?
+
+Cuando confirmes, abro build mode y lo ejecuto por fases con migraciones reversibles.
