@@ -158,7 +158,7 @@ Tienes una memoria global del usuario que persiste entre conversaciones.
 // DEFAULT_MODEL: gemini-3.1-flash → rápido, evita IDLE_TIMEOUT 150s.
 // SMALLTALK_MODEL: flash-lite → saludos / acks fast-path.
 // ============================================================
-const DEFAULT_MODEL = "google/gemini-2.5-flash";
+const DEFAULT_MODEL = "google/gemini-3-flash-preview";
 const SMALLTALK_MODEL = "google/gemini-2.5-flash-lite";
 
 // Pricing (EUR, ~0.92 USD→EUR)
