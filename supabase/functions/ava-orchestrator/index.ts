@@ -155,16 +155,10 @@ Tienes una memoria global del usuario que persiste entre conversaciones.
 `;
 
 // ============================================================
-// ROUTER_MODEL: flash → decide qué tools llamar (rápido, barato).
-// SYNTHESIS_MODEL: pro → razona sobre contexto RAG tabular sin descartar
-//   chunks válidos (precio, m², condiciones económicas, etc.).
+// DEFAULT_MODEL: gemini-3.1-flash → rápido, evita IDLE_TIMEOUT 150s.
 // SMALLTALK_MODEL: flash-lite → saludos / acks fast-path.
-// Usar pro también en el router disparaba IDLE_TIMEOUT (150s) porque
-// encadenaba 2 llamadas pro en serie con la ejecución de tools.
 // ============================================================
-const ROUTER_MODEL = "google/gemini-2.5-flash";
-const SYNTHESIS_MODEL = "google/gemini-2.5-pro";
-const DEFAULT_MODEL = ROUTER_MODEL; // back-compat para auditoría/pricing
+const DEFAULT_MODEL = "google/gemini-3.1-flash";
 const SMALLTALK_MODEL = "google/gemini-2.5-flash-lite";
 
 // Pricing (EUR, ~0.92 USD→EUR)
