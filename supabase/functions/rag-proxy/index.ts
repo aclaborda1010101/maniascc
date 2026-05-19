@@ -194,17 +194,18 @@ serve(async (req) => {
         p_dominio: dominios ? null : dominio,
         p_proyecto_id: proyectoId || null,
         p_limit: 20,
+        p_user_id: userId,
       };
       if (dominios) rpcArgs.p_dominios = dominios;
       console.time("rag:hybrid");
       const { data: hybrid, error: hybridErr } = await admin.rpc("rag_hybrid_search", rpcArgs as never);
       console.timeEnd("rag:hybrid");
       if (hybridErr) console.warn("rag:hybrid error", hybridErr.message);
-      // La RPC v2 devuelve owner_id y visibility → el filtro ya funciona correctamente.
+      // Visibility ya viene filtrada en SQL (p_user_id). Mantenemos safety net.
       contextChunks = (hybrid || []).filter((c: any) =>
         c.owner_id === userId || ["shared", "global"].includes(c.visibility)
       );
-      console.log(`rag:hybrid: ${hybrid?.length ?? 0} candidates → ${contextChunks.length} after visibility filter`);
+      console.log(`rag:hybrid: ${hybrid?.length ?? 0} candidates (visibility-filtered in SQL) → ${contextChunks.length} final`);
     }
 
     if (contextChunks.length === 0) {
