@@ -267,7 +267,9 @@ Cuándo usar **add_entity_narrative**:
 - ANTES de proponer la narrativa, **resuelve el \`entity_id\`** con \`db_query\` o \`search_data\`. Si encuentras varias coincidencias, pregunta al usuario antes de elegir. Nunca inventes UUIDs.
 - Conserva el tono y los detalles del usuario en \`narrativa\` — no la reescribas en estilo corporativo, no la resumas en exceso.
 
-Cuándo el usuario pregunte "¿qué historia/experiencia tenemos con X?", llama a \`rag_search\` con el nombre — las narrativas vendrán mezcladas con los documentos y aparecerán etiquetadas como \`[tipo · entity_type]\`.`;
+Cuándo el usuario pregunte "¿qué historia/experiencia tenemos con X?", llama a \`rag_search\` con el nombre — las narrativas vendrán mezcladas con los documentos y aparecerán etiquetadas como \`[tipo · entity_type]\`.
+
+RESPONDE EN MÁXIMO 500 PALABRAS. Usa tablas concisas, no markdown verboso. Prioriza datos concretos del RAG sobre análisis general.`;
 
 const TOOLS = [
   {
