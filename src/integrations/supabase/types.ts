@@ -3124,29 +3124,54 @@ export type Database = {
         Args: { p_limite?: number }
         Returns: number
       }
-      rag_hybrid_search: {
-        Args: {
-          p_dominio?: string
-          p_dominios?: string[]
-          p_limit?: number
-          p_proyecto_id?: string
-          p_query_embedding: string
-          p_question: string
-        }
-        Returns: {
-          contenido: string
-          documento_id: string
-          dominio: string
-          fts_rank: number
-          hybrid_score: number
-          id: string
-          metadata: Json
-          owner_id: string
-          proyecto_id: string
-          vec_distance: number
-          visibility: string
-        }[]
-      }
+      rag_hybrid_search:
+        | {
+            Args: {
+              p_dominio?: string
+              p_dominios?: string[]
+              p_limit?: number
+              p_proyecto_id?: string
+              p_query_embedding: string
+              p_question: string
+            }
+            Returns: {
+              contenido: string
+              documento_id: string
+              dominio: string
+              fts_rank: number
+              hybrid_score: number
+              id: string
+              metadata: Json
+              owner_id: string
+              proyecto_id: string
+              vec_distance: number
+              visibility: string
+            }[]
+          }
+        | {
+            Args: {
+              p_dominio?: string
+              p_dominios?: string[]
+              p_limit?: number
+              p_proyecto_id?: string
+              p_query_embedding: string
+              p_question: string
+              p_user_id?: string
+            }
+            Returns: {
+              contenido: string
+              documento_id: string
+              dominio: string
+              fts_rank: number
+              hybrid_score: number
+              id: string
+              metadata: Json
+              owner_id: string
+              proyecto_id: string
+              vec_distance: number
+              visibility: string
+            }[]
+          }
       read_email_batch: {
         Args: { batch_size: number; queue_name: string; vt: number }
         Returns: {
