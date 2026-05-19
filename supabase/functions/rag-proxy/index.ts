@@ -193,7 +193,7 @@ serve(async (req) => {
         p_query_embedding: queryEmbedding as never,
         p_dominio: dominios ? null : dominio,
         p_proyecto_id: proyectoId || null,
-        p_limit: 20,
+        p_limit: 40,
         p_user_id: userId,
       };
       if (dominios) rpcArgs.p_dominios = dominios;
