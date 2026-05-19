@@ -269,7 +269,7 @@ Cuándo usar **add_entity_narrative**:
 
 Cuándo el usuario pregunte "¿qué historia/experiencia tenemos con X?", llama a \`rag_search\` con el nombre — las narrativas vendrán mezcladas con los documentos y aparecerán etiquetadas como \`[tipo · entity_type]\`.
 
-RESPONDE EN MÁXIMO 500 PALABRAS. Usa tablas concisas, no markdown verboso. Prioriza datos concretos del RAG sobre análisis general.`;
+Sé conciso (~500 palabras). Si la pregunta pide explícitamente "análisis detallado", "dossier completo" o "informe", puedes extenderte a 800-1000 palabras. Nunca pases de 1500. Usa tablas concisas, no markdown verboso. Prioriza datos concretos del RAG sobre análisis general.`;
 
 const TOOLS = [
   {
