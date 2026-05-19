@@ -1074,8 +1074,7 @@ export type Database = {
           created_at: string | null
           documento_id: string | null
           dominio: string
-          embedding: string | null
-          embedding_h: unknown
+          embedding: unknown
           id: string
           metadata: Json | null
           owner_id: string | null
@@ -1088,8 +1087,7 @@ export type Database = {
           created_at?: string | null
           documento_id?: string | null
           dominio?: string
-          embedding?: string | null
-          embedding_h?: unknown
+          embedding?: unknown
           id?: string
           metadata?: Json | null
           owner_id?: string | null
@@ -1102,8 +1100,7 @@ export type Database = {
           created_at?: string | null
           documento_id?: string | null
           dominio?: string
-          embedding?: string | null
-          embedding_h?: unknown
+          embedding?: unknown
           id?: string
           metadata?: Json | null
           owner_id?: string | null
