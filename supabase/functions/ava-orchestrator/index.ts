@@ -177,7 +177,7 @@ function isSmallTalk(text: string): boolean {
   // Normalizar: quitar acentos, signos finales y vocativo "ava"/"avaia" para que
   // "Hola Ava", "buenas AVA!", "gracias ava" entren igualmente por el fast-path.
   t = t.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-  t = t.replace(/[\s,.!?¿¡]+$/g, "");
+  t = t.replace(/^[\s,.!?¿¡]+/g, "").replace(/[\s,.!?¿¡]+$/g, "");
   t = t.replace(/[\s,]+(ava(ia)?|asistente|bot)$/g, "").trim();
   if (!t) return true;
   // Greetings / farewells / thanks / acks in ES + EN
