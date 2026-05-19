@@ -1075,6 +1075,7 @@ export type Database = {
           documento_id: string | null
           dominio: string
           embedding: string | null
+          embedding_h: unknown
           id: string
           metadata: Json | null
           owner_id: string | null
@@ -1088,6 +1089,7 @@ export type Database = {
           documento_id?: string | null
           dominio?: string
           embedding?: string | null
+          embedding_h?: unknown
           id?: string
           metadata?: Json | null
           owner_id?: string | null
@@ -1101,6 +1103,7 @@ export type Database = {
           documento_id?: string | null
           dominio?: string
           embedding?: string | null
+          embedding_h?: unknown
           id?: string
           metadata?: Json | null
           owner_id?: string | null
