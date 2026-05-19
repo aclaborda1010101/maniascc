@@ -155,11 +155,16 @@ Tienes una memoria global del usuario que persiste entre conversaciones.
 `;
 
 // ============================================================
-// Default model: gemini-2.5-pro (mejor uso del contexto RAG tabular,
-// flash era demasiado cauteloso y descartaba chunks válidos).
-// Smalltalk sigue con flash-lite para mantener latencia/coste bajos.
+// ROUTER_MODEL: flash → decide qué tools llamar (rápido, barato).
+// SYNTHESIS_MODEL: pro → razona sobre contexto RAG tabular sin descartar
+//   chunks válidos (precio, m², condiciones económicas, etc.).
+// SMALLTALK_MODEL: flash-lite → saludos / acks fast-path.
+// Usar pro también en el router disparaba IDLE_TIMEOUT (150s) porque
+// encadenaba 2 llamadas pro en serie con la ejecución de tools.
 // ============================================================
-const DEFAULT_MODEL = "google/gemini-2.5-pro";
+const ROUTER_MODEL = "google/gemini-2.5-flash";
+const SYNTHESIS_MODEL = "google/gemini-2.5-pro";
+const DEFAULT_MODEL = ROUTER_MODEL; // back-compat para auditoría/pricing
 const SMALLTALK_MODEL = "google/gemini-2.5-flash-lite";
 
 // Pricing (EUR, ~0.92 USD→EUR)
