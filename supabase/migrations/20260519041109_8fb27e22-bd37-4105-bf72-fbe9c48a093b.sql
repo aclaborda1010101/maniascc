@@ -1,0 +1,2 @@
+ALTER TABLE public.document_chunks ADD COLUMN IF NOT EXISTS embedding_h halfvec(768);
+CREATE INDEX IF NOT EXISTS idx_chunks_emb_h_null ON public.document_chunks(id) WHERE embedding IS NOT NULL AND embedding_h IS NULL;
