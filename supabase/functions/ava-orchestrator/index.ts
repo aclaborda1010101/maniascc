@@ -172,10 +172,16 @@ const MODEL_PRICING: Record<string, { in: number; out: number }> = {
 // trigger the full orchestration with tools.
 function isSmallTalk(text: string): boolean {
   if (!text) return false;
-  const t = text.trim().toLowerCase();
-  if (t.length > 40) return false;
+  let t = text.trim().toLowerCase();
+  if (t.length > 60) return false;
+  // Normalizar: quitar acentos, signos finales y vocativo "ava"/"avaia" para que
+  // "Hola Ava", "buenas AVA!", "gracias ava" entren igualmente por el fast-path.
+  t = t.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  t = t.replace(/^[\s,.!?¿¡]+/g, "").replace(/[\s,.!?¿¡]+$/g, "");
+  t = t.replace(/[\s,]+(ava(ia)?|asistente|bot)$/g, "").trim();
+  if (!t) return true;
   // Greetings / farewells / thanks / acks in ES + EN
-  const re = /^(hola+|holi|holaa|buenas|buenos d[ií]as|buenas tardes|buenas noches|hey|hi+|hello+|saludos|qu[eé] tal|c[oó]mo (est[aá]s|vas)|gracias|muchas gracias|mil gracias|thank(s| you)|ok|okay|vale|perfecto|genial|entendido|de acuerdo|adi[oó]s|chao|hasta luego|bye|test|prueba|ping)[\s.!?¿¡]*$/i;
+  const re = /^(hola+|holi|holaa|buenas|buenos dias|buenas tardes|buenas noches|hey|hi+|hello+|saludos|que tal|como (estas|vas)|gracias|muchas gracias|mil gracias|thank(s| you)|ok|okay|vale|perfecto|genial|entendido|de acuerdo|adios|chao|hasta luego|bye|test|prueba|ping)$/i;
   return re.test(t);
 }
 
