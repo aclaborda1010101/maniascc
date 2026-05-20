@@ -481,17 +481,7 @@ export default function AsistenteIA() {
               );
             })}
 
-            {loading && (
-              <div className="space-y-2">
-                <div className="flex items-center gap-2.5 pl-1">
-                  <div className="relative h-8 w-8 rounded-xl gradient-iridescent grid place-items-center glow-ring-soft shrink-0">
-                    <Sparkles className="h-3.5 w-3.5 text-white animate-pulse" />
-                  </div>
-                  <span className="text-[11px] text-muted-foreground">AVA está pensando…</span>
-                </div>
-                <Skeleton className="h-24 w-full rounded-3xl" />
-              </div>
-            )}
+            {loading && <AvaThinkingIndicator pro={forcePro} />}
           </div>
         </div>
 
