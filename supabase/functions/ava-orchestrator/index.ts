@@ -1783,30 +1783,59 @@ serve(async (req) => {
     let escalatedTokensOut = 0;
 
     // Síntesis con streaming → menor TTFB y evita timeouts en respuestas largas.
-    try {
-      const synthesisStream = await streamChatCompletion("https://ai.gateway.lovable.dev/v1/chat/completions", {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${lovableKey}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          model: SYNTHESIS_MODEL,
-          messages: synthesisMessages,
-        }),
-      }, { timeoutMs: 120000 });
+    // Si el modelo es Pro y falla, recorremos la cadena de fallback (claude → gpt-5 → gemini-3.1-pro-preview).
+    const synthesisCandidates: string[] = useProModel
+      ? Array.from(new Set([SYNTHESIS_MODEL, ...PRO_MODEL_CHAIN]))
+      : [SYNTHESIS_MODEL];
 
-      if (synthesisStream.ok) {
-        finalAnswer = synthesisStream.content || "";
-        totalTokensIn += synthesisStream.usage?.prompt_tokens || 0;
-        totalTokensOut += synthesisStream.usage?.completion_tokens || 0;
-        if (!finalAnswer) console.error("Synthesis stream returned empty content");
-      } else {
-        console.error(`Synthesis stream failed:`, synthesisStream.status, synthesisStream.raw?.slice(0, 300));
+    for (const candidate of synthesisCandidates) {
+      try {
+        if (isAnthropicModel(candidate)) {
+          // Anthropic API directa (no streaming en gateway). Sigue siendo rápido.
+          const aResp = await callChatCompletion(
+            "https://ai.gateway.lovable.dev/v1/chat/completions",
+            {
+              method: "POST",
+              headers: { Authorization: `Bearer ${lovableKey}`, "Content-Type": "application/json" },
+              body: JSON.stringify({ model: candidate, messages: synthesisMessages, max_tokens: 4000 }),
+            },
+            { timeoutMs: 110000, retries: 1 },
+          );
+          if (aResp.ok) {
+            const aJson = await aResp.json();
+            const content = aJson.choices?.[0]?.message?.content || "";
+            if (content.trim()) {
+              finalAnswer = content;
+              synthesisModel = candidate;
+              totalTokensIn += aJson.usage?.prompt_tokens || 0;
+              totalTokensOut += aJson.usage?.completion_tokens || 0;
+              break;
+            }
+            console.error(`[pro-fallback] ${candidate} returned empty content`);
+          } else {
+            console.error(`[pro-fallback] ${candidate} failed:`, aResp.status);
+          }
+        } else {
+          const synthesisStream = await streamChatCompletion("https://ai.gateway.lovable.dev/v1/chat/completions", {
+            method: "POST",
+            headers: { Authorization: `Bearer ${lovableKey}`, "Content-Type": "application/json" },
+            body: JSON.stringify({ model: candidate, messages: synthesisMessages }),
+          }, { timeoutMs: 110000 });
+
+          if (synthesisStream.ok && (synthesisStream.content || "").trim()) {
+            finalAnswer = synthesisStream.content;
+            synthesisModel = candidate;
+            totalTokensIn += synthesisStream.usage?.prompt_tokens || 0;
+            totalTokensOut += synthesisStream.usage?.completion_tokens || 0;
+            break;
+          }
+          console.error(`[pro-fallback] ${candidate} stream failed:`, synthesisStream.status, synthesisStream.raw?.slice(0, 200));
+        }
+      } catch (e) {
+        console.error(`[pro-fallback] ${candidate} error:`, e);
       }
-    } catch (e) {
-      console.error("Synthesis stream error:", e);
     }
+
 
     // ─────────────────────────────────────────────────────────────
     // DYNAMIC ESCALATION → gemini-3.1-pro-preview
