@@ -38,7 +38,7 @@ verify_jwt = false
 
 [functions.ava-orchestrator]
 verify_jwt = false
-max_duration = 180
+max_duration = 120
 
 [functions.evolution-manage]
 verify_jwt = false
