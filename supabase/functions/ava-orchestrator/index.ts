@@ -1077,20 +1077,55 @@ serve(async (req) => {
     const choice = aiData.choices?.[0]?.message;
     const firstCallContent = choice?.content || "";
     const usage1 = aiData.usage || {};
-    let totalTokensIn = usage1.prompt_tokens || 0;
-    let totalTokensOut = usage1.completion_tokens || 0;
+    const routedTokensIn = usage1.prompt_tokens || 0;
+    const routedTokensOut = usage1.completion_tokens || 0;
+    let totalTokensIn = routedTokensIn;
+    let totalTokensOut = routedTokensOut;
 
     // Pricing for the active default model
-    const _pricing = MODEL_PRICING[DEFAULT_MODEL] || MODEL_PRICING["google/gemini-2.5-flash"];
+    const routerPricing = MODEL_PRICING[TOOL_ROUTER_MODEL] || MODEL_PRICING["google/gemini-2.5-flash"];
+    const _pricing = MODEL_PRICING[DEFAULT_MODEL] || routerPricing;
     const GEMINI_INPUT = _pricing.in;
     const GEMINI_OUTPUT = _pricing.out;
+    const routingCostEur = routedTokensIn * routerPricing.in + routedTokensOut * routerPricing.out;
 
     // If no tool calls, return direct response
     if (!choice?.tool_calls || choice.tool_calls.length === 0) {
+      let directAnswer = firstCallContent || "No tengo una respuesta para eso.";
+      let directModel = TOOL_ROUTER_MODEL;
+      let sonnetTokensIn = 0;
+      let sonnetTokensOut = 0;
+      try {
+        const directResp = await callChatCompletion("https://ai.gateway.lovable.dev/v1/chat/completions", {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${lovableKey}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ model: DEFAULT_MODEL, messages, max_tokens: 1600 }),
+        }, { timeoutMs: 45000, retries: 1 });
+        if (directResp.ok) {
+          const directData = await directResp.json();
+          const candidate = directData.choices?.[0]?.message?.content || "";
+          if (candidate.trim()) {
+            directAnswer = candidate;
+            directModel = DEFAULT_MODEL;
+            const directUsage = directData.usage || {};
+            sonnetTokensIn = directUsage.prompt_tokens || 0;
+            sonnetTokensOut = directUsage.completion_tokens || 0;
+            totalTokensIn += sonnetTokensIn;
+            totalTokensOut += sonnetTokensOut;
+          }
+        } else {
+          console.error("Direct Sonnet answer failed:", directResp.status, await directResp.text().catch(() => ""));
+        }
+      } catch (e) {
+        console.error("Direct Sonnet answer error:", e);
+      }
       const latencyMs = Date.now() - startTime;
-      const costEur = totalTokensIn * GEMINI_INPUT + totalTokensOut * GEMINI_OUTPUT;
+      const costEur = routingCostEur + sonnetTokensIn * GEMINI_INPUT + sonnetTokensOut * GEMINI_OUTPUT;
       await admin.from("auditoria_ia").insert({
-        modelo: DEFAULT_MODEL,
+        modelo: directModel,
         funcion_ia: "ava-orchestrator",
         latencia_ms: latencyMs,
         tokens_entrada: totalTokensIn,
@@ -1103,7 +1138,7 @@ serve(async (req) => {
         user_id: user.id,
         action_type: "chat",
         agent_label: "AVA Orchestrator",
-      model: DEFAULT_MODEL,
+        model: directModel,
         tokens_input: totalTokensIn,
         tokens_output: totalTokensOut,
         cost_eur: costEur,
@@ -1111,9 +1146,10 @@ serve(async (req) => {
         metadata: { direct_answer: true, message: message?.slice(0, 200) },
       });
       return new Response(JSON.stringify({
-        answer: choice?.content || "No tengo una respuesta para eso.",
+        answer: directAnswer,
         tools_used: [],
         latency_ms: latencyMs,
+        model: directModel,
       }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
