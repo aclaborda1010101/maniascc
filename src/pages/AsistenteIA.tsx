@@ -17,6 +17,7 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import { useAuth } from "@/hooks/useAuth";
 import { AvaMessageFeedback } from "@/components/AvaMessageFeedback";
 import { AvaAttachmentBar } from "@/components/AvaAttachmentBar";
+import { AvaThinkingIndicator } from "@/components/AvaThinkingIndicator";
 import { AvaPendingActionCard } from "@/components/AvaPendingActionCard";
 import { AvaVoiceControls } from "@/components/AvaVoiceControls";
 import { AvaRealtimeOverlay, AvaCallButton } from "@/components/AvaRealtimeOverlay";
