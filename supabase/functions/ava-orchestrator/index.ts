@@ -1627,9 +1627,16 @@ serve(async (req) => {
 
     // Second AI call: synthesize response with tool results
     // Build a simpler synthesis prompt that works reliably with Gemini
-    const toolResultsSummary = toolResults.map(tr => 
-      `[Resultado de ${tr.tool}]:\n${JSON.stringify(tr.result).substring(0, 6000)}`
-    ).join("\n\n");
+    const summaryParts: string[] = [];
+    let summaryChars = 0;
+    for (const tr of toolResults) {
+      if (summaryChars >= 18000) break;
+      const remaining = Math.max(1200, 18000 - summaryChars);
+      const part = `[Resultado de ${tr.tool}]:\n${JSON.stringify(tr.result).substring(0, Math.min(2800, remaining))}`;
+      summaryParts.push(part);
+      summaryChars += part.length;
+    }
+    const toolResultsSummary = summaryParts.join("\n\n");
 
     // Build synthesis messages with cumulative summary + lessons
     const synthesisMessages: Array<{ role: string; content: string }> = [
@@ -1656,7 +1663,7 @@ serve(async (req) => {
         role: "assistant", 
         content: `He ejecutado las siguientes herramientas para responder a la pregunta del usuario. Aquí están los resultados obtenidos:\n\n${toolResultsSummary}`
       },
-      { role: "user", content: "Basándote en los datos obtenidos y en tu conocimiento general del sector retail e inmobiliario comercial, responde de forma completa, detallada y profesional a mi pregunta original. Si los datos de la base de datos están vacíos o no son suficientes, complementa con tu conocimiento general. NUNCA respondas que no puedes formular una respuesta. Siempre ofrece análisis, recomendaciones y valor. Responde en español." },
+      { role: "user", content: "Basándote en los datos obtenidos y en tu conocimiento general del sector retail e inmobiliario comercial, responde de forma completa pero concisa a mi pregunta original. Prioriza hallazgos accionables, tablas breves y recomendaciones. Responde en español." },
     );
 
     let finalAnswer: string = "";
@@ -1664,8 +1671,8 @@ serve(async (req) => {
     let escalatedTokensIn = 0;
     let escalatedTokensOut = 0;
     
-    // Try synthesis up to 2 times with the default (fast) model
-    for (let attempt = 0; attempt < 2; attempt++) {
+    // Try synthesis once with Sonnet; if it is slow/unavailable, return a grounded fallback instead of timing out the Edge Function.
+    for (let attempt = 0; attempt < 1; attempt++) {
       const synthesisResponse = await callChatCompletion("https://ai.gateway.lovable.dev/v1/chat/completions", {
         method: "POST",
         headers: {
@@ -1680,7 +1687,7 @@ serve(async (req) => {
             { role: "user", content: `Pregunta del usuario: ${message}\n\nDatos obtenidos:\n${toolResultsSummary}\n\nResponde de forma completa y profesional.` },
           ],
         }),
-      }, { timeoutMs: 60000, retries: 1 });
+      }, { timeoutMs: 45000, retries: 1 });
 
       if (synthesisResponse.ok) {
         const synthesisData = await synthesisResponse.json();
