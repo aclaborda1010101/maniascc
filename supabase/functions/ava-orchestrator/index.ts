@@ -1024,7 +1024,7 @@ serve(async (req) => {
     messages.push({ role: "user", content: message });
 
     // First AI call: determine intent and tools
-    const aiResponse = await fetchAIWithRetry("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    const aiResponse = await callChatCompletion("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
       headers: {
         Authorization: `Bearer ${lovableKey}`,
