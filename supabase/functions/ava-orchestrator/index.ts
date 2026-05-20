@@ -158,7 +158,7 @@ Tienes una memoria global del usuario que persiste entre conversaciones.
 // DEFAULT_MODEL: gemini-3.1-flash → rápido, evita IDLE_TIMEOUT 150s.
 // SMALLTALK_MODEL: flash-lite → saludos / acks fast-path.
 // ============================================================
-const DEFAULT_MODEL = "openai/gpt-5-mini";
+const DEFAULT_MODEL = "anthropic/claude-sonnet-4-5-20250929";
 const SMALLTALK_MODEL = "google/gemini-2.5-flash-lite";
 
 // Pricing (EUR, ~0.92 USD→EUR)
@@ -167,7 +167,145 @@ const MODEL_PRICING: Record<string, { in: number; out: number }> = {
   "google/gemini-2.5-flash":      { in: 0.30 / 1_000_000 * 0.92, out: 2.50 / 1_000_000 * 0.92 },
   "google/gemini-2.5-flash-lite": { in: 0.10 / 1_000_000 * 0.92, out: 0.40 / 1_000_000 * 0.92 },
   "google/gemini-3.1-pro-preview":{ in: 1.25 / 1_000_000 * 0.92, out: 10.00 / 1_000_000 * 0.92 },
+  "anthropic/claude-sonnet-4-5-20250929": { in: 3.00 / 1_000_000 * 0.92, out: 15.00 / 1_000_000 * 0.92 },
 };
+
+// ============================================================
+// Anthropic adapter: translate OpenAI-compatible chat.completions
+// payloads to/from Anthropic /v1/messages so the rest of the
+// orchestrator (which speaks OpenAI shape) stays unchanged.
+// ============================================================
+const ANTHROPIC_URL = "https://api.anthropic.com/v1/messages";
+
+function isAnthropicModel(model: string): boolean {
+  return typeof model === "string" && model.startsWith("anthropic/");
+}
+
+function openAIToAnthropicBody(body: any): any {
+  const model = String(body.model || "").replace(/^anthropic\//, "");
+  const messages: any[] = body.messages || [];
+  const systemParts: string[] = [];
+  const out: any[] = [];
+
+  // Group consecutive tool messages into a single user turn (Anthropic requirement)
+  let pendingToolResults: any[] = [];
+  const flushToolResults = () => {
+    if (pendingToolResults.length) {
+      out.push({ role: "user", content: pendingToolResults });
+      pendingToolResults = [];
+    }
+  };
+
+  for (const m of messages) {
+    if (m.role === "system") {
+      systemParts.push(typeof m.content === "string" ? m.content : JSON.stringify(m.content));
+      continue;
+    }
+    if (m.role === "tool") {
+      pendingToolResults.push({
+        type: "tool_result",
+        tool_use_id: m.tool_call_id,
+        content: typeof m.content === "string" ? m.content : JSON.stringify(m.content),
+      });
+      continue;
+    }
+    flushToolResults();
+    if (m.role === "assistant") {
+      const parts: any[] = [];
+      if (m.content) parts.push({ type: "text", text: String(m.content) });
+      if (Array.isArray(m.tool_calls)) {
+        for (const tc of m.tool_calls) {
+          let input: any = {};
+          try { input = typeof tc.function.arguments === "string" ? JSON.parse(tc.function.arguments) : (tc.function.arguments || {}); } catch { input = {}; }
+          parts.push({ type: "tool_use", id: tc.id, name: tc.function.name, input });
+        }
+      }
+      out.push({ role: "assistant", content: parts.length ? parts : [{ type: "text", text: "" }] });
+    } else {
+      // user
+      out.push({ role: "user", content: typeof m.content === "string" ? m.content : JSON.stringify(m.content) });
+    }
+  }
+  flushToolResults();
+
+  const anthropicBody: any = {
+    model,
+    max_tokens: body.max_tokens || 4096,
+    messages: out,
+  };
+  if (systemParts.length) anthropicBody.system = systemParts.join("\n\n");
+
+  if (Array.isArray(body.tools) && body.tools.length) {
+    anthropicBody.tools = body.tools.map((t: any) => ({
+      name: t.function?.name ?? t.name,
+      description: t.function?.description ?? t.description ?? "",
+      input_schema: t.function?.parameters ?? t.input_schema ?? { type: "object", properties: {} },
+    }));
+    if (body.tool_choice === "auto" || !body.tool_choice) anthropicBody.tool_choice = { type: "auto" };
+    else if (body.tool_choice === "any" || body.tool_choice === "required") anthropicBody.tool_choice = { type: "any" };
+  }
+  return anthropicBody;
+}
+
+function anthropicToOpenAIResponse(data: any): any {
+  const content = Array.isArray(data?.content) ? data.content : [];
+  const textParts = content.filter((c: any) => c.type === "text").map((c: any) => c.text).join("\n");
+  const toolUses = content.filter((c: any) => c.type === "tool_use");
+  const tool_calls = toolUses.length
+    ? toolUses.map((tu: any) => ({
+        id: tu.id,
+        type: "function",
+        function: { name: tu.name, arguments: JSON.stringify(tu.input ?? {}) },
+      }))
+    : undefined;
+  return {
+    choices: [{
+      index: 0,
+      finish_reason: data?.stop_reason === "tool_use" ? "tool_calls" : "stop",
+      message: { role: "assistant", content: textParts || null, tool_calls },
+    }],
+    usage: {
+      prompt_tokens: data?.usage?.input_tokens || 0,
+      completion_tokens: data?.usage?.output_tokens || 0,
+    },
+  };
+}
+
+async function callChatCompletion(url: string, init: RequestInit, opts?: { timeoutMs?: number; retries?: number }): Promise<Response> {
+  const body = JSON.parse((init.body as string) || "{}");
+  const model: string = body.model || "";
+  if (!isAnthropicModel(model)) {
+    return opts?.timeoutMs
+      ? fetchAIWithTimeoutAndRetry(url, init, opts.timeoutMs, opts.retries ?? 2)
+      : fetchAIWithRetry(url, init);
+  }
+  const anthropicKey = Deno.env.get("ANTHROPIC_API_KEY");
+  if (!anthropicKey) {
+    return new Response(JSON.stringify({ error: { message: "ANTHROPIC_API_KEY not configured" } }), { status: 500 });
+  }
+  const anthropicBody = openAIToAnthropicBody(body);
+  const anthropicInit: RequestInit = {
+    method: "POST",
+    headers: {
+      "x-api-key": anthropicKey,
+      "anthropic-version": "2023-06-01",
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(anthropicBody),
+  };
+  const resp = opts?.timeoutMs
+    ? await fetchAIWithTimeoutAndRetry(ANTHROPIC_URL, anthropicInit, opts.timeoutMs, opts.retries ?? 2)
+    : await fetchAIWithRetry(ANTHROPIC_URL, anthropicInit);
+  if (!resp.ok) {
+    const errTxt = await resp.text();
+    console.error("Anthropic error:", resp.status, errTxt.slice(0, 400));
+    return new Response(errTxt, { status: resp.status, headers: { "Content-Type": "application/json" } });
+  }
+  const data = await resp.json();
+  const openAIShape = anthropicToOpenAIResponse(data);
+  return new Response(JSON.stringify(openAIShape), { status: 200, headers: { "Content-Type": "application/json" } });
+}
+
 
 // Detect trivial messages (greetings, thanks, ack) that should NOT
 // trigger the full orchestration with tools.
@@ -886,7 +1024,7 @@ serve(async (req) => {
     messages.push({ role: "user", content: message });
 
     // First AI call: determine intent and tools
-    const aiResponse = await fetchAIWithRetry("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    const aiResponse = await callChatCompletion("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
       headers: {
         Authorization: `Bearer ${lovableKey}`,
@@ -1469,7 +1607,7 @@ serve(async (req) => {
     
     // Try synthesis up to 2 times with the default (fast) model
     for (let attempt = 0; attempt < 2; attempt++) {
-      const synthesisResponse = await fetchAIWithTimeoutAndRetry("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      const synthesisResponse = await callChatCompletion("https://ai.gateway.lovable.dev/v1/chat/completions", {
         method: "POST",
         headers: {
           Authorization: `Bearer ${lovableKey}`,
@@ -1483,7 +1621,7 @@ serve(async (req) => {
             { role: "user", content: `Pregunta del usuario: ${message}\n\nDatos obtenidos:\n${toolResultsSummary}\n\nResponde de forma completa y profesional.` },
           ],
         }),
-      }, 35000, 1);
+      }, { timeoutMs: 35000, retries: 1 });
 
       if (synthesisResponse.ok) {
         const synthesisData = await synthesisResponse.json();
