@@ -1221,27 +1221,54 @@ serve(async (req) => {
       let directModel = TOOL_ROUTER_MODEL;
       let sonnetTokensIn = 0;
       let sonnetTokensOut = 0;
-      try {
-        const directStream = await streamChatCompletion("https://ai.gateway.lovable.dev/v1/chat/completions", {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${lovableKey}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ model: SYNTHESIS_MODEL, messages, max_tokens: 1600 }),
-        }, { timeoutMs: 90000 });
-        if (directStream.ok && directStream.content.trim()) {
-          directAnswer = directStream.content;
-          directModel = SYNTHESIS_MODEL;
-          sonnetTokensIn = directStream.usage?.prompt_tokens || 0;
-          sonnetTokensOut = directStream.usage?.completion_tokens || 0;
-          totalTokensIn += sonnetTokensIn;
-          totalTokensOut += sonnetTokensOut;
-        } else if (!directStream.ok) {
-          console.error("Direct synthesis (stream) failed:", directStream.status, directStream.raw?.slice(0, 300));
+      const directCandidates = useProModel ? Array.from(new Set([SYNTHESIS_MODEL, ...PRO_MODEL_CHAIN])) : [SYNTHESIS_MODEL];
+      for (const candidate of directCandidates) {
+        try {
+          if (isAnthropicModel(candidate)) {
+            const aResp = await callChatCompletion(
+              "https://ai.gateway.lovable.dev/v1/chat/completions",
+              {
+                method: "POST",
+                headers: { Authorization: `Bearer ${lovableKey}`, "Content-Type": "application/json" },
+                body: JSON.stringify({ model: candidate, messages, max_tokens: 1600 }),
+              },
+              { timeoutMs: 90000, retries: 1 },
+            );
+            if (aResp.ok) {
+              const aJson = await aResp.json();
+              const content = aJson.choices?.[0]?.message?.content || "";
+              if (content.trim()) {
+                directAnswer = content;
+                directModel = candidate;
+                sonnetTokensIn = aJson.usage?.prompt_tokens || 0;
+                sonnetTokensOut = aJson.usage?.completion_tokens || 0;
+                totalTokensIn += sonnetTokensIn;
+                totalTokensOut += sonnetTokensOut;
+                break;
+              }
+            } else {
+              console.error(`[direct pro-fallback] ${candidate} failed:`, aResp.status);
+            }
+          } else {
+            const directStream = await streamChatCompletion("https://ai.gateway.lovable.dev/v1/chat/completions", {
+              method: "POST",
+              headers: { Authorization: `Bearer ${lovableKey}`, "Content-Type": "application/json" },
+              body: JSON.stringify({ model: candidate, messages, max_tokens: 1600 }),
+            }, { timeoutMs: 90000 });
+            if (directStream.ok && directStream.content.trim()) {
+              directAnswer = directStream.content;
+              directModel = candidate;
+              sonnetTokensIn = directStream.usage?.prompt_tokens || 0;
+              sonnetTokensOut = directStream.usage?.completion_tokens || 0;
+              totalTokensIn += sonnetTokensIn;
+              totalTokensOut += sonnetTokensOut;
+              break;
+            }
+            console.error(`[direct pro-fallback] ${candidate} stream failed:`, directStream.status, directStream.raw?.slice(0, 200));
+          }
+        } catch (e) {
+          console.error(`[direct pro-fallback] ${candidate} error:`, e);
         }
-      } catch (e) {
-        console.error("Direct synthesis error:", e);
       }
       const latencyMs = Date.now() - startTime;
       const costEur = routingCostEur + sonnetTokensIn * GEMINI_INPUT + sonnetTokensOut * GEMINI_OUTPUT;
