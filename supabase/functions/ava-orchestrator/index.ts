@@ -164,9 +164,26 @@ Tienes una memoria global del usuario que persiste entre conversaciones.
 //   Se activa por keywords (isProQuery) o por toggle "Pro" del usuario (force_pro).
 // ============================================================
 const DEFAULT_MODEL = "google/gemini-3-flash-preview";
-const PRO_MODEL = "google/gemini-3.1-pro-preview";
+const PRO_MODEL_FALLBACK = "google/gemini-3.1-pro-preview";
 const TOOL_ROUTER_MODEL = "google/gemini-2.5-flash";
 const SMALLTALK_MODEL = "google/gemini-2.5-flash-lite";
+
+// Cadena Pro: claude-sonnet-4-5 → gpt-5 → gemini-3.1-pro-preview.
+// Se elige el primero cuya API key esté configurada.
+function resolveProModel(): string {
+  if (Deno.env.get("ANTHROPIC_API_KEY")) return "anthropic/claude-sonnet-4-5";
+  if (Deno.env.get("LOVABLE_API_KEY")) return "openai/gpt-5";
+  return PRO_MODEL_FALLBACK;
+}
+const PRO_MODEL = resolveProModel();
+// Lista ordenada de candidatos Pro para fallback runtime si el primario falla.
+const PRO_MODEL_CHAIN: string[] = (() => {
+  const chain: string[] = [];
+  if (Deno.env.get("ANTHROPIC_API_KEY")) chain.push("anthropic/claude-sonnet-4-5");
+  if (Deno.env.get("LOVABLE_API_KEY")) chain.push("openai/gpt-5");
+  chain.push(PRO_MODEL_FALLBACK);
+  return chain;
+})();
 
 // Keywords que disparan el modelo Pro automáticamente.
 const PRO_KEYWORDS = [
@@ -178,6 +195,7 @@ const PRO_KEYWORDS = [
   "informe",
   "implicaciones",
   "due diligence",
+  "profundo", "exhaustivo",
 ];
 function isProQuery(text: string): boolean {
   if (!text) return false;
@@ -192,7 +210,9 @@ const MODEL_PRICING: Record<string, { in: number; out: number }> = {
   "google/gemini-2.5-flash-lite": { in: 0.10 / 1_000_000 * 0.92, out: 0.40 / 1_000_000 * 0.92 },
   "google/gemini-3-flash-preview":{ in: 0.30 / 1_000_000 * 0.92, out: 2.50 / 1_000_000 * 0.92 },
   "google/gemini-3.1-pro-preview":{ in: 1.25 / 1_000_000 * 0.92, out: 10.00 / 1_000_000 * 0.92 },
+  "anthropic/claude-sonnet-4-5":  { in: 3.00 / 1_000_000 * 0.92, out: 15.00 / 1_000_000 * 0.92 },
   "anthropic/claude-sonnet-4-5-20250929": { in: 3.00 / 1_000_000 * 0.92, out: 15.00 / 1_000_000 * 0.92 },
+  "openai/gpt-5":                 { in: 2.50 / 1_000_000 * 0.92, out: 10.00 / 1_000_000 * 0.92 },
 };
 
 // ============================================================
