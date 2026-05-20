@@ -158,7 +158,10 @@ Tienes una memoria global del usuario que persiste entre conversaciones.
 // DEFAULT_MODEL: gemini-3.1-flash → rápido, evita IDLE_TIMEOUT 150s.
 // SMALLTALK_MODEL: flash-lite → saludos / acks fast-path.
 // ============================================================
-const DEFAULT_MODEL = "anthropic/claude-sonnet-4-5-20250929";
+// Anthropic directo (Sonnet 4.5) provoca timeouts en orquestación con tools+RAG.
+// Volvemos al gateway Lovable (rápido y estable). El adaptador Anthropic sigue
+// disponible para llamadas puntuales con prefijo "anthropic/".
+const DEFAULT_MODEL = "google/gemini-2.5-flash";
 const SMALLTALK_MODEL = "google/gemini-2.5-flash-lite";
 
 // Pricing (EUR, ~0.92 USD→EUR)
@@ -1036,7 +1039,7 @@ serve(async (req) => {
         tools: TOOLS,
         tool_choice: "auto",
       }),
-    });
+    }, { timeoutMs: 45000, retries: 2 });
 
     if (!aiResponse.ok) {
       const errText = await aiResponse.text();
