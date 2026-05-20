@@ -69,6 +69,7 @@ async function fetchAIWithTimeoutAndRetry(
 }
 
 function isAbortTimeoutError(error: unknown): boolean {
+  if (typeof error === "string") return error.toLowerCase().includes("timeout") || error.toLowerCase().includes("aborted");
   return error instanceof Error && (
     error.name === "AbortError" ||
     error.message.toLowerCase().includes("timeout") ||
@@ -155,10 +156,12 @@ Tienes una memoria global del usuario que persiste entre conversaciones.
 `;
 
 // ============================================================
-// DEFAULT_MODEL: gemini-3.1-flash → rápido, evita IDLE_TIMEOUT 150s.
+// DEFAULT_MODEL: Sonnet para la síntesis final.
+// TOOL_ROUTER_MODEL: modelo rápido solo para elegir herramientas; evita gastar el límite de ejecución antes de llegar a Sonnet.
 // SMALLTALK_MODEL: flash-lite → saludos / acks fast-path.
 // ============================================================
 const DEFAULT_MODEL = "anthropic/claude-sonnet-4-5-20250929";
+const TOOL_ROUTER_MODEL = "google/gemini-2.5-flash";
 const SMALLTALK_MODEL = "google/gemini-2.5-flash-lite";
 
 // Pricing (EUR, ~0.92 USD→EUR)
@@ -230,7 +233,7 @@ function openAIToAnthropicBody(body: any): any {
 
   const anthropicBody: any = {
     model,
-    max_tokens: body.max_tokens || 4096,
+    max_tokens: Math.min(body.max_tokens || 2048, 2400),
     messages: out,
   };
   if (systemParts.length) anthropicBody.system = systemParts.join("\n\n");
@@ -275,9 +278,18 @@ async function callChatCompletion(url: string, init: RequestInit, opts?: { timeo
   const body = JSON.parse((init.body as string) || "{}");
   const model: string = body.model || "";
   if (!isAnthropicModel(model)) {
-    return opts?.timeoutMs
-      ? fetchAIWithTimeoutAndRetry(url, init, opts.timeoutMs, opts.retries ?? 2)
-      : fetchAIWithRetry(url, init);
+    try {
+      return opts?.timeoutMs
+        ? await fetchAIWithTimeoutAndRetry(url, init, opts.timeoutMs, opts.retries ?? 2)
+        : await fetchAIWithRetry(url, init);
+    } catch (e) {
+      const timeout = isAbortTimeoutError(e);
+      console.error("AI gateway request failed:", timeout ? "timeout" : e);
+      return new Response(JSON.stringify({ error: { message: timeout ? "AI gateway request timed out" : "AI gateway request failed" } }), {
+        status: timeout ? 504 : 503,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
   }
   const anthropicKey = Deno.env.get("ANTHROPIC_API_KEY");
   if (!anthropicKey) {
@@ -293,9 +305,19 @@ async function callChatCompletion(url: string, init: RequestInit, opts?: { timeo
     },
     body: JSON.stringify(anthropicBody),
   };
-  const resp = opts?.timeoutMs
-    ? await fetchAIWithTimeoutAndRetry(ANTHROPIC_URL, anthropicInit, opts.timeoutMs, opts.retries ?? 2)
-    : await fetchAIWithRetry(ANTHROPIC_URL, anthropicInit);
+  let resp: Response;
+  try {
+    resp = opts?.timeoutMs
+      ? await fetchAIWithTimeoutAndRetry(ANTHROPIC_URL, anthropicInit, opts.timeoutMs, opts.retries ?? 2)
+      : await fetchAIWithRetry(ANTHROPIC_URL, anthropicInit);
+  } catch (e) {
+    const timeout = isAbortTimeoutError(e);
+    console.error("Anthropic request failed:", timeout ? "timeout" : e);
+    return new Response(JSON.stringify({ error: { message: timeout ? "Anthropic request timed out" : "Anthropic request failed" } }), {
+      status: timeout ? 504 : 503,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
   if (!resp.ok) {
     const errTxt = await resp.text();
     console.error("Anthropic error:", resp.status, errTxt.slice(0, 400));
@@ -1031,12 +1053,13 @@ serve(async (req) => {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: DEFAULT_MODEL,
+        model: TOOL_ROUTER_MODEL,
         messages,
         tools: TOOLS,
         tool_choice: "auto",
+        max_tokens: 900,
       }),
-    }, { timeoutMs: 90000, retries: 1 });
+    }, { timeoutMs: 18000, retries: 1 });
 
     if (!aiResponse.ok) {
       const errText = await aiResponse.text();
@@ -1064,20 +1087,55 @@ serve(async (req) => {
     const choice = aiData.choices?.[0]?.message;
     const firstCallContent = choice?.content || "";
     const usage1 = aiData.usage || {};
-    let totalTokensIn = usage1.prompt_tokens || 0;
-    let totalTokensOut = usage1.completion_tokens || 0;
+    const routedTokensIn = usage1.prompt_tokens || 0;
+    const routedTokensOut = usage1.completion_tokens || 0;
+    let totalTokensIn = routedTokensIn;
+    let totalTokensOut = routedTokensOut;
 
     // Pricing for the active default model
-    const _pricing = MODEL_PRICING[DEFAULT_MODEL] || MODEL_PRICING["google/gemini-2.5-flash"];
+    const routerPricing = MODEL_PRICING[TOOL_ROUTER_MODEL] || MODEL_PRICING["google/gemini-2.5-flash"];
+    const _pricing = MODEL_PRICING[DEFAULT_MODEL] || routerPricing;
     const GEMINI_INPUT = _pricing.in;
     const GEMINI_OUTPUT = _pricing.out;
+    const routingCostEur = routedTokensIn * routerPricing.in + routedTokensOut * routerPricing.out;
 
     // If no tool calls, return direct response
     if (!choice?.tool_calls || choice.tool_calls.length === 0) {
+      let directAnswer = firstCallContent || "No tengo una respuesta para eso.";
+      let directModel = TOOL_ROUTER_MODEL;
+      let sonnetTokensIn = 0;
+      let sonnetTokensOut = 0;
+      try {
+        const directResp = await callChatCompletion("https://ai.gateway.lovable.dev/v1/chat/completions", {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${lovableKey}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ model: DEFAULT_MODEL, messages, max_tokens: 1600 }),
+        }, { timeoutMs: 45000, retries: 1 });
+        if (directResp.ok) {
+          const directData = await directResp.json();
+          const candidate = directData.choices?.[0]?.message?.content || "";
+          if (candidate.trim()) {
+            directAnswer = candidate;
+            directModel = DEFAULT_MODEL;
+            const directUsage = directData.usage || {};
+            sonnetTokensIn = directUsage.prompt_tokens || 0;
+            sonnetTokensOut = directUsage.completion_tokens || 0;
+            totalTokensIn += sonnetTokensIn;
+            totalTokensOut += sonnetTokensOut;
+          }
+        } else {
+          console.error("Direct Sonnet answer failed:", directResp.status, await directResp.text().catch(() => ""));
+        }
+      } catch (e) {
+        console.error("Direct Sonnet answer error:", e);
+      }
       const latencyMs = Date.now() - startTime;
-      const costEur = totalTokensIn * GEMINI_INPUT + totalTokensOut * GEMINI_OUTPUT;
+      const costEur = routingCostEur + sonnetTokensIn * GEMINI_INPUT + sonnetTokensOut * GEMINI_OUTPUT;
       await admin.from("auditoria_ia").insert({
-        modelo: DEFAULT_MODEL,
+        modelo: directModel,
         funcion_ia: "ava-orchestrator",
         latencia_ms: latencyMs,
         tokens_entrada: totalTokensIn,
@@ -1090,7 +1148,7 @@ serve(async (req) => {
         user_id: user.id,
         action_type: "chat",
         agent_label: "AVA Orchestrator",
-      model: DEFAULT_MODEL,
+        model: directModel,
         tokens_input: totalTokensIn,
         tokens_output: totalTokensOut,
         cost_eur: costEur,
@@ -1098,9 +1156,10 @@ serve(async (req) => {
         metadata: { direct_answer: true, message: message?.slice(0, 200) },
       });
       return new Response(JSON.stringify({
-        answer: choice?.content || "No tengo una respuesta para eso.",
+        answer: directAnswer,
         tools_used: [],
         latency_ms: latencyMs,
+        model: directModel,
       }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -1568,9 +1627,16 @@ serve(async (req) => {
 
     // Second AI call: synthesize response with tool results
     // Build a simpler synthesis prompt that works reliably with Gemini
-    const toolResultsSummary = toolResults.map(tr => 
-      `[Resultado de ${tr.tool}]:\n${JSON.stringify(tr.result).substring(0, 6000)}`
-    ).join("\n\n");
+    const summaryParts: string[] = [];
+    let summaryChars = 0;
+    for (const tr of toolResults) {
+      if (summaryChars >= 18000) break;
+      const remaining = Math.max(1200, 18000 - summaryChars);
+      const part = `[Resultado de ${tr.tool}]:\n${JSON.stringify(tr.result).substring(0, Math.min(2800, remaining))}`;
+      summaryParts.push(part);
+      summaryChars += part.length;
+    }
+    const toolResultsSummary = summaryParts.join("\n\n");
 
     // Build synthesis messages with cumulative summary + lessons
     const synthesisMessages: Array<{ role: string; content: string }> = [
@@ -1597,7 +1663,7 @@ serve(async (req) => {
         role: "assistant", 
         content: `He ejecutado las siguientes herramientas para responder a la pregunta del usuario. Aquí están los resultados obtenidos:\n\n${toolResultsSummary}`
       },
-      { role: "user", content: "Basándote en los datos obtenidos y en tu conocimiento general del sector retail e inmobiliario comercial, responde de forma completa, detallada y profesional a mi pregunta original. Si los datos de la base de datos están vacíos o no son suficientes, complementa con tu conocimiento general. NUNCA respondas que no puedes formular una respuesta. Siempre ofrece análisis, recomendaciones y valor. Responde en español." },
+      { role: "user", content: "Basándote en los datos obtenidos y en tu conocimiento general del sector retail e inmobiliario comercial, responde de forma completa pero concisa a mi pregunta original. Prioriza hallazgos accionables, tablas breves y recomendaciones. Responde en español." },
     );
 
     let finalAnswer: string = "";
@@ -1605,8 +1671,8 @@ serve(async (req) => {
     let escalatedTokensIn = 0;
     let escalatedTokensOut = 0;
     
-    // Try synthesis up to 2 times with the default (fast) model
-    for (let attempt = 0; attempt < 2; attempt++) {
+    // Try synthesis once with Sonnet; if it is slow/unavailable, return a grounded fallback instead of timing out the Edge Function.
+    for (let attempt = 0; attempt < 1; attempt++) {
       const synthesisResponse = await callChatCompletion("https://ai.gateway.lovable.dev/v1/chat/completions", {
         method: "POST",
         headers: {
@@ -1621,7 +1687,7 @@ serve(async (req) => {
             { role: "user", content: `Pregunta del usuario: ${message}\n\nDatos obtenidos:\n${toolResultsSummary}\n\nResponde de forma completa y profesional.` },
           ],
         }),
-      }, { timeoutMs: 60000, retries: 1 });
+      }, { timeoutMs: 45000, retries: 1 });
 
       if (synthesisResponse.ok) {
         const synthesisData = await synthesisResponse.json();
@@ -1672,7 +1738,7 @@ serve(async (req) => {
     let escalated = false;
     let escalationReason: string | null = null;
 
-    if (needsEscalation(finalAnswer, toolsUsedCount, toolErrorsCount)) {
+    if (!isAnthropicModel(DEFAULT_MODEL) && needsEscalation(finalAnswer, toolsUsedCount, toolErrorsCount)) {
       escalationReason = !finalAnswer
         ? "empty"
         : finalAnswer.trim().length < 220
@@ -1725,9 +1791,12 @@ serve(async (req) => {
     const latencyMs = Date.now() - startTime;
     // Cost: base tokens at flash pricing + escalation tokens at pro pricing (if any)
     const proPricing = MODEL_PRICING["google/gemini-3.1-pro-preview"];
+    const sonnetTokensIn = Math.max(0, totalTokensIn - routedTokensIn);
+    const sonnetTokensOut = Math.max(0, totalTokensOut - routedTokensOut);
     const costEur =
-      totalTokensIn * GEMINI_INPUT +
-      totalTokensOut * GEMINI_OUTPUT +
+      routingCostEur +
+      sonnetTokensIn * GEMINI_INPUT +
+      sonnetTokensOut * GEMINI_OUTPUT +
       escalatedTokensIn * proPricing.in +
       escalatedTokensOut * proPricing.out;
     totalTokensIn += escalatedTokensIn;
