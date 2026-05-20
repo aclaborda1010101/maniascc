@@ -82,6 +82,7 @@ export function useChatMessages(options: UseChatMessagesOptions = {}) {
   const [pendingAttachments, setPendingAttachments] = useState<AvaAttachment[]>([]);
   const scrollRef = useRef<HTMLDivElement>(null);
   const domainFilterRef = options.domainFilterRef;
+  const forceProRef = options.forceProRef;
 
   const loading = loadingConvs.has(activeConversationId);
 
