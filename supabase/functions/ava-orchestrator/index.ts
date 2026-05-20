@@ -1811,7 +1811,7 @@ serve(async (req) => {
     let escalated = false;
     let escalationReason: string | null = null;
 
-    if (!isAnthropicModel(DEFAULT_MODEL) && needsEscalation(finalAnswer, toolsUsedCount, toolErrorsCount)) {
+    if (SYNTHESIS_MODEL !== PRO_MODEL && needsEscalation(finalAnswer, toolsUsedCount, toolErrorsCount)) {
       escalationReason = !finalAnswer
         ? "empty"
         : finalAnswer.trim().length < 220
