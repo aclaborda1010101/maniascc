@@ -1746,40 +1746,34 @@ serve(async (req) => {
     );
 
     let finalAnswer: string = "";
-    let synthesisModel: string = DEFAULT_MODEL;
+    let synthesisModel: string = SYNTHESIS_MODEL;
     let escalatedTokensIn = 0;
     let escalatedTokensOut = 0;
-    
-    // Try synthesis once with Sonnet; if it is slow/unavailable, return a grounded fallback instead of timing out the Edge Function.
-    for (let attempt = 0; attempt < 1; attempt++) {
-      const synthesisResponse = await callChatCompletion("https://ai.gateway.lovable.dev/v1/chat/completions", {
+
+    // Síntesis con streaming → menor TTFB y evita timeouts en respuestas largas.
+    try {
+      const synthesisStream = await streamChatCompletion("https://ai.gateway.lovable.dev/v1/chat/completions", {
         method: "POST",
         headers: {
           Authorization: `Bearer ${lovableKey}`,
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          model: DEFAULT_MODEL,
-          messages: attempt === 0 ? synthesisMessages : [
-            // Simplified retry: just system + tool results + question
-            { role: "system", content: "Eres AVA, asistente estratégica de inmobiliario comercial con un sarcasmo sutil y elegante (estilo consultor británico). Responde en español con markdown rico. El humor irónico va sobre datos o mercado, nunca sobre el usuario; una pincelada por respuesta basta." },
-            { role: "user", content: `Pregunta del usuario: ${message}\n\nDatos obtenidos:\n${toolResultsSummary}\n\nResponde de forma completa y profesional.` },
-          ],
+          model: SYNTHESIS_MODEL,
+          messages: synthesisMessages,
         }),
-      }, { timeoutMs: 45000, retries: 1 });
+      }, { timeoutMs: 120000 });
 
-      if (synthesisResponse.ok) {
-        const synthesisData = await synthesisResponse.json();
-        finalAnswer = synthesisData.choices?.[0]?.message?.content || "";
-        const usage2 = synthesisData.usage || {};
-        totalTokensIn += usage2.prompt_tokens || 0;
-        totalTokensOut += usage2.completion_tokens || 0;
-        if (finalAnswer) break; // Success
-        console.error(`Synthesis attempt ${attempt + 1} returned empty`);
+      if (synthesisStream.ok) {
+        finalAnswer = synthesisStream.content || "";
+        totalTokensIn += synthesisStream.usage?.prompt_tokens || 0;
+        totalTokensOut += synthesisStream.usage?.completion_tokens || 0;
+        if (!finalAnswer) console.error("Synthesis stream returned empty content");
       } else {
-        const errBody = await synthesisResponse.text();
-        console.error(`Synthesis attempt ${attempt + 1} failed:`, synthesisResponse.status, errBody);
+        console.error(`Synthesis stream failed:`, synthesisStream.status, synthesisStream.raw?.slice(0, 300));
       }
+    } catch (e) {
+      console.error("Synthesis stream error:", e);
     }
 
     // ─────────────────────────────────────────────────────────────
