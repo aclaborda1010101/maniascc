@@ -1043,12 +1043,13 @@ serve(async (req) => {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: DEFAULT_MODEL,
+        model: TOOL_ROUTER_MODEL,
         messages,
         tools: TOOLS,
         tool_choice: "auto",
+        max_tokens: 900,
       }),
-    }, { timeoutMs: 90000, retries: 1 });
+    }, { timeoutMs: 18000, retries: 1 });
 
     if (!aiResponse.ok) {
       const errText = await aiResponse.text();
