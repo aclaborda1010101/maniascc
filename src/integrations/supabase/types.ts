@@ -14,6 +14,24 @@ export type Database = {
   }
   public: {
     Tables: {
+      _import_forecast_2026_05_19: {
+        Row: {
+          created_at: string | null
+          data: Json | null
+          id: number
+        }
+        Insert: {
+          created_at?: string | null
+          data?: Json | null
+          id?: number
+        }
+        Update: {
+          created_at?: string | null
+          data?: Json | null
+          id?: number
+        }
+        Relationships: []
+      }
       aba_conversations: {
         Row: {
           created_at: string
