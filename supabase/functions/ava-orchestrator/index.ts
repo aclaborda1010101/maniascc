@@ -156,22 +156,101 @@ Tienes una memoria global del usuario que persiste entre conversaciones.
 `;
 
 // ============================================================
-// DEFAULT_MODEL: Sonnet para la síntesis final.
-// TOOL_ROUTER_MODEL: modelo rápido solo para elegir herramientas; evita gastar el límite de ejecución antes de llegar a Sonnet.
-// SMALLTALK_MODEL: flash-lite → saludos / acks fast-path.
+// MODEL ROUTER
+// - SMALLTALK_MODEL: saludos / acks → flash-lite (fast-path).
+// - TOOL_ROUTER_MODEL: tool-choice / routing (rápido y barato).
+// - DEFAULT_MODEL: síntesis estándar → gemini-3-flash-preview.
+// - PRO_MODEL: análisis profundo, dossier, comparativas, estrategia, etc.
+//   Se activa por keywords (isProQuery) o por toggle "Pro" del usuario (force_pro).
 // ============================================================
-const DEFAULT_MODEL = "anthropic/claude-sonnet-4-5-20250929";
+const DEFAULT_MODEL = "google/gemini-3-flash-preview";
+const PRO_MODEL = "google/gemini-3.1-pro-preview";
 const TOOL_ROUTER_MODEL = "google/gemini-2.5-flash";
 const SMALLTALK_MODEL = "google/gemini-2.5-flash-lite";
+
+// Keywords que disparan el modelo Pro automáticamente.
+const PRO_KEYWORDS = [
+  "análisis", "analisis",
+  "dossier",
+  "histórico", "historico",
+  "comparativa", "compárame", "comparame", "compara ",
+  "estrategia", "estratégico", "estrategico",
+  "informe",
+  "implicaciones",
+  "due diligence",
+];
+function isProQuery(text: string): boolean {
+  if (!text) return false;
+  const t = text.toLowerCase();
+  return PRO_KEYWORDS.some(k => t.includes(k));
+}
 
 // Pricing (EUR, ~0.92 USD→EUR)
 const MODEL_PRICING: Record<string, { in: number; out: number }> = {
   "google/gemini-2.5-pro":        { in: 1.25 / 1_000_000 * 0.92, out: 10.00 / 1_000_000 * 0.92 },
   "google/gemini-2.5-flash":      { in: 0.30 / 1_000_000 * 0.92, out: 2.50 / 1_000_000 * 0.92 },
   "google/gemini-2.5-flash-lite": { in: 0.10 / 1_000_000 * 0.92, out: 0.40 / 1_000_000 * 0.92 },
+  "google/gemini-3-flash-preview":{ in: 0.30 / 1_000_000 * 0.92, out: 2.50 / 1_000_000 * 0.92 },
   "google/gemini-3.1-pro-preview":{ in: 1.25 / 1_000_000 * 0.92, out: 10.00 / 1_000_000 * 0.92 },
   "anthropic/claude-sonnet-4-5-20250929": { in: 3.00 / 1_000_000 * 0.92, out: 15.00 / 1_000_000 * 0.92 },
 };
+
+// ============================================================
+// Streaming helper: llama al gateway con stream:true y acumula la
+// respuesta SSE en un texto final + usage. Reduce TTFB y evita
+// timeouts en respuestas largas. Solo para modelos del gateway
+// OpenAI-compatible (no Anthropic).
+// ============================================================
+async function streamChatCompletion(
+  url: string,
+  init: RequestInit,
+  opts?: { timeoutMs?: number },
+): Promise<{ ok: boolean; status: number; content: string; usage: any; raw?: string }> {
+  const headers = { ...(init.headers as Record<string, string> || {}), Accept: "text/event-stream" };
+  let body = init.body as string;
+  try {
+    const parsed = JSON.parse(body);
+    parsed.stream = true;
+    parsed.stream_options = { include_usage: true };
+    body = JSON.stringify(parsed);
+  } catch { /* leave as-is */ }
+
+  const resp = await fetchWithTimeout(url, { ...init, headers, body }, opts?.timeoutMs ?? 90000);
+  if (!resp.ok || !resp.body) {
+    const raw = await resp.text().catch(() => "");
+    return { ok: false, status: resp.status, content: "", usage: {}, raw };
+  }
+
+  const reader = resp.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+  let content = "";
+  let usage: any = {};
+
+  while (true) {
+    const { value, done } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+    const lines = buffer.split("\n");
+    buffer = lines.pop() || "";
+    for (const lineRaw of lines) {
+      const line = lineRaw.trim();
+      if (!line || !line.startsWith("data:")) continue;
+      const data = line.slice(5).trim();
+      if (data === "[DONE]") continue;
+      try {
+        const json = JSON.parse(data);
+        const delta = json.choices?.[0]?.delta?.content;
+        if (typeof delta === "string") content += delta;
+        // Some providers send full message at end
+        const finalMsg = json.choices?.[0]?.message?.content;
+        if (typeof finalMsg === "string" && !delta) content = finalMsg;
+        if (json.usage) usage = json.usage;
+      } catch { /* skip malformed chunks */ }
+    }
+  }
+  return { ok: true, status: resp.status, content, usage };
+}
 
 // ============================================================
 // Anthropic adapter: translate OpenAI-compatible chat.completions
@@ -835,7 +914,7 @@ serve(async (req) => {
         status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
-    const { message, history, attachments_context, domain_filter } = body;
+    const { message, history, attachments_context, domain_filter, force_pro } = body;
     // Lista de dominios RAG permitidos por el usuario (multi-select). Si no llega, no se filtra (compat).
     const allowedDomains: string[] | null =
       Array.isArray(domain_filter) && domain_filter.every((d: any) => typeof d === "string") && domain_filter.length > 0
@@ -846,6 +925,11 @@ serve(async (req) => {
         status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
+
+    // Router de modelos: Pro si el toggle está activo o si el query lo justifica.
+    const useProModel = !!force_pro || isProQuery(message);
+    const SYNTHESIS_MODEL = useProModel ? PRO_MODEL : DEFAULT_MODEL;
+    console.log(`[model-router] synthesis=${SYNTHESIS_MODEL} (force_pro=${!!force_pro}, pro_query=${isProQuery(message)})`);
 
     const startTime = Date.now();
 
@@ -1094,7 +1178,7 @@ serve(async (req) => {
 
     // Pricing for the active default model
     const routerPricing = MODEL_PRICING[TOOL_ROUTER_MODEL] || MODEL_PRICING["google/gemini-2.5-flash"];
-    const _pricing = MODEL_PRICING[DEFAULT_MODEL] || routerPricing;
+    const _pricing = MODEL_PRICING[SYNTHESIS_MODEL] || routerPricing;
     const GEMINI_INPUT = _pricing.in;
     const GEMINI_OUTPUT = _pricing.out;
     const routingCostEur = routedTokensIn * routerPricing.in + routedTokensOut * routerPricing.out;
@@ -1106,31 +1190,26 @@ serve(async (req) => {
       let sonnetTokensIn = 0;
       let sonnetTokensOut = 0;
       try {
-        const directResp = await callChatCompletion("https://ai.gateway.lovable.dev/v1/chat/completions", {
+        const directStream = await streamChatCompletion("https://ai.gateway.lovable.dev/v1/chat/completions", {
           method: "POST",
           headers: {
             Authorization: `Bearer ${lovableKey}`,
             "Content-Type": "application/json",
           },
-          body: JSON.stringify({ model: DEFAULT_MODEL, messages, max_tokens: 1600 }),
-        }, { timeoutMs: 45000, retries: 1 });
-        if (directResp.ok) {
-          const directData = await directResp.json();
-          const candidate = directData.choices?.[0]?.message?.content || "";
-          if (candidate.trim()) {
-            directAnswer = candidate;
-            directModel = DEFAULT_MODEL;
-            const directUsage = directData.usage || {};
-            sonnetTokensIn = directUsage.prompt_tokens || 0;
-            sonnetTokensOut = directUsage.completion_tokens || 0;
-            totalTokensIn += sonnetTokensIn;
-            totalTokensOut += sonnetTokensOut;
-          }
-        } else {
-          console.error("Direct Sonnet answer failed:", directResp.status, await directResp.text().catch(() => ""));
+          body: JSON.stringify({ model: SYNTHESIS_MODEL, messages, max_tokens: 1600 }),
+        }, { timeoutMs: 90000 });
+        if (directStream.ok && directStream.content.trim()) {
+          directAnswer = directStream.content;
+          directModel = SYNTHESIS_MODEL;
+          sonnetTokensIn = directStream.usage?.prompt_tokens || 0;
+          sonnetTokensOut = directStream.usage?.completion_tokens || 0;
+          totalTokensIn += sonnetTokensIn;
+          totalTokensOut += sonnetTokensOut;
+        } else if (!directStream.ok) {
+          console.error("Direct synthesis (stream) failed:", directStream.status, directStream.raw?.slice(0, 300));
         }
       } catch (e) {
-        console.error("Direct Sonnet answer error:", e);
+        console.error("Direct synthesis error:", e);
       }
       const latencyMs = Date.now() - startTime;
       const costEur = routingCostEur + sonnetTokensIn * GEMINI_INPUT + sonnetTokensOut * GEMINI_OUTPUT;
@@ -1667,40 +1746,34 @@ serve(async (req) => {
     );
 
     let finalAnswer: string = "";
-    let synthesisModel: string = DEFAULT_MODEL;
+    let synthesisModel: string = SYNTHESIS_MODEL;
     let escalatedTokensIn = 0;
     let escalatedTokensOut = 0;
-    
-    // Try synthesis once with Sonnet; if it is slow/unavailable, return a grounded fallback instead of timing out the Edge Function.
-    for (let attempt = 0; attempt < 1; attempt++) {
-      const synthesisResponse = await callChatCompletion("https://ai.gateway.lovable.dev/v1/chat/completions", {
+
+    // Síntesis con streaming → menor TTFB y evita timeouts en respuestas largas.
+    try {
+      const synthesisStream = await streamChatCompletion("https://ai.gateway.lovable.dev/v1/chat/completions", {
         method: "POST",
         headers: {
           Authorization: `Bearer ${lovableKey}`,
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          model: DEFAULT_MODEL,
-          messages: attempt === 0 ? synthesisMessages : [
-            // Simplified retry: just system + tool results + question
-            { role: "system", content: "Eres AVA, asistente estratégica de inmobiliario comercial con un sarcasmo sutil y elegante (estilo consultor británico). Responde en español con markdown rico. El humor irónico va sobre datos o mercado, nunca sobre el usuario; una pincelada por respuesta basta." },
-            { role: "user", content: `Pregunta del usuario: ${message}\n\nDatos obtenidos:\n${toolResultsSummary}\n\nResponde de forma completa y profesional.` },
-          ],
+          model: SYNTHESIS_MODEL,
+          messages: synthesisMessages,
         }),
-      }, { timeoutMs: 45000, retries: 1 });
+      }, { timeoutMs: 120000 });
 
-      if (synthesisResponse.ok) {
-        const synthesisData = await synthesisResponse.json();
-        finalAnswer = synthesisData.choices?.[0]?.message?.content || "";
-        const usage2 = synthesisData.usage || {};
-        totalTokensIn += usage2.prompt_tokens || 0;
-        totalTokensOut += usage2.completion_tokens || 0;
-        if (finalAnswer) break; // Success
-        console.error(`Synthesis attempt ${attempt + 1} returned empty`);
+      if (synthesisStream.ok) {
+        finalAnswer = synthesisStream.content || "";
+        totalTokensIn += synthesisStream.usage?.prompt_tokens || 0;
+        totalTokensOut += synthesisStream.usage?.completion_tokens || 0;
+        if (!finalAnswer) console.error("Synthesis stream returned empty content");
       } else {
-        const errBody = await synthesisResponse.text();
-        console.error(`Synthesis attempt ${attempt + 1} failed:`, synthesisResponse.status, errBody);
+        console.error(`Synthesis stream failed:`, synthesisStream.status, synthesisStream.raw?.slice(0, 300));
       }
+    } catch (e) {
+      console.error("Synthesis stream error:", e);
     }
 
     // ─────────────────────────────────────────────────────────────
@@ -1738,7 +1811,7 @@ serve(async (req) => {
     let escalated = false;
     let escalationReason: string | null = null;
 
-    if (!isAnthropicModel(DEFAULT_MODEL) && needsEscalation(finalAnswer, toolsUsedCount, toolErrorsCount)) {
+    if (SYNTHESIS_MODEL !== PRO_MODEL && needsEscalation(finalAnswer, toolsUsedCount, toolErrorsCount)) {
       escalationReason = !finalAnswer
         ? "empty"
         : finalAnswer.trim().length < 220

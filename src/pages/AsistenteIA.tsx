@@ -177,13 +177,26 @@ export default function AsistenteIA() {
     domainFilterRef.current = domainFilter;
   }, [domainFilter]);
 
+  // Pro toggle: fuerza el modelo Pro en el orquestador.
+  const [forcePro, setForcePro] = useState<boolean>(() => {
+    if (typeof window === "undefined") return false;
+    return localStorage.getItem("ava-force-pro") === "1";
+  });
+  const forceProRef = useRef<boolean>(forcePro);
+  useEffect(() => {
+    forceProRef.current = forcePro;
+    if (typeof window !== "undefined") {
+      localStorage.setItem("ava-force-pro", forcePro ? "1" : "0");
+    }
+  }, [forcePro]);
+
   const {
     conversations, activeConversationId, messages, input, setInput,
     loading, sendMessage, clearChat, scrollRef,
     createConversation, switchConversation, renameConversation, deleteConversation,
     pendingAttachments, addAttachments, removeAttachment, resolvePendingAction,
     appendInput, lastAssistantContent,
-  } = useChatMessages({ domainFilterRef });
+  } = useChatMessages({ domainFilterRef, forceProRef });
   const { user } = useAuth();
   const userName = (user?.user_metadata?.nombre as string) || user?.email?.split("@")[0] || "";
 
@@ -513,7 +526,17 @@ export default function AsistenteIA() {
                   disabled={loading}
                 />
                 <AvaCallButton onClick={() => setCallOpen(true)} />
-                <button className="inline-flex items-center gap-1.5 h-8 px-3 rounded-full bg-white/[0.04] border border-white/[0.08] text-[11px] font-medium text-white/75 hover:bg-white/[0.07] transition-colors">
+                <button
+                  type="button"
+                  onClick={() => setForcePro(p => !p)}
+                  aria-pressed={forcePro}
+                  title={forcePro ? "Modelo Pro activado (gemini-3.1-pro)" : "Activar modelo Pro para análisis profundos"}
+                  className={`inline-flex items-center gap-1.5 h-8 px-3 rounded-full border text-[11px] font-medium transition-colors ${
+                    forcePro
+                      ? "bg-gradient-to-r from-cyan-400/25 via-teal-300/25 to-emerald-300/25 border-cyan-300/40 text-white shadow-[0_0_12px_-2px_hsl(180_80%_60%/0.45)]"
+                      : "bg-white/[0.04] border-white/[0.08] text-white/75 hover:bg-white/[0.07]"
+                  }`}
+                >
                   <Sparkles className="h-3 w-3" /> Pro
                 </button>
               </div>
