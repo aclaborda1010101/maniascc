@@ -1872,7 +1872,7 @@ serve(async (req) => {
     let escalated = false;
     let escalationReason: string | null = null;
 
-    if (SYNTHESIS_MODEL !== PRO_MODEL && needsEscalation(finalAnswer, toolsUsedCount, toolErrorsCount)) {
+    if (!useProModel && needsEscalation(finalAnswer, toolsUsedCount, toolErrorsCount)) {
       escalationReason = !finalAnswer
         ? "empty"
         : finalAnswer.trim().length < 220
