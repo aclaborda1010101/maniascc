@@ -914,7 +914,7 @@ serve(async (req) => {
         status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
-    const { message, history, attachments_context, domain_filter } = body;
+    const { message, history, attachments_context, domain_filter, force_pro } = body;
     // Lista de dominios RAG permitidos por el usuario (multi-select). Si no llega, no se filtra (compat).
     const allowedDomains: string[] | null =
       Array.isArray(domain_filter) && domain_filter.every((d: any) => typeof d === "string") && domain_filter.length > 0
@@ -925,6 +925,11 @@ serve(async (req) => {
         status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
+
+    // Router de modelos: Pro si el toggle está activo o si el query lo justifica.
+    const useProModel = !!force_pro || isProQuery(message);
+    const SYNTHESIS_MODEL = useProModel ? PRO_MODEL : DEFAULT_MODEL;
+    console.log(`[model-router] synthesis=${SYNTHESIS_MODEL} (force_pro=${!!force_pro}, pro_query=${isProQuery(message)})`);
 
     const startTime = Date.now();
 
