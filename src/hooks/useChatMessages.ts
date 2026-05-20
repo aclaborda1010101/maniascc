@@ -67,6 +67,8 @@ export { toolLabel };
 export interface UseChatMessagesOptions {
   /** Lista de dominios RAG permitidos. Se reenvía en cada llamada al orquestador como `domain_filter`. */
   domainFilterRef?: React.MutableRefObject<string[] | null>;
+  /** Si está activo, fuerza el modelo Pro en el orquestador independientemente del routing automático. */
+  forceProRef?: React.MutableRefObject<boolean>;
 }
 
 export function useChatMessages(options: UseChatMessagesOptions = {}) {
