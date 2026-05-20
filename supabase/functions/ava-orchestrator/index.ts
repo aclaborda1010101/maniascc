@@ -69,6 +69,7 @@ async function fetchAIWithTimeoutAndRetry(
 }
 
 function isAbortTimeoutError(error: unknown): boolean {
+  if (typeof error === "string") return error.toLowerCase().includes("timeout") || error.toLowerCase().includes("aborted");
   return error instanceof Error && (
     error.name === "AbortError" ||
     error.message.toLowerCase().includes("timeout") ||
@@ -277,9 +278,18 @@ async function callChatCompletion(url: string, init: RequestInit, opts?: { timeo
   const body = JSON.parse((init.body as string) || "{}");
   const model: string = body.model || "";
   if (!isAnthropicModel(model)) {
-    return opts?.timeoutMs
-      ? fetchAIWithTimeoutAndRetry(url, init, opts.timeoutMs, opts.retries ?? 2)
-      : fetchAIWithRetry(url, init);
+    try {
+      return opts?.timeoutMs
+        ? await fetchAIWithTimeoutAndRetry(url, init, opts.timeoutMs, opts.retries ?? 2)
+        : await fetchAIWithRetry(url, init);
+    } catch (e) {
+      const timeout = isAbortTimeoutError(e);
+      console.error("AI gateway request failed:", timeout ? "timeout" : e);
+      return new Response(JSON.stringify({ error: { message: timeout ? "AI gateway request timed out" : "AI gateway request failed" } }), {
+        status: timeout ? 504 : 503,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
   }
   const anthropicKey = Deno.env.get("ANTHROPIC_API_KEY");
   if (!anthropicKey) {
