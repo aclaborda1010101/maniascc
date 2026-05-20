@@ -1621,7 +1621,7 @@ serve(async (req) => {
             { role: "user", content: `Pregunta del usuario: ${message}\n\nDatos obtenidos:\n${toolResultsSummary}\n\nResponde de forma completa y profesional.` },
           ],
         }),
-      }, { timeoutMs: 35000, retries: 1 });
+      }, { timeoutMs: 60000, retries: 1 });
 
       if (synthesisResponse.ok) {
         const synthesisData = await synthesisResponse.json();
