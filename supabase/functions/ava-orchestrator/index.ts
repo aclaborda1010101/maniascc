@@ -1738,7 +1738,7 @@ serve(async (req) => {
     let escalated = false;
     let escalationReason: string | null = null;
 
-    if (needsEscalation(finalAnswer, toolsUsedCount, toolErrorsCount)) {
+    if (!isAnthropicModel(DEFAULT_MODEL) && needsEscalation(finalAnswer, toolsUsedCount, toolErrorsCount)) {
       escalationReason = !finalAnswer
         ? "empty"
         : finalAnswer.trim().length < 220
@@ -1791,9 +1791,12 @@ serve(async (req) => {
     const latencyMs = Date.now() - startTime;
     // Cost: base tokens at flash pricing + escalation tokens at pro pricing (if any)
     const proPricing = MODEL_PRICING["google/gemini-3.1-pro-preview"];
+    const sonnetTokensIn = Math.max(0, totalTokensIn - routedTokensIn);
+    const sonnetTokensOut = Math.max(0, totalTokensOut - routedTokensOut);
     const costEur =
-      totalTokensIn * GEMINI_INPUT +
-      totalTokensOut * GEMINI_OUTPUT +
+      routingCostEur +
+      sonnetTokensIn * GEMINI_INPUT +
+      sonnetTokensOut * GEMINI_OUTPUT +
       escalatedTokensIn * proPricing.in +
       escalatedTokensOut * proPricing.out;
     totalTokensIn += escalatedTokensIn;
