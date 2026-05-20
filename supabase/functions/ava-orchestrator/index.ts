@@ -155,10 +155,12 @@ Tienes una memoria global del usuario que persiste entre conversaciones.
 `;
 
 // ============================================================
-// DEFAULT_MODEL: gemini-3.1-flash → rápido, evita IDLE_TIMEOUT 150s.
+// DEFAULT_MODEL: Sonnet para la síntesis final.
+// TOOL_ROUTER_MODEL: modelo rápido solo para elegir herramientas; evita gastar el límite de ejecución antes de llegar a Sonnet.
 // SMALLTALK_MODEL: flash-lite → saludos / acks fast-path.
 // ============================================================
 const DEFAULT_MODEL = "anthropic/claude-sonnet-4-5-20250929";
+const TOOL_ROUTER_MODEL = "google/gemini-2.5-flash";
 const SMALLTALK_MODEL = "google/gemini-2.5-flash-lite";
 
 // Pricing (EUR, ~0.92 USD→EUR)
@@ -230,7 +232,7 @@ function openAIToAnthropicBody(body: any): any {
 
   const anthropicBody: any = {
     model,
-    max_tokens: body.max_tokens || 4096,
+    max_tokens: Math.min(body.max_tokens || 2048, 2400),
     messages: out,
   };
   if (systemParts.length) anthropicBody.system = systemParts.join("\n\n");
@@ -293,9 +295,19 @@ async function callChatCompletion(url: string, init: RequestInit, opts?: { timeo
     },
     body: JSON.stringify(anthropicBody),
   };
-  const resp = opts?.timeoutMs
-    ? await fetchAIWithTimeoutAndRetry(ANTHROPIC_URL, anthropicInit, opts.timeoutMs, opts.retries ?? 2)
-    : await fetchAIWithRetry(ANTHROPIC_URL, anthropicInit);
+  let resp: Response;
+  try {
+    resp = opts?.timeoutMs
+      ? await fetchAIWithTimeoutAndRetry(ANTHROPIC_URL, anthropicInit, opts.timeoutMs, opts.retries ?? 2)
+      : await fetchAIWithRetry(ANTHROPIC_URL, anthropicInit);
+  } catch (e) {
+    const timeout = isAbortTimeoutError(e);
+    console.error("Anthropic request failed:", timeout ? "timeout" : e);
+    return new Response(JSON.stringify({ error: { message: timeout ? "Anthropic request timed out" : "Anthropic request failed" } }), {
+      status: timeout ? 504 : 503,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
   if (!resp.ok) {
     const errTxt = await resp.text();
     console.error("Anthropic error:", resp.status, errTxt.slice(0, 400));
