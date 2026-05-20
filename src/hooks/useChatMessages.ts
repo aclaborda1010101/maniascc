@@ -368,6 +368,7 @@ export function useChatMessages(options: UseChatMessagesOptions = {}) {
           history: recentMessages.slice(0, -1),
           attachments_context: attachmentsContext || undefined,
           domain_filter: Array.isArray(domainFilter) && domainFilter.length > 0 ? domainFilter : undefined,
+          force_pro: forceProRef?.current === true ? true : undefined,
         },
       });
 
