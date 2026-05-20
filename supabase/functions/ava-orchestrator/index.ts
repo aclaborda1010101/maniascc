@@ -156,22 +156,101 @@ Tienes una memoria global del usuario que persiste entre conversaciones.
 `;
 
 // ============================================================
-// DEFAULT_MODEL: Sonnet para la síntesis final.
-// TOOL_ROUTER_MODEL: modelo rápido solo para elegir herramientas; evita gastar el límite de ejecución antes de llegar a Sonnet.
-// SMALLTALK_MODEL: flash-lite → saludos / acks fast-path.
+// MODEL ROUTER
+// - SMALLTALK_MODEL: saludos / acks → flash-lite (fast-path).
+// - TOOL_ROUTER_MODEL: tool-choice / routing (rápido y barato).
+// - DEFAULT_MODEL: síntesis estándar → gemini-3-flash-preview.
+// - PRO_MODEL: análisis profundo, dossier, comparativas, estrategia, etc.
+//   Se activa por keywords (isProQuery) o por toggle "Pro" del usuario (force_pro).
 // ============================================================
-const DEFAULT_MODEL = "anthropic/claude-sonnet-4-5-20250929";
+const DEFAULT_MODEL = "google/gemini-3-flash-preview";
+const PRO_MODEL = "google/gemini-3.1-pro-preview";
 const TOOL_ROUTER_MODEL = "google/gemini-2.5-flash";
 const SMALLTALK_MODEL = "google/gemini-2.5-flash-lite";
+
+// Keywords que disparan el modelo Pro automáticamente.
+const PRO_KEYWORDS = [
+  "análisis", "analisis",
+  "dossier",
+  "histórico", "historico",
+  "comparativa", "compárame", "comparame", "compara ",
+  "estrategia", "estratégico", "estrategico",
+  "informe",
+  "implicaciones",
+  "due diligence",
+];
+function isProQuery(text: string): boolean {
+  if (!text) return false;
+  const t = text.toLowerCase();
+  return PRO_KEYWORDS.some(k => t.includes(k));
+}
 
 // Pricing (EUR, ~0.92 USD→EUR)
 const MODEL_PRICING: Record<string, { in: number; out: number }> = {
   "google/gemini-2.5-pro":        { in: 1.25 / 1_000_000 * 0.92, out: 10.00 / 1_000_000 * 0.92 },
   "google/gemini-2.5-flash":      { in: 0.30 / 1_000_000 * 0.92, out: 2.50 / 1_000_000 * 0.92 },
   "google/gemini-2.5-flash-lite": { in: 0.10 / 1_000_000 * 0.92, out: 0.40 / 1_000_000 * 0.92 },
+  "google/gemini-3-flash-preview":{ in: 0.30 / 1_000_000 * 0.92, out: 2.50 / 1_000_000 * 0.92 },
   "google/gemini-3.1-pro-preview":{ in: 1.25 / 1_000_000 * 0.92, out: 10.00 / 1_000_000 * 0.92 },
   "anthropic/claude-sonnet-4-5-20250929": { in: 3.00 / 1_000_000 * 0.92, out: 15.00 / 1_000_000 * 0.92 },
 };
+
+// ============================================================
+// Streaming helper: llama al gateway con stream:true y acumula la
+// respuesta SSE en un texto final + usage. Reduce TTFB y evita
+// timeouts en respuestas largas. Solo para modelos del gateway
+// OpenAI-compatible (no Anthropic).
+// ============================================================
+async function streamChatCompletion(
+  url: string,
+  init: RequestInit,
+  opts?: { timeoutMs?: number },
+): Promise<{ ok: boolean; status: number; content: string; usage: any; raw?: string }> {
+  const headers = { ...(init.headers as Record<string, string> || {}), Accept: "text/event-stream" };
+  let body = init.body as string;
+  try {
+    const parsed = JSON.parse(body);
+    parsed.stream = true;
+    parsed.stream_options = { include_usage: true };
+    body = JSON.stringify(parsed);
+  } catch { /* leave as-is */ }
+
+  const resp = await fetchWithTimeout(url, { ...init, headers, body }, opts?.timeoutMs ?? 90000);
+  if (!resp.ok || !resp.body) {
+    const raw = await resp.text().catch(() => "");
+    return { ok: false, status: resp.status, content: "", usage: {}, raw };
+  }
+
+  const reader = resp.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+  let content = "";
+  let usage: any = {};
+
+  while (true) {
+    const { value, done } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+    const lines = buffer.split("\n");
+    buffer = lines.pop() || "";
+    for (const lineRaw of lines) {
+      const line = lineRaw.trim();
+      if (!line || !line.startsWith("data:")) continue;
+      const data = line.slice(5).trim();
+      if (data === "[DONE]") continue;
+      try {
+        const json = JSON.parse(data);
+        const delta = json.choices?.[0]?.delta?.content;
+        if (typeof delta === "string") content += delta;
+        // Some providers send full message at end
+        const finalMsg = json.choices?.[0]?.message?.content;
+        if (typeof finalMsg === "string" && !delta) content = finalMsg;
+        if (json.usage) usage = json.usage;
+      } catch { /* skip malformed chunks */ }
+    }
+  }
+  return { ok: true, status: resp.status, content, usage };
+}
 
 // ============================================================
 // Anthropic adapter: translate OpenAI-compatible chat.completions
