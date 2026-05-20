@@ -395,7 +395,7 @@ export default function AsistenteIA() {
                     <button
                       key={s}
                       onClick={() => handleSuggestion(s)}
-                      className="shrink-0 px-4 py-2 rounded-full bg-card border border-border/60 hover:border-accent/40 hover:bg-accent/5 text-xs md:text-sm text-foreground transition-colors"
+                      className="shrink-0 px-4 py-2 rounded-full bg-background/60 backdrop-blur-md border border-accent/20 hover:border-accent/60 hover:bg-accent/10 text-xs md:text-sm font-medium text-foreground/90 hover:text-foreground transition-colors"
                     >
                       {s}
                     </button>
