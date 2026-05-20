@@ -1607,7 +1607,7 @@ serve(async (req) => {
     
     // Try synthesis up to 2 times with the default (fast) model
     for (let attempt = 0; attempt < 2; attempt++) {
-      const synthesisResponse = await fetchAIWithTimeoutAndRetry("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      const synthesisResponse = await callChatCompletion("https://ai.gateway.lovable.dev/v1/chat/completions", {
         method: "POST",
         headers: {
           Authorization: `Bearer ${lovableKey}`,
@@ -1621,7 +1621,7 @@ serve(async (req) => {
             { role: "user", content: `Pregunta del usuario: ${message}\n\nDatos obtenidos:\n${toolResultsSummary}\n\nResponde de forma completa y profesional.` },
           ],
         }),
-      }, 35000, 1);
+      }, { timeoutMs: 35000, retries: 1 });
 
       if (synthesisResponse.ok) {
         const synthesisData = await synthesisResponse.json();
