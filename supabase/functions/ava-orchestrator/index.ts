@@ -1039,7 +1039,7 @@ serve(async (req) => {
         tools: TOOLS,
         tool_choice: "auto",
       }),
-    });
+    }, { timeoutMs: 45000, retries: 2 });
 
     if (!aiResponse.ok) {
       const errText = await aiResponse.text();
