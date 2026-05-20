@@ -1,0 +1,1 @@
+DELETE FROM public.proyectos WHERE metadata->>'crm_snapshot' = '2026-05-19';
