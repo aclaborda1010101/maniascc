@@ -1,23 +1,44 @@
-## Problema
+## Objetivo
 
-En la pantalla de bienvenida del Asistente (`/asistente`), los chips de sugerencias ("Resumen del día", "Matches calientes", "Redacta email a operador", "Genera dossier", "Próximas tareas") se ven con fondo cian translúcido y el texto prácticamente invisible (mismo tono que el fondo).
+Adoptar `google/gemini-3.5-flash` en AVA en dos frentes:
+1. **Reemplazar `gemini-3.1-pro-preview` en toda la cadena Pro** (más barato, más rápido y mejor razonamiento agéntico).
+2. **Subir router + síntesis intermedia** de `gemini-2.5-flash` a `gemini-3.5-flash`.
 
-Causa: en `src/pages/AsistenteIA.tsx` (línea 398) los botones usan `bg-card` + `text-foreground`, pero el tema oscuro visionOS aplica un fondo glass/cian que está pisando el contraste del texto.
+## Cambios técnicos
 
-## Cambio
+**Único archivo: `supabase/functions/ava-orchestrator/index.ts`**
 
-Único archivo a tocar: `src/pages/AsistenteIA.tsx` (líneas 393-403).
+| Línea | Antes | Después |
+|---|---|---|
+| 167 | `PRO_MODEL_FALLBACK = "google/gemini-3.1-pro-preview"` | `= "google/gemini-3.5-flash"` |
+| 168 | `TOOL_ROUTER_MODEL = "google/gemini-2.5-flash"` | `= "google/gemini-3.5-flash"` |
+| 171 | Comentario `Cadena Pro: claude → gpt-5 → gemini-3.1-pro-preview` | Actualizar a `… → gemini-3.5-flash` |
+| 876 | `model: "google/gemini-2.5-flash"` (síntesis intermedia) | `"google/gemini-3.5-flash"` |
+| 1813, 1868, 1908, 1919, 1931, 1954 | Referencias literales a `gemini-3.1-pro-preview` en la escalación dinámica y pricing | `gemini-3.5-flash` |
+| ~208 (MODEL_PRICING) | — | Añadir entrada `"google/gemini-3.5-flash": { in: 0.30/1M, out: 2.50/1M } × 0.92` (placeholder hasta tener tarifa oficial; ajustable). Mantener la entrada de `gemini-3.1-pro-preview` por compatibilidad histórica en auditoría. |
 
-1. Reemplazar las clases del `<button>` de sugerencia por una combinación que garantice contraste:
-   - Fondo glass más oscuro y opaco: `bg-background/60 backdrop-blur-md`
-   - Texto explícito: `text-foreground/90` con `font-medium`
-   - Borde iridiscente sutil acorde al design system: `border-accent/20 hover:border-accent/60`
-   - Hover: `hover:bg-accent/10 hover:text-foreground`
-2. Mantener radio, padding y `shrink-0` actuales.
-3. Sin cambios de lógica, sin tocar `SUGGESTIONS`, sin tocar el edge function ni el toggle Pro.
+**Cadena Pro final:** `claude-sonnet-4-5` → `openai/gpt-5` → `google/gemini-3.5-flash` (fallback).
 
-## Verificación
+**Opcional incluido:** `contact-extract-signals/index.ts` línea 151 → `gemini-3.5-flash` (mejor extracción JSON al mismo coste).
 
-- Recargar `/asistente` con conversación vacía y comprobar que los 5 chips muestran el texto legible sobre el fondo nocturno.
-- Verificar hover (borde y fondo cambian, texto sigue legible).
-- Comprobar en viewport móvil que el scroll horizontal sigue funcionando.
+**Fuera de scope (sin cambios):** RAG/multimodal (`rag-ingest`, `rag-proxy`, `ava-attach-process`, `ava-transcribe`, `document-classify`, `email-bulk-ingest`), smalltalk lite, `ai-forge`, `ai-background-agent`, `generate-match*`.
+
+## Memoria
+
+Actualizar `mem://tech/ai-models` y el `Core` del índice:
+- Core actual: `gemini-3.1-pro-preview` → cambiar a `gemini-3.5-flash` como modelo principal.
+- Nota: "Desde 2026-05-25 la cadena Pro de AVA termina en `gemini-3.5-flash` (más barato, rápido y mejor que 3.1-pro). RAG/multimodal sigue en `gemini-2.5-flash`."
+
+## Validación
+
+1. Deploy de `ava-orchestrator` (+ `contact-extract-signals`).
+2. Probar en `/asistente-ia`:
+   - Prompt simple (router) → log `[router]` debe reportar `gemini-3.5-flash`.
+   - Prompt complejo / `force_pro` → log `[model-router] synthesis=google/gemini-3.5-flash`.
+   - Prompt que dispare escalación → log `[escalation] → gemini-3.5-flash`.
+3. Revisar `Consumo`: coste registrado (no 0 €) y latencia menor a la línea base de 3.1-pro.
+
+## Riesgos
+
+- **Pricing real desconocido** para 3.5-flash en Lovable Gateway → el dashboard mostrará coste aproximado hasta confirmar tarifa.
+- **Calidad en queries Pro muy complejas**: si en pruebas se nota regresión vs 3.1-pro, rollback de 1 línea (`PRO_MODEL_FALLBACK`) y re-evaluar dejar 3.5-flash solo como router/síntesis.

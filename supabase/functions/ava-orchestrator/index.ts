@@ -164,11 +164,11 @@ Tienes una memoria global del usuario que persiste entre conversaciones.
 //   Se activa por keywords (isProQuery) o por toggle "Pro" del usuario (force_pro).
 // ============================================================
 const DEFAULT_MODEL = "google/gemini-3-flash-preview";
-const PRO_MODEL_FALLBACK = "google/gemini-3.1-pro-preview";
-const TOOL_ROUTER_MODEL = "google/gemini-2.5-flash";
+const PRO_MODEL_FALLBACK = "google/gemini-3.5-flash";
+const TOOL_ROUTER_MODEL = "google/gemini-3.5-flash";
 const SMALLTALK_MODEL = "google/gemini-2.5-flash-lite";
 
-// Cadena Pro: claude-sonnet-4-5 → gpt-5 → gemini-3.1-pro-preview.
+// Cadena Pro: claude-sonnet-4-5 → gpt-5 → gemini-3.5-flash.
 // Se elige el primero cuya API key esté configurada.
 function resolveProModel(): string {
   if (Deno.env.get("ANTHROPIC_API_KEY")) return "anthropic/claude-sonnet-4-5";
@@ -210,6 +210,7 @@ const MODEL_PRICING: Record<string, { in: number; out: number }> = {
   "google/gemini-2.5-flash-lite": { in: 0.10 / 1_000_000 * 0.92, out: 0.40 / 1_000_000 * 0.92 },
   "google/gemini-3-flash-preview":{ in: 0.30 / 1_000_000 * 0.92, out: 2.50 / 1_000_000 * 0.92 },
   "google/gemini-3.1-pro-preview":{ in: 1.25 / 1_000_000 * 0.92, out: 10.00 / 1_000_000 * 0.92 },
+  "google/gemini-3.5-flash":      { in: 0.30 / 1_000_000 * 0.92, out: 2.50 / 1_000_000 * 0.92 },
   "anthropic/claude-sonnet-4-5":  { in: 3.00 / 1_000_000 * 0.92, out: 15.00 / 1_000_000 * 0.92 },
   "anthropic/claude-sonnet-4-5-20250929": { in: 3.00 / 1_000_000 * 0.92, out: 15.00 / 1_000_000 * 0.92 },
   "openai/gpt-5":                 { in: 2.50 / 1_000_000 * 0.92, out: 10.00 / 1_000_000 * 0.92 },
@@ -873,7 +874,7 @@ async function summarizeOlderHistory(
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "google/gemini-2.5-flash",
+        model: "google/gemini-3.5-flash",
         messages: [
           { 
             role: "system", 
@@ -1810,7 +1811,7 @@ serve(async (req) => {
     let escalatedTokensOut = 0;
 
     // Síntesis con streaming → menor TTFB y evita timeouts en respuestas largas.
-    // Si el modelo es Pro y falla, recorremos la cadena de fallback (claude → gpt-5 → gemini-3.1-pro-preview).
+    // Si el modelo es Pro y falla, recorremos la cadena de fallback (claude → gpt-5 → gemini-3.5-flash).
     const synthesisCandidates: string[] = useProModel
       ? Array.from(new Set([SYNTHESIS_MODEL, ...PRO_MODEL_CHAIN]))
       : [SYNTHESIS_MODEL];
@@ -1865,7 +1866,7 @@ serve(async (req) => {
 
 
     // ─────────────────────────────────────────────────────────────
-    // DYNAMIC ESCALATION → gemini-3.1-pro-preview
+    // DYNAMIC ESCALATION → gemini-3.5-flash
     // Trigger when the fast model produces a low-confidence / incomplete
     // answer despite having tool results to ground it.
     // ─────────────────────────────────────────────────────────────
@@ -1905,7 +1906,7 @@ serve(async (req) => {
         : finalAnswer.trim().length < 220
           ? "too_short"
           : "low_confidence";
-      console.log(`[escalation] → gemini-3.1-pro-preview (reason=${escalationReason}, len=${finalAnswer.length}, tools=${toolsUsedCount})`);
+      console.log(`[escalation] → gemini-3.5-flash (reason=${escalationReason}, len=${finalAnswer.length}, tools=${toolsUsedCount})`);
       try {
         const escResp = await fetchAIWithTimeoutAndRetry(
           "https://ai.gateway.lovable.dev/v1/chat/completions",
@@ -1916,7 +1917,7 @@ serve(async (req) => {
               "Content-Type": "application/json",
             },
             body: JSON.stringify({
-              model: "google/gemini-3.1-pro-preview",
+              model: "google/gemini-3.5-flash",
               messages: synthesisMessages,
             }),
           },
@@ -1928,7 +1929,7 @@ serve(async (req) => {
           const escAnswer = escData.choices?.[0]?.message?.content || "";
           if (escAnswer && escAnswer.trim().length >= Math.max(40, finalAnswer.trim().length / 2)) {
             finalAnswer = escAnswer;
-            synthesisModel = "google/gemini-3.1-pro-preview";
+            synthesisModel = "google/gemini-3.5-flash";
             escalated = true;
             const escUsage = escData.usage || {};
             escalatedTokensIn = escUsage.prompt_tokens || 0;
@@ -1951,7 +1952,7 @@ serve(async (req) => {
 
     const latencyMs = Date.now() - startTime;
     // Cost: base tokens at flash pricing + escalation tokens at pro pricing (if any)
-    const proPricing = MODEL_PRICING["google/gemini-3.1-pro-preview"];
+    const proPricing = MODEL_PRICING["google/gemini-3.5-flash"];
     const sonnetTokensIn = Math.max(0, totalTokensIn - routedTokensIn);
     const sonnetTokensOut = Math.max(0, totalTokensOut - routedTokensOut);
     const costEur =
