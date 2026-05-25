@@ -14,6 +14,99 @@ export type Database = {
   }
   public: {
     Tables: {
+      _contactos_basura_backup_2026_05_20: {
+        Row: {
+          activo_id: string | null
+          ai_tags: string[] | null
+          apellidos: string | null
+          cargo: string | null
+          creado_por: string | null
+          created_at: string | null
+          datos_consentimiento: Json | null
+          email: string | null
+          empresa: string | null
+          estilo_negociacion: string | null
+          id: string | null
+          in_network: boolean | null
+          interaction_count: number | null
+          is_favorite: boolean | null
+          last_contact: string | null
+          linkedin_url: string | null
+          nombre: string | null
+          notas_perfil: string | null
+          operador_id: string | null
+          perfil_ia: Json | null
+          plaud_count: number | null
+          sentiment: string | null
+          subdivision_id: string | null
+          telefono: string | null
+          updated_at: string | null
+          visibility: string | null
+          wa_message_count: number | null
+          whatsapp: string | null
+        }
+        Insert: {
+          activo_id?: string | null
+          ai_tags?: string[] | null
+          apellidos?: string | null
+          cargo?: string | null
+          creado_por?: string | null
+          created_at?: string | null
+          datos_consentimiento?: Json | null
+          email?: string | null
+          empresa?: string | null
+          estilo_negociacion?: string | null
+          id?: string | null
+          in_network?: boolean | null
+          interaction_count?: number | null
+          is_favorite?: boolean | null
+          last_contact?: string | null
+          linkedin_url?: string | null
+          nombre?: string | null
+          notas_perfil?: string | null
+          operador_id?: string | null
+          perfil_ia?: Json | null
+          plaud_count?: number | null
+          sentiment?: string | null
+          subdivision_id?: string | null
+          telefono?: string | null
+          updated_at?: string | null
+          visibility?: string | null
+          wa_message_count?: number | null
+          whatsapp?: string | null
+        }
+        Update: {
+          activo_id?: string | null
+          ai_tags?: string[] | null
+          apellidos?: string | null
+          cargo?: string | null
+          creado_por?: string | null
+          created_at?: string | null
+          datos_consentimiento?: Json | null
+          email?: string | null
+          empresa?: string | null
+          estilo_negociacion?: string | null
+          id?: string | null
+          in_network?: boolean | null
+          interaction_count?: number | null
+          is_favorite?: boolean | null
+          last_contact?: string | null
+          linkedin_url?: string | null
+          nombre?: string | null
+          notas_perfil?: string | null
+          operador_id?: string | null
+          perfil_ia?: Json | null
+          plaud_count?: number | null
+          sentiment?: string | null
+          subdivision_id?: string | null
+          telefono?: string | null
+          updated_at?: string | null
+          visibility?: string | null
+          wa_message_count?: number | null
+          whatsapp?: string | null
+        }
+        Relationships: []
+      }
       _import_forecast_2026_05_19: {
         Row: {
           created_at: string | null
