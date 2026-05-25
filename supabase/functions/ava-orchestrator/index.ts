@@ -1811,7 +1811,7 @@ serve(async (req) => {
     let escalatedTokensOut = 0;
 
     // Síntesis con streaming → menor TTFB y evita timeouts en respuestas largas.
-    // Si el modelo es Pro y falla, recorremos la cadena de fallback (claude → gpt-5 → gemini-3.1-pro-preview).
+    // Si el modelo es Pro y falla, recorremos la cadena de fallback (claude → gpt-5 → gemini-3.5-flash).
     const synthesisCandidates: string[] = useProModel
       ? Array.from(new Set([SYNTHESIS_MODEL, ...PRO_MODEL_CHAIN]))
       : [SYNTHESIS_MODEL];
@@ -1866,7 +1866,7 @@ serve(async (req) => {
 
 
     // ─────────────────────────────────────────────────────────────
-    // DYNAMIC ESCALATION → gemini-3.1-pro-preview
+    // DYNAMIC ESCALATION → gemini-3.5-flash
     // Trigger when the fast model produces a low-confidence / incomplete
     // answer despite having tool results to ground it.
     // ─────────────────────────────────────────────────────────────
