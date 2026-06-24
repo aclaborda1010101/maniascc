@@ -268,17 +268,12 @@ Deno.serve(async (req) => {
         console.error("[wa-webhook] thread upsert exception:", e);
       }
 
-      // Bump contador en contactos
-      await supabase.rpc as unknown; // placeholder; usar update simple
+      // Bump last_contact en contactos
       await supabase
         .from("contactos")
-        .update({
-          last_contact: sentAt,
-          wa_message_count: undefined as unknown as number,
-        })
-        .eq("id", contactId)
-        .then(() => {})
-        .catch(() => {});
+        .update({ last_contact: sentAt })
+        .eq("id", contactId);
+
     }
 
     console.log(
