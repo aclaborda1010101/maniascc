@@ -188,14 +188,24 @@ Deno.serve(async (req) => {
       const contactId = await resolveOrCreateContact(phone, pushName, finalOwner);
       if (!contactId) continue;
 
-      const { error: insErr, data: insData } = await supabase
+      const extId = `wa_${externalId}`;
+      // Comprobar si ya existe (partial unique index no soporta ON CONFLICT)
+      const { data: existingMsg } = await supabase
         .from("contact_messages")
-        .upsert(
-          {
+        .select("id")
+        .eq("owner_id", finalOwner)
+        .eq("channel", "whatsapp")
+        .eq("external_id", extId)
+        .maybeSingle();
+
+      if (!existingMsg) {
+        const { error: insErr, data: insData } = await supabase
+          .from("contact_messages")
+          .insert({
             owner_id: finalOwner,
             contact_id: contactId,
             channel: "whatsapp",
-            external_id: `wa_${externalId}`,
+            external_id: extId,
             direction: fromMe ? "out" : "in",
             from_email: null,
             to_emails: [],
@@ -206,17 +216,21 @@ Deno.serve(async (req) => {
             sent_at: sentAt,
             thread_external_id: remoteJid,
             metadata: { instance: instanceName, raw_event: event, jid: remoteJid },
-          },
-          { onConflict: "owner_id,channel,external_id", ignoreDuplicates: true },
-        )
-        .select("id");
+          })
+          .select("id")
+          .single();
 
-      if (insErr) {
-        console.error("[wa-webhook] insert contact_messages error:", insErr.message);
-      } else if (insData && insData[0]) {
-        inserted.push(insData[0].id);
-        touchedContacts.add(contactId);
+        if (insErr) {
+          console.error("[wa-webhook] insert contact_messages error:", insErr.message);
+        } else if (insData) {
+          inserted.push(insData.id);
+          touchedContacts.add(contactId);
+        }
+      } else {
+        console.log("[wa-webhook] msg already exists, skip", extId);
       }
+
+
 
       // Upsert whatsapp_threads (por owner + contact_phone)
       try {
