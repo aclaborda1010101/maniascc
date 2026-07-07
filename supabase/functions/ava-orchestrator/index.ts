@@ -488,7 +488,49 @@ function isSmallTalk(text: string): boolean {
   return re.test(t);
 }
 
-const SYSTEM_PROMPT = `Eres AVA, la asistente estratégica de F&G Real Estate especializada en retail e inmobiliario comercial. Tienes acceso a:
+const ALLOWED_TABLES = [
+  "locales", "operadores", "contactos", "documentos_proyecto", "negociaciones",
+  "proyectos", "matches", "activos", "perfiles_negociador", "validaciones_retorno",
+  "configuraciones_tenant_mix", "patrones_localizacion", "auditoria_ia",
+  "ai_insights", "ai_feedback", "notificaciones", "proyecto_operadores",
+  "proyecto_contactos", "proyecto_equipo", "sinergias_operadores",
+];
+
+// Schema real de las tablas permitidas para db_query. Se inyecta en la
+// descripción de la tool para evitar que el modelo invente columnas
+// (bug real observado: proyectos.ciudad → la columna real es 'ubicacion').
+const TABLE_COLUMNS: Record<string, string[]> = {
+  activos: ["id","proyecto_id","nombre","tipo_activo","direccion","codigo_postal","metros_cuadrados","planta","fachada_metros","renta_actual","renta_esperada","gastos_comunidad","estado","caracteristicas","fotos_urls","coordenadas_lat","coordenadas_lon","notas","creado_por","created_at","updated_at"],
+  ai_feedback: ["id","entidad_tipo","entidad_id","usuario_id","rating","feedback_tipo","comentario","correccion_sugerida","accion","tiempo_visualizacion_ms","posicion_en_lista","seleccionado","contexto","metadata","created_at"],
+  ai_insights: ["id","tipo","severidad","titulo","descripcion","proyecto_id","entidades_relacionadas","acciones_sugeridas","estado","feedback_usuario","accion_tomada","confianza","impacto_estimado","generado_por_tarea_id","modelo_usado","visto_en","created_at"],
+  auditoria_ia: ["id","match_id","local_id","modelo","tokens_entrada","tokens_salida","coste_estimado","latencia_ms","exito","error_mensaje","created_by","created_at","funcion_ia"],
+  configuraciones_tenant_mix: ["id","centro_nombre","centro_ubicacion","plan","operadores_recomendados","score_sinergia_total","prediccion_ocupacion","renta_estimada_total","riesgos","estado","usuario_id","creado_en"],
+  contactos: ["id","nombre","apellidos","empresa","cargo","email","telefono","linkedin_url","estilo_negociacion","notas_perfil","perfil_ia","datos_consentimiento","creado_por","created_at","updated_at","whatsapp","operador_id","wa_message_count","plaud_count","last_contact","ai_tags","sentiment","interaction_count","is_favorite","in_network","subdivision_id","activo_id","visibility"],
+  documentos_proyecto: ["id","proyecto_id","operador_id","contacto_id","nombre","tipo_documento","storage_path","mime_type","tamano_bytes","procesado_ia","resumen_ia","metadata_extraida","subido_por","created_at","owner_id","visibility","taxonomia_id","nombre_normalizado","nivel_sensibilidad","hash_md5","origen","origen_external_id","fase_rag","fecha_documento","dominio"],
+  locales: ["id","nombre","direccion","codigo_postal","ciudad","superficie_m2","precio_renta","estado","descripcion","caracteristicas","coordenadas_lat","coordenadas_lng","imagen_url","created_by","created_at","updated_at"],
+  matches: ["id","local_id","operador_id","score","explicacion","tags","estado","generado_por","created_at","updated_at","feedback_usuario"],
+  negociaciones: ["id","proyecto_id","activo_id","operador_id","contacto_interlocutor_id","negociador_interno_id","estado","condiciones_propuestas","condiciones_actuales","condiciones_finales","probabilidad_cierre","briefing_ia","fecha_ultimo_contacto","fecha_cierre","resultado","motivo_resultado","notas","creado_por","created_at","updated_at"],
+  notificaciones: ["id","user_id","title","description","type","link","read","created_at"],
+  operadores: ["id","nombre","sector","presupuesto_min","presupuesto_max","superficie_min","superficie_max","descripcion","contacto_nombre","contacto_email","contacto_telefono","perfil_ia","logo_url","activo","created_by","created_at","updated_at","matriz_id","direccion","activo_id"],
+  patrones_localizacion: ["id","coordenadas_lat","coordenadas_lon","radio_km","tipo_centro","score_viabilidad","desglose_variables","riesgos","oportunidades","comparables","fuentes_consultadas","confianza","usuario_id","creado_en"],
+  perfiles_negociador: ["id","contacto_nombre","contacto_empresa","contacto_cargo","estilo_primario","estilo_secundario","puntos_flexion","historico_resumen","preferencias_comunicacion","datos_consentimiento","usuario_id","creado_en","actualizado_en"],
+  proyecto_contactos: ["id","proyecto_id","contacto_id","rol","added_at"],
+  proyecto_equipo: ["id","proyecto_id","usuario_id","rol_proyecto","created_at"],
+  proyecto_operadores: ["id","proyecto_id","operador_id","rol","added_at"],
+  proyectos: ["id","nombre","descripcion","tipo","estado","local_id","created_by","responsable_id","fecha_inicio","fecha_objetivo","notas","created_at","updated_at","ubicacion","codigo_postal","presupuesto_estimado","cliente_contacto_id","metadata"],
+  sinergias_operadores: ["id","operador_a_id","operador_b_id","coeficiente_sinergia","num_observaciones","fuente","notas","ultima_actualizacion"],
+  validaciones_retorno: ["id","dossier_storage_path","tipo_activo","ubicacion","codigo_postal","metricas_declaradas","metricas_reales","semaforos","desviaciones","benchmarks_usados","confianza_global","estado","propietario_ref","usuario_id","creado_en","cerrado_en"],
+};
+
+const SCHEMA_HINT_TEXT = "Columnas disponibles por tabla (USA SOLO estas, NUNCA inventes nombres — p.ej. proyectos NO tiene 'ciudad' (usa 'ubicacion'); contactos NO tiene 'telefono_movil' (usa 'telefono'); locales SÍ tiene 'ciudad'): "
+  + Object.entries(TABLE_COLUMNS).map(([t, cols]) => `${t}(${cols.join(",")})`).join("; ");
+
+// Extrae "column X does not exist" del mensaje de error de Postgres/PostgREST.
+function extractMissingColumn(errMsg: string): string | null {
+  const m = /column\s+"?([\w.]+)"?\s+does not exist/i.exec(errMsg || "")
+    || /Could not find the '([\w.]+)' column/i.exec(errMsg || "");
+  return m ? m[1].split(".").pop()! : null;
+}
 1. BASE DE DATOS interna: locales, operadores, contactos, activos, proyectos/oportunidades, matches, negociaciones, documentos
 2. RAG HÍBRIDO (búsqueda textual + semántica con embeddings) sobre documentos indexados segmentados por dominio (centros_comerciales, legal, financiero, urbanismo, administrativo, comunicaciones, personal, general). **SIEMPRE** prueba rag_search primero cuando la pregunta menciona "documento", "contrato", "informe", "email", nombres de operadores o de proyectos/centros. El RAG auto-detecta el proyecto por su nombre en la pregunta (no necesitas pasar proyecto_id si el usuario lo nombra). Si rag_search devuelve "resolved_proyecto", ese proyecto se usó como filtro implícito y debes mencionar los hallazgos como pertenecientes a ese proyecto. Si devuelve respuesta vacía con "resolved_proyecto", NO digas que "no hay información" sin antes intentar db_query sobre ese proyecto. **Respeta SIEMPRE el filtro de dominios activo del usuario** (no intentes saltártelo).
 3. NEARBY SEARCH: análisis geográfico de POIs via OpenStreetMap
