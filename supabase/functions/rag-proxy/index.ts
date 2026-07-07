@@ -342,8 +342,38 @@ serve(async (req) => {
       }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
-    // Top-10 por hybrid_score (si viene) o tal cual
-    contextChunks = contextChunks.slice(0, 10);
+    // Rerank LLM sobre hasta 40 candidatos → top 8. Fallback: primeros 8 por hybrid_score.
+    const rerankPool = contextChunks.slice(0, 40);
+    let rerankLatency = 0;
+    let rerankUsed = false;
+    const rr = await rerankCandidates(question, rerankPool, LOVABLE_API_KEY);
+    if (rr && rr.order.length > 0) {
+      rerankUsed = true;
+      rerankLatency = rr.latency_ms;
+      const seen = new Set<number>();
+      const reordered: any[] = [];
+      for (const idx of rr.order) {
+        if (!seen.has(idx) && rerankPool[idx]) { seen.add(idx); reordered.push(rerankPool[idx]); }
+      }
+      // Rellenar por hybrid_score si el reranker devolvió menos de 8
+      for (let i = 0; i < rerankPool.length && reordered.length < 8; i++) {
+        if (!seen.has(i)) reordered.push(rerankPool[i]);
+      }
+      contextChunks = reordered.slice(0, 8);
+      admin.from("auditoria_ia").insert({
+        funcion_ia: "rag-rerank",
+        modelo: "google/gemini-2.5-flash",
+        tokens_entrada: rr.tokens_in,
+        tokens_salida: rr.tokens_out,
+        latencia_ms: rr.latency_ms,
+        exito: true,
+        created_by: claims.user.id,
+      }).then(({ error }: { error: unknown }) => { if (error) console.warn("rag:rerank audit", error); });
+    } else {
+      contextChunks = rerankPool.slice(0, 8);
+    }
+    console.log(`[phase-timing] rerank=${rerankLatency}ms used=${rerankUsed} candidates=${rerankPool.length}→${contextChunks.length}`);
+
 
     // Resolver nombres de documentos
     const docIds = [...new Set(contextChunks.map((c: any) => c.documento_id).filter(Boolean))];
