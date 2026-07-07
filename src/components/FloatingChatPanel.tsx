@@ -15,6 +15,7 @@ import { exportAvaMessageToPdf, exportAvaConversationToPdf, downloadBlob } from 
 import { useToast } from "@/hooks/use-toast";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import { formatMessageTime, formatMessageTooltip, formatDaySeparator, formatRelativeShort, isSameDay } from "@/lib/chatTime";
 
 interface FloatingChatPanelProps {
   open: boolean;
@@ -132,10 +133,16 @@ export default function FloatingChatPanel({ open, onClose }: FloatingChatPanelPr
               {sortedConvs.map(conv => (
                 <button
                   key={conv.id}
-                  className={`w-full text-left px-4 py-2 text-xs hover:bg-muted/60 transition-colors ${conv.id === activeConversationId ? "bg-muted font-medium" : ""}`}
+                  className={`w-full text-left px-4 py-2 text-xs hover:bg-muted/60 transition-colors flex items-center justify-between gap-2 ${conv.id === activeConversationId ? "bg-muted font-medium" : ""}`}
                   onClick={() => { switchConversation(conv.id); setShowConvList(false); }}
                 >
-                  {conv.title}
+                  <span className="truncate flex-1">{conv.title}</span>
+                  <span
+                    className="text-[10px] text-muted-foreground shrink-0"
+                    title={formatMessageTooltip(conv.updatedAt)}
+                  >
+                    {formatRelativeShort(conv.updatedAt)}
+                  </span>
                 </button>
               ))}
             </div>
@@ -155,8 +162,20 @@ export default function FloatingChatPanel({ open, onClose }: FloatingChatPanelPr
             const prevUserMsg = msg.role === "assistant"
               ? [...messages.slice(0, idx)].reverse().find(m => m.role === "user")
               : undefined;
+            const prev = idx > 0 ? messages[idx - 1] : null;
+            const showDaySep = !prev || !isSameDay(prev.timestamp, msg.timestamp);
             return (
-            <div key={msg.id} className={`flex gap-2 ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
+            <div key={msg.id}>
+              {showDaySep && (
+                <div className="flex items-center gap-2 py-1 my-2">
+                  <div className="flex-1 h-px bg-border" />
+                  <span className="text-[9px] uppercase tracking-wider text-muted-foreground/70">
+                    {formatDaySeparator(msg.timestamp)}
+                  </span>
+                  <div className="flex-1 h-px bg-border" />
+                </div>
+              )}
+              <div className={`flex gap-2 ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
               {msg.role === "assistant" && (
                 <div className="shrink-0 w-6 h-6 rounded-full bg-accent/10 flex items-center justify-center">
                   <Sparkles className="h-3 w-3 text-accent" />
@@ -235,12 +254,22 @@ export default function FloatingChatPanel({ open, onClose }: FloatingChatPanelPr
                     })}
                   </div>
                 )}
-                {msg.role === "assistant" && (
-                  <div className="mt-1 flex items-center justify-between gap-1">
+                <div className={`mt-1 flex items-center gap-1 ${msg.role === "assistant" ? "justify-between" : "justify-end"}`}>
+                  {msg.role === "assistant" && (
                     <AvaMessageFeedback messageId={msg.id} toolsUsed={msg.meta?.tools_used} />
+                  )}
+                  <time
+                    className={`text-[9px] ${msg.role === "user" ? "text-accent-foreground/70" : "text-muted-foreground/70"}`}
+                    title={formatMessageTooltip(msg.timestamp)}
+                    dateTime={new Date(msg.timestamp).toISOString()}
+                  >
+                    {formatMessageTime(msg.timestamp)}
+                  </time>
+                  {msg.role === "assistant" && (
                     <ExportMessageMiniBtn message={msg} userQuestion={prevUserMsg?.content} />
-                  </div>
-                )}
+                  )}
+                </div>
+              </div>
               </div>
             </div>
             );
