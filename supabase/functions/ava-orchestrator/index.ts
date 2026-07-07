@@ -2345,9 +2345,10 @@ serve(async (req) => {
           const richBlock = richSnippets.slice(0, 8).map((s, i) => `[${i + 1}] ${s}`).join("\n");
           const enrichMessages = [
             ...synthesisMessages,
+            { role: "assistant", content: finalAnswer },
             {
-              role: "system",
-              content: `AVISO: tu respuesta anterior fue superficial (un volcado de columnas básicas). Estos son los campos DESCRIPTIVOS reales que ya venían en los datos y que OMITISTE — DEBES incluirlos y explicarlos con tus palabras como un analista:\n\n${richBlock}\n\nReescribe la respuesta a la pregunta del usuario incorporando lo esencial de esos campos (qué es, en qué punto está, qué se sabe del negocio). 2-5 frases con contenido real, no una lista de campos.`,
+              role: "user",
+              content: `Esa respuesta es superficial: solo has repetido nombre, tipo, estado y fecha. Los datos que recuperaste con las tools contienen estos campos DESCRIPTIVOS que OMITISTE:\n\n${richBlock}\n\nReescribe la respuesta INCLUYENDO y EXPLICANDO lo esencial de esos campos (qué es la cosa, en qué punto está, qué se sabe del negocio: cliente, comisión, próximo paso). 2-5 frases con contenido real, en español, sin listar campos de BD. NO empieces con "Nuestro último proyecto es X, de tipo…" — arranca con lo interesante (la descripción).`,
             },
           ];
           const prepA = prepareCall(SYNTHESIS_MODEL, { messages: enrichMessages, max_tokens: 1500 });
@@ -2359,14 +2360,24 @@ serve(async (req) => {
             );
             if (aResp.ok) {
               const aJson = await aResp.json();
-              const aAns = aJson.choices?.[0]?.message?.content || "";
-              if (aAns && aAns.trim().length >= answerLen) {
-                finalAnswer = aAns.trim();
+              const aAns = (aJson.choices?.[0]?.message?.content || "").trim();
+              // Aceptamos la re-síntesis si NO es vacía y (es más larga o menciona algo de los snippets ricos).
+              const mentionsRich = richSnippets.some((s) => {
+                const val = s.split(":").slice(1).join(":").trim().toLowerCase();
+                const probe = val.slice(0, Math.min(25, val.length));
+                return probe.length > 10 && aAns.toLowerCase().includes(probe);
+              });
+              if (aAns && (aAns.length >= answerLen || mentionsRich)) {
+                console.log(`[anti-superficial] re-síntesis OK (nueva len=${aAns.length}, mentionsRich=${mentionsRich})`);
+                finalAnswer = aAns;
                 const aUsage = aJson.usage || {};
                 totalTokensIn += aUsage.prompt_tokens || 0;
                 totalTokensOut += aUsage.completion_tokens || 0;
-                console.log(`[anti-superficial] re-síntesis OK (nueva len=${finalAnswer.length})`);
+              } else {
+                console.warn(`[anti-superficial] re-síntesis descartada (len=${aAns.length}, mentionsRich=${mentionsRich})`);
               }
+            } else {
+              console.warn(`[anti-superficial] retry HTTP ${aResp.status}`);
             }
           }
         } catch (e) {
