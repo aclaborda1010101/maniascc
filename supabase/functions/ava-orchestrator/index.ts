@@ -1033,7 +1033,9 @@ serve(async (req) => {
         status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
-    const { message, history, attachments_context, domain_filter } = body;
+    const { message, history: rawHistory, attachments_context, domain_filter, conversation_id } = body;
+    // 6c: descartar cualquier mensaje del history cuyo role no sea user/assistant.
+    const history = sanitizeHistory(rawHistory);
     // Acepta force_pro (legacy) o pro_mode (nuevo) desde la UI.
     const force_pro: boolean = !!(body.force_pro || body.pro_mode);
     // Lista de dominios RAG permitidos por el usuario (multi-select). Si no llega, no se filtra (compat).
