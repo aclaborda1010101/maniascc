@@ -2243,10 +2243,46 @@ serve(async (req) => {
       }
     }
 
-    // Final fallback
-    if (!finalAnswer) {
-      finalAnswer = firstCallContent || formatToolResultsFallback(toolResults);
+    // Final fallback: NUNCA volcar JSON crudo. Si la síntesis vino vacía y no
+    // hubo texto directo del router, reintentamos UNA vez con un prompt mínimo
+    // que solo ve un resumen en lenguaje natural de los tools. Si aun así falla,
+    // mensaje humano — nunca la lista de columnas ni el JSON.
+    if (!finalAnswer || !finalAnswer.trim()) {
+      if (firstCallContent && firstCallContent.trim()) {
+        finalAnswer = firstCallContent;
+      } else {
+        const nlSummary = summarizeToolResultsNL(toolResults);
+        try {
+          const retryMessages = [
+            { role: "system", content: "Redacta en español una respuesta clara y breve para el usuario usando EXCLUSIVAMENTE los datos que se te dan. NO muestres JSON, NO menciones nombres de columnas ni de tablas, NO copies estructuras técnicas. Si los datos no responden a la pregunta, dilo en una frase." },
+            { role: "user", content: `PREGUNTA: ${message}\n\nDATOS DISPONIBLES:\n${nlSummary}` },
+          ];
+          const prepR = prepareCall(SYNTHESIS_MODEL, { messages: retryMessages, max_tokens: 800 });
+          if (prepR) {
+            const rResp = await fetchAIWithTimeoutAndRetry(prepR.url, { method: "POST", headers: prepR.headers, body: prepR.body }, 20000, 1);
+            if (rResp.ok) {
+              const rData = await rResp.json();
+              const rAns = rData.choices?.[0]?.message?.content || "";
+              if (rAns && rAns.trim()) {
+                finalAnswer = rAns.trim();
+                const rUsage = rData.usage || {};
+                totalTokensIn += rUsage.prompt_tokens || 0;
+                totalTokensOut += rUsage.completion_tokens || 0;
+                console.log(`[fallback-retry] recovered via minimal synthesis prompt (len=${finalAnswer.length})`);
+              }
+            } else {
+              console.warn(`[fallback-retry] failed: ${rResp.status}`);
+            }
+          }
+        } catch (e) {
+          console.error("[fallback-retry] error:", e);
+        }
+        if (!finalAnswer || !finalAnswer.trim()) {
+          finalAnswer = "He encontrado los datos pero tuve un problema al redactarlos; por favor, reformula la pregunta.";
+        }
+      }
     }
+
 
     const latencyMs = Date.now() - startTime;
     // Coste: siempre registrado con el modelo REALMENTE usado (synthesisModel puede haber caído a otro por fallbacks).
