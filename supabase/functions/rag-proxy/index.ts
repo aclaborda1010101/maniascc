@@ -108,6 +108,80 @@ async function getQueryEmbedding(
   }
 }
 
+// ---------------------------------------------------------------------------
+// Rerank de candidatos con LLM (Gemini flash vía Lovable AI Gateway).
+// Devuelve los índices ordenados por relevancia real a la pregunta.
+// Preparado para migrar a Cohere Rerank si COHERE_API_KEY estuviera presente.
+// ---------------------------------------------------------------------------
+async function rerankCandidates(
+  question: string,
+  candidates: { contenido: string }[],
+  lovableKey: string,
+  timeoutMs = 6000,
+): Promise<{ order: number[]; scores: number[]; latency_ms: number; tokens_in: number; tokens_out: number } | null> {
+  const cohereKey = Deno.env.get("COHERE_API_KEY");
+  if (cohereKey) {
+    // TODO: sustituir por llamada a Cohere Rerank v3 cuando se configure la key.
+    // Por ahora seguimos con el reranker LLM.
+  }
+  const numbered = candidates.map((c, i) =>
+    `[${i + 1}] ${(c.contenido || "").slice(0, 500).replace(/\s+/g, " ").trim()}`
+  ).join("\n\n");
+
+  const controller = new AbortController();
+  const to = setTimeout(() => controller.abort(), timeoutMs);
+  const t0 = Date.now();
+  try {
+    const r = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${lovableKey}`, "Content-Type": "application/json" },
+      signal: controller.signal,
+      body: JSON.stringify({
+        model: "google/gemini-2.5-flash",
+        messages: [
+          { role: "system", content: "Eres un reranker. Ordena los fragmentos por relevancia REAL a la pregunta. Ignora relleno." },
+          { role: "user", content: `PREGUNTA: ${question}\n\nFRAGMENTOS:\n${numbered}` },
+        ],
+        tools: [{
+          type: "function",
+          function: {
+            name: "rerank",
+            description: "Devuelve el ranking de relevancia",
+            parameters: {
+              type: "object",
+              properties: {
+                ranking: { type: "array", items: { type: "integer" }, description: "Índices 1-based ordenados por relevancia DESC" },
+                scores:  { type: "array", items: { type: "number" },  description: "Score 0-1 alineado con ranking" },
+              },
+              required: ["ranking", "scores"],
+            },
+          },
+        }],
+        tool_choice: { type: "function", function: { name: "rerank" } },
+      }),
+    });
+    clearTimeout(to);
+    if (!r.ok) { console.warn(`rag:rerank status ${r.status}`); return null; }
+    const j = await r.json();
+    const tc = j.choices?.[0]?.message?.tool_calls?.[0];
+    if (!tc?.function?.arguments) return null;
+    const args = typeof tc.function.arguments === "string" ? JSON.parse(tc.function.arguments) : tc.function.arguments;
+    const order: number[] = (args.ranking || []).map((n: number) => n - 1).filter((n: number) => n >= 0 && n < candidates.length);
+    const scores: number[] = args.scores || [];
+    return {
+      order,
+      scores,
+      latency_ms: Date.now() - t0,
+      tokens_in: j.usage?.prompt_tokens || 0,
+      tokens_out: j.usage?.completion_tokens || 0,
+    };
+  } catch (e) {
+    clearTimeout(to);
+    console.warn("rag:rerank error/timeout", e instanceof Error ? e.message : e);
+    return null;
+  }
+}
+
 
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
@@ -268,8 +342,38 @@ serve(async (req) => {
       }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
-    // Top-10 por hybrid_score (si viene) o tal cual
-    contextChunks = contextChunks.slice(0, 10);
+    // Rerank LLM sobre hasta 40 candidatos → top 8. Fallback: primeros 8 por hybrid_score.
+    const rerankPool = contextChunks.slice(0, 40);
+    let rerankLatency = 0;
+    let rerankUsed = false;
+    const rr = await rerankCandidates(question, rerankPool, LOVABLE_API_KEY);
+    if (rr && rr.order.length > 0) {
+      rerankUsed = true;
+      rerankLatency = rr.latency_ms;
+      const seen = new Set<number>();
+      const reordered: any[] = [];
+      for (const idx of rr.order) {
+        if (!seen.has(idx) && rerankPool[idx]) { seen.add(idx); reordered.push(rerankPool[idx]); }
+      }
+      // Rellenar por hybrid_score si el reranker devolvió menos de 8
+      for (let i = 0; i < rerankPool.length && reordered.length < 8; i++) {
+        if (!seen.has(i)) reordered.push(rerankPool[i]);
+      }
+      contextChunks = reordered.slice(0, 8);
+      admin.from("auditoria_ia").insert({
+        funcion_ia: "rag-rerank",
+        modelo: "google/gemini-2.5-flash",
+        tokens_entrada: rr.tokens_in,
+        tokens_salida: rr.tokens_out,
+        latencia_ms: rr.latency_ms,
+        exito: true,
+        created_by: claims.user.id,
+      }).then(({ error }: { error: unknown }) => { if (error) console.warn("rag:rerank audit", error); });
+    } else {
+      contextChunks = rerankPool.slice(0, 8);
+    }
+    console.log(`[phase-timing] rerank=${rerankLatency}ms used=${rerankUsed} candidates=${rerankPool.length}→${contextChunks.length}`);
+
 
     // Resolver nombres de documentos
     const docIds = [...new Set(contextChunks.map((c: any) => c.documento_id).filter(Boolean))];
