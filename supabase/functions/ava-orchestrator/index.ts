@@ -1396,11 +1396,11 @@ serve(async (req) => {
       });
     }
 
-    // Execute tool calls IN PARALLEL to avoid 150s edge timeout
+    // Ejecutor de tool_calls reutilizable (multi-ronda agéntica).
     const toolResults: Array<{ tool: string; result: any }> = [];
-    const toolMessages: Array<{ role: string; content: string; tool_call_id?: string }> = [];
 
-    const executed = await Promise.all(choice.tool_calls.map(async (toolCall: any) => {
+    async function executeToolCalls(toolCalls: any[]): Promise<Array<{ toolLabel: string; result: any; toolCallId: string }>> {
+      return await Promise.all(toolCalls.map(async (toolCall: any) => {
       const fnName = toolCall.function.name;
       let args: any;
       try {
