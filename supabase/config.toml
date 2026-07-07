@@ -60,3 +60,9 @@ verify_jwt = false
 
 [functions.wa-evolution-webhook]
 verify_jwt = false
+
+[functions.m365-journal-sync]
+verify_jwt = false
+
+[functions.email-classify-journal]
+verify_jwt = false
