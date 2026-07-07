@@ -161,10 +161,11 @@ Tienes una memoria global del usuario que persiste entre conversaciones.
 // - PRO_MODEL: análisis profundo, dossier, comparativas, estrategia, etc.
 //   Se activa por keywords (isProQuery) o por toggle "Pro" del usuario (force_pro).
 // ============================================================
-const DEFAULT_MODEL = "google/gemini-3-flash-preview";
+const DEFAULT_MODEL = "google/gemini-3.5-flash";
 const PRO_MODEL_FALLBACK = "google/gemini-3.5-flash";
 const TOOL_ROUTER_MODEL = "google/gemini-3.5-flash";
 const SMALLTALK_MODEL = "google/gemini-2.5-flash-lite";
+const ESCALATION_MODEL = "google/gemini-3.1-pro-preview";
 
 // Cadena Pro: claude-sonnet-4-5 → gpt-5 → gemini-3.5-flash.
 // Se elige el primero cuya API key esté configurada.
