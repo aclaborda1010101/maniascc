@@ -2276,14 +2276,27 @@ serve(async (req) => {
     // Build structured "sources" object for traceability UI
     const sources = extractSources(toolResults);
 
+    // Telemetría plana para harness (flat array de docs con documento_id + name).
+    const sourcesReturned = (sources.documents || []).map((d: any) => ({
+      documento_id: d.documento_id || null,
+      name: d.name || null,
+      domain: d.domain || null,
+      score: typeof d.score === "number" ? d.score : null,
+    }));
+    const toolsCalled = toolResults.map(tr => tr.tool);
+
     return new Response(JSON.stringify({
       answer: finalAnswer,
-      tools_used: toolResults.map(tr => tr.tool),
+      tools_used: toolsCalled,
+      tools_called: toolsCalled,
       latency_ms: latencyMs,
       sources,
+      sources_returned: sourcesReturned,
+      cost: costEur,
       model: synthesisModel,
       escalated,
       ...(escalated && escalationReason ? { escalation_reason: escalationReason } : {}),
+
       ...(pdfTool ? { pdf_content: pdfTool.result.content, pdf_title: pdfTool.result.title } : {}),
       ...(forgeTool ? {
         forge_pdf: {
