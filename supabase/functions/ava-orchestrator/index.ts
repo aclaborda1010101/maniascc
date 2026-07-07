@@ -517,7 +517,7 @@ const TABLE_COLUMNS: Record<string, string[]> = {
   proyecto_contactos: ["id","proyecto_id","contacto_id","rol","added_at"],
   proyecto_equipo: ["id","proyecto_id","usuario_id","rol_proyecto","created_at"],
   proyecto_operadores: ["id","proyecto_id","operador_id","rol","added_at"],
-  proyectos: ["id","nombre","descripcion","tipo","estado","local_id","created_by","responsable_id","fecha_inicio","fecha_objetivo","notas","created_at","updated_at","ubicacion","codigo_postal","presupuesto_estimado","cliente_contacto_id","metadata"],
+  proyectos: ["id","nombre","descripcion","tipo","estado","local_id","created_by","responsable_id","fecha_inicio","fecha_objetivo","notas","created_at","updated_at","ubicacion","codigo_postal","presupuesto_estimado","cliente_contacto_id","metadata","comision_total","comision_firma","comision_apertura","honorarios_recibidos","estatus_comercial","cliente_prop"],
   sinergias_operadores: ["id","operador_a_id","operador_b_id","coeficiente_sinergia","num_observaciones","fuente","notas","ultima_actualizacion"],
   validaciones_retorno: ["id","dossier_storage_path","tipo_activo","ubicacion","codigo_postal","metricas_declaradas","metricas_reales","semaforos","desviaciones","benchmarks_usados","confianza_global","estado","propietario_ref","usuario_id","creado_en","cerrado_en"],
 };
