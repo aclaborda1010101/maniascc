@@ -1505,33 +1505,56 @@ serve(async (req) => {
           if (!ALLOWED_TABLES.includes(args.table)) {
             result = { error: "Tabla no permitida: " + args.table };
           } else {
-            let query = authClient.from(args.table).select(args.select || "*");
-            const warnings: string[] = [];
-            if (args.filters && Array.isArray(args.filters)) {
-              for (const f of args.filters) {
-                // 6b: whitelist runtime del operator para evitar ejecución arbitraria de métodos.
-                if (!DB_QUERY_ALLOWED_OPERATORS.has(f.operator)) {
-                  warnings.push(`filtro ignorado: operator '${f.operator}' no permitido (col=${f.column})`);
-                  continue;
-                }
-                try {
-                  query = (query as any)[f.operator](f.column, f.value);
-                } catch (e) {
-                  warnings.push(`filtro '${f.operator}' falló: ${e instanceof Error ? e.message : String(e)}`);
+            const validCols = TABLE_COLUMNS[args.table] || [];
+            const referencedCols: string[] = [];
+            if (Array.isArray(args.filters)) for (const f of args.filters) if (f?.column) referencedCols.push(String(f.column));
+            if (args.order_by) referencedCols.push(String(args.order_by));
+            // Pre-check: si alguna columna referenciada es inválida (o ya falló antes), fail-fast.
+            const badCol = referencedCols.find(c => (validCols.length && !validCols.includes(c)) || failedColumns.has(`${args.table}:${c}`));
+            if (badCol) {
+              failedColumns.add(`${args.table}:${badCol}`);
+              result = {
+                error: `La columna '${badCol}' no existe en ${args.table}. Columnas válidas: [${validCols.join(", ")}]. Reintenta con una columna válida o revisa si necesitabas otra tabla.`,
+                valid_columns: validCols,
+              };
+            } else {
+              let query = authClient.from(args.table).select(args.select || "*");
+              const warnings: string[] = [];
+              if (args.filters && Array.isArray(args.filters)) {
+                for (const f of args.filters) {
+                  if (!DB_QUERY_ALLOWED_OPERATORS.has(f.operator)) {
+                    warnings.push(`filtro ignorado: operator '${f.operator}' no permitido (col=${f.column})`);
+                    continue;
+                  }
+                  try {
+                    query = (query as any)[f.operator](f.column, f.value);
+                  } catch (e) {
+                    warnings.push(`filtro '${f.operator}' falló: ${e instanceof Error ? e.message : String(e)}`);
+                  }
                 }
               }
-            }
-            if (args.order_by) {
-              query = query.order(args.order_by, { ascending: args.ascending ?? false });
-            }
-            query = query.limit(args.limit || 20);
-            const { data, error } = await query;
-            if (error) {
-              result = { error: error.message, ...(warnings.length ? { warnings } : {}) };
-            } else if (warnings.length) {
-              result = { data, warnings };
-            } else {
-              result = data;
+              if (args.order_by) {
+                query = query.order(args.order_by, { ascending: args.ascending ?? false });
+              }
+              query = query.limit(args.limit || 20);
+              const { data, error } = await query;
+              if (error) {
+                const missing = extractMissingColumn(error.message);
+                if (missing) {
+                  failedColumns.add(`${args.table}:${missing}`);
+                  result = {
+                    error: `La columna '${missing}' no existe en ${args.table}. Columnas válidas: [${validCols.join(", ")}]. Reintenta con una columna válida.`,
+                    valid_columns: validCols,
+                    ...(warnings.length ? { warnings } : {}),
+                  };
+                } else {
+                  result = { error: error.message, ...(warnings.length ? { warnings } : {}) };
+                }
+              } else if (warnings.length) {
+                result = { data, warnings };
+              } else {
+                result = data;
+              }
             }
           }
         } else if (fnName === "propose_action") {
