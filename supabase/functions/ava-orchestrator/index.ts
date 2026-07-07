@@ -907,6 +907,96 @@ REGLAS:
   }
 }
 
+// ============================================================
+// HELPERS: history sanitization, JSON truncation, tool msg building,
+// cached conversation summary (ava_conversations.metadata).
+// ============================================================
+const EDGE_TIME_LIMIT_MS = 150_000;
+const NEXT_ROUND_MIN_BUDGET_MS = 40_000;
+const MAX_TOOL_ROUNDS = 3;
+const PER_TOOL_BUDGET_CHARS = 10_000;
+const TOTAL_TOOLS_BUDGET_CHARS = 40_000;
+
+// Filtra el historial cliente: SOLO acepta mensajes con role user/assistant.
+// Previene inyección de system messages desde el cliente.
+function sanitizeHistory(history: any[]): Array<{ role: string; content: string }> {
+  if (!Array.isArray(history)) return [];
+  return history
+    .filter(h => h && (h.role === "user" || h.role === "assistant") && typeof h.content === "string")
+    .map(h => ({ role: h.role, content: h.content }));
+}
+
+// Trunca un JSON stringificado a maxChars intentando cortar en frontera de
+// objeto (}, ]) o coma, para no partir un id/campo por la mitad.
+function smartTruncateJson(json: string, maxChars: number): string {
+  if (json.length <= maxChars) return json;
+  const slice = json.slice(0, maxChars);
+  // Buscar el último punto seguro (}, ], o ,) — evita cortar dentro de strings simples.
+  let cut = -1;
+  for (let i = slice.length - 1; i >= Math.max(0, slice.length - 500); i--) {
+    const c = slice[i];
+    if (c === "}" || c === "]" || c === ",") { cut = i + 1; break; }
+  }
+  const truncated = cut > 0 ? slice.slice(0, cut) : slice;
+  return truncated + " ...[truncado]";
+}
+
+// Construye los mensajes role:"tool" reales para pasarlos a la síntesis,
+// respetando presupuesto por-tool (10k) y global (40k). Devuelve también
+// los resúmenes para fallback textual.
+function buildToolMessages(
+  executed: Array<{ toolLabel: string; result: any; toolCallId: string }>
+): Array<{ role: string; content: string; tool_call_id: string }> {
+  const msgs: Array<{ role: string; content: string; tool_call_id: string }> = [];
+  let used = 0;
+  for (const ex of executed) {
+    if (used >= TOTAL_TOOLS_BUDGET_CHARS) {
+      msgs.push({ role: "tool", tool_call_id: ex.toolCallId, content: "[...omitido por presupuesto global de tools]" });
+      continue;
+    }
+    const remaining = TOTAL_TOOLS_BUDGET_CHARS - used;
+    const budget = Math.min(PER_TOOL_BUDGET_CHARS, remaining);
+    let raw: string;
+    try { raw = typeof ex.result === "string" ? ex.result : JSON.stringify(ex.result); }
+    catch { raw = String(ex.result); }
+    const content = smartTruncateJson(raw, budget);
+    msgs.push({ role: "tool", tool_call_id: ex.toolCallId, content });
+    used += content.length;
+  }
+  return msgs;
+}
+
+// Whitelist para db_query.filters[].operator (evita ejecución arbitraria de métodos del query builder).
+const DB_QUERY_ALLOWED_OPERATORS = new Set([
+  "eq", "neq", "gt", "gte", "lt", "lte", "like", "ilike", "is", "in", "contains",
+]);
+
+// Cache de resumen acumulado en ava_conversations.metadata:
+// { summary_cache: { text, last_summarized_index } }
+async function loadCachedSummary(admin: any, conversationId: string | null | undefined):
+  Promise<{ text: string; lastIndex: number } | null> {
+  if (!conversationId) return null;
+  try {
+    const { data } = await admin.from("ava_conversations")
+      .select("metadata")
+      .eq("id", conversationId).maybeSingle();
+    const cache = data?.metadata?.summary_cache;
+    if (cache && typeof cache.text === "string" && typeof cache.last_summarized_index === "number") {
+      return { text: cache.text, lastIndex: cache.last_summarized_index };
+    }
+  } catch (e) { console.warn("[summary-cache] load failed:", e); }
+  return null;
+}
+
+async function saveCachedSummary(admin: any, conversationId: string, text: string, lastIndex: number): Promise<void> {
+  try {
+    const { data } = await admin.from("ava_conversations").select("metadata").eq("id", conversationId).maybeSingle();
+    const meta = (data?.metadata && typeof data.metadata === "object") ? data.metadata : {};
+    meta.summary_cache = { text, last_summarized_index: lastIndex, updated_at: new Date().toISOString() };
+    await admin.from("ava_conversations").update({ metadata: meta }).eq("id", conversationId);
+  } catch (e) { console.warn("[summary-cache] save failed:", e); }
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
