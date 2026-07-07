@@ -1846,113 +1846,135 @@ serve(async (req) => {
 
       return { toolLabel, result, toolCallId: toolCall.id };
     }));
-
-    for (const ex of executed) {
-      toolResults.push({ tool: ex.toolLabel, result: ex.result });
-      toolMessages.push({
-        role: "tool",
-        content: JSON.stringify(ex.result).substring(0, 8000),
-        tool_call_id: ex.toolCallId,
-      });
     }
 
-    // Second AI call: synthesize response with tool results
-    // Build a simpler synthesis prompt that works reliably with Gemini
-    const summaryParts: string[] = [];
-    let summaryChars = 0;
-    for (const tr of toolResults) {
-      if (summaryChars >= 18000) break;
-      const remaining = Math.max(1200, 18000 - summaryChars);
-      const part = `[Resultado de ${tr.tool}]:\n${JSON.stringify(tr.result).substring(0, Math.min(2800, remaining))}`;
-      summaryParts.push(part);
-      summaryChars += part.length;
-    }
-    const toolResultsSummary = summaryParts.join("\n\n");
+    // Ronda 1 (inicial): ejecutar tool_calls del router.
+    const executed0 = await executeToolCalls(choice.tool_calls);
+    for (const ex of executed0) toolResults.push({ tool: ex.toolLabel, result: ex.result });
 
-    // Build synthesis messages with cumulative summary + lessons
-    const synthesisMessages: Array<{ role: string; content: string }> = [
+    // Base de mensajes para síntesis + bucle multi-ronda.
+    const synthesisMessages: Array<any> = [
       { role: "system", content: SYSTEM_PROMPT + USER_MEMORY_RULES + userMemoryBlock + lessonsBlock + attachmentsBlock },
     ];
-    
     if (cumulativeSummary) {
       synthesisMessages.push({
         role: "system",
-        content: `CONTEXTO ACUMULADO DE LA CONVERSACIÓN (hechos establecidos que NO debes contradecir bajo ninguna circunstancia):\n\n${cumulativeSummary}`
+        content: `CONTEXTO ACUMULADO DE LA CONVERSACIÓN (hechos establecidos que NO debes contradecir bajo ninguna circunstancia):\n\n${cumulativeSummary}`,
       });
     }
+    const recentForSynthesis = history.length > 12 ? history.slice(-6) : history;
+    for (const h of recentForSynthesis) synthesisMessages.push({ role: h.role, content: h.content });
+    synthesisMessages.push({ role: "user", content: message });
 
-    if (history && Array.isArray(history)) {
-      const recentForSynthesis = history.length > 12 ? history.slice(-6) : history;
-      for (const h of recentForSynthesis) {
-        synthesisMessages.push({ role: h.role, content: h.content });
-      }
-    }
+    // Turno assistant original con tool_calls + resultados como role:"tool" reales.
+    synthesisMessages.push({
+      role: "assistant",
+      content: choice.content || "",
+      tool_calls: choice.tool_calls,
+    });
+    for (const m of buildToolMessages(executed0)) synthesisMessages.push(m);
 
-    synthesisMessages.push(
-      { role: "user", content: message },
-      { 
-        role: "assistant", 
-        content: `He ejecutado las siguientes herramientas para responder a la pregunta del usuario. Aquí están los resultados obtenidos:\n\n${toolResultsSummary}`
-      },
-      { role: "user", content: "Basándote en los datos obtenidos y en tu conocimiento general del sector retail e inmobiliario comercial, responde de forma completa pero concisa a mi pregunta original. Prioriza hallazgos accionables, tablas breves y recomendaciones. Responde en español." },
-    );
-
-    let finalAnswer: string = "";
+    let finalAnswer = "";
     let synthesisModel: string = SYNTHESIS_MODEL;
     let escalatedTokensIn = 0;
     let escalatedTokensOut = 0;
 
-    // Síntesis con streaming → menor TTFB y evita timeouts en respuestas largas.
-    // Si el modelo es Pro y falla, recorremos la cadena de fallback (claude → gpt-5 → gemini-3.5-flash).
+    // Bucle agéntico: hasta MAX_TOOL_ROUNDS rondas totales (incluida la del router).
+    // Si quedan <40s de presupuesto, no abrimos ronda nueva y forzamos respuesta sin tools.
     const synthesisCandidates: string[] = useProModel
       ? Array.from(new Set([SYNTHESIS_MODEL, ...PRO_MODEL_CHAIN]))
       : [SYNTHESIS_MODEL];
 
-    for (const candidate of synthesisCandidates) {
-      try {
-        if (isAnthropicModel(candidate)) {
-          // Anthropic API directa (no streaming en gateway). Sigue siendo rápido.
-          const aResp = await callChatCompletion(
+    let round = 1;
+    while (round < MAX_TOOL_ROUNDS) {
+      round++;
+      const elapsed = Date.now() - startTime;
+      const remaining = EDGE_TIME_LIMIT_MS - elapsed;
+      const forceNoTools = round >= MAX_TOOL_ROUNDS || remaining < NEXT_ROUND_MIN_BUDGET_MS;
+
+      let synthChoice: any = null;
+      let synthUsage: any = {};
+      let usedModel = SYNTHESIS_MODEL;
+
+      for (const candidate of synthesisCandidates) {
+        try {
+          const bodyReq: any = {
+            model: candidate,
+            messages: synthesisMessages,
+            max_tokens: 4000,
+          };
+          if (!forceNoTools) {
+            bodyReq.tools = TOOLS;
+            bodyReq.tool_choice = "auto";
+          }
+          const resp = await callChatCompletion(
             "https://ai.gateway.lovable.dev/v1/chat/completions",
             {
               method: "POST",
               headers: { Authorization: `Bearer ${lovableKey}`, "Content-Type": "application/json" },
-              body: JSON.stringify({ model: candidate, messages: synthesisMessages, max_tokens: 4000 }),
+              body: JSON.stringify(bodyReq),
             },
             { timeoutMs: 110000, retries: 1 },
           );
-          if (aResp.ok) {
-            const aJson = await aResp.json();
-            const content = aJson.choices?.[0]?.message?.content || "";
-            if (content.trim()) {
-              finalAnswer = content;
-              synthesisModel = candidate;
-              totalTokensIn += aJson.usage?.prompt_tokens || 0;
-              totalTokensOut += aJson.usage?.completion_tokens || 0;
-              break;
-            }
-            console.error(`[pro-fallback] ${candidate} returned empty content`);
+          if (resp.ok) {
+            const j = await resp.json();
+            synthChoice = j.choices?.[0]?.message;
+            synthUsage = j.usage || {};
+            usedModel = candidate;
+            break;
           } else {
-            console.error(`[pro-fallback] ${candidate} failed:`, aResp.status);
+            console.error(`[synth round=${round}] ${candidate} failed:`, resp.status);
           }
-        } else {
-          const synthesisStream = await streamChatCompletion("https://ai.gateway.lovable.dev/v1/chat/completions", {
+        } catch (e) {
+          console.error(`[synth round=${round}] ${candidate} err:`, e);
+        }
+      }
+
+      totalTokensIn += synthUsage.prompt_tokens || 0;
+      totalTokensOut += synthUsage.completion_tokens || 0;
+      synthesisModel = usedModel;
+
+      if (!synthChoice) break;
+
+      const hasMoreTools = !forceNoTools && Array.isArray(synthChoice.tool_calls) && synthChoice.tool_calls.length > 0;
+      if (hasMoreTools) {
+        console.log(`[synth round=${round}] modelo pidió ${synthChoice.tool_calls.length} tools adicionales`);
+        const executedN = await executeToolCalls(synthChoice.tool_calls);
+        for (const ex of executedN) toolResults.push({ tool: ex.toolLabel, result: ex.result });
+        synthesisMessages.push({
+          role: "assistant",
+          content: synthChoice.content || "",
+          tool_calls: synthChoice.tool_calls,
+        });
+        for (const m of buildToolMessages(executedN)) synthesisMessages.push(m);
+        continue;
+      }
+
+      finalAnswer = synthChoice.content || "";
+      break;
+    }
+
+    // Si tras el bucle sigue sin respuesta, forzar una llamada final SIN tools.
+    if (!finalAnswer.trim()) {
+      try {
+        const resp = await callChatCompletion(
+          "https://ai.gateway.lovable.dev/v1/chat/completions",
+          {
             method: "POST",
             headers: { Authorization: `Bearer ${lovableKey}`, "Content-Type": "application/json" },
-            body: JSON.stringify({ model: candidate, messages: synthesisMessages }),
-          }, { timeoutMs: 110000 });
-
-          if (synthesisStream.ok && (synthesisStream.content || "").trim()) {
-            finalAnswer = synthesisStream.content;
-            synthesisModel = candidate;
-            totalTokensIn += synthesisStream.usage?.prompt_tokens || 0;
-            totalTokensOut += synthesisStream.usage?.completion_tokens || 0;
-            break;
-          }
-          console.error(`[pro-fallback] ${candidate} stream failed:`, synthesisStream.status, synthesisStream.raw?.slice(0, 200));
+            body: JSON.stringify({ model: SYNTHESIS_MODEL, messages: synthesisMessages, max_tokens: 4000 }),
+          },
+          { timeoutMs: 90000, retries: 1 },
+        );
+        if (resp.ok) {
+          const j = await resp.json();
+          finalAnswer = j.choices?.[0]?.message?.content || "";
+          totalTokensIn += j.usage?.prompt_tokens || 0;
+          totalTokensOut += j.usage?.completion_tokens || 0;
+          synthesisModel = SYNTHESIS_MODEL;
         }
       } catch (e) {
-        console.error(`[pro-fallback] ${candidate} error:`, e);
+        console.warn("[final-forced] failed:", e);
       }
     }
 
