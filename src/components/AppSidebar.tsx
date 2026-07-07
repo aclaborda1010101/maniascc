@@ -25,6 +25,7 @@ const directoryItems = [
   { title: "Operadores", url: "/operadores", icon: Users },
   { title: "Contactos", url: "/contactos", icon: UserCircle },
   { title: "Documentos", url: "/documentos", icon: FileText },
+  { title: "Bandeja correo", url: "/bandeja-correo", icon: Inbox },
   { title: "Conocimiento", url: "/conocimiento", icon: BookOpen },
 ];
 
