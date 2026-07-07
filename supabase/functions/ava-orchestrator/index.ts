@@ -204,7 +204,6 @@ function isProQuery(text: string): boolean {
 
 // Pricing (EUR, ~0.92 USD→EUR)
 const MODEL_PRICING: Record<string, { in: number; out: number }> = {
-  "google/gemini-2.5-pro":        { in: 1.25 / 1_000_000 * 0.92, out: 10.00 / 1_000_000 * 0.92 },
   "google/gemini-2.5-flash":      { in: 0.30 / 1_000_000 * 0.92, out: 2.50 / 1_000_000 * 0.92 },
   "google/gemini-2.5-flash-lite": { in: 0.10 / 1_000_000 * 0.92, out: 0.40 / 1_000_000 * 0.92 },
   "google/gemini-3-flash-preview":{ in: 0.30 / 1_000_000 * 0.92, out: 2.50 / 1_000_000 * 0.92 },
