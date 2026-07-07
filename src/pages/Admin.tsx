@@ -17,8 +17,11 @@ export default function Admin() {
   const [filterFuncion, setFilterFuncion] = useState("all");
   const [filterDateFrom, setFilterDateFrom] = useState("");
   const [filterDateTo, setFilterDateTo] = useState("");
+  const [m365Stats, setM365Stats] = useState<{ pending: number; needs_review: number; applied: number; discarded: number; error: number; last_synced: string | null; umbral: number }>({ pending: 0, needs_review: 0, applied: 0, discarded: 0, error: 0, last_synced: null, umbral: 0.8 });
+  const [m365Loading, setM365Loading] = useState(false);
+  const [m365Syncing, setM365Syncing] = useState(false);
 
-  useEffect(() => { fetchLogs(); }, []);
+  useEffect(() => { fetchLogs(); fetchM365(); }, []);
 
   const fetchLogs = async () => {
     setLogsLoading(true);
@@ -26,6 +29,46 @@ export default function Admin() {
     setLogs(data || []);
     setLogsLoading(false);
   };
+
+  const fetchM365 = async () => {
+    setM365Loading(true);
+    const [{ data: rows }, { data: sync }, { data: settings }] = await Promise.all([
+      supabase.from("email_ingest_queue").select("status"),
+      supabase.from("sync_state").select("last_synced_at").eq("channel", "m365_journal").maybeSingle(),
+      supabase.from("email_classifier_settings").select("umbral_auto").limit(1).maybeSingle(),
+    ]);
+    const counts = { pending: 0, needs_review: 0, applied: 0, discarded: 0, error: 0 };
+    (rows || []).forEach((r: any) => { if (counts[r.status as keyof typeof counts] !== undefined) counts[r.status as keyof typeof counts]++; });
+    setM365Stats({ ...counts, last_synced: sync?.last_synced_at || null, umbral: Number(settings?.umbral_auto ?? 0.8) });
+    setM365Loading(false);
+  };
+
+  const syncNow = async () => {
+    setM365Syncing(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("m365-journal-sync", { body: {} });
+      if (error) throw error;
+      const d = data as any;
+      if (d?.error) throw new Error(d.error);
+      toast({ title: "Sincronizado", description: `${d?.inserted ?? 0} nuevos, ${d?.discarded ?? 0} descartados` });
+      fetchM365();
+    } catch (e: any) {
+      toast({ title: "Error de sync", description: e?.message || String(e), variant: "destructive" });
+    } finally {
+      setM365Syncing(false);
+    }
+  };
+
+  const updateUmbral = async (v: number) => {
+    if (isNaN(v) || v < 0 || v > 1) return;
+    const { data: row } = await supabase.from("email_classifier_settings").select("id").limit(1).maybeSingle();
+    if (row) {
+      await supabase.from("email_classifier_settings").update({ umbral_auto: v, updated_at: new Date().toISOString() }).eq("id", row.id);
+      setM365Stats((s) => ({ ...s, umbral: v }));
+      toast({ title: "Umbral actualizado", description: `${Math.round(v * 100)}%` });
+    }
+  };
+
 
   const filteredLogs = logs.filter(l => {
     if (filterFuncion !== "all" && l.funcion_ia !== filterFuncion) return false;
