@@ -1989,12 +1989,17 @@ serve(async (req) => {
     }
 
     // Ronda 1 (inicial): ejecutar tool_calls del router.
+    const toolsStart = Date.now();
     const executed0 = await executeToolCalls(choice.tool_calls);
+    const round1Ms = Date.now() - toolsStart;
     for (const ex of executed0) toolResults.push({ tool: ex.toolLabel, result: ex.result });
+
+    // Regla de honestidad ante datos ausentes (inyectada como system extra).
+    const HONESTY_RULE = `\n\nREGLA DE HONESTIDAD ANTE DATOS AUSENTES: Si el usuario pide una métrica que NO existe en los datos consultados (p.ej. rentabilidad, margen, ingresos, ROI cuando las tablas no tienen esos campos), DILO CLARAMENTE en una frase y ofrece la alternativa más cercana disponible (p.ej. estado del pipeline, probabilidad_cierre, presupuesto_estimado si existe). NUNCA rellenes con un volcado de registros para disimular que el dato falta. NUNCA inventes columnas ni interpretes campos que no aparezcan en los resultados de tools.`;
 
     // Base de mensajes para síntesis + bucle multi-ronda.
     const synthesisMessages: Array<any> = [
-      { role: "system", content: SYSTEM_PROMPT + USER_MEMORY_RULES + userMemoryBlock + lessonsBlock + attachmentsBlock },
+      { role: "system", content: SYSTEM_PROMPT + USER_MEMORY_RULES + userMemoryBlock + lessonsBlock + attachmentsBlock + HONESTY_RULE },
     ];
     if (cumulativeSummary) {
       synthesisMessages.push({
@@ -2019,18 +2024,26 @@ serve(async (req) => {
     let escalatedTokensIn = 0;
     let escalatedTokensOut = 0;
 
+    // Short-circuit: si la ronda 1 usó una única tool de lectura (db_query o
+    // search_data) y salió sin errores, saltamos DIRECTO a síntesis sin abrir
+    // una segunda ronda de tools (recorta 5-10s en preguntas simples).
+    const round1SimpleSuccess =
+      executed0.length === 1 &&
+      (executed0[0].toolLabel.startsWith("db_query:") || executed0[0].toolLabel === "search_data") &&
+      !executed0[0].result?.error;
+
     // Bucle agéntico: hasta MAX_TOOL_ROUNDS rondas totales (incluida la del router).
-    // Si quedan <40s de presupuesto, no abrimos ronda nueva y forzamos respuesta sin tools.
     const synthesisCandidates: string[] = useProModel
       ? Array.from(new Set([SYNTHESIS_MODEL, ...PRO_MODEL_CHAIN]))
       : [SYNTHESIS_MODEL];
 
+    const synthStart = Date.now();
     let round = 1;
     while (round < MAX_TOOL_ROUNDS) {
       round++;
       const elapsed = Date.now() - startTime;
       const remaining = EDGE_TIME_LIMIT_MS - elapsed;
-      const forceNoTools = round >= MAX_TOOL_ROUNDS || remaining < NEXT_ROUND_MIN_BUDGET_MS;
+      const forceNoTools = round >= MAX_TOOL_ROUNDS || remaining < NEXT_ROUND_MIN_BUDGET_MS || round1SimpleSuccess;
 
       let synthChoice: any = null;
       let synthUsage: any = {};
@@ -2048,10 +2061,13 @@ serve(async (req) => {
           }
           const prep = prepareCall(candidate, bodyReq);
           if (!prep) continue;
+          // Timeout más agresivo cuando la síntesis puede pedir tools (bucle
+          // agéntico): 20s por ronda con tools; 90s cuando ya es síntesis final.
+          const roundTimeout = forceNoTools ? 90000 : 20000;
           const resp = await callChatCompletion(
             prep.url,
             { method: "POST", headers: prep.headers, body: prep.body },
-            { timeoutMs: 110000, retries: 1 },
+            { timeoutMs: roundTimeout, retries: 1 },
           );
           if (resp.ok) {
             const j = await resp.json();
@@ -2090,6 +2106,8 @@ serve(async (req) => {
       finalAnswer = synthChoice.content || "";
       break;
     }
+    const synthMs = Date.now() - synthStart;
+    console.log(`[phase-timing] router=n/a tools_round1=${round1Ms}ms synth_loop=${synthMs}ms total_so_far=${Date.now() - startTime}ms simple_shortcircuit=${round1SimpleSuccess}`);
 
     // Si tras el bucle sigue sin respuesta, forzar una llamada final SIN tools.
     if (!finalAnswer.trim()) {
