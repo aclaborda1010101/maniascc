@@ -133,10 +133,16 @@ export default function FloatingChatPanel({ open, onClose }: FloatingChatPanelPr
               {sortedConvs.map(conv => (
                 <button
                   key={conv.id}
-                  className={`w-full text-left px-4 py-2 text-xs hover:bg-muted/60 transition-colors ${conv.id === activeConversationId ? "bg-muted font-medium" : ""}`}
+                  className={`w-full text-left px-4 py-2 text-xs hover:bg-muted/60 transition-colors flex items-center justify-between gap-2 ${conv.id === activeConversationId ? "bg-muted font-medium" : ""}`}
                   onClick={() => { switchConversation(conv.id); setShowConvList(false); }}
                 >
-                  {conv.title}
+                  <span className="truncate flex-1">{conv.title}</span>
+                  <span
+                    className="text-[10px] text-muted-foreground shrink-0"
+                    title={formatMessageTooltip(conv.updatedAt)}
+                  >
+                    {formatRelativeShort(conv.updatedAt)}
+                  </span>
                 </button>
               ))}
             </div>
