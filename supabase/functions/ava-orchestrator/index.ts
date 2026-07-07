@@ -1580,7 +1580,7 @@ serve(async (req) => {
                 const hasRich = /\*|descripcion|notas|metadata|comision|estatus|cliente_prop/i.test(sel);
                 if (!sel || !hasRich) {
                   effectiveSelect = "*";
-                  if (sel) warnings_forced_select_full: { /* no-op label; log below */ }
+                  effectiveSelect = "*";
                   console.log(`[db_query:${args.table}] select promovido a '*' (original='${sel}') por regla anti-superficialidad`);
                 }
               }
