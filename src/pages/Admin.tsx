@@ -9,7 +9,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Settings, Shield, CheckCircle, Mail, RefreshCw, Loader2, Plug, Save, Database, Play, FlaskConical } from "lucide-react";
+import { Settings, Shield, CheckCircle, Mail, RefreshCw, Loader2, Plug, Save, Database, Play, FlaskConical, GitMerge } from "lucide-react";
+import DedupProyectosPanel from "@/components/admin/DedupProyectosPanel";
 import { Progress } from "@/components/ui/progress";
 import { toast } from "@/hooks/use-toast";
 
