@@ -1474,12 +1474,16 @@ serve(async (req) => {
       return new Response(JSON.stringify({
         answer: directAnswer,
         tools_used: [],
+        tools_called: [],
+        sources_returned: [],
+        cost: costEur,
         latency_ms: latencyMs,
         model: directModel,
       }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
+
 
     // Ejecutor de tool_calls reutilizable (multi-ronda agéntica).
     const toolResults: Array<{ tool: string; result: any }> = [];
