@@ -1,9 +1,8 @@
 // m365-journal-sync
-// Sincroniza el buzón de captura M365 (journaling) via Microsoft Graph (app-only)
-// e inserta cada mensaje en public.email_ingest_queue para clasificación posterior.
-//
-// Auth: verify_jwt=false + validación interna (service-role key o JWT admin/gestor).
-// Trigger: cron pg_cron cada 5 min y botón manual en Admin.
+// Sincroniza el buzón M365 (journaling) via Microsoft Graph app-only e inserta
+// cada mensaje en public.email_ingest_queue.
+// Soporta { test: true } → verifica conexión y lee 1 mensaje sin ingestar.
+// Config: lee de public.email_classifier_settings; fallback a secrets M365_*.
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.55.0";
 
@@ -20,29 +19,46 @@ function htmlToText(s: string): string {
     .replace(/<style[\s\S]*?<\/style>/gi, " ")
     .replace(/<script[\s\S]*?<\/script>/gi, " ")
     .replace(/<\/?[^>]+>/g, " ")
-    .replace(/&nbsp;/g, " ")
-    .replace(/&amp;/g, "&")
-    .replace(/&lt;/g, "<")
-    .replace(/&gt;/g, ">")
-    .replace(/\s+/g, " ")
-    .trim();
+    .replace(/&nbsp;/g, " ").replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">")
+    .replace(/\s+/g, " ").trim();
 }
 
-async function graphToken(tenant: string, clientId: string, clientSecret: string): Promise<string> {
+export interface M365Config {
+  tenant: string; clientId: string; clientSecret: string; mailbox: string;
+  source: "db" | "env" | "mixed";
+}
+
+export async function loadM365Config(supabase: any): Promise<M365Config | { error: string }> {
+  const { data: cfg } = await supabase.from("email_classifier_settings")
+    .select("m365_tenant_id,m365_client_id,m365_client_secret,m365_journal_mailbox").limit(1).maybeSingle();
+  const tenant = cfg?.m365_tenant_id || Deno.env.get("M365_TENANT_ID") || "";
+  const clientId = cfg?.m365_client_id || Deno.env.get("M365_CLIENT_ID") || "";
+  const clientSecret = cfg?.m365_client_secret || Deno.env.get("M365_CLIENT_SECRET") || "";
+  const mailbox = cfg?.m365_journal_mailbox || Deno.env.get("M365_JOURNAL_MAILBOX") || "";
+  if (!tenant || !clientId || !clientSecret || !mailbox) {
+    return { error: "M365 no configurado. Rellena tenant_id, client_id, client_secret y buzón en Admin → Correo M365." };
+  }
+  const fromDb = !!(cfg?.m365_tenant_id && cfg?.m365_client_id && cfg?.m365_client_secret && cfg?.m365_journal_mailbox);
+  return { tenant, clientId, clientSecret, mailbox, source: fromDb ? "db" : "env" };
+}
+
+export async function graphToken(cfg: M365Config): Promise<string> {
   const body = new URLSearchParams({
-    client_id: clientId,
-    client_secret: clientSecret,
-    scope: "https://graph.microsoft.com/.default",
-    grant_type: "client_credentials",
+    client_id: cfg.clientId, client_secret: cfg.clientSecret,
+    scope: "https://graph.microsoft.com/.default", grant_type: "client_credentials",
   });
-  const r = await fetch(`https://login.microsoftonline.com/${tenant}/oauth2/v2.0/token`, {
-    method: "POST",
-    headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    body,
+  const r = await fetch(`https://login.microsoftonline.com/${cfg.tenant}/oauth2/v2.0/token`, {
+    method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" }, body,
   });
   if (!r.ok) {
     const t = await r.text();
-    throw new Error(`AAD token error [${r.status}]: ${t}`);
+    // Traducir errores comunes
+    let msg = `AAD ${r.status}`;
+    if (/AADSTS7000215|invalid_client/i.test(t)) msg = "Client secret inválido o caducado.";
+    else if (/AADSTS700016|application with identifier/i.test(t)) msg = "Client ID no encontrado en el tenant.";
+    else if (/AADSTS90002|Tenant.*not found/i.test(t)) msg = "Tenant ID no existe.";
+    else msg = `Error obteniendo token (${r.status}): ${t.slice(0, 200)}`;
+    throw new Error(msg);
   }
   const j = await r.json();
   return j.access_token as string;
@@ -61,6 +77,35 @@ async function checkAuth(req: Request, supabase: any): Promise<boolean> {
   return (roles || []).some((r: any) => r.role === "admin" || r.role === "gestor");
 }
 
+async function runEscalation(supabase: any) {
+  // needs_review > 3 días → notificar admins (una vez, marcar escalated_at)
+  const cutoff = new Date(Date.now() - 3 * 24 * 3600 * 1000).toISOString();
+  const { data: stuck } = await supabase.from("email_ingest_queue")
+    .select("id,subject,assigned_to")
+    .eq("status", "needs_review")
+    .is("escalated_at", null)
+    .lte("received_at", cutoff)
+    .limit(50);
+  if (!stuck?.length) return 0;
+  const { data: admins } = await supabase.from("user_roles").select("user_id").eq("role", "admin");
+  const adminIds = (admins || []).map((r: any) => r.user_id);
+  const notifs: any[] = [];
+  for (const it of stuck) {
+    for (const uid of adminIds) {
+      notifs.push({
+        user_id: uid,
+        type: "email_review_stale",
+        title: "Correo pendiente de revisión >3 días",
+        description: `AVA lleva más de 3 días esperando validación: ${it.subject || "(sin asunto)"}`,
+        link: `/bandeja-correo?item=${it.id}`,
+      });
+    }
+    await supabase.from("email_ingest_queue").update({ escalated_at: new Date().toISOString() }).eq("id", it.id);
+  }
+  if (notifs.length) await supabase.from("notificaciones").insert(notifs);
+  return stuck.length;
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
@@ -68,54 +113,81 @@ Deno.serve(async (req) => {
 
   try {
     const ok = await checkAuth(req, supabase);
-    if (!ok) {
-      return new Response(JSON.stringify({ error: "unauthorized" }), {
-        status: 401,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+    if (!ok) return new Response(JSON.stringify({ error: "unauthorized" }), { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+
+    let payload: any = {};
+    try { payload = await req.json(); } catch { /* empty */ }
+    const testMode = payload.test === true;
+
+    // Permite payload {tenant_id, client_id, client_secret, journal_mailbox} para probar sin guardar
+    let cfg: M365Config;
+    if (testMode && payload.tenant_id && payload.client_id && payload.journal_mailbox) {
+      cfg = {
+        tenant: payload.tenant_id,
+        clientId: payload.client_id,
+        clientSecret: payload.client_secret || "",
+        mailbox: payload.journal_mailbox,
+        source: "db",
+      };
+      // Si no viene client_secret, reusa el almacenado
+      if (!cfg.clientSecret) {
+        const { data: row } = await supabase.from("email_classifier_settings").select("m365_client_secret").limit(1).maybeSingle();
+        cfg.clientSecret = row?.m365_client_secret || Deno.env.get("M365_CLIENT_SECRET") || "";
+      }
+      if (!cfg.clientSecret) {
+        return new Response(JSON.stringify({ ok: false, error: "Falta client_secret para probar." }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+    } else {
+      const loaded = await loadM365Config(supabase);
+      if ("error" in loaded) return new Response(JSON.stringify({ ok: false, error: loaded.error }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      cfg = loaded;
     }
 
-    const tenant = Deno.env.get("M365_TENANT_ID");
-    const clientId = Deno.env.get("M365_CLIENT_ID");
-    const clientSecret = Deno.env.get("M365_CLIENT_SECRET");
-    const mailbox = Deno.env.get("M365_JOURNAL_MAILBOX");
-    if (!tenant || !clientId || !clientSecret || !mailbox) {
-      console.log("[m365] M365 no configurado — faltan secrets");
-      return new Response(
-        JSON.stringify({ error: "M365 no configurado", missing: { tenant: !tenant, clientId: !clientId, clientSecret: !clientSecret, mailbox: !mailbox } }),
-        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
-      );
+    // ── Modo test ──────────────────────────────────────
+    if (testMode) {
+      try {
+        const token = await graphToken(cfg);
+        const r = await fetch(`https://graph.microsoft.com/v1.0/users/${encodeURIComponent(cfg.mailbox)}/mailFolders/inbox/messages?$top=1&$select=id,subject,receivedDateTime`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (!r.ok) {
+          const t = await r.text();
+          let msg = `Graph ${r.status}`;
+          if (r.status === 404) msg = `Buzón no encontrado: ${cfg.mailbox}. Verifica que existe y el app-only tiene permisos Mail.Read.`;
+          else if (r.status === 403) msg = "Permisos insuficientes. Concede Mail.Read y Mail.ReadBasic.All al app registration en Azure AD.";
+          else if (r.status === 401) msg = "Token rechazado por Graph. Revisa scopes y consentimiento del admin.";
+          else msg = `${msg}: ${t.slice(0, 200)}`;
+          await supabase.from("email_classifier_settings").update({ m365_last_test_at: new Date().toISOString(), m365_last_test_result: msg, m365_connected: false }).neq("id", "00000000-0000-0000-0000-000000000000");
+          return new Response(JSON.stringify({ ok: false, error: msg }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+        }
+        const j = await r.json();
+        const okMsg = `OK. Buzón accesible. Mensajes leídos: ${(j.value || []).length}. Último asunto: ${j.value?.[0]?.subject || "(vacío)"}`;
+        await supabase.from("email_classifier_settings").update({ m365_last_test_at: new Date().toISOString(), m365_last_test_result: okMsg, m365_connected: true }).neq("id", "00000000-0000-0000-0000-000000000000");
+        return new Response(JSON.stringify({ ok: true, message: okMsg }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      } catch (e: any) {
+        const msg = e?.message || String(e);
+        await supabase.from("email_classifier_settings").update({ m365_last_test_at: new Date().toISOString(), m365_last_test_result: msg, m365_connected: false }).neq("id", "00000000-0000-0000-0000-000000000000");
+        return new Response(JSON.stringify({ ok: false, error: msg }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
     }
 
-    // primer admin como owner del cursor
-    const { data: admins } = await supabase
-      .from("user_roles").select("user_id").eq("role", "admin").limit(1);
+    // ── Sync normal ────────────────────────────────────
+    const { data: admins } = await supabase.from("user_roles").select("user_id").eq("role", "admin").limit(1);
     const ownerId = admins?.[0]?.user_id;
-    if (!ownerId) {
-      return new Response(JSON.stringify({ error: "No hay administradores en el sistema" }), {
-        status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
+    if (!ownerId) return new Response(JSON.stringify({ error: "No hay administradores en el sistema" }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
-    // cursor
-    const { data: st } = await supabase
-      .from("sync_state").select("cursor").eq("owner_id", ownerId).eq("channel", CHANNEL).maybeSingle();
+    const { data: st } = await supabase.from("sync_state").select("cursor").eq("owner_id", ownerId).eq("channel", CHANNEL).maybeSingle();
     const cursor = st?.cursor || new Date(Date.now() - 24 * 3600 * 1000).toISOString();
-    console.log(`[m365] sync desde cursor ${cursor}`);
+    console.log(`[m365] sync desde ${cursor}`);
 
-    const token = await graphToken(tenant, clientId, clientSecret);
-
+    const token = await graphToken(cfg);
     const select = "id,internetMessageId,conversationId,subject,bodyPreview,body,from,toRecipients,ccRecipients,receivedDateTime,hasAttachments";
     let url: string | null =
-      `https://graph.microsoft.com/v1.0/users/${encodeURIComponent(mailbox)}/mailFolders/inbox/messages` +
+      `https://graph.microsoft.com/v1.0/users/${encodeURIComponent(cfg.mailbox)}/mailFolders/inbox/messages` +
       `?$top=50&$orderby=receivedDateTime asc&$select=${select}` +
       `&$filter=${encodeURIComponent(`receivedDateTime gt ${cursor}`)}`;
 
-    let pages = 0;
-    let inserted = 0;
-    let discarded = 0;
-    let skipped = 0;
+    let pages = 0, inserted = 0, discarded = 0, skipped = 0;
     let lastReceived = cursor;
 
     while (url && pages < 10) {
@@ -123,10 +195,7 @@ Deno.serve(async (req) => {
       if (!r.ok) {
         const t = await r.text();
         console.error(`[m365] Graph error [${r.status}]: ${t}`);
-        return new Response(JSON.stringify({ error: "graph_error", status: r.status, details: t }), {
-          status: r.status,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
+        return new Response(JSON.stringify({ error: "graph_error", status: r.status, details: t }), { status: r.status, headers: { ...corsHeaders, "Content-Type": "application/json" } });
       }
       const page = await r.json();
       const items: any[] = page.value || [];
@@ -135,10 +204,7 @@ Deno.serve(async (req) => {
       for (const m of items) {
         const imid = m.internetMessageId || m.id;
         if (!imid) continue;
-
-        // dedup
-        const { data: existing } = await supabase
-          .from("email_ingest_queue").select("id").eq("internet_message_id", imid).maybeSingle();
+        const { data: existing } = await supabase.from("email_ingest_queue").select("id").eq("internet_message_id", imid).maybeSingle();
         if (existing) { skipped++; continue; }
 
         const fromEmail = m.from?.emailAddress?.address?.toLowerCase() || null;
@@ -153,62 +219,41 @@ Deno.serve(async (req) => {
         const classification = isJunk ? { motivo: "automatico", fuente_clasificacion: "filtro_basura" } : {};
 
         const { error: ie } = await supabase.from("email_ingest_queue").insert({
-          graph_message_id: m.id,
-          internet_message_id: imid,
-          conversation_id: m.conversationId || null,
-          received_at: m.receivedDateTime,
-          from_email: fromEmail,
-          from_name: fromName,
-          to_emails: toEmails,
-          cc_emails: ccEmails,
-          subject: m.subject || "(sin asunto)",
-          body_text: bodyText,
-          has_attachments: !!m.hasAttachments,
-          attachments: [],
-          status,
-          classification,
+          graph_message_id: m.id, internet_message_id: imid, conversation_id: m.conversationId || null,
+          received_at: m.receivedDateTime, from_email: fromEmail, from_name: fromName,
+          to_emails: toEmails, cc_emails: ccEmails, subject: m.subject || "(sin asunto)",
+          body_text: bodyText, has_attachments: !!m.hasAttachments, attachments: [],
+          status, classification,
         });
-        if (ie) {
-          console.error(`[m365] insert error ${imid}: ${ie.message}`);
-          continue;
-        }
+        if (ie) { console.error(`[m365] insert err ${imid}: ${ie.message}`); continue; }
         if (isJunk) discarded++; else inserted++;
         if (m.receivedDateTime && m.receivedDateTime > lastReceived) lastReceived = m.receivedDateTime;
       }
-
       url = page["@odata.nextLink"] || null;
     }
 
-    // upsert cursor
     await supabase.from("sync_state").upsert(
       { owner_id: ownerId, channel: CHANNEL, cursor: lastReceived, last_synced_at: new Date().toISOString(), metadata: { pages, inserted, discarded } },
       { onConflict: "owner_id,channel" },
     );
 
-    console.log(`[m365] listo pages=${pages} inserted=${inserted} discarded=${discarded} skipped=${skipped}`);
-
-    // Fire-and-forget classify
     if (inserted > 0) {
       const base = Deno.env.get("SUPABASE_URL")!.replace(/\/$/, "");
       fetch(`${base}/functions/v1/email-classify-journal`, {
         method: "POST",
-        headers: {
-          Authorization: `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`,
-          "Content-Type": "application/json",
-        },
+        headers: { Authorization: `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`, "Content-Type": "application/json" },
         body: JSON.stringify({}),
-      }).catch((e) => console.error("[m365] classify fire-and-forget:", e));
+      }).catch((e) => console.error("[m365] fire classify:", e));
     }
 
-    return new Response(JSON.stringify({ ok: true, pages, inserted, discarded, skipped, cursor: lastReceived }), {
-      status: 200,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    // Escalado (barato: cada sync)
+    let escalated = 0;
+    try { escalated = await runEscalation(supabase); } catch (e: any) { console.error("[m365] escalate:", e?.message); }
+
+    console.log(`[m365] pages=${pages} inserted=${inserted} discarded=${discarded} skipped=${skipped} escalated=${escalated}`);
+    return new Response(JSON.stringify({ ok: true, pages, inserted, discarded, skipped, escalated, cursor: lastReceived, config_source: cfg.source }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
   } catch (e: any) {
     console.error("[m365] fatal:", e);
-    return new Response(JSON.stringify({ error: e?.message || String(e) }), {
-      status: 500,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    return new Response(JSON.stringify({ error: e?.message || String(e) }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
   }
 });

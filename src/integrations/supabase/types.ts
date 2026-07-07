@@ -1491,19 +1491,43 @@ export type Database = {
         Row: {
           activo: boolean
           id: string
+          m365_client_id: string | null
+          m365_client_secret: string | null
+          m365_connected: boolean
+          m365_journal_mailbox: string | null
+          m365_last_test_at: string | null
+          m365_last_test_result: string | null
+          m365_tenant_id: string | null
           umbral_auto: number
+          umbral_revision: number
           updated_at: string
         }
         Insert: {
           activo?: boolean
           id?: string
+          m365_client_id?: string | null
+          m365_client_secret?: string | null
+          m365_connected?: boolean
+          m365_journal_mailbox?: string | null
+          m365_last_test_at?: string | null
+          m365_last_test_result?: string | null
+          m365_tenant_id?: string | null
           umbral_auto?: number
+          umbral_revision?: number
           updated_at?: string
         }
         Update: {
           activo?: boolean
           id?: string
+          m365_client_id?: string | null
+          m365_client_secret?: string | null
+          m365_connected?: boolean
+          m365_journal_mailbox?: string | null
+          m365_last_test_at?: string | null
+          m365_last_test_result?: string | null
+          m365_tenant_id?: string | null
           umbral_auto?: number
+          umbral_revision?: number
           updated_at?: string
         }
         Relationships: []
@@ -1561,13 +1585,17 @@ export type Database = {
       email_ingest_queue: {
         Row: {
           applied_at: string | null
+          assigned_at: string | null
+          assigned_to: string | null
           attachments: Json | null
           body_text: string | null
           cc_emails: string[] | null
           classification: Json | null
           conversation_id: string | null
           created_at: string
+          derived_from: string | null
           error_msg: string | null
+          escalated_at: string | null
           from_email: string | null
           from_name: string | null
           graph_message_id: string | null
@@ -1581,13 +1609,17 @@ export type Database = {
         }
         Insert: {
           applied_at?: string | null
+          assigned_at?: string | null
+          assigned_to?: string | null
           attachments?: Json | null
           body_text?: string | null
           cc_emails?: string[] | null
           classification?: Json | null
           conversation_id?: string | null
           created_at?: string
+          derived_from?: string | null
           error_msg?: string | null
+          escalated_at?: string | null
           from_email?: string | null
           from_name?: string | null
           graph_message_id?: string | null
@@ -1601,13 +1633,17 @@ export type Database = {
         }
         Update: {
           applied_at?: string | null
+          assigned_at?: string | null
+          assigned_to?: string | null
           attachments?: Json | null
           body_text?: string | null
           cc_emails?: string[] | null
           classification?: Json | null
           conversation_id?: string | null
           created_at?: string
+          derived_from?: string | null
           error_msg?: string | null
+          escalated_at?: string | null
           from_email?: string | null
           from_name?: string | null
           graph_message_id?: string | null
@@ -2690,6 +2726,38 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      project_aliases: {
+        Row: {
+          alias: string
+          created_at: string
+          created_by: string | null
+          id: string
+          proyecto_id: string
+        }
+        Insert: {
+          alias: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          proyecto_id: string
+        }
+        Update: {
+          alias?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          proyecto_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "project_aliases_proyecto_id_fkey"
+            columns: ["proyecto_id"]
+            isOneToOne: false
+            referencedRelation: "proyectos"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       proyecto_contactos: {
         Row: {
