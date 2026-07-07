@@ -416,12 +416,32 @@ export default function AsistenteIA() {
               const prevUserMsg = msg.role === "assistant"
                 ? [...messages.slice(0, idx)].reverse().find(m => m.role === "user")
                 : undefined;
+              const prev = idx > 0 ? messages[idx - 1] : null;
+              const showDaySep = !prev || !isSameDay(prev.timestamp, msg.timestamp);
               return (
-              <div key={msg.id}>
+              <div key={msg.id} className="space-y-4 md:space-y-6">
+                {showDaySep && (
+                  <div className="flex items-center gap-3 py-1">
+                    <div className="flex-1 h-px bg-white/[0.06]" />
+                    <span className="text-[10px] uppercase tracking-wider text-muted-foreground/70 px-2">
+                      {formatDaySeparator(msg.timestamp)}
+                    </span>
+                    <div className="flex-1 h-px bg-white/[0.06]" />
+                  </div>
+                )}
                 {msg.role === "user" ? (
                   <div className="flex gap-3 justify-end items-start">
-                    <div className="max-w-[85%] md:max-w-[78%] rounded-3xl px-5 py-3 gradient-iridescent text-white shadow-[0_8px_28px_-12px_hsl(var(--acc-2)/0.45)]">
-                      <p className="text-sm leading-relaxed">{msg.content}</p>
+                    <div className="flex flex-col items-end gap-1 max-w-[85%] md:max-w-[78%]">
+                      <div className="rounded-3xl px-5 py-3 gradient-iridescent text-white shadow-[0_8px_28px_-12px_hsl(var(--acc-2)/0.45)]">
+                        <p className="text-sm leading-relaxed">{msg.content}</p>
+                      </div>
+                      <time
+                        className="text-[10px] text-muted-foreground/70 pr-1"
+                        title={formatMessageTooltip(msg.timestamp)}
+                        dateTime={new Date(msg.timestamp).toISOString()}
+                      >
+                        {formatMessageTime(msg.timestamp)}
+                      </time>
                     </div>
                     <div className="shrink-0 w-9 h-9 rounded-full bg-white/[0.08] border border-white/10 backdrop-blur-xl grid place-items-center text-[10px] font-semibold text-white/85">
                       {(userName?.[0] || "U").toUpperCase()}
@@ -436,6 +456,13 @@ export default function AsistenteIA() {
                       </div>
                       <div className="text-[11px] text-muted-foreground flex items-center gap-1.5">
                         <span className="text-foreground/80 font-medium">AVA</span>
+                        <span className="opacity-40">·</span>
+                        <time
+                          title={formatMessageTooltip(msg.timestamp)}
+                          dateTime={new Date(msg.timestamp).toISOString()}
+                        >
+                          {formatMessageTime(msg.timestamp)}
+                        </time>
                         {msg.meta?.latency_ms && <><span className="opacity-40">·</span><span>{msg.meta.latency_ms}ms</span></>}
                       </div>
                     </div>
