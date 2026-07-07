@@ -925,18 +925,61 @@ const INTELLIGENCE_FUNCTIONS: Record<string, string> = {
 // ALLOWED_TABLES / TABLE_COLUMNS / SCHEMA_HINT_TEXT / extractMissingColumn
 // están declarados arriba (antes de TOOLS) para evitar TDZ.
 
-function formatToolResultsFallback(toolResults: Array<{ tool: string; result: any }>): string {
-  const sections = toolResults.map(tr => {
-    const toolName = tr.tool.split(":")[0];
+// Resumen en LENGUAJE NATURAL de los resultados de tools, sin JSON ni nombres
+// de columnas — apto para inyectar en un prompt de reintento de síntesis.
+// NUNCA se debe enviar directamente al usuario: se usa solo como material
+// para que el LLM redacte la respuesta.
+function summarizeToolResultsNL(toolResults: Array<{ tool: string; result: any }>): string {
+  if (!Array.isArray(toolResults) || toolResults.length === 0) return "(sin resultados de herramientas)";
+  const chunks: string[] = [];
+  for (const tr of toolResults) {
+    const tool = tr.tool || "tool";
     const data = tr.result;
-    if (data?.error) return `### ⚠️ ${toolName}\n${data.error}`;
-    if (Array.isArray(data) && data.length === 0) return `### ${toolName}\nSin resultados`;
-    if (data?.pois) return `### 📍 ${toolName} (${data.count} POIs)\n${data.pois.slice(0, 10).map((p: any) => `- **${p.name}** (${p.type}) — ${p.distance_m}m`).join("\n")}`;
-    if (Array.isArray(data)) return `### ${toolName} (${data.length} resultados)\n${JSON.stringify(data.slice(0, 5), null, 2).substring(0, 1000)}`;
-    return `### ${toolName}\n${JSON.stringify(data).substring(0, 800)}`;
-  });
-  return "He consultado las siguientes fuentes de datos:\n\n" + sections.join("\n\n");
+    if (!data) { chunks.push(`- ${tool}: sin datos`); continue; }
+    if (data.error) { chunks.push(`- ${tool}: error (${String(data.error).slice(0, 140)})`); continue; }
+    if (Array.isArray(data)) {
+      if (data.length === 0) { chunks.push(`- ${tool}: 0 resultados`); continue; }
+      const items = data.slice(0, 5).map((row: any) => {
+        if (row == null) return "(vacío)";
+        if (typeof row !== "object") return String(row).slice(0, 120);
+        const label = row.nombre || row.titulo || row.name || row.title || row.email || row.id || "";
+        const extras: string[] = [];
+        for (const [k, v] of Object.entries(row)) {
+          if (k === "id" || k === "nombre" || k === "titulo" || k === "name" || k === "title") continue;
+          if (v == null) continue;
+          if (typeof v === "object") continue;
+          const s = String(v);
+          if (!s || s.length > 80) continue;
+          extras.push(`${k} ${s}`);
+          if (extras.length >= 4) break;
+        }
+        return `${label}${extras.length ? " — " + extras.join(", ") : ""}`.trim() || "(fila sin etiqueta)";
+      });
+      chunks.push(`- ${tool} (${data.length} resultados): ${items.join("; ")}`);
+      continue;
+    }
+    if (typeof data === "object") {
+      if (data.pois && Array.isArray(data.pois)) {
+        chunks.push(`- ${tool}: ${data.count ?? data.pois.length} POIs · ejemplos: ${data.pois.slice(0, 5).map((p: any) => `${p.name} (${p.distance_m}m)`).join(", ")}`);
+        continue;
+      }
+      const label = data.nombre || data.titulo || data.name || data.title || data.summary || data.resumen || "";
+      const keys = Object.keys(data).filter(k => k !== "id").slice(0, 6).join(", ");
+      chunks.push(`- ${tool}: ${label || "objeto"} (campos: ${keys})`);
+      continue;
+    }
+    chunks.push(`- ${tool}: ${String(data).slice(0, 200)}`);
+  }
+  return chunks.join("\n");
 }
+
+// Fallback DEPRECADO — se conserva solo por retrocompatibilidad; NO debe
+// enviarse al usuario. Cualquier llamada nueva debe usar el reintento de
+// síntesis con `summarizeToolResultsNL` + mensaje humano si aun así falla.
+function formatToolResultsFallback(_toolResults: Array<{ tool: string; result: any }>): string {
+  return "He encontrado los datos pero tuve un problema al redactarlos; por favor, reformula la pregunta.";
+}
+
 
 // Summarize older history messages using a cheap/fast model to preserve context
 async function summarizeOlderHistory(
