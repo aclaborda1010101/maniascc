@@ -30,6 +30,7 @@ type Question = {
   requires_m365: boolean;
   requires_scoring: boolean;
   requires_manual: boolean;
+  requires_conversation_context: boolean;
 };
 
 function percentile(arr: number[], p: number): number {
@@ -215,8 +216,8 @@ serve(async (req) => {
     const runType: "parcial" | "oficial" = body?.run_type === "oficial" ? "oficial" : "parcial";
     const onlyCategories: string[] | undefined = body?.only_categories;
     const runName: string = body?.run_name || `${runType} · ${new Date().toISOString().slice(0, 16)}`;
-    const runnerEmail: string | undefined = body?.runner_email;
-    const runnerPassword: string | undefined = body?.runner_password;
+    const runnerEmail: string | undefined = body?.runner_email || Deno.env.get("GOLDEN_RUNNER_EMAIL") || undefined;
+    const runnerPassword: string | undefined = body?.runner_password || Deno.env.get("GOLDEN_RUNNER_PASSWORD") || undefined;
 
     let runnerJwt = isServiceCall ? "" : bearer;
     if (runnerEmail && runnerPassword) {
@@ -245,8 +246,10 @@ serve(async (req) => {
         && !(x.requires_operator_enrichment ?? false)
         && !(x.requires_m365 ?? false)
         && !(x.requires_scoring ?? false)
+        && !(x.requires_conversation_context ?? false)
       );
     }
+
 
     const { data: run, error: runErr } = await admin.from("golden_runs").insert({
       run_name: runName,

@@ -1204,11 +1204,15 @@ serve(async (req) => {
           return new Response(JSON.stringify({
             answer: stAnswer,
             tools_used: [],
+            tools_called: [],
+            sources_returned: [],
+            cost: stCost,
             latency_ms: stLat,
             fast_path: true,
           }), {
             headers: { ...corsHeaders, "Content-Type": "application/json" },
           });
+
         }
         console.warn("[fast-path] failed, falling back to full pipeline:", stResp.status);
       } catch (e) {
@@ -1470,12 +1474,16 @@ serve(async (req) => {
       return new Response(JSON.stringify({
         answer: directAnswer,
         tools_used: [],
+        tools_called: [],
+        sources_returned: [],
+        cost: costEur,
         latency_ms: latencyMs,
         model: directModel,
       }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
+
 
     // Ejecutor de tool_calls reutilizable (multi-ronda agéntica).
     const toolResults: Array<{ tool: string; result: any }> = [];
@@ -1995,7 +2003,7 @@ serve(async (req) => {
     for (const ex of executed0) toolResults.push({ tool: ex.toolLabel, result: ex.result });
 
     // Regla de honestidad ante datos ausentes (inyectada como system extra).
-    const HONESTY_RULE = `\n\nREGLA DE HONESTIDAD ANTE DATOS AUSENTES: Si el usuario pide una métrica que NO existe en los datos consultados (p.ej. rentabilidad, margen, ingresos, ROI cuando las tablas no tienen esos campos), DILO CLARAMENTE en una frase y ofrece la alternativa más cercana disponible (p.ej. estado del pipeline, probabilidad_cierre, presupuesto_estimado si existe). NUNCA rellenes con un volcado de registros para disimular que el dato falta. NUNCA inventes columnas ni interpretes campos que no aparezcan en los resultados de tools.\n\nRENTABILIDAD DE PROYECTOS: no existe un único campo 'rentabilidad'. Para responder sobre el proyecto más rentable, analiza comision_total / comision_firma / comision_apertura / honorarios_recibidos y pondera por estatus_comercial (Firmado = ingreso confirmado; Abierto = potencial de pipeline; Caído = descartar; Stand By / Cerrado = tratar aparte). Distingue SIEMPRE entre comisión ya firmada/cobrada y comisión potencial de pipeline. Si el usuario pregunta por rentabilidad, ordena por la métrica adecuada y explica el criterio usado. Ojo: puede haber proyectos duplicados por nombre; agrégalos o avisa si los ves.`;
+    const HONESTY_RULE = `\n\nREGLA DE HONESTIDAD ANTE DATOS AUSENTES: Si el usuario pide una métrica que NO existe en los datos consultados (p.ej. rentabilidad, margen, ingresos, ROI cuando las tablas no tienen esos campos), DILO CLARAMENTE en una frase y ofrece la alternativa más cercana disponible (p.ej. estado del pipeline, probabilidad_cierre, presupuesto_estimado si existe). NUNCA rellenes con un volcado de registros para disimular que el dato falta. NUNCA inventes columnas ni interpretes campos que no aparezcan en los resultados de tools.\n\nREGLA ANTI-RUIDO (RAG SIN RESULTADOS): Si rag_search NO devuelve fuentes relevantes que respondan a la pregunta (matches vacío, o los chunks devueltos hablan de otro tema), responde CORTO y CLARO: "No encuentro información sobre X en los documentos disponibles." NO listes documentos irrelevantes de relleno, NO enumeres títulos de docs que no responden. Prohibido citar un documento que no aporta la respuesta.\n\nRENTABILIDAD DE PROYECTOS: no existe un único campo 'rentabilidad'. Para responder sobre el proyecto más rentable, analiza comision_total / comision_firma / comision_apertura / honorarios_recibidos y pondera por estatus_comercial (Firmado = ingreso confirmado; Abierto = potencial de pipeline; Caído = descartar; Stand By / Cerrado = tratar aparte). Distingue SIEMPRE entre comisión ya firmada/cobrada y comisión potencial de pipeline. Si el usuario pregunta por rentabilidad, ordena por la métrica adecuada y explica el criterio usado. Ojo: puede haber proyectos duplicados por nombre; agrégalos o avisa si los ves.`;
 
     // Base de mensajes para síntesis + bucle multi-ronda.
     const synthesisMessages: Array<any> = [
@@ -2268,14 +2276,27 @@ serve(async (req) => {
     // Build structured "sources" object for traceability UI
     const sources = extractSources(toolResults);
 
+    // Telemetría plana para harness (flat array de docs con documento_id + name).
+    const sourcesReturned = (sources.documents || []).map((d: any) => ({
+      documento_id: d.documento_id || null,
+      name: d.name || null,
+      domain: d.domain || null,
+      score: typeof d.score === "number" ? d.score : null,
+    }));
+    const toolsCalled = toolResults.map(tr => tr.tool);
+
     return new Response(JSON.stringify({
       answer: finalAnswer,
-      tools_used: toolResults.map(tr => tr.tool),
+      tools_used: toolsCalled,
+      tools_called: toolsCalled,
       latency_ms: latencyMs,
       sources,
+      sources_returned: sourcesReturned,
+      cost: costEur,
       model: synthesisModel,
       escalated,
       ...(escalated && escalationReason ? { escalation_reason: escalationReason } : {}),
+
       ...(pdfTool ? { pdf_content: pdfTool.result.content, pdf_title: pdfTool.result.title } : {}),
       ...(forgeTool ? {
         forge_pdf: {
