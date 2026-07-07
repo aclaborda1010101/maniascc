@@ -183,7 +183,34 @@ const PRO_MODEL_CHAIN: string[] = (() => {
   return chain;
 })();
 const PRO_MODEL = PRO_MODEL_CHAIN[0];
-...
+
+// Keywords que disparan el modelo Pro automáticamente.
+const PRO_KEYWORDS = [
+  "análisis", "analisis",
+  "dossier",
+  "histórico", "historico",
+  "comparativa", "compárame", "comparame", "compara ",
+  "estrategia", "estratégico", "estrategico",
+  "informe",
+  "implicaciones",
+  "due diligence",
+  "profundo", "exhaustivo",
+];
+function isProQuery(text: string): boolean {
+  if (!text) return false;
+  const t = text.toLowerCase();
+  return PRO_KEYWORDS.some(k => t.includes(k));
+}
+
+// Pricing (EUR, ~0.92 USD→EUR)
+const MODEL_PRICING: Record<string, { in: number; out: number }> = {
+  "google/gemini-2.5-flash":      { in: 0.30 / 1_000_000 * 0.92, out: 2.50 / 1_000_000 * 0.92 },
+  "google/gemini-2.5-flash-lite": { in: 0.10 / 1_000_000 * 0.92, out: 0.40 / 1_000_000 * 0.92 },
+  "google/gemini-3-flash-preview":{ in: 0.30 / 1_000_000 * 0.92, out: 2.50 / 1_000_000 * 0.92 },
+  "google/gemini-3.1-pro-preview":{ in: 1.25 / 1_000_000 * 0.92, out: 10.00 / 1_000_000 * 0.92 },
+  "google/gemini-3.5-flash":      { in: 0.30 / 1_000_000 * 0.92, out: 2.50 / 1_000_000 * 0.92 },
+  "anthropic/claude-sonnet-4-5":  { in: 3.00 / 1_000_000 * 0.92, out: 15.00 / 1_000_000 * 0.92 },
+  "anthropic/claude-sonnet-4-5-20250929": { in: 3.00 / 1_000_000 * 0.92, out: 15.00 / 1_000_000 * 0.92 },
   "openai/gpt-5":                 { in: 2.50 / 1_000_000 * 0.92, out: 10.00 / 1_000_000 * 0.92 },
   "openrouter/anthropic/claude-haiku-4.5":  { in: 1.00 / 1_000_000 * 0.92, out: 5.00 / 1_000_000 * 0.92 },
   "openrouter/anthropic/claude-sonnet-4.6": { in: 3.00 / 1_000_000 * 0.92, out: 15.00 / 1_000_000 * 0.92 },
