@@ -24,6 +24,7 @@ import { ProyectoMatches } from "@/components/proyecto/ProyectoMatches";
 import { ProyectoDocumentos } from "@/components/proyecto/ProyectoDocumentos";
 import { ProyectoRAG } from "@/components/proyecto/ProyectoRAG";
 import { ProyectoInsights } from "@/components/proyecto/ProyectoInsights";
+import { ProyectoAliasesYAsunto } from "@/components/proyecto/ProyectoAliasesYAsunto";
 
 const estadoLabels: Record<string, string> = {
   borrador: "Borrador", activo: "Activo", en_pausa: "En pausa",
