@@ -12,6 +12,10 @@ const corsHeaders = {
 };
 
 const CHANNEL = "m365_journal";
+const FOLDERS = ["inbox", "sentitems"] as const;
+type Folder = typeof FOLDERS[number];
+const channelFor = (f: Folder) => `${CHANNEL}:${f}`;
+const MAX_PAGES_PER_FOLDER = 5;
 const JUNK_RE = /(noreply|no-reply|notifications?|newsletter|mailer-daemon|donotreply)/i;
 
 function htmlToText(s: string): string {
