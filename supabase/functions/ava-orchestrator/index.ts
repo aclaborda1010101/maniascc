@@ -2070,20 +2070,11 @@ serve(async (req) => {
           : "low_confidence";
       console.log(`[escalation] → ${ESCALATION_MODEL} (reason=${escalationReason}, len=${finalAnswer.length}, tools=${toolsUsedCount})`);
       try {
+        const prepE = prepareCall(ESCALATION_MODEL, { messages: synthesisMessages, max_tokens: 4000 });
+        if (!prepE) throw new Error(`ESCALATION_MODEL ${ESCALATION_MODEL} provider not configured`);
         const escResp = await fetchAIWithTimeoutAndRetry(
-          "https://ai.gateway.lovable.dev/v1/chat/completions",
-          {
-            method: "POST",
-            headers: {
-              Authorization: `Bearer ${lovableKey}`,
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-              model: ESCALATION_MODEL,
-              messages: synthesisMessages,
-              max_tokens: 4000,
-            }),
-          },
+          prepE.url,
+          { method: "POST", headers: prepE.headers, body: prepE.body },
           60000,
           1,
         );
