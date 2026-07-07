@@ -151,23 +151,32 @@ Deno.serve(async (req) => {
     if (testMode) {
       try {
         const token = await graphToken(cfg);
-        const r = await fetch(`https://graph.microsoft.com/v1.0/users/${encodeURIComponent(cfg.mailbox)}/mailFolders/inbox/messages?$top=1&$select=id,subject,receivedDateTime`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        if (!r.ok) {
-          const t = await r.text();
-          let msg = `Graph ${r.status}`;
-          if (r.status === 404) msg = `Buzón no encontrado: ${cfg.mailbox}. Verifica que existe y el app-only tiene permisos Mail.Read.`;
-          else if (r.status === 403) msg = "Permisos insuficientes. Concede Mail.Read y Mail.ReadBasic.All al app registration en Azure AD.";
-          else if (r.status === 401) msg = "Token rechazado por Graph. Revisa scopes y consentimiento del admin.";
-          else msg = `${msg}: ${t.slice(0, 200)}`;
-          await supabase.from("email_classifier_settings").update({ m365_last_test_at: new Date().toISOString(), m365_last_test_result: msg, m365_connected: false }).neq("id", "00000000-0000-0000-0000-000000000000");
-          return new Response(JSON.stringify({ ok: false, error: msg }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+        const results: Record<string, { ok: boolean; count?: number; lastSubject?: string; error?: string }> = {};
+        for (const folder of FOLDERS) {
+          const r = await fetch(`https://graph.microsoft.com/v1.0/users/${encodeURIComponent(cfg.mailbox)}/mailFolders/${folder}/messages?$top=1&$select=id,subject,receivedDateTime`, {
+            headers: { Authorization: `Bearer ${token}` },
+          });
+          if (!r.ok) {
+            const t = await r.text();
+            let msg = `Graph ${r.status}`;
+            if (r.status === 404) msg = `Carpeta '${folder}' no encontrada en ${cfg.mailbox}.`;
+            else if (r.status === 403) msg = "Permisos insuficientes. Concede Mail.Read (app-only) en Azure AD.";
+            else if (r.status === 401) msg = "Token rechazado por Graph. Revisa scopes y consentimiento del admin.";
+            else msg = `${msg}: ${t.slice(0, 160)}`;
+            results[folder] = { ok: false, error: msg };
+          } else {
+            const j = await r.json();
+            results[folder] = { ok: true, count: (j.value || []).length, lastSubject: j.value?.[0]?.subject || "(vacío)" };
+          }
         }
-        const j = await r.json();
-        const okMsg = `OK. Buzón accesible. Mensajes leídos: ${(j.value || []).length}. Último asunto: ${j.value?.[0]?.subject || "(vacío)"}`;
-        await supabase.from("email_classifier_settings").update({ m365_last_test_at: new Date().toISOString(), m365_last_test_result: okMsg, m365_connected: true }).neq("id", "00000000-0000-0000-0000-000000000000");
-        return new Response(JSON.stringify({ ok: true, message: okMsg }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+        const allOk = Object.values(results).every((v) => v.ok);
+        const summary = FOLDERS.map((f) => {
+          const r = results[f];
+          return r.ok ? `${f}: OK (último: ${r.lastSubject})` : `${f}: ${r.error}`;
+        }).join(" | ");
+        const okMsg = allOk ? `OK. ${summary}` : summary;
+        await supabase.from("email_classifier_settings").update({ m365_last_test_at: new Date().toISOString(), m365_last_test_result: okMsg, m365_connected: allOk }).neq("id", "00000000-0000-0000-0000-000000000000");
+        return new Response(JSON.stringify({ ok: allOk, message: okMsg, folders: results }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
       } catch (e: any) {
         const msg = e?.message || String(e);
         await supabase.from("email_classifier_settings").update({ m365_last_test_at: new Date().toISOString(), m365_last_test_result: msg, m365_connected: false }).neq("id", "00000000-0000-0000-0000-000000000000");
@@ -179,6 +188,20 @@ Deno.serve(async (req) => {
     const { data: admins } = await supabase.from("user_roles").select("user_id").eq("role", "admin").limit(1);
     const ownerId = admins?.[0]?.user_id;
     if (!ownerId) return new Response(JSON.stringify({ error: "No hay administradores en el sistema" }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+
+    // Migración one-shot del cursor antiguo 'm365_journal' → 'm365_journal:inbox'
+    const { data: legacy } = await supabase.from("sync_state").select("cursor").eq("owner_id", ownerId).eq("channel", CHANNEL).maybeSingle();
+    if (legacy?.cursor) {
+      const { data: already } = await supabase.from("sync_state").select("channel").eq("owner_id", ownerId).eq("channel", channelFor("inbox")).maybeSingle();
+      if (!already) {
+        await supabase.from("sync_state").upsert(
+          { owner_id: ownerId, channel: channelFor("inbox"), cursor: legacy.cursor, last_synced_at: new Date().toISOString(), metadata: { migrated_from: CHANNEL } },
+          { onConflict: "owner_id,channel" },
+        );
+      }
+      await supabase.from("sync_state").delete().eq("owner_id", ownerId).eq("channel", CHANNEL);
+    }
+
 
     const { data: st } = await supabase.from("sync_state").select("cursor").eq("owner_id", ownerId).eq("channel", CHANNEL).maybeSingle();
     const cursor = st?.cursor || new Date(Date.now() - 24 * 3600 * 1000).toISOString();
