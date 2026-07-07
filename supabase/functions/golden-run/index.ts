@@ -164,129 +164,142 @@ serve(async (req) => {
     }).select().single();
     if (runErr) throw runErr;
 
-    const latencies: number[] = [];
-    const costs: number[] = [];
-    let passedCount = 0;
+    // Background worker: procesa todas las preguntas sin bloquear la respuesta
+    const worker = async () => {
+      const latencies: number[] = [];
+      const costs: number[] = [];
+      let passedCount = 0;
+      let hallucTotal = 0, hallucFail = 0;
+      let ragTotal = 0, ragWithSourcesPassed = 0;
+      let routeTotal = 0, routePassed = 0;
+      const orchestratorUrl = `${supabaseUrl}/functions/v1/ava-orchestrator`;
 
-    // Buckets para métricas derivadas
-    let hallucTotal = 0, hallucFail = 0;
-    let ragTotal = 0, ragWithSourcesPassed = 0;
-    let routeTotal = 0, routePassed = 0;
+      for (const qn of questions) {
+        const t0 = Date.now();
+        let answer = "";
+        let sources: any[] = [];
+        let tools: string[] = [];
+        let cost = 0;
+        let failure_reason: string | null = null;
 
-    const orchestratorUrl = `${supabaseUrl}/functions/v1/ava-orchestrator`;
+        try {
+          const ctrl = new AbortController();
+          const to = setTimeout(() => ctrl.abort(), 120_000);
+          const r = await fetch(orchestratorUrl, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "Authorization": `Bearer ${runnerJwt}`,
+              "apikey": anonKey,
+            },
+            body: JSON.stringify({
+              message: qn.question,
+              conversation_id: null,
+              history: [],
+              is_golden_run: true,
+            }),
+            signal: ctrl.signal,
+          });
+          clearTimeout(to);
+          const txt = await r.text();
+          if (!r.ok) throw new Error(`HTTP ${r.status}: ${txt.slice(0, 300)}`);
+          let data: any = {};
+          try { data = JSON.parse(txt); } catch { data = { answer: txt }; }
+          answer = data.answer || data.reply || data.content || data.message || (typeof data === "string" ? data : JSON.stringify(data).slice(0, 500));
+          sources = data.sources || data.sources_returned || data.citations || [];
+          if (Array.isArray(data.tools_called)) tools = data.tools_called;
+          else if (data.route) tools = [String(data.route)];
+          cost = Number(data.cost || data.total_cost || 0);
+        } catch (e: any) {
+          failure_reason = `orchestrator: ${e.message || String(e)}`;
+        }
+        const latency_ms = Date.now() - t0;
+        latencies.push(latency_ms);
+        if (cost) costs.push(cost);
 
-    for (const qn of questions) {
-      const t0 = Date.now();
-      let answer = "";
-      let sources: any[] = [];
-      let tools: string[] = [];
-      let cost = 0;
-      let failure_reason: string | null = null;
+        let passed = false;
+        let score: number | null = null;
+        let explanation = "";
 
-      try {
-        const r = await fetch(orchestratorUrl, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "Authorization": `Bearer ${runnerJwt}`,
-            "apikey": anonKey,
-          },
-          body: JSON.stringify({
-            message: qn.question,
-            conversation_id: null,
-            history: [],
-            is_golden_run: true,
-          }),
+        if (failure_reason) {
+          passed = false; explanation = failure_reason;
+        } else if (qn.evaluation_mode === "det") {
+          const r = evalDet(qn.expected_answer, answer);
+          passed = r.passed; explanation = r.explanation;
+        } else if (qn.evaluation_mode === "set") {
+          const r = evalSet(qn.expected_answer, answer);
+          passed = r.passed; explanation = r.explanation;
+        } else if (qn.evaluation_mode === "binario") {
+          passed = answer.trim().length > 0; explanation = "binario: respuesta no vacía";
+        } else if (lovableKey) {
+          const r = await judgeWithLLM(lovableKey, qn.question, qn.expected_answer, answer, qn.evaluation_mode);
+          passed = r.passed; score = r.score; explanation = r.explanation;
+        } else {
+          passed = false; explanation = "sin LOVABLE_API_KEY para juez";
+        }
+
+        if (passed) passedCount++;
+
+        const cat = (qn.category || "").toLowerCase();
+        const code = (qn.code || "").toUpperCase();
+        if ((cat.includes("no") && cat.includes("inven")) || code.startsWith("G")) {
+          hallucTotal++; if (!passed) hallucFail++;
+        }
+        if (qn.source_type_expected === "RAG" || cat === "rag") {
+          ragTotal++;
+          if (passed && Array.isArray(sources) && sources.length > 0) ragWithSourcesPassed++;
+        }
+        if (cat.includes("router") || cat.includes("rendim") || code.startsWith("I")) {
+          routeTotal++; if (passed) routePassed++;
+        }
+
+        await admin.from("golden_run_results").insert({
+          run_id: run.id,
+          question_id: qn.id,
+          answer,
+          sources_returned: sources,
+          tools_called: tools,
+          latency_ms,
+          cost,
+          passed,
+          score,
+          judge_explanation: explanation,
+          failure_reason,
         });
-        const txt = await r.text();
-        if (!r.ok) throw new Error(`HTTP ${r.status}: ${txt.slice(0, 300)}`);
-        let data: any = {};
-        try { data = JSON.parse(txt); } catch { data = { answer: txt }; }
-        answer = data.answer || data.reply || data.content || data.message || (typeof data === "string" ? data : JSON.stringify(data).slice(0, 500));
-        sources = data.sources || data.sources_returned || data.citations || [];
-        tools = data.tools_called || data.tools || data.route ? [data.route].filter(Boolean) : [];
-        if (Array.isArray(data.tools_called)) tools = data.tools_called;
-        cost = Number(data.cost || data.total_cost || 0);
-      } catch (e: any) {
-        failure_reason = `orchestrator: ${e.message || String(e)}`;
-      }
-      const latency_ms = Date.now() - t0;
-      latencies.push(latency_ms);
-      if (cost) costs.push(cost);
-
-      let passed = false;
-      let score: number | null = null;
-      let explanation = "";
-
-      if (failure_reason) {
-        passed = false;
-        explanation = failure_reason;
-      } else if (qn.evaluation_mode === "det") {
-        const r = evalDet(qn.expected_answer, answer);
-        passed = r.passed; explanation = r.explanation;
-      } else if (qn.evaluation_mode === "set") {
-        const r = evalSet(qn.expected_answer, answer);
-        passed = r.passed; explanation = r.explanation;
-      } else if (qn.evaluation_mode === "binario") {
-        passed = answer.trim().length > 0; explanation = "binario: respuesta no vacía";
-      } else if (lovableKey) {
-        const r = await judgeWithLLM(lovableKey, qn.question, qn.expected_answer, answer, qn.evaluation_mode);
-        passed = r.passed; score = r.score; explanation = r.explanation;
-      } else {
-        passed = false; explanation = "sin LOVABLE_API_KEY para juez";
       }
 
-      if (passed) passedCount++;
+      const total = questions.length || 1;
+      await admin.from("golden_runs").update({
+        status: "done",
+        finished_at: new Date().toISOString(),
+        accuracy: passedCount / total,
+        latency_p50: percentile(latencies, 50),
+        latency_p95: percentile(latencies, 95),
+        avg_cost: costs.length > 0 ? costs.reduce((a, b) => a + b, 0) / costs.length : 0,
+        hallucination_rate: hallucTotal > 0 ? hallucFail / hallucTotal : null,
+        source_precision: ragTotal > 0 ? ragWithSourcesPassed / ragTotal : null,
+        route_accuracy: routeTotal > 0 ? routePassed / routeTotal : null,
+      }).eq("id", run.id);
+    };
 
-      // Métricas derivadas por categoría
-      const cat = (qn.category || "").toLowerCase();
-      const code = (qn.code || "").toUpperCase();
-      if (cat.includes("no") && cat.includes("inven") || code.startsWith("G")) {
-        hallucTotal++; if (!passed) hallucFail++;
-      }
-      if (qn.source_type_expected === "RAG" || cat === "rag") {
-        ragTotal++;
-        if (passed && Array.isArray(sources) && sources.length > 0) ragWithSourcesPassed++;
-      }
-      if (cat.includes("router") || cat.includes("rendim") || code.startsWith("I")) {
-        routeTotal++; if (passed) routePassed++;
-      }
-
-      await admin.from("golden_run_results").insert({
-        run_id: run.id,
-        question_id: qn.id,
-        answer,
-        sources_returned: sources,
-        tools_called: tools,
-        latency_ms,
-        cost,
-        passed,
-        score,
-        judge_explanation: explanation,
-        failure_reason,
-      });
+    // @ts-ignore EdgeRuntime is provided por Supabase
+    if (typeof EdgeRuntime !== "undefined" && EdgeRuntime.waitUntil) {
+      // @ts-ignore
+      EdgeRuntime.waitUntil(worker().catch(async (e) => {
+        await admin.from("golden_runs").update({ status: "error", notes: String(e?.message || e) }).eq("id", run.id);
+      }));
+    } else {
+      worker().catch(() => {});
     }
 
-    const total = questions.length || 1;
-    const accuracy = passedCount / total;
-    const p50 = percentile(latencies, 50);
-    const p95 = percentile(latencies, 95);
-    const avgCost = costs.length > 0 ? costs.reduce((a, b) => a + b, 0) / costs.length : 0;
-    const halluc = hallucTotal > 0 ? hallucFail / hallucTotal : null;
-    const srcPrec = ragTotal > 0 ? ragWithSourcesPassed / ragTotal : null;
-    const routeAcc = routeTotal > 0 ? routePassed / routeTotal : null;
+    return new Response(JSON.stringify({
+      success: true,
+      run_id: run.id,
+      total_questions: questions.length,
+      status: "running",
+      message: "Corrida lanzada en background. Consulta golden_runs / golden_run_results para el progreso.",
+    }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
-    await admin.from("golden_runs").update({
-      status: "done",
-      finished_at: new Date().toISOString(),
-      accuracy,
-      latency_p50: p50,
-      latency_p95: p95,
-      avg_cost: avgCost,
-      hallucination_rate: halluc,
-      source_precision: srcPrec,
-      route_accuracy: routeAcc,
-    }).eq("id", run.id);
 
     return new Response(JSON.stringify({
       success: true,
