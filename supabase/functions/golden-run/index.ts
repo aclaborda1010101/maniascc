@@ -300,19 +300,6 @@ serve(async (req) => {
       message: "Corrida lanzada en background. Consulta golden_runs / golden_run_results para el progreso.",
     }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
-
-    return new Response(JSON.stringify({
-      success: true,
-      run_id: run.id,
-      total_questions: questions.length,
-      accuracy,
-      hallucination_rate: halluc,
-      source_precision: srcPrec,
-      route_accuracy: routeAcc,
-      latency_p50: p50,
-      latency_p95: p95,
-      avg_cost: avgCost,
-    }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
   } catch (e) {
     console.error("golden-run error:", e);
     return new Response(JSON.stringify({ error: e instanceof Error ? e.message : "Error" }), {
