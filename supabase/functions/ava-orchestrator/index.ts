@@ -1204,11 +1204,15 @@ serve(async (req) => {
           return new Response(JSON.stringify({
             answer: stAnswer,
             tools_used: [],
+            tools_called: [],
+            sources_returned: [],
+            cost: stCost,
             latency_ms: stLat,
             fast_path: true,
           }), {
             headers: { ...corsHeaders, "Content-Type": "application/json" },
           });
+
         }
         console.warn("[fast-path] failed, falling back to full pipeline:", stResp.status);
       } catch (e) {
