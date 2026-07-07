@@ -15,6 +15,7 @@ import { exportAvaMessageToPdf, exportAvaConversationToPdf, downloadBlob } from 
 import { useToast } from "@/hooks/use-toast";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import { formatMessageTime, formatMessageTooltip, formatDaySeparator, formatRelativeShort, isSameDay } from "@/lib/chatTime";
 
 interface FloatingChatPanelProps {
   open: boolean;
