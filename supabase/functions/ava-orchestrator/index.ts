@@ -2001,13 +2001,11 @@ serve(async (req) => {
     // Si tras el bucle sigue sin respuesta, forzar una llamada final SIN tools.
     if (!finalAnswer.trim()) {
       try {
+        const prepF = prepareCall(SYNTHESIS_MODEL, { messages: synthesisMessages, max_tokens: 4000 });
+        if (!prepF) throw new Error("SYNTHESIS_MODEL provider not configured");
         const resp = await callChatCompletion(
-          "https://ai.gateway.lovable.dev/v1/chat/completions",
-          {
-            method: "POST",
-            headers: { Authorization: `Bearer ${lovableKey}`, "Content-Type": "application/json" },
-            body: JSON.stringify({ model: SYNTHESIS_MODEL, messages: synthesisMessages, max_tokens: 4000 }),
-          },
+          prepF.url,
+          { method: "POST", headers: prepF.headers, body: prepF.body },
           { timeoutMs: 90000, retries: 1 },
         );
         if (resp.ok) {
