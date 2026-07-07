@@ -632,7 +632,7 @@ const TOOLS = [
     type: "function",
     function: {
       name: "db_query",
-      description: "Consulta datos de tablas de AVA. " + SCHEMA_HINT_TEXT + " Tablas permitidas: locales, operadores, contactos, documentos_proyecto, negociaciones, proyectos, matches, activos, perfiles_negociador, validaciones_retorno, configuraciones_tenant_mix, patrones_localizacion, auditoria_ia, ai_insights, ai_feedback, notificaciones, proyecto_operadores, proyecto_contactos, proyecto_equipo, sinergias_operadores. Para rentabilidad/beneficio de proyectos usa comision_total, comision_firma, comision_apertura, honorarios_recibidos y estatus_comercial. 'Firmado' = ingreso real/cerrado; 'Abierto' = pipeline potencial; 'Caído' = perdido (0). honorarios_recibidos es texto Si/No.",
+      description: "Consulta datos de tablas de AVA. " + SCHEMA_HINT_TEXT + " Tablas permitidas: locales, operadores, contactos, documentos_proyecto, negociaciones, proyectos, matches, activos, perfiles_negociador, validaciones_retorno, configuraciones_tenant_mix, patrones_localizacion, auditoria_ia, ai_insights, ai_feedback, notificaciones, proyecto_operadores, proyecto_contactos, proyecto_equipo, sinergias_operadores. Para rentabilidad/beneficio de proyectos usa comision_total, comision_firma, comision_apertura, honorarios_recibidos y estatus_comercial. 'Firmado' = ingreso real/cerrado; 'Abierto' = pipeline potencial; 'Caído' = perdido (0). honorarios_recibidos es texto Si/No. IMPORTANTE: cuando la tabla sea proyectos/operadores/contactos y el usuario pregunte de forma general ('cuál es', 'háblame de', 'info sobre', 'qué sabes de'), usa select='*' (o incluye explícitamente descripcion, notas, metadata, comision_total, estatus_comercial, cliente_prop, ubicacion) — NUNCA te limites a id/nombre/tipo/estado/fecha, porque los campos ricos (descripcion, notas, metadata) son los que responden a la pregunta.",
       parameters: {
         type: "object",
         properties: {
@@ -1569,7 +1569,21 @@ serve(async (req) => {
                 valid_columns: validCols,
               };
             } else {
-              let query = authClient.from(args.table).select(args.select || "*");
+              // ANTI-SUPERFICIALIDAD: para tablas de entidad de negocio, si el
+              // router pidió select mínimo (o none), forzamos '*' para que la
+              // síntesis vea descripcion/notas/metadata/comision — que es lo
+              // que realmente responde a "háblame de / cuál es / info sobre X".
+              const ENTITY_TABLES = new Set(["proyectos", "operadores", "contactos", "activos", "locales", "negociaciones"]);
+              let effectiveSelect: string = args.select || "*";
+              if (ENTITY_TABLES.has(args.table)) {
+                const sel = (args.select || "").trim();
+                const hasRich = /\*|descripcion|notas|metadata|comision|estatus|cliente_prop/i.test(sel);
+                if (!sel || !hasRich) {
+                  effectiveSelect = "*";
+                  console.log(`[db_query:${args.table}] select promovido a '*' (original='${sel}') por regla anti-superficialidad`);
+                }
+              }
+              let query = authClient.from(args.table).select(effectiveSelect);
               const warnings: string[] = [];
               if (args.filters && Array.isArray(args.filters)) {
                 for (const f of args.filters) {
@@ -2046,7 +2060,7 @@ serve(async (req) => {
     for (const ex of executed0) toolResults.push({ tool: ex.toolLabel, result: ex.result });
 
     // Regla de honestidad ante datos ausentes (inyectada como system extra).
-    const HONESTY_RULE = `\n\nREGLA DE HONESTIDAD ANTE DATOS AUSENTES: Si el usuario pide una métrica que NO existe en los datos consultados (p.ej. rentabilidad, margen, ingresos, ROI cuando las tablas no tienen esos campos), DILO CLARAMENTE en una frase y ofrece la alternativa más cercana disponible (p.ej. estado del pipeline, probabilidad_cierre, presupuesto_estimado si existe). NUNCA rellenes con un volcado de registros para disimular que el dato falta. NUNCA inventes columnas ni interpretes campos que no aparezcan en los resultados de tools.\n\nREGLA ANTI-RUIDO (RAG SIN RESULTADOS): Si rag_search NO devuelve fuentes relevantes que respondan a la pregunta (matches vacío, o los chunks devueltos hablan de otro tema), responde CORTO y CLARO: "No encuentro información sobre X en los documentos disponibles." NO listes documentos irrelevantes de relleno, NO enumeres títulos de docs que no responden. Prohibido citar un documento que no aporta la respuesta.\n\nRENTABILIDAD DE PROYECTOS: no existe un único campo 'rentabilidad'. Para responder sobre el proyecto más rentable, analiza comision_total / comision_firma / comision_apertura / honorarios_recibidos y pondera por estatus_comercial (Firmado = ingreso confirmado; Abierto = potencial de pipeline; Caído = descartar; Stand By / Cerrado = tratar aparte). Distingue SIEMPRE entre comisión ya firmada/cobrada y comisión potencial de pipeline. Si el usuario pregunta por rentabilidad, ordena por la métrica adecuada y explica el criterio usado. Ojo: puede haber proyectos duplicados por nombre; agrégalos o avisa si los ves.`;
+    const HONESTY_RULE = `\n\nREGLA DE HONESTIDAD ANTE DATOS AUSENTES: Si el usuario pide una métrica que NO existe en los datos consultados (p.ej. rentabilidad, margen, ingresos, ROI cuando las tablas no tienen esos campos), DILO CLARAMENTE en una frase y ofrece la alternativa más cercana disponible (p.ej. estado del pipeline, probabilidad_cierre, presupuesto_estimado si existe). NUNCA rellenes con un volcado de registros para disimular que el dato falta. NUNCA inventes columnas ni interpretes campos que no aparezcan en los resultados de tools.\n\nREGLA ANTI-RUIDO (RAG SIN RESULTADOS): Si rag_search NO devuelve fuentes relevantes que respondan a la pregunta (matches vacío, o los chunks devueltos hablan de otro tema), responde CORTO y CLARO: "No encuentro información sobre X en los documentos disponibles." NO listes documentos irrelevantes de relleno, NO enumeres títulos de docs que no responden. Prohibido citar un documento que no aporta la respuesta.\n\nRENTABILIDAD DE PROYECTOS: no existe un único campo 'rentabilidad'. Para responder sobre el proyecto más rentable, analiza comision_total / comision_firma / comision_apertura / honorarios_recibidos y pondera por estatus_comercial (Firmado = ingreso confirmado; Abierto = potencial de pipeline; Caído = descartar; Stand By / Cerrado = tratar aparte). Distingue SIEMPRE entre comisión ya firmada/cobrada y comisión potencial de pipeline. Si el usuario pregunta por rentabilidad, ordena por la métrica adecuada y explica el criterio usado. Ojo: puede haber proyectos duplicados por nombre; agrégalos o avisa si los ves.\n\nREGLA ANTI-SUPERFICIALIDAD (RESPONDE COMO ANALISTA, NO COMO VOLCADO DE COLUMNAS): NUNCA te limites a listar los campos básicos de la base de datos (nombre, tipo, fecha, estado). Explica QUÉ es la cosa y por qué importa para el negocio. Prioriza SIEMPRE los campos de texto libre y de negocio: descripcion, notas, metadata->>'Fase', metadata->>'Today & Next Step', cliente_prop, comision_total, estatus_comercial, próxima acción, ubicacion, responsable. La descripción de un proyecto/operador/contacto suele contener lo más importante — inclúyela y explícala con tus propias palabras. Redacta 2-5 frases con contenido real: qué es, en qué punto está, qué se sabe del negocio (cliente/comisión/próximo paso) y qué es relevante. Si un campo clave está vacío (no hay comisión ni cliente registrados), puedes mencionarlo brevemente como dato que falta, pero el foco es siempre lo que SÍ se sabe. Para preguntas del tipo "háblame de / qué sabes de / info sobre / cuál es nuestro último [proyecto|operador|contacto]", NO te conformes con una sola fila: reúne descripcion+notas+metadata+comision+estatus, y si procede, contactos vinculados (proyecto_contactos), actividad reciente (actividad_proyecto) y documentos vinculados. Sintetiza TODO en la respuesta, no solo la primera tool. IMPORTANTE al usar db_query sobre proyectos/operadores/contactos: usa select="*" o incluye explícitamente descripcion, notas, metadata, comision_total, estatus_comercial, cliente_prop — no solo id/nombre/tipo/estado.`;
 
     // Base de mensajes para síntesis + bucle multi-ronda.
     const synthesisMessages: Array<any> = [
@@ -2282,6 +2296,97 @@ serve(async (req) => {
         }
       }
     }
+
+    // ─────────────────────────────────────────────────────────────
+    // ANTI-SUPERFICIALIDAD: si la respuesta parece un volcado de columnas
+    // (corta y sin verbos analíticos) pero los tools trajeron descripcion/notas/
+    // metadata con contenido real, re-sintetizamos UNA vez forzando incluir
+    // esos campos. No escalamos modelo — solo re-pedimos con mejor instrucción.
+    // ─────────────────────────────────────────────────────────────
+    function extractRichSnippets(results: any[]): string[] {
+      const snippets: string[] = [];
+      const walk = (row: any) => {
+        if (!row || typeof row !== "object") return;
+        for (const key of ["descripcion", "notas"]) {
+          const v = row[key];
+          if (typeof v === "string" && v.trim().length > 20) {
+            snippets.push(`${key}: ${v.trim()}`);
+          }
+        }
+        const md = row.metadata;
+        if (md && typeof md === "object") {
+          for (const [k, v] of Object.entries(md)) {
+            if (typeof v === "string" && v.trim().length > 15 && /fase|next|step|estado|comercial|comentario|nota|observ/i.test(k)) {
+              snippets.push(`${k}: ${v.trim()}`);
+            }
+          }
+        }
+      };
+      for (const t of results || []) {
+        const r = t?.result;
+        if (!r) continue;
+        const rows = Array.isArray(r) ? r : (Array.isArray(r?.data) ? r.data : [r]);
+        for (const row of rows.slice(0, 5)) walk(row);
+      }
+      return snippets;
+    }
+
+    if (finalAnswer && finalAnswer.trim()) {
+      const richSnippets = extractRichSnippets(toolResults);
+      const answerLen = finalAnswer.trim().length;
+      const richInAnswer = richSnippets.some((s) => {
+        const val = s.split(":").slice(1).join(":").trim().slice(0, 60).toLowerCase();
+        return val.length > 20 && finalAnswer.toLowerCase().includes(val.slice(0, 30));
+      });
+      const looksShallow = answerLen < 400 && richSnippets.length > 0 && !richInAnswer;
+      if (looksShallow) {
+        console.log(`[anti-superficial] respuesta corta (${answerLen}c) omite ${richSnippets.length} snippets ricos → re-sintetizando`);
+        try {
+          const richBlock = richSnippets.slice(0, 8).map((s, i) => `[${i + 1}] ${s}`).join("\n");
+          const enrichMessages = [
+            ...synthesisMessages,
+            { role: "assistant", content: finalAnswer },
+            {
+              role: "user",
+              content: `Esa respuesta es superficial: solo has repetido nombre, tipo, estado y fecha. Los datos que recuperaste con las tools contienen estos campos DESCRIPTIVOS que OMITISTE:\n\n${richBlock}\n\nReescribe la respuesta INCLUYENDO y EXPLICANDO lo esencial de esos campos (qué es la cosa, en qué punto está, qué se sabe del negocio: cliente, comisión, próximo paso). 2-5 frases con contenido real, en español, sin listar campos de BD. NO empieces con "Nuestro último proyecto es X, de tipo…" — arranca con lo interesante (la descripción).`,
+            },
+          ];
+          const prepA = prepareCall(SYNTHESIS_MODEL, { messages: enrichMessages, max_tokens: 1500 });
+          if (prepA) {
+            const aResp = await callChatCompletion(
+              prepA.url,
+              { method: "POST", headers: prepA.headers, body: prepA.body },
+              { timeoutMs: 30000, retries: 1 },
+            );
+            if (aResp.ok) {
+              const aJson = await aResp.json();
+              const aAns = (aJson.choices?.[0]?.message?.content || "").trim();
+              // Aceptamos la re-síntesis si NO es vacía y (es más larga o menciona algo de los snippets ricos).
+              const mentionsRich = richSnippets.some((s) => {
+                const val = s.split(":").slice(1).join(":").trim().toLowerCase();
+                const probe = val.slice(0, Math.min(25, val.length));
+                return probe.length > 10 && aAns.toLowerCase().includes(probe);
+              });
+              if (aAns && (aAns.length >= answerLen || mentionsRich)) {
+                console.log(`[anti-superficial] re-síntesis OK (nueva len=${aAns.length}, mentionsRich=${mentionsRich})`);
+                finalAnswer = aAns;
+                const aUsage = aJson.usage || {};
+                totalTokensIn += aUsage.prompt_tokens || 0;
+                totalTokensOut += aUsage.completion_tokens || 0;
+              } else {
+                console.warn(`[anti-superficial] re-síntesis descartada (len=${aAns.length}, mentionsRich=${mentionsRich})`);
+              }
+            } else {
+              console.warn(`[anti-superficial] retry HTTP ${aResp.status}`);
+            }
+          }
+        } catch (e) {
+          console.warn("[anti-superficial] retry failed:", e);
+        }
+      }
+    }
+
+
 
 
     const latencyMs = Date.now() - startTime;
