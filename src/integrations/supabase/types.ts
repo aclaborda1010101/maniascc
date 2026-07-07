@@ -1893,6 +1893,7 @@ export type Database = {
           id: string
           question: string
           required_tools: string[] | null
+          requires_conversation_context: boolean
           requires_dedup: boolean
           requires_m365: boolean
           requires_manual: boolean
@@ -1919,6 +1920,7 @@ export type Database = {
           id?: string
           question: string
           required_tools?: string[] | null
+          requires_conversation_context?: boolean
           requires_dedup?: boolean
           requires_m365?: boolean
           requires_manual?: boolean
@@ -1945,6 +1947,7 @@ export type Database = {
           id?: string
           question?: string
           required_tools?: string[] | null
+          requires_conversation_context?: boolean
           requires_dedup?: boolean
           requires_m365?: boolean
           requires_manual?: boolean
