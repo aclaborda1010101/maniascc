@@ -1331,13 +1331,11 @@ serve(async (req) => {
         for (const candidate of directCandidates) {
           try {
             if (isAnthropicModel(candidate)) {
+              const prep = prepareCall(candidate, { messages, max_tokens: 4000 });
+              if (!prep) continue;
               const aResp = await callChatCompletion(
-                "https://ai.gateway.lovable.dev/v1/chat/completions",
-                {
-                  method: "POST",
-                  headers: { Authorization: `Bearer ${lovableKey}`, "Content-Type": "application/json" },
-                  body: JSON.stringify({ model: candidate, messages, max_tokens: 4000 }),
-                },
+                prep.url,
+                { method: "POST", headers: prep.headers, body: prep.body },
                 { timeoutMs: 90000, retries: 1 },
               );
               if (aResp.ok) {
@@ -1356,10 +1354,10 @@ serve(async (req) => {
                 console.error(`[direct pro-fallback] ${candidate} failed:`, aResp.status);
               }
             } else {
-              const directStream = await streamChatCompletion("https://ai.gateway.lovable.dev/v1/chat/completions", {
-                method: "POST",
-                headers: { Authorization: `Bearer ${lovableKey}`, "Content-Type": "application/json" },
-                body: JSON.stringify({ model: candidate, messages, max_tokens: 4000 }),
+              const prep = prepareCall(candidate, { messages, max_tokens: 4000 });
+              if (!prep) continue;
+              const directStream = await streamChatCompletion(prep.url, {
+                method: "POST", headers: prep.headers, body: prep.body,
               }, { timeoutMs: 90000 });
               if (directStream.ok && directStream.content.trim()) {
                 directAnswer = directStream.content;
