@@ -2087,7 +2087,8 @@ serve(async (req) => {
 
 
     // Audit
-    await admin.from("auditoria_ia").insert({
+    // 5d: auditoría + usage fire-and-forget (no bloqueamos el response al usuario)
+    admin.from("auditoria_ia").insert({
       modelo: synthesisModel,
       funcion_ia: "ava-orchestrator",
       latencia_ms: latencyMs,
@@ -2096,10 +2097,9 @@ serve(async (req) => {
       coste_estimado: costEur,
       exito: true,
       created_by: user.id,
-    });
+    }).then(() => {}, (e: any) => console.warn("[audit] final failed:", e));
 
-    // Usage log for cost tracking
-    await admin.from("usage_logs").insert({
+    admin.from("usage_logs").insert({
       user_id: user.id,
       action_type: "chat",
       agent_label: escalated ? "AVA Orchestrator (escalated)" : "AVA Orchestrator",
@@ -2114,7 +2114,7 @@ serve(async (req) => {
         escalated,
         escalation_reason: escalationReason,
       },
-    });
+    }).then(() => {}, (e: any) => console.warn("[usage] final failed:", e));
 
     // Check if generate_pdf_report or generate_forge_document was used
     const pdfTool = toolResults.find(tr => tr.tool === "generate_pdf_report" && tr.result?.success);
