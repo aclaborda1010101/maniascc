@@ -11,6 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Skeleton } from "@/components/ui/skeleton";
 import { Settings, Shield, CheckCircle, Mail, RefreshCw, Loader2, Plug, Save, Database, Play, FlaskConical, GitMerge } from "lucide-react";
 import DedupProyectosPanel from "@/components/admin/DedupProyectosPanel";
+import GoldenSetPanel from "@/components/admin/GoldenSetPanel";
 import { Progress } from "@/components/ui/progress";
 import { toast } from "@/hooks/use-toast";
 
@@ -212,11 +213,16 @@ export default function Admin() {
         <TabsList>
           <TabsTrigger value="auditoria" className="gap-1"><Shield className="h-3 w-3" /> Auditoría</TabsTrigger>
           <TabsTrigger value="dedup" className="gap-1"><GitMerge className="h-3 w-3" /> Deduplicación</TabsTrigger>
+          <TabsTrigger value="golden" className="gap-1"><FlaskConical className="h-3 w-3" /> Calidad AVA</TabsTrigger>
           <TabsTrigger value="config" className="gap-1"><Settings className="h-3 w-3" /> Configuración</TabsTrigger>
         </TabsList>
 
         <TabsContent value="dedup" className="space-y-4">
           <DedupProyectosPanel />
+        </TabsContent>
+
+        <TabsContent value="golden" className="space-y-4">
+          <GoldenSetPanel />
         </TabsContent>
 
         <TabsContent value="auditoria" className="space-y-4">
