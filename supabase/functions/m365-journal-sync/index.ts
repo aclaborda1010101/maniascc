@@ -291,8 +291,8 @@ Deno.serve(async (req) => {
     let escalated = 0;
     try { escalated = await runEscalation(supabase); } catch (e: any) { console.error("[m365] escalate:", e?.message); }
 
-    console.log(`[m365] pages=${pages} inserted=${inserted} discarded=${discarded} skipped=${skipped} escalated=${escalated}`);
-    return new Response(JSON.stringify({ ok: true, pages, inserted, discarded, skipped, escalated, cursor: lastReceived, config_source: cfg.source }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    console.log(`[m365] pages=${totalPages} inserted=${inserted} discarded=${discarded} skipped=${skipped} escalated=${escalated}`);
+    return new Response(JSON.stringify({ ok: true, pages: totalPages, inserted, discarded, skipped, escalated, folders: perFolder, config_source: cfg.source }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
   } catch (e: any) {
     console.error("[m365] fatal:", e);
     return new Response(JSON.stringify({ error: e?.message || String(e) }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
