@@ -632,7 +632,7 @@ const TOOLS = [
     type: "function",
     function: {
       name: "db_query",
-      description: "Consulta datos de tablas de AVA. " + SCHEMA_HINT_TEXT + " Tablas permitidas: locales, operadores, contactos, documentos_proyecto, negociaciones, proyectos, matches, activos, perfiles_negociador, validaciones_retorno, configuraciones_tenant_mix, patrones_localizacion, auditoria_ia, ai_insights, ai_feedback, notificaciones, proyecto_operadores, proyecto_contactos, proyecto_equipo, sinergias_operadores.",
+      description: "Consulta datos de tablas de AVA. " + SCHEMA_HINT_TEXT + " Tablas permitidas: locales, operadores, contactos, documentos_proyecto, negociaciones, proyectos, matches, activos, perfiles_negociador, validaciones_retorno, configuraciones_tenant_mix, patrones_localizacion, auditoria_ia, ai_insights, ai_feedback, notificaciones, proyecto_operadores, proyecto_contactos, proyecto_equipo, sinergias_operadores. Para rentabilidad/beneficio de proyectos usa comision_total, comision_firma, comision_apertura, honorarios_recibidos y estatus_comercial. 'Firmado' = ingreso real/cerrado; 'Abierto' = pipeline potencial; 'Caído' = perdido (0). honorarios_recibidos es texto Si/No.",
       parameters: {
         type: "object",
         properties: {
