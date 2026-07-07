@@ -162,8 +162,20 @@ export default function FloatingChatPanel({ open, onClose }: FloatingChatPanelPr
             const prevUserMsg = msg.role === "assistant"
               ? [...messages.slice(0, idx)].reverse().find(m => m.role === "user")
               : undefined;
+            const prev = idx > 0 ? messages[idx - 1] : null;
+            const showDaySep = !prev || !isSameDay(prev.timestamp, msg.timestamp);
             return (
-            <div key={msg.id} className={`flex gap-2 ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
+            <div key={msg.id}>
+              {showDaySep && (
+                <div className="flex items-center gap-2 py-1 my-2">
+                  <div className="flex-1 h-px bg-border" />
+                  <span className="text-[9px] uppercase tracking-wider text-muted-foreground/70">
+                    {formatDaySeparator(msg.timestamp)}
+                  </span>
+                  <div className="flex-1 h-px bg-border" />
+                </div>
+              )}
+              <div className={`flex gap-2 ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
               {msg.role === "assistant" && (
                 <div className="shrink-0 w-6 h-6 rounded-full bg-accent/10 flex items-center justify-center">
                   <Sparkles className="h-3 w-3 text-accent" />
@@ -242,12 +254,22 @@ export default function FloatingChatPanel({ open, onClose }: FloatingChatPanelPr
                     })}
                   </div>
                 )}
-                {msg.role === "assistant" && (
-                  <div className="mt-1 flex items-center justify-between gap-1">
+                <div className={`mt-1 flex items-center gap-1 ${msg.role === "assistant" ? "justify-between" : "justify-end"}`}>
+                  {msg.role === "assistant" && (
                     <AvaMessageFeedback messageId={msg.id} toolsUsed={msg.meta?.tools_used} />
+                  )}
+                  <time
+                    className={`text-[9px] ${msg.role === "user" ? "text-accent-foreground/70" : "text-muted-foreground/70"}`}
+                    title={formatMessageTooltip(msg.timestamp)}
+                    dateTime={new Date(msg.timestamp).toISOString()}
+                  >
+                    {formatMessageTime(msg.timestamp)}
+                  </time>
+                  {msg.role === "assistant" && (
                     <ExportMessageMiniBtn message={msg} userQuestion={prevUserMsg?.content} />
-                  </div>
-                )}
+                  )}
+                </div>
+              </div>
               </div>
             </div>
             );
