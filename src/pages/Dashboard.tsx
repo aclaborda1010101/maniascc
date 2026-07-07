@@ -101,7 +101,7 @@ export default function Dashboard() {
         localesCountRes, audLatRes, recentMatchesRes, actividadRes,
         localesAllRes, matchesAllRes, notifsRes,
       ] = await Promise.all([
-        supabase.from("proyectos").select("id", { count: "exact", head: true }).in("estado", ["activo", "en_negociacion"]),
+        supabase.from("proyectos").select("id", { count: "exact", head: true }).eq("merge_status", "activo").in("estado", ["activo", "en_negociacion"]),
         supabase.from("operadores").select("id", { count: "exact", head: true }),
         supabase.from("matches").select("id", { count: "exact", head: true }).eq("estado", "pendiente"),
         supabase.from("auditoria_ia").select("tokens_entrada, tokens_salida, modelo").gte("created_at", startOfMonth.toISOString()).limit(500),
