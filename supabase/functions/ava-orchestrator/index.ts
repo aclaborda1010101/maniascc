@@ -1985,11 +1985,9 @@ serve(async (req) => {
     // answer despite having tool results to ground it.
     // ─────────────────────────────────────────────────────────────
     function needsEscalation(answer: string, toolsUsed: number, toolErrors: number): boolean {
-      if (!answer) return true; // empty → definitely escalate
+      if (!answer) return true;
       const a = answer.trim().toLowerCase();
-      // Very short answers when we DID gather data
       if (toolsUsed > 0 && answer.trim().length < 220) return true;
-      // Explicit hedging / incompleteness markers
       const hedgePatterns = [
         "no tengo información", "no dispongo de", "no puedo determinar",
         "no encuentro", "no he encontrado", "no se ha encontrado",
@@ -2000,9 +1998,17 @@ serve(async (req) => {
         "i don't have", "i cannot", "insufficient",
       ];
       if (hedgePatterns.some(p => a.includes(p))) return true;
-      // Truncated / cut off mid-sentence (no terminal punctuation, long enough to suspect)
-      if (answer.length > 400 && !/[.!?…)\]}"`'`]\s*$/.test(answer.trim())) return true;
-      // If multiple tool errors occurred, the pro model handles ambiguity better
+      // Truncated / cut off mid-sentence. NO consideramos truncada si termina en:
+      //  - fila de tabla markdown (línea acabada en |)
+      //  - item de lista (línea empezando por - o *)
+      if (answer.length > 400) {
+        const trimmed = answer.trim();
+        const lastLine = trimmed.split("\n").slice(-1)[0] || "";
+        const endsInTableRow = /\|\s*$/.test(lastLine);
+        const endsInListItem = /^\s*[-*]\s+\S/.test(lastLine);
+        const endsInPunct = /[.!?…)\]}"`'`]\s*$/.test(trimmed);
+        if (!endsInPunct && !endsInTableRow && !endsInListItem) return true;
+      }
       if (toolErrors >= 2 && toolsUsed > 0) return true;
       return false;
     }
@@ -2020,7 +2026,7 @@ serve(async (req) => {
         : finalAnswer.trim().length < 220
           ? "too_short"
           : "low_confidence";
-      console.log(`[escalation] → gemini-3.5-flash (reason=${escalationReason}, len=${finalAnswer.length}, tools=${toolsUsedCount})`);
+      console.log(`[escalation] → ${ESCALATION_MODEL} (reason=${escalationReason}, len=${finalAnswer.length}, tools=${toolsUsedCount})`);
       try {
         const escResp = await fetchAIWithTimeoutAndRetry(
           "https://ai.gateway.lovable.dev/v1/chat/completions",
@@ -2031,8 +2037,9 @@ serve(async (req) => {
               "Content-Type": "application/json",
             },
             body: JSON.stringify({
-              model: "google/gemini-3.5-flash",
+              model: ESCALATION_MODEL,
               messages: synthesisMessages,
+              max_tokens: 4000,
             }),
           },
           60000,
@@ -2043,7 +2050,7 @@ serve(async (req) => {
           const escAnswer = escData.choices?.[0]?.message?.content || "";
           if (escAnswer && escAnswer.trim().length >= Math.max(40, finalAnswer.trim().length / 2)) {
             finalAnswer = escAnswer;
-            synthesisModel = "google/gemini-3.5-flash";
+            synthesisModel = ESCALATION_MODEL;
             escalated = true;
             const escUsage = escData.usage || {};
             escalatedTokensIn = escUsage.prompt_tokens || 0;
@@ -2065,16 +2072,16 @@ serve(async (req) => {
     }
 
     const latencyMs = Date.now() - startTime;
-    // Cost: base tokens at flash pricing + escalation tokens at pro pricing (if any)
-    const proPricing = MODEL_PRICING["google/gemini-3.5-flash"];
+    // Coste: siempre registrado con el modelo REALMENTE usado (synthesisModel puede haber caído a otro por fallbacks).
+    const escPricing = MODEL_PRICING[ESCALATION_MODEL] || MODEL_PRICING["google/gemini-3.5-flash"];
     const sonnetTokensIn = Math.max(0, totalTokensIn - routedTokensIn);
     const sonnetTokensOut = Math.max(0, totalTokensOut - routedTokensOut);
     const costEur =
       routingCostEur +
       sonnetTokensIn * GEMINI_INPUT +
       sonnetTokensOut * GEMINI_OUTPUT +
-      escalatedTokensIn * proPricing.in +
-      escalatedTokensOut * proPricing.out;
+      escalatedTokensIn * escPricing.in +
+      escalatedTokensOut * escPricing.out;
     totalTokensIn += escalatedTokensIn;
     totalTokensOut += escalatedTokensOut;
 
