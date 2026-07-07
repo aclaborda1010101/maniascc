@@ -588,7 +588,7 @@ const TOOLS = [
     type: "function",
     function: {
       name: "db_query",
-      description: "Consulta datos de cualquier tabla de AVA: locales, operadores, contactos, documentos_proyecto, negociaciones, proyectos, matches, activos, perfiles_negociador, validaciones_retorno, configuraciones_tenant_mix, patrones_localizacion",
+      description: "Consulta datos de tablas de AVA. " + SCHEMA_HINT_TEXT + " Tablas permitidas: locales, operadores, contactos, documentos_proyecto, negociaciones, proyectos, matches, activos, perfiles_negociador, validaciones_retorno, configuraciones_tenant_mix, patrones_localizacion, auditoria_ia, ai_insights, ai_feedback, notificaciones, proyecto_operadores, proyecto_contactos, proyecto_equipo, sinergias_operadores.",
       parameters: {
         type: "object",
         properties: {
