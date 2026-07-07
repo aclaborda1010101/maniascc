@@ -23,6 +23,7 @@ const OperadorDetail = lazy(() => import("./pages/OperadorDetail"));
 const Contactos = lazy(() => import("./pages/Contactos"));
 const ContactoDetail = lazy(() => import("./pages/ContactoDetail"));
 const Documentos = lazy(() => import("./pages/Documentos"));
+const BandejaCorreo = lazy(() => import("./pages/BandejaCorreo"));
 const Matching = lazy(() => import("./pages/Matching"));
 const Notificaciones = lazy(() => import("./pages/Notificaciones"));
 const LocationAnalysis = lazy(() => import("./pages/LocationAnalysis"));
