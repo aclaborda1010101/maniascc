@@ -73,6 +73,7 @@ const App = () => (
                   <Route path="/contactos" element={<Contactos />} />
                   <Route path="/contactos/:id" element={<ContactoDetail />} />
                   <Route path="/documentos" element={<Documentos />} />
+                  <Route path="/bandeja-correo" element={<BandejaCorreo />} />
                   <Route path="/activos" element={<Locales />} />
                   <Route path="/activos/:id" element={<LocalDetail />} />
                   <Route path="/matching/:localId" element={<Matching />} />
