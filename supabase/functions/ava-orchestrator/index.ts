@@ -925,18 +925,61 @@ const INTELLIGENCE_FUNCTIONS: Record<string, string> = {
 // ALLOWED_TABLES / TABLE_COLUMNS / SCHEMA_HINT_TEXT / extractMissingColumn
 // están declarados arriba (antes de TOOLS) para evitar TDZ.
 
-function formatToolResultsFallback(toolResults: Array<{ tool: string; result: any }>): string {
-  const sections = toolResults.map(tr => {
-    const toolName = tr.tool.split(":")[0];
+// Resumen en LENGUAJE NATURAL de los resultados de tools, sin JSON ni nombres
+// de columnas — apto para inyectar en un prompt de reintento de síntesis.
+// NUNCA se debe enviar directamente al usuario: se usa solo como material
+// para que el LLM redacte la respuesta.
+function summarizeToolResultsNL(toolResults: Array<{ tool: string; result: any }>): string {
+  if (!Array.isArray(toolResults) || toolResults.length === 0) return "(sin resultados de herramientas)";
+  const chunks: string[] = [];
+  for (const tr of toolResults) {
+    const tool = tr.tool || "tool";
     const data = tr.result;
-    if (data?.error) return `### ⚠️ ${toolName}\n${data.error}`;
-    if (Array.isArray(data) && data.length === 0) return `### ${toolName}\nSin resultados`;
-    if (data?.pois) return `### 📍 ${toolName} (${data.count} POIs)\n${data.pois.slice(0, 10).map((p: any) => `- **${p.name}** (${p.type}) — ${p.distance_m}m`).join("\n")}`;
-    if (Array.isArray(data)) return `### ${toolName} (${data.length} resultados)\n${JSON.stringify(data.slice(0, 5), null, 2).substring(0, 1000)}`;
-    return `### ${toolName}\n${JSON.stringify(data).substring(0, 800)}`;
-  });
-  return "He consultado las siguientes fuentes de datos:\n\n" + sections.join("\n\n");
+    if (!data) { chunks.push(`- ${tool}: sin datos`); continue; }
+    if (data.error) { chunks.push(`- ${tool}: error (${String(data.error).slice(0, 140)})`); continue; }
+    if (Array.isArray(data)) {
+      if (data.length === 0) { chunks.push(`- ${tool}: 0 resultados`); continue; }
+      const items = data.slice(0, 5).map((row: any) => {
+        if (row == null) return "(vacío)";
+        if (typeof row !== "object") return String(row).slice(0, 120);
+        const label = row.nombre || row.titulo || row.name || row.title || row.email || row.id || "";
+        const extras: string[] = [];
+        for (const [k, v] of Object.entries(row)) {
+          if (k === "id" || k === "nombre" || k === "titulo" || k === "name" || k === "title") continue;
+          if (v == null) continue;
+          if (typeof v === "object") continue;
+          const s = String(v);
+          if (!s || s.length > 80) continue;
+          extras.push(`${k} ${s}`);
+          if (extras.length >= 4) break;
+        }
+        return `${label}${extras.length ? " — " + extras.join(", ") : ""}`.trim() || "(fila sin etiqueta)";
+      });
+      chunks.push(`- ${tool} (${data.length} resultados): ${items.join("; ")}`);
+      continue;
+    }
+    if (typeof data === "object") {
+      if (data.pois && Array.isArray(data.pois)) {
+        chunks.push(`- ${tool}: ${data.count ?? data.pois.length} POIs · ejemplos: ${data.pois.slice(0, 5).map((p: any) => `${p.name} (${p.distance_m}m)`).join(", ")}`);
+        continue;
+      }
+      const label = data.nombre || data.titulo || data.name || data.title || data.summary || data.resumen || "";
+      const keys = Object.keys(data).filter(k => k !== "id").slice(0, 6).join(", ");
+      chunks.push(`- ${tool}: ${label || "objeto"} (campos: ${keys})`);
+      continue;
+    }
+    chunks.push(`- ${tool}: ${String(data).slice(0, 200)}`);
+  }
+  return chunks.join("\n");
 }
+
+// Fallback DEPRECADO — se conserva solo por retrocompatibilidad; NO debe
+// enviarse al usuario. Cualquier llamada nueva debe usar el reintento de
+// síntesis con `summarizeToolResultsNL` + mensaje humano si aun así falla.
+function formatToolResultsFallback(_toolResults: Array<{ tool: string; result: any }>): string {
+  return "He encontrado los datos pero tuve un problema al redactarlos; por favor, reformula la pregunta.";
+}
+
 
 // Summarize older history messages using a cheap/fast model to preserve context
 async function summarizeOlderHistory(
@@ -2146,33 +2189,15 @@ serve(async (req) => {
     // answer despite having tool results to ground it.
     // ─────────────────────────────────────────────────────────────
     function needsEscalation(answer: string, toolsUsed: number, toolErrors: number): boolean {
-      if (!answer) return true;
-      const a = answer.trim().toLowerCase();
-      if (toolsUsed > 0 && answer.trim().length < 220) return true;
-      const hedgePatterns = [
-        "no tengo información", "no dispongo de", "no puedo determinar",
-        "no encuentro", "no he encontrado", "no se ha encontrado",
-        "no es posible", "no puedo responder", "no puedo formular",
-        "información insuficiente", "datos insuficientes",
-        "no estoy seguro", "no estoy segura",
-        "lo siento, no", "disculpa, no",
-        "i don't have", "i cannot", "insufficient",
-      ];
-      if (hedgePatterns.some(p => a.includes(p))) return true;
-      // Truncated / cut off mid-sentence. NO consideramos truncada si termina en:
-      //  - fila de tabla markdown (línea acabada en |)
-      //  - item de lista (línea empezando por - o *)
-      if (answer.length > 400) {
-        const trimmed = answer.trim();
-        const lastLine = trimmed.split("\n").slice(-1)[0] || "";
-        const endsInTableRow = /\|\s*$/.test(lastLine);
-        const endsInListItem = /^\s*[-*]\s+\S/.test(lastLine);
-        const endsInPunct = /[.!?…)\]}"`'`]\s*$/.test(trimmed);
-        if (!endsInPunct && !endsInTableRow && !endsInListItem) return true;
-      }
+      // Escalación conservadora: SOLO cuando la síntesis está vacía o hubo
+      // ≥2 errores de tools. Se elimina el disparo por longitud, hedging o
+      // "truncación" (falsos positivos que estaban escalando casi todo y
+      // metiendo 40-74s con el modelo Pro).
+      if (!answer || !answer.trim()) return true;
       if (toolErrors >= 2 && toolsUsed > 0) return true;
       return false;
     }
+
 
     const toolsUsedCount = Array.isArray(toolResults) ? toolResults.length : 0;
     const toolErrorsCount = Array.isArray(toolResults)
@@ -2218,10 +2243,46 @@ serve(async (req) => {
       }
     }
 
-    // Final fallback
-    if (!finalAnswer) {
-      finalAnswer = firstCallContent || formatToolResultsFallback(toolResults);
+    // Final fallback: NUNCA volcar JSON crudo. Si la síntesis vino vacía y no
+    // hubo texto directo del router, reintentamos UNA vez con un prompt mínimo
+    // que solo ve un resumen en lenguaje natural de los tools. Si aun así falla,
+    // mensaje humano — nunca la lista de columnas ni el JSON.
+    if (!finalAnswer || !finalAnswer.trim()) {
+      if (firstCallContent && firstCallContent.trim()) {
+        finalAnswer = firstCallContent;
+      } else {
+        const nlSummary = summarizeToolResultsNL(toolResults);
+        try {
+          const retryMessages = [
+            { role: "system", content: "Redacta en español una respuesta clara y breve para el usuario usando EXCLUSIVAMENTE los datos que se te dan. NO muestres JSON, NO menciones nombres de columnas ni de tablas, NO copies estructuras técnicas. Si los datos no responden a la pregunta, dilo en una frase." },
+            { role: "user", content: `PREGUNTA: ${message}\n\nDATOS DISPONIBLES:\n${nlSummary}` },
+          ];
+          const prepR = prepareCall(SYNTHESIS_MODEL, { messages: retryMessages, max_tokens: 800 });
+          if (prepR) {
+            const rResp = await fetchAIWithTimeoutAndRetry(prepR.url, { method: "POST", headers: prepR.headers, body: prepR.body }, 20000, 1);
+            if (rResp.ok) {
+              const rData = await rResp.json();
+              const rAns = rData.choices?.[0]?.message?.content || "";
+              if (rAns && rAns.trim()) {
+                finalAnswer = rAns.trim();
+                const rUsage = rData.usage || {};
+                totalTokensIn += rUsage.prompt_tokens || 0;
+                totalTokensOut += rUsage.completion_tokens || 0;
+                console.log(`[fallback-retry] recovered via minimal synthesis prompt (len=${finalAnswer.length})`);
+              }
+            } else {
+              console.warn(`[fallback-retry] failed: ${rResp.status}`);
+            }
+          }
+        } catch (e) {
+          console.error("[fallback-retry] error:", e);
+        }
+        if (!finalAnswer || !finalAnswer.trim()) {
+          finalAnswer = "He encontrado los datos pero tuve un problema al redactarlos; por favor, reformula la pregunta.";
+        }
+      }
     }
+
 
     const latencyMs = Date.now() - startTime;
     // Coste: siempre registrado con el modelo REALMENTE usado (synthesisModel puede haber caído a otro por fallbacks).
