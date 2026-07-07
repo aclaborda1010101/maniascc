@@ -1644,8 +1644,8 @@ serve(async (req) => {
             } else if (t === "contactos") {
               searchQuery = admin.from(t).select("*").or("nombre.ilike." + q + ",empresa.ilike." + q + ",email.ilike." + q).or(`visibility.in.(shared,global),creado_por.eq.${userId}`).limit(10);
             } else if (t === "proyectos") {
-              // 6a: filtrar por owner (proyectos no tiene columna visibility).
-              searchQuery = admin.from(t).select("*").or("nombre.ilike." + q + ",descripcion.ilike." + q).eq("created_by", userId).limit(10);
+              // proyectos: RLS permite verlos a cualquier authenticated; no filtramos por owner.
+              searchQuery = admin.from(t).select("*").or("nombre.ilike." + q + ",descripcion.ilike." + q).limit(10);
             } else if (t === "documentos_proyecto") {
               searchQuery = admin.from(t).select("*").or("nombre.ilike." + q).or(`visibility.in.(shared,global),owner_id.eq.${userId}`).limit(10);
             } else {
