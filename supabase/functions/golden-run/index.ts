@@ -246,8 +246,10 @@ serve(async (req) => {
         && !(x.requires_operator_enrichment ?? false)
         && !(x.requires_m365 ?? false)
         && !(x.requires_scoring ?? false)
+        && !(x.requires_conversation_context ?? false)
       );
     }
+
 
     const { data: run, error: runErr } = await admin.from("golden_runs").insert({
       run_name: runName,
