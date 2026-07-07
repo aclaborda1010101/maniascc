@@ -488,6 +488,50 @@ function isSmallTalk(text: string): boolean {
   return re.test(t);
 }
 
+const ALLOWED_TABLES = [
+  "locales", "operadores", "contactos", "documentos_proyecto", "negociaciones",
+  "proyectos", "matches", "activos", "perfiles_negociador", "validaciones_retorno",
+  "configuraciones_tenant_mix", "patrones_localizacion", "auditoria_ia",
+  "ai_insights", "ai_feedback", "notificaciones", "proyecto_operadores",
+  "proyecto_contactos", "proyecto_equipo", "sinergias_operadores",
+];
+
+// Schema real de las tablas permitidas para db_query. Se inyecta en la
+// descripción de la tool para evitar que el modelo invente columnas
+// (bug real observado: proyectos.ciudad → la columna real es 'ubicacion').
+const TABLE_COLUMNS: Record<string, string[]> = {
+  activos: ["id","proyecto_id","nombre","tipo_activo","direccion","codigo_postal","metros_cuadrados","planta","fachada_metros","renta_actual","renta_esperada","gastos_comunidad","estado","caracteristicas","fotos_urls","coordenadas_lat","coordenadas_lon","notas","creado_por","created_at","updated_at"],
+  ai_feedback: ["id","entidad_tipo","entidad_id","usuario_id","rating","feedback_tipo","comentario","correccion_sugerida","accion","tiempo_visualizacion_ms","posicion_en_lista","seleccionado","contexto","metadata","created_at"],
+  ai_insights: ["id","tipo","severidad","titulo","descripcion","proyecto_id","entidades_relacionadas","acciones_sugeridas","estado","feedback_usuario","accion_tomada","confianza","impacto_estimado","generado_por_tarea_id","modelo_usado","visto_en","created_at"],
+  auditoria_ia: ["id","match_id","local_id","modelo","tokens_entrada","tokens_salida","coste_estimado","latencia_ms","exito","error_mensaje","created_by","created_at","funcion_ia"],
+  configuraciones_tenant_mix: ["id","centro_nombre","centro_ubicacion","plan","operadores_recomendados","score_sinergia_total","prediccion_ocupacion","renta_estimada_total","riesgos","estado","usuario_id","creado_en"],
+  contactos: ["id","nombre","apellidos","empresa","cargo","email","telefono","linkedin_url","estilo_negociacion","notas_perfil","perfil_ia","datos_consentimiento","creado_por","created_at","updated_at","whatsapp","operador_id","wa_message_count","plaud_count","last_contact","ai_tags","sentiment","interaction_count","is_favorite","in_network","subdivision_id","activo_id","visibility"],
+  documentos_proyecto: ["id","proyecto_id","operador_id","contacto_id","nombre","tipo_documento","storage_path","mime_type","tamano_bytes","procesado_ia","resumen_ia","metadata_extraida","subido_por","created_at","owner_id","visibility","taxonomia_id","nombre_normalizado","nivel_sensibilidad","hash_md5","origen","origen_external_id","fase_rag","fecha_documento","dominio"],
+  locales: ["id","nombre","direccion","codigo_postal","ciudad","superficie_m2","precio_renta","estado","descripcion","caracteristicas","coordenadas_lat","coordenadas_lng","imagen_url","created_by","created_at","updated_at"],
+  matches: ["id","local_id","operador_id","score","explicacion","tags","estado","generado_por","created_at","updated_at","feedback_usuario"],
+  negociaciones: ["id","proyecto_id","activo_id","operador_id","contacto_interlocutor_id","negociador_interno_id","estado","condiciones_propuestas","condiciones_actuales","condiciones_finales","probabilidad_cierre","briefing_ia","fecha_ultimo_contacto","fecha_cierre","resultado","motivo_resultado","notas","creado_por","created_at","updated_at"],
+  notificaciones: ["id","user_id","title","description","type","link","read","created_at"],
+  operadores: ["id","nombre","sector","presupuesto_min","presupuesto_max","superficie_min","superficie_max","descripcion","contacto_nombre","contacto_email","contacto_telefono","perfil_ia","logo_url","activo","created_by","created_at","updated_at","matriz_id","direccion","activo_id"],
+  patrones_localizacion: ["id","coordenadas_lat","coordenadas_lon","radio_km","tipo_centro","score_viabilidad","desglose_variables","riesgos","oportunidades","comparables","fuentes_consultadas","confianza","usuario_id","creado_en"],
+  perfiles_negociador: ["id","contacto_nombre","contacto_empresa","contacto_cargo","estilo_primario","estilo_secundario","puntos_flexion","historico_resumen","preferencias_comunicacion","datos_consentimiento","usuario_id","creado_en","actualizado_en"],
+  proyecto_contactos: ["id","proyecto_id","contacto_id","rol","added_at"],
+  proyecto_equipo: ["id","proyecto_id","usuario_id","rol_proyecto","created_at"],
+  proyecto_operadores: ["id","proyecto_id","operador_id","rol","added_at"],
+  proyectos: ["id","nombre","descripcion","tipo","estado","local_id","created_by","responsable_id","fecha_inicio","fecha_objetivo","notas","created_at","updated_at","ubicacion","codigo_postal","presupuesto_estimado","cliente_contacto_id","metadata"],
+  sinergias_operadores: ["id","operador_a_id","operador_b_id","coeficiente_sinergia","num_observaciones","fuente","notas","ultima_actualizacion"],
+  validaciones_retorno: ["id","dossier_storage_path","tipo_activo","ubicacion","codigo_postal","metricas_declaradas","metricas_reales","semaforos","desviaciones","benchmarks_usados","confianza_global","estado","propietario_ref","usuario_id","creado_en","cerrado_en"],
+};
+
+const SCHEMA_HINT_TEXT = "Columnas disponibles por tabla (USA SOLO estas, NUNCA inventes nombres — p.ej. proyectos NO tiene 'ciudad' (usa 'ubicacion'); contactos NO tiene 'telefono_movil' (usa 'telefono'); locales SÍ tiene 'ciudad'): "
+  + Object.entries(TABLE_COLUMNS).map(([t, cols]) => `${t}(${cols.join(",")})`).join("; ");
+
+// Extrae "column X does not exist" del mensaje de error de Postgres/PostgREST.
+function extractMissingColumn(errMsg: string): string | null {
+  const m = /column\s+"?([\w.]+)"?\s+does not exist/i.exec(errMsg || "")
+    || /Could not find the '([\w.]+)' column/i.exec(errMsg || "");
+  return m ? m[1].split(".").pop()! : null;
+}
+
 const SYSTEM_PROMPT = `Eres AVA, la asistente estratégica de F&G Real Estate especializada en retail e inmobiliario comercial. Tienes acceso a:
 1. BASE DE DATOS interna: locales, operadores, contactos, activos, proyectos/oportunidades, matches, negociaciones, documentos
 2. RAG HÍBRIDO (búsqueda textual + semántica con embeddings) sobre documentos indexados segmentados por dominio (centros_comerciales, legal, financiero, urbanismo, administrativo, comunicaciones, personal, general). **SIEMPRE** prueba rag_search primero cuando la pregunta menciona "documento", "contrato", "informe", "email", nombres de operadores o de proyectos/centros. El RAG auto-detecta el proyecto por su nombre en la pregunta (no necesitas pasar proyecto_id si el usuario lo nombra). Si rag_search devuelve "resolved_proyecto", ese proyecto se usó como filtro implícito y debes mencionar los hallazgos como pertenecientes a ese proyecto. Si devuelve respuesta vacía con "resolved_proyecto", NO digas que "no hay información" sin antes intentar db_query sobre ese proyecto. **Respeta SIEMPRE el filtro de dominios activo del usuario** (no intentes saltártelo).
@@ -588,7 +632,7 @@ const TOOLS = [
     type: "function",
     function: {
       name: "db_query",
-      description: "Consulta datos de cualquier tabla de AVA: locales, operadores, contactos, documentos_proyecto, negociaciones, proyectos, matches, activos, perfiles_negociador, validaciones_retorno, configuraciones_tenant_mix, patrones_localizacion",
+      description: "Consulta datos de tablas de AVA. " + SCHEMA_HINT_TEXT + " Tablas permitidas: locales, operadores, contactos, documentos_proyecto, negociaciones, proyectos, matches, activos, perfiles_negociador, validaciones_retorno, configuraciones_tenant_mix, patrones_localizacion, auditoria_ia, ai_insights, ai_feedback, notificaciones, proyecto_operadores, proyecto_contactos, proyecto_equipo, sinergias_operadores.",
       parameters: {
         type: "object",
         properties: {
@@ -878,13 +922,8 @@ const INTELLIGENCE_FUNCTIONS: Record<string, string> = {
   negociacion: "ai-perfil-negociador",
 };
 
-const ALLOWED_TABLES = [
-  "locales", "operadores", "contactos", "documentos_proyecto", "negociaciones",
-  "proyectos", "matches", "activos", "perfiles_negociador", "validaciones_retorno",
-  "configuraciones_tenant_mix", "patrones_localizacion", "auditoria_ia",
-  "ai_insights", "ai_feedback", "notificaciones", "proyecto_operadores",
-  "proyecto_contactos", "proyecto_equipo", "sinergias_operadores",
-];
+// ALLOWED_TABLES / TABLE_COLUMNS / SCHEMA_HINT_TEXT / extractMissingColumn
+// están declarados arriba (antes de TOOLS) para evitar TDZ.
 
 function formatToolResultsFallback(toolResults: Array<{ tool: string; result: any }>): string {
   const sections = toolResults.map(tr => {
@@ -1440,6 +1479,10 @@ serve(async (req) => {
 
     // Ejecutor de tool_calls reutilizable (multi-ronda agéntica).
     const toolResults: Array<{ tool: string; result: any }> = [];
+    // Cap de reintentos por columna inválida: si el modelo vuelve a pedir la
+    // misma table+column que ya falló con "column does not exist", devolvemos
+    // el mismo error sin ejecutar SQL — evita el bucle de 5-6s por ronda.
+    const failedColumns = new Set<string>(); // "table:column"
 
     async function executeToolCalls(toolCalls: any[]): Promise<Array<{ toolLabel: string; result: any; toolCallId: string }>> {
       return await Promise.all(toolCalls.map(async (toolCall: any) => {
@@ -1462,33 +1505,56 @@ serve(async (req) => {
           if (!ALLOWED_TABLES.includes(args.table)) {
             result = { error: "Tabla no permitida: " + args.table };
           } else {
-            let query = authClient.from(args.table).select(args.select || "*");
-            const warnings: string[] = [];
-            if (args.filters && Array.isArray(args.filters)) {
-              for (const f of args.filters) {
-                // 6b: whitelist runtime del operator para evitar ejecución arbitraria de métodos.
-                if (!DB_QUERY_ALLOWED_OPERATORS.has(f.operator)) {
-                  warnings.push(`filtro ignorado: operator '${f.operator}' no permitido (col=${f.column})`);
-                  continue;
-                }
-                try {
-                  query = (query as any)[f.operator](f.column, f.value);
-                } catch (e) {
-                  warnings.push(`filtro '${f.operator}' falló: ${e instanceof Error ? e.message : String(e)}`);
+            const validCols = TABLE_COLUMNS[args.table] || [];
+            const referencedCols: string[] = [];
+            if (Array.isArray(args.filters)) for (const f of args.filters) if (f?.column) referencedCols.push(String(f.column));
+            if (args.order_by) referencedCols.push(String(args.order_by));
+            // Pre-check: si alguna columna referenciada es inválida (o ya falló antes), fail-fast.
+            const badCol = referencedCols.find(c => (validCols.length && !validCols.includes(c)) || failedColumns.has(`${args.table}:${c}`));
+            if (badCol) {
+              failedColumns.add(`${args.table}:${badCol}`);
+              result = {
+                error: `La columna '${badCol}' no existe en ${args.table}. Columnas válidas: [${validCols.join(", ")}]. Reintenta con una columna válida o revisa si necesitabas otra tabla.`,
+                valid_columns: validCols,
+              };
+            } else {
+              let query = authClient.from(args.table).select(args.select || "*");
+              const warnings: string[] = [];
+              if (args.filters && Array.isArray(args.filters)) {
+                for (const f of args.filters) {
+                  if (!DB_QUERY_ALLOWED_OPERATORS.has(f.operator)) {
+                    warnings.push(`filtro ignorado: operator '${f.operator}' no permitido (col=${f.column})`);
+                    continue;
+                  }
+                  try {
+                    query = (query as any)[f.operator](f.column, f.value);
+                  } catch (e) {
+                    warnings.push(`filtro '${f.operator}' falló: ${e instanceof Error ? e.message : String(e)}`);
+                  }
                 }
               }
-            }
-            if (args.order_by) {
-              query = query.order(args.order_by, { ascending: args.ascending ?? false });
-            }
-            query = query.limit(args.limit || 20);
-            const { data, error } = await query;
-            if (error) {
-              result = { error: error.message, ...(warnings.length ? { warnings } : {}) };
-            } else if (warnings.length) {
-              result = { data, warnings };
-            } else {
-              result = data;
+              if (args.order_by) {
+                query = query.order(args.order_by, { ascending: args.ascending ?? false });
+              }
+              query = query.limit(args.limit || 20);
+              const { data, error } = await query;
+              if (error) {
+                const missing = extractMissingColumn(error.message);
+                if (missing) {
+                  failedColumns.add(`${args.table}:${missing}`);
+                  result = {
+                    error: `La columna '${missing}' no existe en ${args.table}. Columnas válidas: [${validCols.join(", ")}]. Reintenta con una columna válida.`,
+                    valid_columns: validCols,
+                    ...(warnings.length ? { warnings } : {}),
+                  };
+                } else {
+                  result = { error: error.message, ...(warnings.length ? { warnings } : {}) };
+                }
+              } else if (warnings.length) {
+                result = { data, warnings };
+              } else {
+                result = data;
+              }
             }
           }
         } else if (fnName === "propose_action") {
@@ -1923,12 +1989,17 @@ serve(async (req) => {
     }
 
     // Ronda 1 (inicial): ejecutar tool_calls del router.
+    const toolsStart = Date.now();
     const executed0 = await executeToolCalls(choice.tool_calls);
+    const round1Ms = Date.now() - toolsStart;
     for (const ex of executed0) toolResults.push({ tool: ex.toolLabel, result: ex.result });
+
+    // Regla de honestidad ante datos ausentes (inyectada como system extra).
+    const HONESTY_RULE = `\n\nREGLA DE HONESTIDAD ANTE DATOS AUSENTES: Si el usuario pide una métrica que NO existe en los datos consultados (p.ej. rentabilidad, margen, ingresos, ROI cuando las tablas no tienen esos campos), DILO CLARAMENTE en una frase y ofrece la alternativa más cercana disponible (p.ej. estado del pipeline, probabilidad_cierre, presupuesto_estimado si existe). NUNCA rellenes con un volcado de registros para disimular que el dato falta. NUNCA inventes columnas ni interpretes campos que no aparezcan en los resultados de tools.`;
 
     // Base de mensajes para síntesis + bucle multi-ronda.
     const synthesisMessages: Array<any> = [
-      { role: "system", content: SYSTEM_PROMPT + USER_MEMORY_RULES + userMemoryBlock + lessonsBlock + attachmentsBlock },
+      { role: "system", content: SYSTEM_PROMPT + USER_MEMORY_RULES + userMemoryBlock + lessonsBlock + attachmentsBlock + HONESTY_RULE },
     ];
     if (cumulativeSummary) {
       synthesisMessages.push({
@@ -1953,18 +2024,26 @@ serve(async (req) => {
     let escalatedTokensIn = 0;
     let escalatedTokensOut = 0;
 
+    // Short-circuit: si la ronda 1 usó una única tool de lectura (db_query o
+    // search_data) y salió sin errores, saltamos DIRECTO a síntesis sin abrir
+    // una segunda ronda de tools (recorta 5-10s en preguntas simples).
+    const round1SimpleSuccess =
+      executed0.length === 1 &&
+      (executed0[0].toolLabel.startsWith("db_query:") || executed0[0].toolLabel === "search_data") &&
+      !executed0[0].result?.error;
+
     // Bucle agéntico: hasta MAX_TOOL_ROUNDS rondas totales (incluida la del router).
-    // Si quedan <40s de presupuesto, no abrimos ronda nueva y forzamos respuesta sin tools.
     const synthesisCandidates: string[] = useProModel
       ? Array.from(new Set([SYNTHESIS_MODEL, ...PRO_MODEL_CHAIN]))
       : [SYNTHESIS_MODEL];
 
+    const synthStart = Date.now();
     let round = 1;
     while (round < MAX_TOOL_ROUNDS) {
       round++;
       const elapsed = Date.now() - startTime;
       const remaining = EDGE_TIME_LIMIT_MS - elapsed;
-      const forceNoTools = round >= MAX_TOOL_ROUNDS || remaining < NEXT_ROUND_MIN_BUDGET_MS;
+      const forceNoTools = round >= MAX_TOOL_ROUNDS || remaining < NEXT_ROUND_MIN_BUDGET_MS || round1SimpleSuccess;
 
       let synthChoice: any = null;
       let synthUsage: any = {};
@@ -1982,10 +2061,13 @@ serve(async (req) => {
           }
           const prep = prepareCall(candidate, bodyReq);
           if (!prep) continue;
+          // Timeout más agresivo cuando la síntesis puede pedir tools (bucle
+          // agéntico): 20s por ronda con tools; 90s cuando ya es síntesis final.
+          const roundTimeout = forceNoTools ? 90000 : 20000;
           const resp = await callChatCompletion(
             prep.url,
             { method: "POST", headers: prep.headers, body: prep.body },
-            { timeoutMs: 110000, retries: 1 },
+            { timeoutMs: roundTimeout, retries: 1 },
           );
           if (resp.ok) {
             const j = await resp.json();
@@ -2024,6 +2106,8 @@ serve(async (req) => {
       finalAnswer = synthChoice.content || "";
       break;
     }
+    const synthMs = Date.now() - synthStart;
+    console.log(`[phase-timing] router=n/a tools_round1=${round1Ms}ms synth_loop=${synthMs}ms total_so_far=${Date.now() - startTime}ms simple_shortcircuit=${round1SimpleSuccess}`);
 
     // Si tras el bucle sigue sin respuesta, forzar una llamada final SIN tools.
     if (!finalAnswer.trim()) {
