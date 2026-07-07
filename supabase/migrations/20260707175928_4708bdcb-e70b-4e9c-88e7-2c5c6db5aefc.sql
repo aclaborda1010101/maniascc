@@ -1,0 +1,1 @@
+ALTER TABLE public.ava_conversations ADD COLUMN IF NOT EXISTS metadata jsonb NOT NULL DEFAULT '{}'::jsonb;

@@ -89,28 +89,26 @@ interface UserMemoryFact {
 
 async function loadUserMemory(admin: any, userId: string): Promise<UserMemoryFact[]> {
   try {
+    // Cargar hasta 200 (tope duro por usuario) ordenados por last_used_at DESC como semilla.
+    // Después reordenamos en JS por GREATEST(last_used_at, created_at) para que los hechos
+    // nuevos entren al top-40. NO refrescamos last_used_at aquí (solo se refresca en remember_fact).
     const { data, error } = await admin
       .from("ava_user_memory")
-      .select("id, key, value, category, source")
+      .select("key, value, category, source, created_at, last_used_at")
       .eq("user_id", userId)
       .order("last_used_at", { ascending: false })
-      .limit(30);
+      .limit(200);
     if (error) {
       console.warn("[user_memory] load failed:", error.message);
       return [];
     }
-    const facts = (data || []) as Array<UserMemoryFact & { id: string }>;
-    if (facts.length > 0) {
-      const ids = facts.map(f => f.id);
-      // Fire-and-forget: refrescar last_used_at con cliente admin (no bloquea)
-      admin
-        .from("ava_user_memory")
-        .update({ last_used_at: new Date().toISOString() })
-        .in("id", ids)
-        .then(() => {})
-        .catch(() => {});
-    }
-    return facts.map(({ key, value, category, source }) => ({ key, value, category, source }));
+    const facts = (data || []) as Array<UserMemoryFact & { created_at: string; last_used_at: string }>;
+    facts.sort((a, b) => {
+      const aT = Math.max(new Date(a.last_used_at || 0).getTime(), new Date(a.created_at || 0).getTime());
+      const bT = Math.max(new Date(b.last_used_at || 0).getTime(), new Date(b.created_at || 0).getTime());
+      return bT - aT;
+    });
+    return facts.slice(0, 40).map(({ key, value, category, source }) => ({ key, value, category, source }));
   } catch (e) {
     console.warn("[user_memory] load exception:", e);
     return [];
@@ -163,10 +161,11 @@ Tienes una memoria global del usuario que persiste entre conversaciones.
 // - PRO_MODEL: análisis profundo, dossier, comparativas, estrategia, etc.
 //   Se activa por keywords (isProQuery) o por toggle "Pro" del usuario (force_pro).
 // ============================================================
-const DEFAULT_MODEL = "google/gemini-3-flash-preview";
+const DEFAULT_MODEL = "google/gemini-3.5-flash";
 const PRO_MODEL_FALLBACK = "google/gemini-3.5-flash";
 const TOOL_ROUTER_MODEL = "google/gemini-3.5-flash";
 const SMALLTALK_MODEL = "google/gemini-2.5-flash-lite";
+const ESCALATION_MODEL = "google/gemini-3.1-pro-preview";
 
 // Cadena Pro: claude-sonnet-4-5 → gpt-5 → gemini-3.5-flash.
 // Se elige el primero cuya API key esté configurada.
@@ -205,7 +204,6 @@ function isProQuery(text: string): boolean {
 
 // Pricing (EUR, ~0.92 USD→EUR)
 const MODEL_PRICING: Record<string, { in: number; out: number }> = {
-  "google/gemini-2.5-pro":        { in: 1.25 / 1_000_000 * 0.92, out: 10.00 / 1_000_000 * 0.92 },
   "google/gemini-2.5-flash":      { in: 0.30 / 1_000_000 * 0.92, out: 2.50 / 1_000_000 * 0.92 },
   "google/gemini-2.5-flash-lite": { in: 0.10 / 1_000_000 * 0.92, out: 0.40 / 1_000_000 * 0.92 },
   "google/gemini-3-flash-preview":{ in: 0.30 / 1_000_000 * 0.92, out: 2.50 / 1_000_000 * 0.92 },
@@ -333,7 +331,7 @@ function openAIToAnthropicBody(body: any): any {
 
   const anthropicBody: any = {
     model,
-    max_tokens: Math.min(body.max_tokens || 2048, 2400),
+    max_tokens: Math.min(body.max_tokens || 4000, 8000),
     messages: out,
   };
   if (systemParts.length) anthropicBody.system = systemParts.join("\n\n");
@@ -909,6 +907,96 @@ REGLAS:
   }
 }
 
+// ============================================================
+// HELPERS: history sanitization, JSON truncation, tool msg building,
+// cached conversation summary (ava_conversations.metadata).
+// ============================================================
+const EDGE_TIME_LIMIT_MS = 150_000;
+const NEXT_ROUND_MIN_BUDGET_MS = 40_000;
+const MAX_TOOL_ROUNDS = 3;
+const PER_TOOL_BUDGET_CHARS = 10_000;
+const TOTAL_TOOLS_BUDGET_CHARS = 40_000;
+
+// Filtra el historial cliente: SOLO acepta mensajes con role user/assistant.
+// Previene inyección de system messages desde el cliente.
+function sanitizeHistory(history: any[]): Array<{ role: string; content: string }> {
+  if (!Array.isArray(history)) return [];
+  return history
+    .filter(h => h && (h.role === "user" || h.role === "assistant") && typeof h.content === "string")
+    .map(h => ({ role: h.role, content: h.content }));
+}
+
+// Trunca un JSON stringificado a maxChars intentando cortar en frontera de
+// objeto (}, ]) o coma, para no partir un id/campo por la mitad.
+function smartTruncateJson(json: string, maxChars: number): string {
+  if (json.length <= maxChars) return json;
+  const slice = json.slice(0, maxChars);
+  // Buscar el último punto seguro (}, ], o ,) — evita cortar dentro de strings simples.
+  let cut = -1;
+  for (let i = slice.length - 1; i >= Math.max(0, slice.length - 500); i--) {
+    const c = slice[i];
+    if (c === "}" || c === "]" || c === ",") { cut = i + 1; break; }
+  }
+  const truncated = cut > 0 ? slice.slice(0, cut) : slice;
+  return truncated + " ...[truncado]";
+}
+
+// Construye los mensajes role:"tool" reales para pasarlos a la síntesis,
+// respetando presupuesto por-tool (10k) y global (40k). Devuelve también
+// los resúmenes para fallback textual.
+function buildToolMessages(
+  executed: Array<{ toolLabel: string; result: any; toolCallId: string }>
+): Array<{ role: string; content: string; tool_call_id: string }> {
+  const msgs: Array<{ role: string; content: string; tool_call_id: string }> = [];
+  let used = 0;
+  for (const ex of executed) {
+    if (used >= TOTAL_TOOLS_BUDGET_CHARS) {
+      msgs.push({ role: "tool", tool_call_id: ex.toolCallId, content: "[...omitido por presupuesto global de tools]" });
+      continue;
+    }
+    const remaining = TOTAL_TOOLS_BUDGET_CHARS - used;
+    const budget = Math.min(PER_TOOL_BUDGET_CHARS, remaining);
+    let raw: string;
+    try { raw = typeof ex.result === "string" ? ex.result : JSON.stringify(ex.result); }
+    catch { raw = String(ex.result); }
+    const content = smartTruncateJson(raw, budget);
+    msgs.push({ role: "tool", tool_call_id: ex.toolCallId, content });
+    used += content.length;
+  }
+  return msgs;
+}
+
+// Whitelist para db_query.filters[].operator (evita ejecución arbitraria de métodos del query builder).
+const DB_QUERY_ALLOWED_OPERATORS = new Set([
+  "eq", "neq", "gt", "gte", "lt", "lte", "like", "ilike", "is", "in", "contains",
+]);
+
+// Cache de resumen acumulado en ava_conversations.metadata:
+// { summary_cache: { text, last_summarized_index } }
+async function loadCachedSummary(admin: any, conversationId: string | null | undefined):
+  Promise<{ text: string; lastIndex: number } | null> {
+  if (!conversationId) return null;
+  try {
+    const { data } = await admin.from("ava_conversations")
+      .select("metadata")
+      .eq("id", conversationId).maybeSingle();
+    const cache = data?.metadata?.summary_cache;
+    if (cache && typeof cache.text === "string" && typeof cache.last_summarized_index === "number") {
+      return { text: cache.text, lastIndex: cache.last_summarized_index };
+    }
+  } catch (e) { console.warn("[summary-cache] load failed:", e); }
+  return null;
+}
+
+async function saveCachedSummary(admin: any, conversationId: string, text: string, lastIndex: number): Promise<void> {
+  try {
+    const { data } = await admin.from("ava_conversations").select("metadata").eq("id", conversationId).maybeSingle();
+    const meta = (data?.metadata && typeof data.metadata === "object") ? data.metadata : {};
+    meta.summary_cache = { text, last_summarized_index: lastIndex, updated_at: new Date().toISOString() };
+    await admin.from("ava_conversations").update({ metadata: meta }).eq("id", conversationId);
+  } catch (e) { console.warn("[summary-cache] save failed:", e); }
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
@@ -945,7 +1033,9 @@ serve(async (req) => {
         status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
-    const { message, history, attachments_context, domain_filter } = body;
+    const { message, history: rawHistory, attachments_context, domain_filter, conversation_id } = body;
+    // 6c: descartar cualquier mensaje del history cuyo role no sea user/assistant.
+    const history = sanitizeHistory(rawHistory);
     // Acepta force_pro (legacy) o pro_mode (nuevo) desde la UI.
     const force_pro: boolean = !!(body.force_pro || body.pro_mode);
     // Lista de dominios RAG permitidos por el usuario (multi-select). Si no llega, no se filtra (compat).
@@ -1016,7 +1106,7 @@ serve(async (req) => {
             coste_estimado: stCost,
             exito: true,
             created_by: user.id,
-          }).then(() => {});
+          }).then(() => {}, (e: any) => console.warn("[audit] fast-path failed:", e));
           admin.from("usage_logs").insert({
             user_id: user.id,
             action_type: "chat",
@@ -1027,7 +1117,7 @@ serve(async (req) => {
             cost_eur: stCost,
             latency_ms: stLat,
             metadata: { fast_path: true, message: message?.slice(0, 200) },
-          }).then(() => {});
+          }).then(() => {}, (e: any) => console.warn("[usage] fast-path failed:", e));
           return new Response(JSON.stringify({
             answer: stAnswer,
             tools_used: [],
@@ -1046,71 +1136,55 @@ serve(async (req) => {
     // Infer current topic to filter relevant corrections
     const currentTopic = inferTopic(message, []);
 
-    // Load persistent user memory (top 30 facts) — non-blocking on failure
-    const userMemoryFacts = await loadUserMemory(admin, user.id);
+    // 5a: cargar memoria + patrones + correcciones + patrones-topic EN PARALELO.
+    const [userMemoryFacts, patternsRes, topicCorrectionsRes, recentCorrectionsRes] = await Promise.all([
+      loadUserMemory(admin, user.id),
+      admin.from("ai_learned_patterns")
+        .select("patron_tipo, patron_key, patron_descripcion, tasa_exito, num_observaciones, score_ajuste, confianza")
+        .eq("activo", true).gte("confianza", 0.6)
+        .order("num_observaciones", { ascending: false }).limit(30),
+      admin.from("ai_learned_patterns")
+        .select("patron_descripcion, num_observaciones, tasa_exito")
+        .eq("activo", true).eq("patron_tipo", "ava_correction")
+        .like("patron_key", `correction:${currentTopic}:%`)
+        .gte("confianza", 0.5)
+        .order("num_observaciones", { ascending: false }).limit(8),
+      admin.from("ai_feedback").select("correccion_sugerida")
+        .eq("entidad_tipo", "ava_message")
+        .not("correccion_sugerida", "is", null)
+        .order("created_at", { ascending: false }).limit(3),
+    ]);
     const userMemoryBlock = formatUserMemoryBlock(userMemoryFacts);
     console.log(`[user_memory] loaded ${userMemoryFacts.length} facts for user ${user.id}`);
 
-    // Load learned patterns + recent corrections to inject as system context
     let lessonsBlock = "";
     try {
-      // Generic patterns: high-signal (extreme tasa_exito or high observations)
-      const { data: patterns } = await admin
-        .from("ai_learned_patterns")
-        .select("patron_tipo, patron_key, patron_descripcion, tasa_exito, num_observaciones, score_ajuste, confianza")
-        .eq("activo", true)
-        .gte("confianza", 0.6)
-        .order("num_observaciones", { ascending: false })
-        .limit(30);
-
-      // Topic-relevant corrections: filter by patron_key matching current topic
-      const { data: topicCorrections } = await admin
-        .from("ai_learned_patterns")
-        .select("patron_descripcion, num_observaciones, tasa_exito")
-        .eq("activo", true)
-        .eq("patron_tipo", "ava_correction")
-        .like("patron_key", `correction:${currentTopic}:%`)
-        .gte("confianza", 0.5)
-        .order("num_observaciones", { ascending: false })
-        .limit(8);
-
-      // Fallback: most recent raw corrections (capped) for cross-topic safety
-      const { data: recentCorrections } = await admin
-        .from("ai_feedback")
-        .select("correccion_sugerida")
-        .eq("entidad_tipo", "ava_message")
-        .not("correccion_sugerida", "is", null)
-        .order("created_at", { ascending: false })
-        .limit(3);
-
-      // Prioritize patterns with extreme success rates (very high or very low) over neutral
-      const sortedPatterns = (patterns || []).slice().sort((a, b) => {
+      const patterns = patternsRes?.data || [];
+      const topicCorrections = topicCorrectionsRes?.data || [];
+      const recentCorrections = recentCorrectionsRes?.data || [];
+      const sortedPatterns = patterns.slice().sort((a: any, b: any) => {
         const extremeA = a.tasa_exito != null ? Math.abs((a.tasa_exito as number) - 0.5) : 0;
         const extremeB = b.tasa_exito != null ? Math.abs((b.tasa_exito as number) - 0.5) : 0;
         return extremeB - extremeA;
       });
-
       const lessons: string[] = [];
       for (const p of sortedPatterns) {
         const sign = (p.score_ajuste ?? 0) >= 0 ? "✅" : "⚠️";
         const tasa = p.tasa_exito != null ? ` (éxito ${((p.tasa_exito as number) * 100).toFixed(0)}%, n=${p.num_observaciones})` : "";
         lessons.push(`${sign} ${p.patron_descripcion}${tasa}`);
       }
-
       const corrLines: string[] = [];
-      for (const c of topicCorrections || []) {
+      for (const c of topicCorrections) {
         if (c.patron_descripcion) {
           const meta = c.num_observaciones ? ` (×${c.num_observaciones})` : "";
           corrLines.push(`- ${(c.patron_descripcion as string).slice(0, 280)}${meta}`);
         }
       }
-      // Add up to 2 recent generic corrections only if topic-specific ones are scarce
       if (corrLines.length < 3) {
-        for (const c of recentCorrections || []) {
+        for (const c of recentCorrections) {
           if (c.correccion_sugerida) corrLines.push(`- "${(c.correccion_sugerida as string).slice(0, 250)}"`);
         }
       }
-
       if (lessons.length > 0 || corrLines.length > 0) {
         lessonsBlock = `\n\n## LECCIONES APRENDIDAS DEL FEEDBACK DEL USUARIO\nAplica SIEMPRE estas lecciones cuando el contexto lo permita. Son aprendizajes acumulados de interacciones reales.\n\n${lessons.join("\n")}`;
         if (corrLines.length > 0) {
@@ -1118,7 +1192,7 @@ serve(async (req) => {
         }
       }
     } catch (e) {
-      console.warn("Could not load learned patterns:", e);
+      console.warn("Could not build lessons block:", e);
     }
 
     const attachmentsBlock = attachments_context
@@ -1133,36 +1207,38 @@ serve(async (req) => {
       { role: "system", content: SYSTEM_PROMPT + USER_MEMORY_RULES + userMemoryBlock + lessonsBlock + attachmentsBlock + domainFilterBlock },
     ];
 
-    // Build context with cumulative summary for long conversations
+    // 5c: resumen cacheado. Solo re-resumimos si hay ≥6 mensajes nuevos sin resumir.
     let cumulativeSummary = "";
-    if (history && Array.isArray(history)) {
-      if (history.length > 12) {
-        // Split: older messages get summarized, recent 6 stay raw
-        const olderMessages = history.slice(0, history.length - 6);
-        const recentMessages = history.slice(-6);
-        
-        cumulativeSummary = await summarizeOlderHistory(olderMessages, lovableKey);
-        
-        if (cumulativeSummary) {
-          messages.push({
-            role: "system",
-            content: `CONTEXTO ACUMULADO DE LA CONVERSACIÓN (hechos establecidos que NO debes contradecir bajo ninguna circunstancia):\n\n${cumulativeSummary}`
-          });
-        }
-        
-        for (const h of recentMessages) {
-          messages.push({ role: h.role, content: h.content });
-        }
+    if (history.length > 12) {
+      const olderMessages = history.slice(0, history.length - 6);
+      const recentMessages = history.slice(-6);
+
+      const cached = await loadCachedSummary(admin, conversation_id);
+      const needsRecompute = !cached || (olderMessages.length - cached.lastIndex) >= 6;
+      if (!needsRecompute) {
+        cumulativeSummary = cached!.text;
       } else {
-        // Short conversation: send all messages
-        for (const h of history) {
-          messages.push({ role: h.role, content: h.content });
+        cumulativeSummary = await summarizeOlderHistory(olderMessages, lovableKey);
+        if (cumulativeSummary && conversation_id) {
+          // fire-and-forget
+          saveCachedSummary(admin, conversation_id, cumulativeSummary, olderMessages.length)
+            .catch((e) => console.warn("[summary-cache] save error:", e));
         }
       }
+
+      if (cumulativeSummary) {
+        messages.push({
+          role: "system",
+          content: `CONTEXTO ACUMULADO DE LA CONVERSACIÓN (hechos establecidos que NO debes contradecir bajo ninguna circunstancia):\n\n${cumulativeSummary}`
+        });
+      }
+      for (const h of recentMessages) messages.push({ role: h.role, content: h.content });
+    } else {
+      for (const h of history) messages.push({ role: h.role, content: h.content });
     }
     messages.push({ role: "user", content: message });
 
-    // First AI call: determine intent and tools
+    // First AI call: determine intent and tools (max_tokens subido a 1600 — 5b)
     const aiResponse = await callChatCompletion("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -1174,7 +1250,7 @@ serve(async (req) => {
         messages,
         tools: TOOLS,
         tool_choice: "auto",
-        max_tokens: 900,
+        max_tokens: 1600,
       }),
     }, { timeoutMs: 18000, retries: 1 });
 
@@ -1222,58 +1298,74 @@ serve(async (req) => {
       let directModel = TOOL_ROUTER_MODEL;
       let sonnetTokensIn = 0;
       let sonnetTokensOut = 0;
-      const directCandidates = useProModel ? Array.from(new Set([SYNTHESIS_MODEL, ...PRO_MODEL_CHAIN])) : [SYNTHESIS_MODEL];
-      for (const candidate of directCandidates) {
-        try {
-          if (isAnthropicModel(candidate)) {
-            const aResp = await callChatCompletion(
-              "https://ai.gateway.lovable.dev/v1/chat/completions",
-              {
+
+      // 5b: si el router no pidió tools y su contenido ya es sustancial y no está cortado,
+      // úsalo directamente sin re-llamada (ahorra ~1 llamada completa).
+      const trimmed = firstCallContent.trim();
+      const looksComplete = trimmed.length > 300 && (
+        /[.!?…)\]}"`']\s*$/.test(trimmed) ||
+        /\|\s*$/.test(trimmed) ||     // fila de tabla markdown
+        /^\s*[-*]\s/m.test(trimmed.split("\n").slice(-1)[0] || "")  // item de lista al final
+      );
+      const skipResynth = !useProModel && looksComplete;
+
+      if (!skipResynth) {
+        const directCandidates = useProModel ? Array.from(new Set([SYNTHESIS_MODEL, ...PRO_MODEL_CHAIN])) : [SYNTHESIS_MODEL];
+        for (const candidate of directCandidates) {
+          try {
+            if (isAnthropicModel(candidate)) {
+              const aResp = await callChatCompletion(
+                "https://ai.gateway.lovable.dev/v1/chat/completions",
+                {
+                  method: "POST",
+                  headers: { Authorization: `Bearer ${lovableKey}`, "Content-Type": "application/json" },
+                  body: JSON.stringify({ model: candidate, messages, max_tokens: 4000 }),
+                },
+                { timeoutMs: 90000, retries: 1 },
+              );
+              if (aResp.ok) {
+                const aJson = await aResp.json();
+                const content = aJson.choices?.[0]?.message?.content || "";
+                if (content.trim()) {
+                  directAnswer = content;
+                  directModel = candidate;
+                  sonnetTokensIn = aJson.usage?.prompt_tokens || 0;
+                  sonnetTokensOut = aJson.usage?.completion_tokens || 0;
+                  totalTokensIn += sonnetTokensIn;
+                  totalTokensOut += sonnetTokensOut;
+                  break;
+                }
+              } else {
+                console.error(`[direct pro-fallback] ${candidate} failed:`, aResp.status);
+              }
+            } else {
+              const directStream = await streamChatCompletion("https://ai.gateway.lovable.dev/v1/chat/completions", {
                 method: "POST",
                 headers: { Authorization: `Bearer ${lovableKey}`, "Content-Type": "application/json" },
-                body: JSON.stringify({ model: candidate, messages, max_tokens: 1600 }),
-              },
-              { timeoutMs: 90000, retries: 1 },
-            );
-            if (aResp.ok) {
-              const aJson = await aResp.json();
-              const content = aJson.choices?.[0]?.message?.content || "";
-              if (content.trim()) {
-                directAnswer = content;
+                body: JSON.stringify({ model: candidate, messages, max_tokens: 4000 }),
+              }, { timeoutMs: 90000 });
+              if (directStream.ok && directStream.content.trim()) {
+                directAnswer = directStream.content;
                 directModel = candidate;
-                sonnetTokensIn = aJson.usage?.prompt_tokens || 0;
-                sonnetTokensOut = aJson.usage?.completion_tokens || 0;
+                sonnetTokensIn = directStream.usage?.prompt_tokens || 0;
+                sonnetTokensOut = directStream.usage?.completion_tokens || 0;
                 totalTokensIn += sonnetTokensIn;
                 totalTokensOut += sonnetTokensOut;
                 break;
               }
-            } else {
-              console.error(`[direct pro-fallback] ${candidate} failed:`, aResp.status);
+              console.error(`[direct pro-fallback] ${candidate} stream failed:`, directStream.status, directStream.raw?.slice(0, 200));
             }
-          } else {
-            const directStream = await streamChatCompletion("https://ai.gateway.lovable.dev/v1/chat/completions", {
-              method: "POST",
-              headers: { Authorization: `Bearer ${lovableKey}`, "Content-Type": "application/json" },
-              body: JSON.stringify({ model: candidate, messages, max_tokens: 1600 }),
-            }, { timeoutMs: 90000 });
-            if (directStream.ok && directStream.content.trim()) {
-              directAnswer = directStream.content;
-              directModel = candidate;
-              sonnetTokensIn = directStream.usage?.prompt_tokens || 0;
-              sonnetTokensOut = directStream.usage?.completion_tokens || 0;
-              totalTokensIn += sonnetTokensIn;
-              totalTokensOut += sonnetTokensOut;
-              break;
-            }
-            console.error(`[direct pro-fallback] ${candidate} stream failed:`, directStream.status, directStream.raw?.slice(0, 200));
+          } catch (e) {
+            console.error(`[direct pro-fallback] ${candidate} error:`, e);
           }
-        } catch (e) {
-          console.error(`[direct pro-fallback] ${candidate} error:`, e);
         }
+      } else {
+        console.log(`[direct-fastpath] usando respuesta del router directamente (len=${trimmed.length})`);
       }
       const latencyMs = Date.now() - startTime;
       const costEur = routingCostEur + sonnetTokensIn * GEMINI_INPUT + sonnetTokensOut * GEMINI_OUTPUT;
-      await admin.from("auditoria_ia").insert({
+      // 5d: auditoría fire-and-forget (no bloqueamos el response)
+      admin.from("auditoria_ia").insert({
         modelo: directModel,
         funcion_ia: "ava-orchestrator",
         latencia_ms: latencyMs,
@@ -1282,8 +1374,8 @@ serve(async (req) => {
         coste_estimado: costEur,
         exito: true,
         created_by: user.id,
-      });
-      await admin.from("usage_logs").insert({
+      }).then(() => {}, (e: any) => console.warn("[audit] direct failed:", e));
+      admin.from("usage_logs").insert({
         user_id: user.id,
         action_type: "chat",
         agent_label: "AVA Orchestrator",
@@ -1292,8 +1384,8 @@ serve(async (req) => {
         tokens_output: totalTokensOut,
         cost_eur: costEur,
         latency_ms: latencyMs,
-        metadata: { direct_answer: true, message: message?.slice(0, 200) },
-      });
+        metadata: { direct_answer: true, skipped_resynth: skipResynth, message: message?.slice(0, 200) },
+      }).then(() => {}, (e: any) => console.warn("[usage] direct failed:", e));
       return new Response(JSON.stringify({
         answer: directAnswer,
         tools_used: [],
@@ -1304,11 +1396,11 @@ serve(async (req) => {
       });
     }
 
-    // Execute tool calls IN PARALLEL to avoid 150s edge timeout
+    // Ejecutor de tool_calls reutilizable (multi-ronda agéntica).
     const toolResults: Array<{ tool: string; result: any }> = [];
-    const toolMessages: Array<{ role: string; content: string; tool_call_id?: string }> = [];
 
-    const executed = await Promise.all(choice.tool_calls.map(async (toolCall: any) => {
+    async function executeToolCalls(toolCalls: any[]): Promise<Array<{ toolLabel: string; result: any; toolCallId: string }>> {
+      return await Promise.all(toolCalls.map(async (toolCall: any) => {
       const fnName = toolCall.function.name;
       let args: any;
       try {
@@ -1329,9 +1421,19 @@ serve(async (req) => {
             result = { error: "Tabla no permitida: " + args.table };
           } else {
             let query = authClient.from(args.table).select(args.select || "*");
+            const warnings: string[] = [];
             if (args.filters && Array.isArray(args.filters)) {
               for (const f of args.filters) {
-                query = (query as any)[f.operator](f.column, f.value);
+                // 6b: whitelist runtime del operator para evitar ejecución arbitraria de métodos.
+                if (!DB_QUERY_ALLOWED_OPERATORS.has(f.operator)) {
+                  warnings.push(`filtro ignorado: operator '${f.operator}' no permitido (col=${f.column})`);
+                  continue;
+                }
+                try {
+                  query = (query as any)[f.operator](f.column, f.value);
+                } catch (e) {
+                  warnings.push(`filtro '${f.operator}' falló: ${e instanceof Error ? e.message : String(e)}`);
+                }
               }
             }
             if (args.order_by) {
@@ -1339,7 +1441,13 @@ serve(async (req) => {
             }
             query = query.limit(args.limit || 20);
             const { data, error } = await query;
-            result = error ? { error: error.message } : data;
+            if (error) {
+              result = { error: error.message, ...(warnings.length ? { warnings } : {}) };
+            } else if (warnings.length) {
+              result = { data, warnings };
+            } else {
+              result = data;
+            }
           }
         } else if (fnName === "propose_action") {
           toolLabel = "propose_action:" + (args.table || "") + ":" + (args.action || "");
@@ -1466,6 +1574,21 @@ serve(async (req) => {
             if (memErr) {
               result = { error: memErr.message };
             } else {
+              // 9: tope de 200 hechos por usuario. Si superamos, borramos el más antiguo
+              // por last_used_at (fire-and-forget).
+              admin.from("ava_user_memory")
+                .select("id, last_used_at", { count: "exact" })
+                .eq("user_id", user.id)
+                .order("last_used_at", { ascending: true })
+                .then(({ data: rows, count }: any) => {
+                  const total = typeof count === "number" ? count : (rows?.length || 0);
+                  if (total > 200 && rows && rows.length > 0) {
+                    const overflow = total - 200;
+                    const toDelete = rows.slice(0, overflow).map((r: any) => r.id);
+                    admin.from("ava_user_memory").delete().in("id", toDelete)
+                      .then(() => {}, () => {});
+                  }
+                }, () => {});
               result = { saved: true, key: k, source: src };
             }
           }
@@ -1521,7 +1644,8 @@ serve(async (req) => {
             } else if (t === "contactos") {
               searchQuery = admin.from(t).select("*").or("nombre.ilike." + q + ",empresa.ilike." + q + ",email.ilike." + q).or(`visibility.in.(shared,global),creado_por.eq.${userId}`).limit(10);
             } else if (t === "proyectos") {
-              searchQuery = admin.from(t).select("*").or("nombre.ilike." + q + ",descripcion.ilike." + q).limit(10);
+              // 6a: filtrar por owner (proyectos no tiene columna visibility).
+              searchQuery = admin.from(t).select("*").or("nombre.ilike." + q + ",descripcion.ilike." + q).eq("created_by", userId).limit(10);
             } else if (t === "documentos_proyecto") {
               searchQuery = admin.from(t).select("*").or("nombre.ilike." + q).or(`visibility.in.(shared,global),owner_id.eq.${userId}`).limit(10);
             } else {
@@ -1724,12 +1848,12 @@ serve(async (req) => {
             if (docs.length === 0) {
               result = { found: false, message: "No se encontró ningún documento accesible con ese nombre." };
             } else {
-              // Parallel chunk fetching across docs
+              // 7: los permisos ya se validaron en documentos_proyecto (que sí tiene visibility/owner_id).
+              // Leemos los chunks por documento_id SIN filtro adicional (document_chunks puede no tener owner_id poblado).
               const enriched = await Promise.all(docs.map(async (d: any) => {
                 const { data: chunks } = await admin.from("document_chunks")
                   .select("contenido")
                   .eq("documento_id", d.id)
-                  .or(ownershipFilter)
                   .order("chunk_index", { ascending: true })
                   .limit(20);
                 const fullText = (chunks || []).map((c: any) => c.contenido).join("\n\n").slice(0, 12000);
@@ -1754,113 +1878,135 @@ serve(async (req) => {
 
       return { toolLabel, result, toolCallId: toolCall.id };
     }));
-
-    for (const ex of executed) {
-      toolResults.push({ tool: ex.toolLabel, result: ex.result });
-      toolMessages.push({
-        role: "tool",
-        content: JSON.stringify(ex.result).substring(0, 8000),
-        tool_call_id: ex.toolCallId,
-      });
     }
 
-    // Second AI call: synthesize response with tool results
-    // Build a simpler synthesis prompt that works reliably with Gemini
-    const summaryParts: string[] = [];
-    let summaryChars = 0;
-    for (const tr of toolResults) {
-      if (summaryChars >= 18000) break;
-      const remaining = Math.max(1200, 18000 - summaryChars);
-      const part = `[Resultado de ${tr.tool}]:\n${JSON.stringify(tr.result).substring(0, Math.min(2800, remaining))}`;
-      summaryParts.push(part);
-      summaryChars += part.length;
-    }
-    const toolResultsSummary = summaryParts.join("\n\n");
+    // Ronda 1 (inicial): ejecutar tool_calls del router.
+    const executed0 = await executeToolCalls(choice.tool_calls);
+    for (const ex of executed0) toolResults.push({ tool: ex.toolLabel, result: ex.result });
 
-    // Build synthesis messages with cumulative summary + lessons
-    const synthesisMessages: Array<{ role: string; content: string }> = [
+    // Base de mensajes para síntesis + bucle multi-ronda.
+    const synthesisMessages: Array<any> = [
       { role: "system", content: SYSTEM_PROMPT + USER_MEMORY_RULES + userMemoryBlock + lessonsBlock + attachmentsBlock },
     ];
-    
     if (cumulativeSummary) {
       synthesisMessages.push({
         role: "system",
-        content: `CONTEXTO ACUMULADO DE LA CONVERSACIÓN (hechos establecidos que NO debes contradecir bajo ninguna circunstancia):\n\n${cumulativeSummary}`
+        content: `CONTEXTO ACUMULADO DE LA CONVERSACIÓN (hechos establecidos que NO debes contradecir bajo ninguna circunstancia):\n\n${cumulativeSummary}`,
       });
     }
+    const recentForSynthesis = history.length > 12 ? history.slice(-6) : history;
+    for (const h of recentForSynthesis) synthesisMessages.push({ role: h.role, content: h.content });
+    synthesisMessages.push({ role: "user", content: message });
 
-    if (history && Array.isArray(history)) {
-      const recentForSynthesis = history.length > 12 ? history.slice(-6) : history;
-      for (const h of recentForSynthesis) {
-        synthesisMessages.push({ role: h.role, content: h.content });
-      }
-    }
+    // Turno assistant original con tool_calls + resultados como role:"tool" reales.
+    synthesisMessages.push({
+      role: "assistant",
+      content: choice.content || "",
+      tool_calls: choice.tool_calls,
+    });
+    for (const m of buildToolMessages(executed0)) synthesisMessages.push(m);
 
-    synthesisMessages.push(
-      { role: "user", content: message },
-      { 
-        role: "assistant", 
-        content: `He ejecutado las siguientes herramientas para responder a la pregunta del usuario. Aquí están los resultados obtenidos:\n\n${toolResultsSummary}`
-      },
-      { role: "user", content: "Basándote en los datos obtenidos y en tu conocimiento general del sector retail e inmobiliario comercial, responde de forma completa pero concisa a mi pregunta original. Prioriza hallazgos accionables, tablas breves y recomendaciones. Responde en español." },
-    );
-
-    let finalAnswer: string = "";
+    let finalAnswer = "";
     let synthesisModel: string = SYNTHESIS_MODEL;
     let escalatedTokensIn = 0;
     let escalatedTokensOut = 0;
 
-    // Síntesis con streaming → menor TTFB y evita timeouts en respuestas largas.
-    // Si el modelo es Pro y falla, recorremos la cadena de fallback (claude → gpt-5 → gemini-3.5-flash).
+    // Bucle agéntico: hasta MAX_TOOL_ROUNDS rondas totales (incluida la del router).
+    // Si quedan <40s de presupuesto, no abrimos ronda nueva y forzamos respuesta sin tools.
     const synthesisCandidates: string[] = useProModel
       ? Array.from(new Set([SYNTHESIS_MODEL, ...PRO_MODEL_CHAIN]))
       : [SYNTHESIS_MODEL];
 
-    for (const candidate of synthesisCandidates) {
-      try {
-        if (isAnthropicModel(candidate)) {
-          // Anthropic API directa (no streaming en gateway). Sigue siendo rápido.
-          const aResp = await callChatCompletion(
+    let round = 1;
+    while (round < MAX_TOOL_ROUNDS) {
+      round++;
+      const elapsed = Date.now() - startTime;
+      const remaining = EDGE_TIME_LIMIT_MS - elapsed;
+      const forceNoTools = round >= MAX_TOOL_ROUNDS || remaining < NEXT_ROUND_MIN_BUDGET_MS;
+
+      let synthChoice: any = null;
+      let synthUsage: any = {};
+      let usedModel = SYNTHESIS_MODEL;
+
+      for (const candidate of synthesisCandidates) {
+        try {
+          const bodyReq: any = {
+            model: candidate,
+            messages: synthesisMessages,
+            max_tokens: 4000,
+          };
+          if (!forceNoTools) {
+            bodyReq.tools = TOOLS;
+            bodyReq.tool_choice = "auto";
+          }
+          const resp = await callChatCompletion(
             "https://ai.gateway.lovable.dev/v1/chat/completions",
             {
               method: "POST",
               headers: { Authorization: `Bearer ${lovableKey}`, "Content-Type": "application/json" },
-              body: JSON.stringify({ model: candidate, messages: synthesisMessages, max_tokens: 4000 }),
+              body: JSON.stringify(bodyReq),
             },
             { timeoutMs: 110000, retries: 1 },
           );
-          if (aResp.ok) {
-            const aJson = await aResp.json();
-            const content = aJson.choices?.[0]?.message?.content || "";
-            if (content.trim()) {
-              finalAnswer = content;
-              synthesisModel = candidate;
-              totalTokensIn += aJson.usage?.prompt_tokens || 0;
-              totalTokensOut += aJson.usage?.completion_tokens || 0;
-              break;
-            }
-            console.error(`[pro-fallback] ${candidate} returned empty content`);
+          if (resp.ok) {
+            const j = await resp.json();
+            synthChoice = j.choices?.[0]?.message;
+            synthUsage = j.usage || {};
+            usedModel = candidate;
+            break;
           } else {
-            console.error(`[pro-fallback] ${candidate} failed:`, aResp.status);
+            console.error(`[synth round=${round}] ${candidate} failed:`, resp.status);
           }
-        } else {
-          const synthesisStream = await streamChatCompletion("https://ai.gateway.lovable.dev/v1/chat/completions", {
+        } catch (e) {
+          console.error(`[synth round=${round}] ${candidate} err:`, e);
+        }
+      }
+
+      totalTokensIn += synthUsage.prompt_tokens || 0;
+      totalTokensOut += synthUsage.completion_tokens || 0;
+      synthesisModel = usedModel;
+
+      if (!synthChoice) break;
+
+      const hasMoreTools = !forceNoTools && Array.isArray(synthChoice.tool_calls) && synthChoice.tool_calls.length > 0;
+      if (hasMoreTools) {
+        console.log(`[synth round=${round}] modelo pidió ${synthChoice.tool_calls.length} tools adicionales`);
+        const executedN = await executeToolCalls(synthChoice.tool_calls);
+        for (const ex of executedN) toolResults.push({ tool: ex.toolLabel, result: ex.result });
+        synthesisMessages.push({
+          role: "assistant",
+          content: synthChoice.content || "",
+          tool_calls: synthChoice.tool_calls,
+        });
+        for (const m of buildToolMessages(executedN)) synthesisMessages.push(m);
+        continue;
+      }
+
+      finalAnswer = synthChoice.content || "";
+      break;
+    }
+
+    // Si tras el bucle sigue sin respuesta, forzar una llamada final SIN tools.
+    if (!finalAnswer.trim()) {
+      try {
+        const resp = await callChatCompletion(
+          "https://ai.gateway.lovable.dev/v1/chat/completions",
+          {
             method: "POST",
             headers: { Authorization: `Bearer ${lovableKey}`, "Content-Type": "application/json" },
-            body: JSON.stringify({ model: candidate, messages: synthesisMessages }),
-          }, { timeoutMs: 110000 });
-
-          if (synthesisStream.ok && (synthesisStream.content || "").trim()) {
-            finalAnswer = synthesisStream.content;
-            synthesisModel = candidate;
-            totalTokensIn += synthesisStream.usage?.prompt_tokens || 0;
-            totalTokensOut += synthesisStream.usage?.completion_tokens || 0;
-            break;
-          }
-          console.error(`[pro-fallback] ${candidate} stream failed:`, synthesisStream.status, synthesisStream.raw?.slice(0, 200));
+            body: JSON.stringify({ model: SYNTHESIS_MODEL, messages: synthesisMessages, max_tokens: 4000 }),
+          },
+          { timeoutMs: 90000, retries: 1 },
+        );
+        if (resp.ok) {
+          const j = await resp.json();
+          finalAnswer = j.choices?.[0]?.message?.content || "";
+          totalTokensIn += j.usage?.prompt_tokens || 0;
+          totalTokensOut += j.usage?.completion_tokens || 0;
+          synthesisModel = SYNTHESIS_MODEL;
         }
       } catch (e) {
-        console.error(`[pro-fallback] ${candidate} error:`, e);
+        console.warn("[final-forced] failed:", e);
       }
     }
 
@@ -1871,11 +2017,9 @@ serve(async (req) => {
     // answer despite having tool results to ground it.
     // ─────────────────────────────────────────────────────────────
     function needsEscalation(answer: string, toolsUsed: number, toolErrors: number): boolean {
-      if (!answer) return true; // empty → definitely escalate
+      if (!answer) return true;
       const a = answer.trim().toLowerCase();
-      // Very short answers when we DID gather data
       if (toolsUsed > 0 && answer.trim().length < 220) return true;
-      // Explicit hedging / incompleteness markers
       const hedgePatterns = [
         "no tengo información", "no dispongo de", "no puedo determinar",
         "no encuentro", "no he encontrado", "no se ha encontrado",
@@ -1886,9 +2030,17 @@ serve(async (req) => {
         "i don't have", "i cannot", "insufficient",
       ];
       if (hedgePatterns.some(p => a.includes(p))) return true;
-      // Truncated / cut off mid-sentence (no terminal punctuation, long enough to suspect)
-      if (answer.length > 400 && !/[.!?…)\]}"`'`]\s*$/.test(answer.trim())) return true;
-      // If multiple tool errors occurred, the pro model handles ambiguity better
+      // Truncated / cut off mid-sentence. NO consideramos truncada si termina en:
+      //  - fila de tabla markdown (línea acabada en |)
+      //  - item de lista (línea empezando por - o *)
+      if (answer.length > 400) {
+        const trimmed = answer.trim();
+        const lastLine = trimmed.split("\n").slice(-1)[0] || "";
+        const endsInTableRow = /\|\s*$/.test(lastLine);
+        const endsInListItem = /^\s*[-*]\s+\S/.test(lastLine);
+        const endsInPunct = /[.!?…)\]}"`'`]\s*$/.test(trimmed);
+        if (!endsInPunct && !endsInTableRow && !endsInListItem) return true;
+      }
       if (toolErrors >= 2 && toolsUsed > 0) return true;
       return false;
     }
@@ -1906,7 +2058,7 @@ serve(async (req) => {
         : finalAnswer.trim().length < 220
           ? "too_short"
           : "low_confidence";
-      console.log(`[escalation] → gemini-3.5-flash (reason=${escalationReason}, len=${finalAnswer.length}, tools=${toolsUsedCount})`);
+      console.log(`[escalation] → ${ESCALATION_MODEL} (reason=${escalationReason}, len=${finalAnswer.length}, tools=${toolsUsedCount})`);
       try {
         const escResp = await fetchAIWithTimeoutAndRetry(
           "https://ai.gateway.lovable.dev/v1/chat/completions",
@@ -1917,8 +2069,9 @@ serve(async (req) => {
               "Content-Type": "application/json",
             },
             body: JSON.stringify({
-              model: "google/gemini-3.5-flash",
+              model: ESCALATION_MODEL,
               messages: synthesisMessages,
+              max_tokens: 4000,
             }),
           },
           60000,
@@ -1929,7 +2082,7 @@ serve(async (req) => {
           const escAnswer = escData.choices?.[0]?.message?.content || "";
           if (escAnswer && escAnswer.trim().length >= Math.max(40, finalAnswer.trim().length / 2)) {
             finalAnswer = escAnswer;
-            synthesisModel = "google/gemini-3.5-flash";
+            synthesisModel = ESCALATION_MODEL;
             escalated = true;
             const escUsage = escData.usage || {};
             escalatedTokensIn = escUsage.prompt_tokens || 0;
@@ -1951,22 +2104,23 @@ serve(async (req) => {
     }
 
     const latencyMs = Date.now() - startTime;
-    // Cost: base tokens at flash pricing + escalation tokens at pro pricing (if any)
-    const proPricing = MODEL_PRICING["google/gemini-3.5-flash"];
+    // Coste: siempre registrado con el modelo REALMENTE usado (synthesisModel puede haber caído a otro por fallbacks).
+    const escPricing = MODEL_PRICING[ESCALATION_MODEL] || MODEL_PRICING["google/gemini-3.5-flash"];
     const sonnetTokensIn = Math.max(0, totalTokensIn - routedTokensIn);
     const sonnetTokensOut = Math.max(0, totalTokensOut - routedTokensOut);
     const costEur =
       routingCostEur +
       sonnetTokensIn * GEMINI_INPUT +
       sonnetTokensOut * GEMINI_OUTPUT +
-      escalatedTokensIn * proPricing.in +
-      escalatedTokensOut * proPricing.out;
+      escalatedTokensIn * escPricing.in +
+      escalatedTokensOut * escPricing.out;
     totalTokensIn += escalatedTokensIn;
     totalTokensOut += escalatedTokensOut;
 
 
     // Audit
-    await admin.from("auditoria_ia").insert({
+    // 5d: auditoría + usage fire-and-forget (no bloqueamos el response al usuario)
+    admin.from("auditoria_ia").insert({
       modelo: synthesisModel,
       funcion_ia: "ava-orchestrator",
       latencia_ms: latencyMs,
@@ -1975,10 +2129,9 @@ serve(async (req) => {
       coste_estimado: costEur,
       exito: true,
       created_by: user.id,
-    });
+    }).then(() => {}, (e: any) => console.warn("[audit] final failed:", e));
 
-    // Usage log for cost tracking
-    await admin.from("usage_logs").insert({
+    admin.from("usage_logs").insert({
       user_id: user.id,
       action_type: "chat",
       agent_label: escalated ? "AVA Orchestrator (escalated)" : "AVA Orchestrator",
@@ -1993,7 +2146,7 @@ serve(async (req) => {
         escalated,
         escalation_reason: escalationReason,
       },
-    });
+    }).then(() => {}, (e: any) => console.warn("[usage] final failed:", e));
 
     // Check if generate_pdf_report or generate_forge_document was used
     const pdfTool = toolResults.find(tr => tr.tool === "generate_pdf_report" && tr.result?.success);
