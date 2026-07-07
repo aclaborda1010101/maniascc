@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Settings, Shield, CheckCircle, Mail, RefreshCw, Loader2 } from "lucide-react";
+import { Settings, Shield, CheckCircle, Mail, RefreshCw, Loader2, Plug, Save } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 
 export default function Admin() {
@@ -18,11 +18,27 @@ export default function Admin() {
   const [filterFuncion, setFilterFuncion] = useState("all");
   const [filterDateFrom, setFilterDateFrom] = useState("");
   const [filterDateTo, setFilterDateTo] = useState("");
-  const [m365Stats, setM365Stats] = useState<{ pending: number; needs_review: number; applied: number; discarded: number; error: number; last_synced: string | null; umbral: number }>({ pending: 0, needs_review: 0, applied: 0, discarded: 0, error: 0, last_synced: null, umbral: 0.8 });
+  const [m365Stats, setM365Stats] = useState<{ pending: number; needs_review: number; applied: number; discarded: number; error: number; last_synced: string | null; umbralAuto: number; umbralRev: number }>({ pending: 0, needs_review: 0, applied: 0, discarded: 0, error: 0, last_synced: null, umbralAuto: 0.85, umbralRev: 0.60 });
   const [m365Loading, setM365Loading] = useState(false);
   const [m365Syncing, setM365Syncing] = useState(false);
+  const [m365Testing, setM365Testing] = useState(false);
+  const [m365Saving, setM365Saving] = useState(false);
 
-  useEffect(() => { fetchLogs(); fetchM365(); }, []);
+  // M365 config form
+  const [cfg, setCfg] = useState({
+    id: null as string | null,
+    tenant_id: "",
+    client_id: "",
+    client_secret: "",
+    client_secret_masked: "",
+    journal_mailbox: "",
+    connected: false,
+    last_test_at: null as string | null,
+    last_test_result: null as string | null,
+  });
+  const [secretChanged, setSecretChanged] = useState(false);
+
+  useEffect(() => { fetchLogs(); fetchM365(); loadCfg(); }, []);
 
   const fetchLogs = async () => {
     setLogsLoading(true);
@@ -31,17 +47,78 @@ export default function Admin() {
     setLogsLoading(false);
   };
 
+  const loadCfg = async () => {
+    const { data } = await supabase.from("email_classifier_settings").select("*").limit(1).maybeSingle();
+    if (data) {
+      const sec = (data.m365_client_secret || "") as string;
+      const masked = sec ? `••••${sec.slice(-4)}` : "";
+      setCfg({
+        id: data.id,
+        tenant_id: data.m365_tenant_id || "",
+        client_id: data.m365_client_id || "",
+        client_secret: "",
+        client_secret_masked: masked,
+        journal_mailbox: data.m365_journal_mailbox || "",
+        connected: !!data.m365_connected,
+        last_test_at: data.m365_last_test_at,
+        last_test_result: data.m365_last_test_result,
+      });
+      setM365Stats((s) => ({ ...s, umbralAuto: Number(data.umbral_auto ?? 0.85), umbralRev: Number(data.umbral_revision ?? 0.60) }));
+    }
+  };
+
   const fetchM365 = async () => {
     setM365Loading(true);
-    const [{ data: rows }, { data: sync }, { data: settings }] = await Promise.all([
+    const [{ data: rows }, { data: sync }] = await Promise.all([
       supabase.from("email_ingest_queue").select("status"),
       supabase.from("sync_state").select("last_synced_at").eq("channel", "m365_journal").maybeSingle(),
-      supabase.from("email_classifier_settings").select("umbral_auto").limit(1).maybeSingle(),
     ]);
     const counts = { pending: 0, needs_review: 0, applied: 0, discarded: 0, error: 0 };
     (rows || []).forEach((r: any) => { if (counts[r.status as keyof typeof counts] !== undefined) counts[r.status as keyof typeof counts]++; });
-    setM365Stats({ ...counts, last_synced: sync?.last_synced_at || null, umbral: Number(settings?.umbral_auto ?? 0.8) });
+    setM365Stats((s) => ({ ...s, ...counts, last_synced: sync?.last_synced_at || null }));
     setM365Loading(false);
+  };
+
+  const saveCfg = async () => {
+    setM365Saving(true);
+    try {
+      const update: any = {
+        m365_tenant_id: cfg.tenant_id.trim(),
+        m365_client_id: cfg.client_id.trim(),
+        m365_journal_mailbox: cfg.journal_mailbox.trim(),
+        updated_at: new Date().toISOString(),
+      };
+      if (secretChanged && cfg.client_secret) update.m365_client_secret = cfg.client_secret;
+
+      if (cfg.id) {
+        const { error } = await supabase.from("email_classifier_settings").update(update).eq("id", cfg.id);
+        if (error) throw error;
+      } else {
+        const { error } = await supabase.from("email_classifier_settings").insert(update);
+        if (error) throw error;
+      }
+      toast({ title: "Configuración guardada" });
+      setSecretChanged(false);
+      loadCfg();
+    } catch (e: any) {
+      toast({ title: "Error al guardar", description: e?.message || String(e), variant: "destructive" });
+    } finally { setM365Saving(false); }
+  };
+
+  const testConnection = async () => {
+    setM365Testing(true);
+    try {
+      const body: any = { test: true, tenant_id: cfg.tenant_id.trim(), client_id: cfg.client_id.trim(), journal_mailbox: cfg.journal_mailbox.trim() };
+      if (secretChanged && cfg.client_secret) body.client_secret = cfg.client_secret;
+      const { data, error } = await supabase.functions.invoke("m365-journal-sync", { body });
+      if (error) throw error;
+      const d = data as any;
+      if (d?.ok) toast({ title: "Conexión OK", description: d.message });
+      else toast({ title: "Fallo de conexión", description: d?.error || "sin detalle", variant: "destructive" });
+      loadCfg();
+    } catch (e: any) {
+      toast({ title: "Error probando conexión", description: e?.message || String(e), variant: "destructive" });
+    } finally { setM365Testing(false); }
   };
 
   const syncNow = async () => {
@@ -55,21 +132,18 @@ export default function Admin() {
       fetchM365();
     } catch (e: any) {
       toast({ title: "Error de sync", description: e?.message || String(e), variant: "destructive" });
-    } finally {
-      setM365Syncing(false);
-    }
+    } finally { setM365Syncing(false); }
   };
 
-  const updateUmbral = async (v: number) => {
+  const updateUmbral = async (field: "umbral_auto" | "umbral_revision", v: number) => {
     if (isNaN(v) || v < 0 || v > 1) return;
-    const { data: row } = await supabase.from("email_classifier_settings").select("id").limit(1).maybeSingle();
-    if (row) {
-      await supabase.from("email_classifier_settings").update({ umbral_auto: v, updated_at: new Date().toISOString() }).eq("id", row.id);
-      setM365Stats((s) => ({ ...s, umbral: v }));
-      toast({ title: "Umbral actualizado", description: `${Math.round(v * 100)}%` });
-    }
+    if (!cfg.id) return;
+    const upd: any = { updated_at: new Date().toISOString() };
+    upd[field] = v;
+    await supabase.from("email_classifier_settings").update(upd).eq("id", cfg.id);
+    setM365Stats((s) => ({ ...s, [field === "umbral_auto" ? "umbralAuto" : "umbralRev"]: v } as any));
+    toast({ title: "Umbral actualizado", description: `${Math.round(v * 100)}%` });
   };
-
 
   const filteredLogs = logs.filter(l => {
     if (filterFuncion !== "all" && l.funcion_ia !== filterFuncion) return false;
@@ -77,7 +151,6 @@ export default function Admin() {
     if (filterDateTo && new Date(l.created_at) > new Date(filterDateTo + "T23:59:59")) return false;
     return true;
   });
-
   const avgLatency = filteredLogs.length > 0 ? Math.round(filteredLogs.reduce((sum, l) => sum + (Number(l.latencia_ms) || 0), 0) / filteredLogs.length) : 0;
   const funciones = [...new Set(logs.map(l => l.funcion_ia).filter(Boolean))];
 
@@ -96,7 +169,6 @@ export default function Admin() {
           <TabsTrigger value="config" className="gap-1"><Settings className="h-3 w-3" /> Configuración</TabsTrigger>
         </TabsList>
 
-        {/* Tab: Auditoría */}
         <TabsContent value="auditoria" className="space-y-4">
           <div className="grid gap-4 md:grid-cols-3">
             <Card><CardContent className="pt-6"><p className="text-sm text-muted-foreground">Operaciones</p><p className="text-2xl font-bold">{filteredLogs.length}</p></CardContent></Card>
@@ -147,7 +219,6 @@ export default function Admin() {
           </Card>
         </TabsContent>
 
-        {/* Tab: Configuración */}
         <TabsContent value="config" className="space-y-4">
           <Card>
             <CardHeader><CardTitle>Arquitectura AVA</CardTitle></CardHeader>
@@ -161,36 +232,67 @@ export default function Admin() {
             </CardContent>
           </Card>
 
+          {/* Correo M365 — Configuración */}
           <Card>
-            <CardHeader><CardTitle>Funciones de Inteligencia</CardTitle></CardHeader>
-            <CardContent>
-              <div className="grid gap-2 sm:grid-cols-2">
-                {[
-                  { name: "Localización", fn: "ai-localizacion-patrones" },
-                  { name: "Tenant Mix", fn: "ai-tenant-mix-avanzado" },
-                  { name: "Validación Dossier", fn: "ai-validacion-retorno" },
-                  { name: "Perfil Negociador", fn: "ai-perfil-negociador" },
-                  { name: "Forge Documentos", fn: "ai-forge" },
-                  { name: "Clasificación Documental", fn: "document-classify" },
-                  { name: "RAG Ingest", fn: "rag-ingest" },
-                  { name: "RAG Proxy", fn: "rag-proxy" },
-                ].map(f => (
-                  <div key={f.fn} className="rounded-lg border p-3 flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-medium">{f.name}</p>
-                      <p className="text-xs text-muted-foreground font-mono">{f.fn}</p>
-                    </div>
-                    <CheckCircle className="h-4 w-4 text-chart-2" />
-                  </div>
-                ))}
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2"><Mail className="h-5 w-5" /> Correo M365 · Vinculación</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div className="space-y-1">
+                  <Label className="text-xs">Tenant ID</Label>
+                  <Input value={cfg.tenant_id} onChange={(e) => setCfg({ ...cfg, tenant_id: e.target.value })} placeholder="00000000-0000-0000-0000-000000000000" />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">Client ID</Label>
+                  <Input value={cfg.client_id} onChange={(e) => setCfg({ ...cfg, client_id: e.target.value })} placeholder="app registration" />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">Client Secret</Label>
+                  <Input
+                    type="password"
+                    value={secretChanged ? cfg.client_secret : ""}
+                    onChange={(e) => { setCfg({ ...cfg, client_secret: e.target.value }); setSecretChanged(true); }}
+                    placeholder={cfg.client_secret_masked || "Introduce el client secret"}
+                  />
+                  {cfg.client_secret_masked && !secretChanged && (
+                    <p className="text-[10px] text-muted-foreground">Actualmente: {cfg.client_secret_masked}. Escribe para reemplazar.</p>
+                  )}
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">Buzón de captura (journal_mailbox)</Label>
+                  <Input value={cfg.journal_mailbox} onChange={(e) => setCfg({ ...cfg, journal_mailbox: e.target.value })} placeholder="journal@empresa.com" />
+                </div>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2 pt-1">
+                <Badge variant={cfg.connected ? "default" : "secondary"} className={cfg.connected ? "bg-chart-2/20 text-chart-2" : ""}>
+                  {cfg.connected ? "Conectado" : "No probado"}
+                </Badge>
+                {cfg.last_test_at && (
+                  <span className="text-xs text-muted-foreground">Último test: {new Date(cfg.last_test_at).toLocaleString("es-ES")}</span>
+                )}
+              </div>
+              {cfg.last_test_result && (
+                <p className="text-xs text-muted-foreground border rounded p-2 bg-muted/30">{cfg.last_test_result}</p>
+              )}
+
+              <div className="flex flex-wrap justify-end gap-2 pt-1 border-t">
+                <Button variant="outline" size="sm" onClick={testConnection} disabled={m365Testing || !cfg.tenant_id || !cfg.client_id || !cfg.journal_mailbox}>
+                  {m365Testing ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> : <Plug className="h-3.5 w-3.5 mr-1" />} Probar conexión
+                </Button>
+                <Button size="sm" onClick={saveCfg} disabled={m365Saving}>
+                  {m365Saving ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> : <Save className="h-3.5 w-3.5 mr-1" />} Guardar
+                </Button>
               </div>
             </CardContent>
           </Card>
 
+          {/* Correo M365 — Actividad */}
           <Card>
             <CardHeader>
               <div className="flex items-center justify-between">
-                <CardTitle className="flex items-center gap-2"><Mail className="h-5 w-5" /> Correo M365</CardTitle>
+                <CardTitle className="flex items-center gap-2"><Mail className="h-5 w-5" /> Correo M365 · Actividad</CardTitle>
                 <Button size="sm" onClick={syncNow} disabled={m365Syncing}>
                   {m365Syncing ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> : <RefreshCw className="h-3.5 w-3.5 mr-1" />}
                   Sincronizar ahora
@@ -215,10 +317,17 @@ export default function Admin() {
                       <p className="text-sm font-mono">{m365Stats.last_synced ? new Date(m365Stats.last_synced).toLocaleString("es-ES") : "—"}</p>
                     </div>
                     <div className="space-y-1">
-                      <Label className="text-xs">Umbral auto (0–1)</Label>
-                      <Input type="number" min={0} max={1} step={0.05} defaultValue={m365Stats.umbral} onBlur={(e) => updateUmbral(Number(e.target.value))} className="w-32" />
+                      <Label className="text-xs">Umbral automático (0–1)</Label>
+                      <Input type="number" min={0} max={1} step={0.05} defaultValue={m365Stats.umbralAuto} onBlur={(e) => updateUmbral("umbral_auto", Number(e.target.value))} className="w-32" />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs">Umbral revisión (0–1)</Label>
+                      <Input type="number" min={0} max={1} step={0.05} defaultValue={m365Stats.umbralRev} onBlur={(e) => updateUmbral("umbral_revision", Number(e.target.value))} className="w-32" />
                     </div>
                   </div>
+                  <p className="text-xs text-muted-foreground">
+                    ≥ automático → clasificado sin intervención · entre revisión y automático → bandeja con propuesta · &lt; revisión → bandeja sin propuesta (clasificas desde cero).
+                  </p>
                 </>
               )}
             </CardContent>
