@@ -2283,6 +2283,86 @@ serve(async (req) => {
       }
     }
 
+    // ─────────────────────────────────────────────────────────────
+    // ANTI-SUPERFICIALIDAD: si la respuesta parece un volcado de columnas
+    // (corta y sin verbos analíticos) pero los tools trajeron descripcion/notas/
+    // metadata con contenido real, re-sintetizamos UNA vez forzando incluir
+    // esos campos. No escalamos modelo — solo re-pedimos con mejor instrucción.
+    // ─────────────────────────────────────────────────────────────
+    function extractRichSnippets(results: any[]): string[] {
+      const snippets: string[] = [];
+      const walk = (row: any) => {
+        if (!row || typeof row !== "object") return;
+        for (const key of ["descripcion", "notas"]) {
+          const v = row[key];
+          if (typeof v === "string" && v.trim().length > 20) {
+            snippets.push(`${key}: ${v.trim()}`);
+          }
+        }
+        const md = row.metadata;
+        if (md && typeof md === "object") {
+          for (const [k, v] of Object.entries(md)) {
+            if (typeof v === "string" && v.trim().length > 15 && /fase|next|step|estado|comercial|comentario|nota|observ/i.test(k)) {
+              snippets.push(`${k}: ${v.trim()}`);
+            }
+          }
+        }
+      };
+      for (const t of results || []) {
+        const r = t?.result;
+        if (!r) continue;
+        const rows = Array.isArray(r) ? r : (Array.isArray(r?.data) ? r.data : [r]);
+        for (const row of rows.slice(0, 5)) walk(row);
+      }
+      return snippets;
+    }
+
+    if (finalAnswer && finalAnswer.trim()) {
+      const richSnippets = extractRichSnippets(toolResults);
+      const answerLen = finalAnswer.trim().length;
+      const richInAnswer = richSnippets.some((s) => {
+        const val = s.split(":").slice(1).join(":").trim().slice(0, 60).toLowerCase();
+        return val.length > 20 && finalAnswer.toLowerCase().includes(val.slice(0, 30));
+      });
+      const looksShallow = answerLen < 400 && richSnippets.length > 0 && !richInAnswer;
+      if (looksShallow) {
+        console.log(`[anti-superficial] respuesta corta (${answerLen}c) omite ${richSnippets.length} snippets ricos → re-sintetizando`);
+        try {
+          const richBlock = richSnippets.slice(0, 8).map((s, i) => `[${i + 1}] ${s}`).join("\n");
+          const enrichMessages = [
+            ...synthesisMessages,
+            {
+              role: "system",
+              content: `AVISO: tu respuesta anterior fue superficial (un volcado de columnas básicas). Estos son los campos DESCRIPTIVOS reales que ya venían en los datos y que OMITISTE — DEBES incluirlos y explicarlos con tus palabras como un analista:\n\n${richBlock}\n\nReescribe la respuesta a la pregunta del usuario incorporando lo esencial de esos campos (qué es, en qué punto está, qué se sabe del negocio). 2-5 frases con contenido real, no una lista de campos.`,
+            },
+          ];
+          const prepA = prepareCall(SYNTHESIS_MODEL, { messages: enrichMessages, max_tokens: 1500 });
+          if (prepA) {
+            const aResp = await callChatCompletion(
+              prepA.url,
+              { method: "POST", headers: prepA.headers, body: prepA.body },
+              { timeoutMs: 30000, retries: 1 },
+            );
+            if (aResp.ok) {
+              const aJson = await aResp.json();
+              const aAns = aJson.choices?.[0]?.message?.content || "";
+              if (aAns && aAns.trim().length >= answerLen) {
+                finalAnswer = aAns.trim();
+                const aUsage = aJson.usage || {};
+                totalTokensIn += aUsage.prompt_tokens || 0;
+                totalTokensOut += aUsage.completion_tokens || 0;
+                console.log(`[anti-superficial] re-síntesis OK (nueva len=${finalAnswer.length})`);
+              }
+            }
+          }
+        } catch (e) {
+          console.warn("[anti-superficial] retry failed:", e);
+        }
+      }
+    }
+
+
+
 
     const latencyMs = Date.now() - startTime;
     // Coste: siempre registrado con el modelo REALMENTE usado (synthesisModel puede haber caído a otro por fallbacks).
