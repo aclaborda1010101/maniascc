@@ -1946,7 +1946,6 @@ serve(async (req) => {
       for (const candidate of synthesisCandidates) {
         try {
           const bodyReq: any = {
-            model: candidate,
             messages: synthesisMessages,
             max_tokens: 4000,
           };
@@ -1954,13 +1953,11 @@ serve(async (req) => {
             bodyReq.tools = TOOLS;
             bodyReq.tool_choice = "auto";
           }
+          const prep = prepareCall(candidate, bodyReq);
+          if (!prep) continue;
           const resp = await callChatCompletion(
-            "https://ai.gateway.lovable.dev/v1/chat/completions",
-            {
-              method: "POST",
-              headers: { Authorization: `Bearer ${lovableKey}`, "Content-Type": "application/json" },
-              body: JSON.stringify(bodyReq),
-            },
+            prep.url,
+            { method: "POST", headers: prep.headers, body: prep.body },
             { timeoutMs: 110000, retries: 1 },
           );
           if (resp.ok) {
