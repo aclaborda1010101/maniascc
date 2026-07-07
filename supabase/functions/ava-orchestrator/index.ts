@@ -1479,6 +1479,10 @@ serve(async (req) => {
 
     // Ejecutor de tool_calls reutilizable (multi-ronda agéntica).
     const toolResults: Array<{ tool: string; result: any }> = [];
+    // Cap de reintentos por columna inválida: si el modelo vuelve a pedir la
+    // misma table+column que ya falló con "column does not exist", devolvemos
+    // el mismo error sin ejecutar SQL — evita el bucle de 5-6s por ronda.
+    const failedColumns = new Set<string>(); // "table:column"
 
     async function executeToolCalls(toolCalls: any[]): Promise<Array<{ toolLabel: string; result: any; toolCallId: string }>> {
       return await Promise.all(toolCalls.map(async (toolCall: any) => {
