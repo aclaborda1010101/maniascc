@@ -165,11 +165,11 @@ const DEFAULT_MODEL = "google/gemini-3.5-flash";
 const PRO_MODEL_FALLBACK = "google/gemini-3.5-flash";
 const TOOL_ROUTER_MODEL = "google/gemini-3.5-flash";
 const SMALLTALK_MODEL = "google/gemini-2.5-flash-lite";
-// Escalación: benchmark real (27 runs) → claude-haiku-4.5 vía OpenRouter es el
-// mejor reparador de respuestas incompletas (3-15s, herramientas correctas).
+// Escalación: sonnet-4.6 vía OpenRouter (coincide con la cadena Pro para
+// máxima calidad al reparar respuestas incompletas).
 // Fallback si no hay OPENROUTER_API_KEY: gemini-3.5-flash del gateway.
 const ESCALATION_MODEL = Deno.env.get("OPENROUTER_API_KEY")
-  ? "openrouter/anthropic/claude-haiku-4.5"
+  ? "openrouter/anthropic/claude-sonnet-4.6"
   : "google/gemini-3.5-flash";
 
 // Cadena Pro: sonnet-4.6 (OpenRouter) → sonnet-4-5 (Anthropic directo) → gpt-5 → gemini-3.5-flash.
