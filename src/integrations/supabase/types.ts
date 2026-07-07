@@ -217,6 +217,13 @@ export type Database = {
             foreignKeyName: "actividad_proyecto_proyecto_id_fkey"
             columns: ["proyecto_id"]
             isOneToOne: false
+            referencedRelation: "canonical_projects_v"
+            referencedColumns: ["canonical_project_id"]
+          },
+          {
+            foreignKeyName: "actividad_proyecto_proyecto_id_fkey"
+            columns: ["proyecto_id"]
+            isOneToOne: false
             referencedRelation: "proyectos"
             referencedColumns: ["id"]
           },
@@ -293,6 +300,13 @@ export type Database = {
           updated_at?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "activos_proyecto_id_fkey"
+            columns: ["proyecto_id"]
+            isOneToOne: false
+            referencedRelation: "canonical_projects_v"
+            referencedColumns: ["canonical_project_id"]
+          },
           {
             foreignKeyName: "activos_proyecto_id_fkey"
             columns: ["proyecto_id"]
@@ -1233,6 +1247,13 @@ export type Database = {
             foreignKeyName: "document_chunks_proyecto_id_fkey"
             columns: ["proyecto_id"]
             isOneToOne: false
+            referencedRelation: "canonical_projects_v"
+            referencedColumns: ["canonical_project_id"]
+          },
+          {
+            foreignKeyName: "document_chunks_proyecto_id_fkey"
+            columns: ["proyecto_id"]
+            isOneToOne: false
             referencedRelation: "proyectos"
             referencedColumns: ["id"]
           },
@@ -1426,6 +1447,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "operadores"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "documentos_proyecto_proyecto_id_fkey"
+            columns: ["proyecto_id"]
+            isOneToOne: false
+            referencedRelation: "canonical_projects_v"
+            referencedColumns: ["canonical_project_id"]
           },
           {
             foreignKeyName: "documentos_proyecto_proyecto_id_fkey"
@@ -1846,6 +1874,222 @@ export type Database = {
         }
         Relationships: []
       }
+      golden_questions: {
+        Row: {
+          active: boolean
+          assertions: Json | null
+          category: string
+          code: string | null
+          created_at: string
+          difficulty: string | null
+          evaluation_mode: string
+          expected_answer: string | null
+          expected_answer_type: string | null
+          expected_entities: string[] | null
+          expected_source_refs: string | null
+          forbidden_behaviors: Json | null
+          golden_set_version: string
+          id: string
+          question: string
+          required_tools: string[] | null
+          requires_dedup: boolean
+          requires_m365: boolean
+          requires_manual: boolean
+          requires_operator_enrichment: boolean
+          requires_scoring: boolean
+          source_type_expected: string
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          assertions?: Json | null
+          category: string
+          code?: string | null
+          created_at?: string
+          difficulty?: string | null
+          evaluation_mode: string
+          expected_answer?: string | null
+          expected_answer_type?: string | null
+          expected_entities?: string[] | null
+          expected_source_refs?: string | null
+          forbidden_behaviors?: Json | null
+          golden_set_version?: string
+          id?: string
+          question: string
+          required_tools?: string[] | null
+          requires_dedup?: boolean
+          requires_m365?: boolean
+          requires_manual?: boolean
+          requires_operator_enrichment?: boolean
+          requires_scoring?: boolean
+          source_type_expected: string
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          assertions?: Json | null
+          category?: string
+          code?: string | null
+          created_at?: string
+          difficulty?: string | null
+          evaluation_mode?: string
+          expected_answer?: string | null
+          expected_answer_type?: string | null
+          expected_entities?: string[] | null
+          expected_source_refs?: string | null
+          forbidden_behaviors?: Json | null
+          golden_set_version?: string
+          id?: string
+          question?: string
+          required_tools?: string[] | null
+          requires_dedup?: boolean
+          requires_m365?: boolean
+          requires_manual?: boolean
+          requires_operator_enrichment?: boolean
+          requires_scoring?: boolean
+          source_type_expected?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      golden_run_results: {
+        Row: {
+          answer: string | null
+          cost: number | null
+          created_at: string
+          failure_reason: string | null
+          id: string
+          judge_explanation: string | null
+          latency_ms: number | null
+          passed: boolean | null
+          question_id: string
+          run_id: string
+          score: number | null
+          sources_returned: Json | null
+          tools_called: string[] | null
+        }
+        Insert: {
+          answer?: string | null
+          cost?: number | null
+          created_at?: string
+          failure_reason?: string | null
+          id?: string
+          judge_explanation?: string | null
+          latency_ms?: number | null
+          passed?: boolean | null
+          question_id: string
+          run_id: string
+          score?: number | null
+          sources_returned?: Json | null
+          tools_called?: string[] | null
+        }
+        Update: {
+          answer?: string | null
+          cost?: number | null
+          created_at?: string
+          failure_reason?: string | null
+          id?: string
+          judge_explanation?: string | null
+          latency_ms?: number | null
+          passed?: boolean | null
+          question_id?: string
+          run_id?: string
+          score?: number | null
+          sources_returned?: Json | null
+          tools_called?: string[] | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "golden_run_results_question_id_fkey"
+            columns: ["question_id"]
+            isOneToOne: false
+            referencedRelation: "golden_questions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "golden_run_results_run_id_fkey"
+            columns: ["run_id"]
+            isOneToOne: false
+            referencedRelation: "golden_runs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      golden_runs: {
+        Row: {
+          accuracy: number | null
+          app_version: string | null
+          avg_cost: number | null
+          created_at: string
+          database_snapshot_at: string
+          dedup_version: string | null
+          finished_at: string | null
+          golden_set_version: string
+          hallucination_rate: number | null
+          id: string
+          latency_p50: number | null
+          latency_p95: number | null
+          model_version: string | null
+          notes: string | null
+          rag_version: string | null
+          route_accuracy: number | null
+          run_name: string | null
+          run_type: string
+          source_precision: number | null
+          status: string
+          total_questions: number | null
+          triggered_by: string | null
+        }
+        Insert: {
+          accuracy?: number | null
+          app_version?: string | null
+          avg_cost?: number | null
+          created_at?: string
+          database_snapshot_at?: string
+          dedup_version?: string | null
+          finished_at?: string | null
+          golden_set_version?: string
+          hallucination_rate?: number | null
+          id?: string
+          latency_p50?: number | null
+          latency_p95?: number | null
+          model_version?: string | null
+          notes?: string | null
+          rag_version?: string | null
+          route_accuracy?: number | null
+          run_name?: string | null
+          run_type: string
+          source_precision?: number | null
+          status?: string
+          total_questions?: number | null
+          triggered_by?: string | null
+        }
+        Update: {
+          accuracy?: number | null
+          app_version?: string | null
+          avg_cost?: number | null
+          created_at?: string
+          database_snapshot_at?: string
+          dedup_version?: string | null
+          finished_at?: string | null
+          golden_set_version?: string
+          hallucination_rate?: number | null
+          id?: string
+          latency_p50?: number | null
+          latency_p95?: number | null
+          model_version?: string | null
+          notes?: string | null
+          rag_version?: string | null
+          route_accuracy?: number | null
+          run_name?: string | null
+          run_type?: string
+          source_precision?: number | null
+          status?: string
+          total_questions?: number | null
+          triggered_by?: string | null
+        }
+        Relationships: []
+      }
       ingestion_jobs: {
         Row: {
           completado_en: string | null
@@ -2162,6 +2406,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "operadores"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "negociaciones_proyecto_id_fkey"
+            columns: ["proyecto_id"]
+            isOneToOne: false
+            referencedRelation: "canonical_projects_v"
+            referencedColumns: ["canonical_project_id"]
           },
           {
             foreignKeyName: "negociaciones_proyecto_id_fkey"
@@ -2757,6 +3008,13 @@ export type Database = {
             foreignKeyName: "project_aliases_proyecto_id_fkey"
             columns: ["proyecto_id"]
             isOneToOne: false
+            referencedRelation: "canonical_projects_v"
+            referencedColumns: ["canonical_project_id"]
+          },
+          {
+            foreignKeyName: "project_aliases_proyecto_id_fkey"
+            columns: ["proyecto_id"]
+            isOneToOne: false
             referencedRelation: "proyectos"
             referencedColumns: ["id"]
           },
@@ -2796,6 +3054,13 @@ export type Database = {
             foreignKeyName: "proyecto_contactos_proyecto_id_fkey"
             columns: ["proyecto_id"]
             isOneToOne: false
+            referencedRelation: "canonical_projects_v"
+            referencedColumns: ["canonical_project_id"]
+          },
+          {
+            foreignKeyName: "proyecto_contactos_proyecto_id_fkey"
+            columns: ["proyecto_id"]
+            isOneToOne: false
             referencedRelation: "proyectos"
             referencedColumns: ["id"]
           },
@@ -2824,6 +3089,13 @@ export type Database = {
           usuario_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "proyecto_equipo_proyecto_id_fkey"
+            columns: ["proyecto_id"]
+            isOneToOne: false
+            referencedRelation: "canonical_projects_v"
+            referencedColumns: ["canonical_project_id"]
+          },
           {
             foreignKeyName: "proyecto_equipo_proyecto_id_fkey"
             columns: ["proyecto_id"]
@@ -2862,6 +3134,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "operadores"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "proyecto_operadores_proyecto_id_fkey"
+            columns: ["proyecto_id"]
+            isOneToOne: false
+            referencedRelation: "canonical_projects_v"
+            referencedColumns: ["canonical_project_id"]
           },
           {
             foreignKeyName: "proyecto_operadores_proyecto_id_fkey"
@@ -2961,6 +3240,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "proyectos_canonical_project_id_fkey"
+            columns: ["canonical_project_id"]
+            isOneToOne: false
+            referencedRelation: "canonical_projects_v"
+            referencedColumns: ["canonical_project_id"]
+          },
           {
             foreignKeyName: "proyectos_canonical_project_id_fkey"
             columns: ["canonical_project_id"]
@@ -3382,7 +3668,64 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      canonical_projects_v: {
+        Row: {
+          canonical_project_id: string | null
+          comision_total: number | null
+          created_at: string | null
+          descripcion: string | null
+          estado: Database["public"]["Enums"]["estado_proyecto"] | null
+          estatus_comercial: string | null
+          honorarios_recibidos: string | null
+          metadata: Json | null
+          project_name: string | null
+          ubicacion: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          canonical_project_id?: string | null
+          comision_total?: number | null
+          created_at?: string | null
+          descripcion?: string | null
+          estado?: Database["public"]["Enums"]["estado_proyecto"] | null
+          estatus_comercial?: string | null
+          honorarios_recibidos?: string | null
+          metadata?: Json | null
+          project_name?: string | null
+          ubicacion?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          canonical_project_id?: string | null
+          comision_total?: number | null
+          created_at?: string | null
+          descripcion?: string | null
+          estado?: Database["public"]["Enums"]["estado_proyecto"] | null
+          estatus_comercial?: string | null
+          honorarios_recibidos?: string | null
+          metadata?: Json | null
+          project_name?: string | null
+          ubicacion?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      project_financials_v: {
+        Row: {
+          canonical_project_id: string | null
+          estatus_comercial: string | null
+          estimated_cost: number | null
+          expected_commission: number | null
+          fees_received: number | null
+          gross_margin: number | null
+          probability: number | null
+          project_name: string | null
+          signed_commission: number | null
+          total_commission: number | null
+          weighted_expected_value: number | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       cache_query_embedding: {
