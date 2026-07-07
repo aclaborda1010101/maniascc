@@ -215,8 +215,8 @@ serve(async (req) => {
     const runType: "parcial" | "oficial" = body?.run_type === "oficial" ? "oficial" : "parcial";
     const onlyCategories: string[] | undefined = body?.only_categories;
     const runName: string = body?.run_name || `${runType} · ${new Date().toISOString().slice(0, 16)}`;
-    const runnerEmail: string | undefined = body?.runner_email;
-    const runnerPassword: string | undefined = body?.runner_password;
+    const runnerEmail: string | undefined = body?.runner_email || Deno.env.get("GOLDEN_RUNNER_EMAIL") || undefined;
+    const runnerPassword: string | undefined = body?.runner_password || Deno.env.get("GOLDEN_RUNNER_PASSWORD") || undefined;
 
     let runnerJwt = isServiceCall ? "" : bearer;
     if (runnerEmail && runnerPassword) {
