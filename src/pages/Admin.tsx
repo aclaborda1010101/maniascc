@@ -185,6 +185,43 @@ export default function Admin() {
               </div>
             </CardContent>
           </Card>
+
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <CardTitle className="flex items-center gap-2"><Mail className="h-5 w-5" /> Correo M365</CardTitle>
+                <Button size="sm" onClick={syncNow} disabled={m365Syncing}>
+                  {m365Syncing ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> : <RefreshCw className="h-3.5 w-3.5 mr-1" />}
+                  Sincronizar ahora
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {m365Loading ? (
+                <Skeleton className="h-24 w-full" />
+              ) : (
+                <>
+                  <div className="grid gap-3 sm:grid-cols-5">
+                    <div className="rounded-lg border p-3"><p className="text-xs text-muted-foreground">Pendientes</p><p className="text-xl font-bold">{m365Stats.pending}</p></div>
+                    <div className="rounded-lg border p-3"><p className="text-xs text-muted-foreground">Revisión</p><p className="text-xl font-bold text-chart-4">{m365Stats.needs_review}</p></div>
+                    <div className="rounded-lg border p-3"><p className="text-xs text-muted-foreground">Aplicados</p><p className="text-xl font-bold text-chart-2">{m365Stats.applied}</p></div>
+                    <div className="rounded-lg border p-3"><p className="text-xs text-muted-foreground">Descartados</p><p className="text-xl font-bold">{m365Stats.discarded}</p></div>
+                    <div className="rounded-lg border p-3"><p className="text-xs text-muted-foreground">Errores</p><p className="text-xl font-bold text-destructive">{m365Stats.error}</p></div>
+                  </div>
+                  <div className="flex flex-wrap items-end gap-4">
+                    <div className="space-y-1">
+                      <Label className="text-xs">Último sync</Label>
+                      <p className="text-sm font-mono">{m365Stats.last_synced ? new Date(m365Stats.last_synced).toLocaleString("es-ES") : "—"}</p>
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs">Umbral auto (0–1)</Label>
+                      <Input type="number" min={0} max={1} step={0.05} defaultValue={m365Stats.umbral} onBlur={(e) => updateUmbral(Number(e.target.value))} className="w-32" />
+                    </div>
+                  </div>
+                </>
+              )}
+            </CardContent>
+          </Card>
         </TabsContent>
       </Tabs>
     </div>
