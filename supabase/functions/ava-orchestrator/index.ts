@@ -1298,58 +1298,74 @@ serve(async (req) => {
       let directModel = TOOL_ROUTER_MODEL;
       let sonnetTokensIn = 0;
       let sonnetTokensOut = 0;
-      const directCandidates = useProModel ? Array.from(new Set([SYNTHESIS_MODEL, ...PRO_MODEL_CHAIN])) : [SYNTHESIS_MODEL];
-      for (const candidate of directCandidates) {
-        try {
-          if (isAnthropicModel(candidate)) {
-            const aResp = await callChatCompletion(
-              "https://ai.gateway.lovable.dev/v1/chat/completions",
-              {
+
+      // 5b: si el router no pidió tools y su contenido ya es sustancial y no está cortado,
+      // úsalo directamente sin re-llamada (ahorra ~1 llamada completa).
+      const trimmed = firstCallContent.trim();
+      const looksComplete = trimmed.length > 300 && (
+        /[.!?…)\]}"`']\s*$/.test(trimmed) ||
+        /\|\s*$/.test(trimmed) ||     // fila de tabla markdown
+        /^\s*[-*]\s/m.test(trimmed.split("\n").slice(-1)[0] || "")  // item de lista al final
+      );
+      const skipResynth = !useProModel && looksComplete;
+
+      if (!skipResynth) {
+        const directCandidates = useProModel ? Array.from(new Set([SYNTHESIS_MODEL, ...PRO_MODEL_CHAIN])) : [SYNTHESIS_MODEL];
+        for (const candidate of directCandidates) {
+          try {
+            if (isAnthropicModel(candidate)) {
+              const aResp = await callChatCompletion(
+                "https://ai.gateway.lovable.dev/v1/chat/completions",
+                {
+                  method: "POST",
+                  headers: { Authorization: `Bearer ${lovableKey}`, "Content-Type": "application/json" },
+                  body: JSON.stringify({ model: candidate, messages, max_tokens: 4000 }),
+                },
+                { timeoutMs: 90000, retries: 1 },
+              );
+              if (aResp.ok) {
+                const aJson = await aResp.json();
+                const content = aJson.choices?.[0]?.message?.content || "";
+                if (content.trim()) {
+                  directAnswer = content;
+                  directModel = candidate;
+                  sonnetTokensIn = aJson.usage?.prompt_tokens || 0;
+                  sonnetTokensOut = aJson.usage?.completion_tokens || 0;
+                  totalTokensIn += sonnetTokensIn;
+                  totalTokensOut += sonnetTokensOut;
+                  break;
+                }
+              } else {
+                console.error(`[direct pro-fallback] ${candidate} failed:`, aResp.status);
+              }
+            } else {
+              const directStream = await streamChatCompletion("https://ai.gateway.lovable.dev/v1/chat/completions", {
                 method: "POST",
                 headers: { Authorization: `Bearer ${lovableKey}`, "Content-Type": "application/json" },
-                body: JSON.stringify({ model: candidate, messages, max_tokens: 1600 }),
-              },
-              { timeoutMs: 90000, retries: 1 },
-            );
-            if (aResp.ok) {
-              const aJson = await aResp.json();
-              const content = aJson.choices?.[0]?.message?.content || "";
-              if (content.trim()) {
-                directAnswer = content;
+                body: JSON.stringify({ model: candidate, messages, max_tokens: 4000 }),
+              }, { timeoutMs: 90000 });
+              if (directStream.ok && directStream.content.trim()) {
+                directAnswer = directStream.content;
                 directModel = candidate;
-                sonnetTokensIn = aJson.usage?.prompt_tokens || 0;
-                sonnetTokensOut = aJson.usage?.completion_tokens || 0;
+                sonnetTokensIn = directStream.usage?.prompt_tokens || 0;
+                sonnetTokensOut = directStream.usage?.completion_tokens || 0;
                 totalTokensIn += sonnetTokensIn;
                 totalTokensOut += sonnetTokensOut;
                 break;
               }
-            } else {
-              console.error(`[direct pro-fallback] ${candidate} failed:`, aResp.status);
+              console.error(`[direct pro-fallback] ${candidate} stream failed:`, directStream.status, directStream.raw?.slice(0, 200));
             }
-          } else {
-            const directStream = await streamChatCompletion("https://ai.gateway.lovable.dev/v1/chat/completions", {
-              method: "POST",
-              headers: { Authorization: `Bearer ${lovableKey}`, "Content-Type": "application/json" },
-              body: JSON.stringify({ model: candidate, messages, max_tokens: 1600 }),
-            }, { timeoutMs: 90000 });
-            if (directStream.ok && directStream.content.trim()) {
-              directAnswer = directStream.content;
-              directModel = candidate;
-              sonnetTokensIn = directStream.usage?.prompt_tokens || 0;
-              sonnetTokensOut = directStream.usage?.completion_tokens || 0;
-              totalTokensIn += sonnetTokensIn;
-              totalTokensOut += sonnetTokensOut;
-              break;
-            }
-            console.error(`[direct pro-fallback] ${candidate} stream failed:`, directStream.status, directStream.raw?.slice(0, 200));
+          } catch (e) {
+            console.error(`[direct pro-fallback] ${candidate} error:`, e);
           }
-        } catch (e) {
-          console.error(`[direct pro-fallback] ${candidate} error:`, e);
         }
+      } else {
+        console.log(`[direct-fastpath] usando respuesta del router directamente (len=${trimmed.length})`);
       }
       const latencyMs = Date.now() - startTime;
       const costEur = routingCostEur + sonnetTokensIn * GEMINI_INPUT + sonnetTokensOut * GEMINI_OUTPUT;
-      await admin.from("auditoria_ia").insert({
+      // 5d: auditoría fire-and-forget (no bloqueamos el response)
+      admin.from("auditoria_ia").insert({
         modelo: directModel,
         funcion_ia: "ava-orchestrator",
         latencia_ms: latencyMs,
@@ -1358,8 +1374,8 @@ serve(async (req) => {
         coste_estimado: costEur,
         exito: true,
         created_by: user.id,
-      });
-      await admin.from("usage_logs").insert({
+      }).then(() => {}, (e: any) => console.warn("[audit] direct failed:", e));
+      admin.from("usage_logs").insert({
         user_id: user.id,
         action_type: "chat",
         agent_label: "AVA Orchestrator",
@@ -1368,8 +1384,8 @@ serve(async (req) => {
         tokens_output: totalTokensOut,
         cost_eur: costEur,
         latency_ms: latencyMs,
-        metadata: { direct_answer: true, message: message?.slice(0, 200) },
-      });
+        metadata: { direct_answer: true, skipped_resynth: skipResynth, message: message?.slice(0, 200) },
+      }).then(() => {}, (e: any) => console.warn("[usage] direct failed:", e));
       return new Response(JSON.stringify({
         answer: directAnswer,
         tools_used: [],
