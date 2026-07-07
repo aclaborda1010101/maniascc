@@ -97,20 +97,43 @@ serve(async (req) => {
     const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const lovableKey = Deno.env.get("LOVABLE_API_KEY") || "";
 
-    const userClient = createClient(supabaseUrl, anonKey, { global: { headers: { Authorization: authHeader } } });
-    const { data: { user } } = await userClient.auth.getUser();
-    if (!user) return new Response(JSON.stringify({ error: "Usuario no autenticado" }), { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    const bearer = authHeader.replace(/^Bearer\s+/i, "").trim();
+    const isServiceCall = bearer === serviceKey;
 
     const admin = createClient(supabaseUrl, serviceKey);
-    const { data: roleRows } = await admin.from("user_roles").select("role").eq("user_id", user.id);
-    if (!(roleRows || []).some((r: any) => r.role === "admin")) {
-      return new Response(JSON.stringify({ error: "Solo administradores" }), { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    let triggeredBy: string | null = null;
+
+    if (!isServiceCall) {
+      const userClient = createClient(supabaseUrl, anonKey, { global: { headers: { Authorization: authHeader } } });
+      const { data: { user } } = await userClient.auth.getUser();
+      if (!user) return new Response(JSON.stringify({ error: "Usuario no autenticado" }), { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      const { data: roleRows } = await admin.from("user_roles").select("role").eq("user_id", user.id);
+      if (!(roleRows || []).some((r: any) => r.role === "admin")) {
+        return new Response(JSON.stringify({ error: "Solo administradores" }), { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+      triggeredBy = user.id;
     }
 
     const body = await req.json().catch(() => ({}));
     const runType: "parcial" | "oficial" = body?.run_type === "oficial" ? "oficial" : "parcial";
     const onlyCategories: string[] | undefined = body?.only_categories;
     const runName: string = body?.run_name || `${runType} · ${new Date().toISOString().slice(0, 16)}`;
+    const runnerEmail: string | undefined = body?.runner_email;
+    const runnerPassword: string | undefined = body?.runner_password;
+
+    // Obtener JWT del runner (usuario real) para llamar al orquestador con getUser válido
+    let runnerJwt = isServiceCall ? "" : authHeader.replace(/^Bearer\s+/i, "").trim();
+    if (runnerEmail && runnerPassword) {
+      const anon = createClient(supabaseUrl, anonKey);
+      const { data: sess, error: signErr } = await anon.auth.signInWithPassword({ email: runnerEmail, password: runnerPassword });
+      if (signErr || !sess?.session?.access_token) {
+        return new Response(JSON.stringify({ error: `runner sign-in falló: ${signErr?.message || "sin sesión"}` }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+      runnerJwt = sess.session.access_token;
+    }
+    if (!runnerJwt) {
+      return new Response(JSON.stringify({ error: "Falta runner_jwt (proporcione runner_email+runner_password o llame con JWT de usuario)" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
 
     // Selección de preguntas
     let q = admin.from("golden_questions").select("*").eq("active", true);
@@ -119,16 +142,13 @@ serve(async (req) => {
     if (qe) throw qe;
     let questions = (questionsRaw || []) as Question[];
 
-    // Excluir siempre las manuales del auto-run
     questions = questions.filter((x) => !x.requires_manual);
-
     if (runType === "parcial") {
       questions = questions.filter((x) =>
         !x.requires_dedup && !x.requires_operator_enrichment && !x.requires_m365 && !x.requires_scoring
       );
     }
 
-    // Crear la corrida
     const { data: run, error: runErr } = await admin.from("golden_runs").insert({
       run_name: runName,
       run_type: runType,
@@ -137,7 +157,8 @@ serve(async (req) => {
       model_version: JUDGE_MODEL,
       dedup_version: DEDUP_VERSION,
       golden_set_version: GOLDEN_SET_VERSION,
-      triggered_by: user.id,
+      database_snapshot_at: new Date().toISOString(),
+      triggered_by: triggeredBy,
       total_questions: questions.length,
       status: "running",
     }).select().single();
@@ -146,6 +167,13 @@ serve(async (req) => {
     const latencies: number[] = [];
     const costs: number[] = [];
     let passedCount = 0;
+
+    // Buckets para métricas derivadas
+    let hallucTotal = 0, hallucFail = 0;
+    let ragTotal = 0, ragWithSourcesPassed = 0;
+    let routeTotal = 0, routePassed = 0;
+
+    const orchestratorUrl = `${supabaseUrl}/functions/v1/ava-orchestrator`;
 
     for (const qn of questions) {
       const t0 = Date.now();
@@ -156,20 +184,29 @@ serve(async (req) => {
       let failure_reason: string | null = null;
 
       try {
-        const invoke = await admin.functions.invoke("ava-orchestrator", {
-          body: {
+        const r = await fetch(orchestratorUrl, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${runnerJwt}`,
+            "apikey": anonKey,
+          },
+          body: JSON.stringify({
             message: qn.question,
             conversation_id: null,
             history: [],
             is_golden_run: true,
-          },
+          }),
         });
-        if (invoke.error) throw invoke.error;
-        const data: any = invoke.data || {};
-        answer = data.answer || data.reply || data.content || JSON.stringify(data).slice(0, 500);
-        sources = data.sources || data.sources_returned || [];
-        tools = data.tools_called || data.tools || [];
-        cost = Number(data.cost || 0);
+        const txt = await r.text();
+        if (!r.ok) throw new Error(`HTTP ${r.status}: ${txt.slice(0, 300)}`);
+        let data: any = {};
+        try { data = JSON.parse(txt); } catch { data = { answer: txt }; }
+        answer = data.answer || data.reply || data.content || data.message || (typeof data === "string" ? data : JSON.stringify(data).slice(0, 500));
+        sources = data.sources || data.sources_returned || data.citations || [];
+        tools = data.tools_called || data.tools || data.route ? [data.route].filter(Boolean) : [];
+        if (Array.isArray(data.tools_called)) tools = data.tools_called;
+        cost = Number(data.cost || data.total_cost || 0);
       } catch (e: any) {
         failure_reason = `orchestrator: ${e.message || String(e)}`;
       }
@@ -201,6 +238,20 @@ serve(async (req) => {
 
       if (passed) passedCount++;
 
+      // Métricas derivadas por categoría
+      const cat = (qn.category || "").toLowerCase();
+      const code = (qn.code || "").toUpperCase();
+      if (cat.includes("no") && cat.includes("inven") || code.startsWith("G")) {
+        hallucTotal++; if (!passed) hallucFail++;
+      }
+      if (qn.source_type_expected === "RAG" || cat === "rag") {
+        ragTotal++;
+        if (passed && Array.isArray(sources) && sources.length > 0) ragWithSourcesPassed++;
+      }
+      if (cat.includes("router") || cat.includes("rendim") || code.startsWith("I")) {
+        routeTotal++; if (passed) routePassed++;
+      }
+
       await admin.from("golden_run_results").insert({
         run_id: run.id,
         question_id: qn.id,
@@ -221,6 +272,9 @@ serve(async (req) => {
     const p50 = percentile(latencies, 50);
     const p95 = percentile(latencies, 95);
     const avgCost = costs.length > 0 ? costs.reduce((a, b) => a + b, 0) / costs.length : 0;
+    const halluc = hallucTotal > 0 ? hallucFail / hallucTotal : null;
+    const srcPrec = ragTotal > 0 ? ragWithSourcesPassed / ragTotal : null;
+    const routeAcc = routeTotal > 0 ? routePassed / routeTotal : null;
 
     await admin.from("golden_runs").update({
       status: "done",
@@ -229,6 +283,9 @@ serve(async (req) => {
       latency_p50: p50,
       latency_p95: p95,
       avg_cost: avgCost,
+      hallucination_rate: halluc,
+      source_precision: srcPrec,
+      route_accuracy: routeAcc,
     }).eq("id", run.id);
 
     return new Response(JSON.stringify({
@@ -236,6 +293,9 @@ serve(async (req) => {
       run_id: run.id,
       total_questions: questions.length,
       accuracy,
+      hallucination_rate: halluc,
+      source_precision: srcPrec,
+      route_accuracy: routeAcc,
       latency_p50: p50,
       latency_p95: p95,
       avg_cost: avgCost,
@@ -247,3 +307,4 @@ serve(async (req) => {
     });
   }
 });
+
