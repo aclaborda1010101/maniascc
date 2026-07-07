@@ -30,6 +30,7 @@ type Question = {
   requires_m365: boolean;
   requires_scoring: boolean;
   requires_manual: boolean;
+  requires_conversation_context: boolean;
 };
 
 function percentile(arr: number[], p: number): number {
