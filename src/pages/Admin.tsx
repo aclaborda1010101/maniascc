@@ -39,7 +39,50 @@ export default function Admin() {
   });
   const [secretChanged, setSecretChanged] = useState(false);
 
-  useEffect(() => { fetchLogs(); fetchM365(); loadCfg(); }, []);
+  // Reclasificación archivo
+  const [bfStatus, setBfStatus] = useState<any>(null);
+  const [bfLoading, setBfLoading] = useState(false);
+  const [bfRunning, setBfRunning] = useState<string | null>(null);
+  const [bfProgress, setBfProgress] = useState<{ phase: string; processed: number; linked: number; remaining: number } | null>(null);
+
+  useEffect(() => { fetchLogs(); fetchM365(); loadCfg(); fetchBfStatus(); }, []);
+
+  const fetchBfStatus = async () => {
+    setBfLoading(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("rag-backfill-links", { body: { phase: "status" } });
+      if (error) throw error;
+      setBfStatus(data);
+    } catch (e: any) {
+      toast({ title: "Error status", description: e.message, variant: "destructive" });
+    } finally { setBfLoading(false); }
+  };
+
+  const runBackfill = async (phase: string, dryRun: boolean) => {
+    if (!dryRun && !confirm(`Ejecutar la fase "${phase}"? Rellenará vínculos vacíos (reversible por fase).`)) return;
+    setBfRunning(phase + (dryRun ? ":dry" : ""));
+    setBfProgress({ phase, processed: 0, linked: 0, remaining: 0 });
+    try {
+      let totalProc = 0, totalLinked = 0;
+      // dry-run: una sola llamada; ejecución real: iterar hasta done
+      for (let i = 0; i < 200; i++) {
+        const { data, error } = await supabase.functions.invoke("rag-backfill-links", { body: { phase, dry_run: dryRun, batch_size: 1000 } });
+        if (error) throw error;
+        totalProc += data.processed || 0;
+        totalLinked += data.linked || 0;
+        setBfProgress({ phase, processed: totalProc, linked: totalLinked, remaining: data.remaining || 0 });
+        if (dryRun || data.done) break;
+      }
+      toast({ title: dryRun ? "Simulacro" : "Fase completa", description: `${phase}: ${totalLinked} vínculos ${dryRun ? "vinculables" : "creados"}` });
+      await fetchBfStatus();
+    } catch (e: any) {
+      toast({ title: "Error", description: e.message, variant: "destructive" });
+    } finally {
+      setBfRunning(null);
+      setBfProgress(null);
+    }
+  };
+
 
   const fetchLogs = async () => {
     setLogsLoading(true);
