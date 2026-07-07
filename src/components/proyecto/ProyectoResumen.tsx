@@ -1,6 +1,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { MapPin, Calendar } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 
 const tipoLabels: Record<string, string> = {
   desarrollo_comercial: "Desarrollo Comercial", venta_activo: "Venta de Activo",
@@ -35,6 +36,29 @@ export function ProyectoResumen({ proyecto, activos, operadores, contactos, allL
             {proyecto.fecha_inicio && <div><span className="text-muted-foreground">Inicio:</span> {new Date(proyecto.fecha_inicio).toLocaleDateString("es-ES")}</div>}
             {proyecto.fecha_objetivo && <div><span className="text-muted-foreground">Objetivo:</span> {new Date(proyecto.fecha_objetivo).toLocaleDateString("es-ES")}</div>}
           </div>
+          {(proyecto.comision_total != null || proyecto.comision_firma != null || proyecto.honorarios_recibidos || proyecto.estatus_comercial) && (
+            <div className="pt-2 border-t mt-2">
+              <p className="text-muted-foreground text-xs mb-2">Comercial</p>
+              <div className="grid grid-cols-2 gap-x-8 gap-y-2">
+                {proyecto.estatus_comercial && (
+                  <div className="col-span-2 flex items-center gap-2">
+                    <span className="text-muted-foreground">Estatus:</span>
+                    <Badge variant="outline" className={
+                      proyecto.estatus_comercial === "Firmado" ? "bg-chart-2/10 text-chart-2 border-chart-2/20" :
+                      proyecto.estatus_comercial === "Abierto" ? "bg-chart-5/10 text-chart-5 border-chart-5/20" :
+                      proyecto.estatus_comercial === "Caído" ? "bg-muted text-muted-foreground" :
+                      ""
+                    }>{proyecto.estatus_comercial}</Badge>
+                  </div>
+                )}
+                {proyecto.comision_total != null && <div><span className="text-muted-foreground">Comisión total:</span> <span className="font-medium">{Number(proyecto.comision_total).toLocaleString("es-ES")} €</span></div>}
+                {proyecto.comision_firma != null && <div><span className="text-muted-foreground">Comisión a firma:</span> {Number(proyecto.comision_firma).toLocaleString("es-ES")} €</div>}
+                {proyecto.comision_apertura != null && <div><span className="text-muted-foreground">Comisión apertura:</span> {Number(proyecto.comision_apertura).toLocaleString("es-ES")} €</div>}
+                {proyecto.honorarios_recibidos && <div><span className="text-muted-foreground">Honorarios recibidos:</span> {proyecto.honorarios_recibidos}</div>}
+                {proyecto.cliente_prop && <div className="col-span-2"><span className="text-muted-foreground">Cliente/Prop.:</span> {proyecto.cliente_prop}</div>}
+              </div>
+            </div>
+          )}
           {proyecto.notas && <div className="pt-2 border-t mt-2"><p className="text-muted-foreground text-xs mb-1">Notas</p><p>{proyecto.notas}</p></div>}
           <div className="pt-2 border-t mt-2">
             <p className="text-muted-foreground text-xs mb-2">Activo asignado (para Matching IA)</p>

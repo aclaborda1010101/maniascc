@@ -2875,13 +2875,19 @@ export type Database = {
       proyectos: {
         Row: {
           cliente_contacto_id: string | null
+          cliente_prop: string | null
           codigo_postal: string | null
+          comision_apertura: number | null
+          comision_firma: number | null
+          comision_total: number | null
           created_at: string
           created_by: string | null
           descripcion: string | null
           estado: Database["public"]["Enums"]["estado_proyecto"]
+          estatus_comercial: string | null
           fecha_inicio: string | null
           fecha_objetivo: string | null
+          honorarios_recibidos: string | null
           id: string
           local_id: string | null
           metadata: Json | null
@@ -2895,13 +2901,19 @@ export type Database = {
         }
         Insert: {
           cliente_contacto_id?: string | null
+          cliente_prop?: string | null
           codigo_postal?: string | null
+          comision_apertura?: number | null
+          comision_firma?: number | null
+          comision_total?: number | null
           created_at?: string
           created_by?: string | null
           descripcion?: string | null
           estado?: Database["public"]["Enums"]["estado_proyecto"]
+          estatus_comercial?: string | null
           fecha_inicio?: string | null
           fecha_objetivo?: string | null
+          honorarios_recibidos?: string | null
           id?: string
           local_id?: string | null
           metadata?: Json | null
@@ -2915,13 +2927,19 @@ export type Database = {
         }
         Update: {
           cliente_contacto_id?: string | null
+          cliente_prop?: string | null
           codigo_postal?: string | null
+          comision_apertura?: number | null
+          comision_firma?: number | null
+          comision_total?: number | null
           created_at?: string
           created_by?: string | null
           descripcion?: string | null
           estado?: Database["public"]["Enums"]["estado_proyecto"]
+          estatus_comercial?: string | null
           fecha_inicio?: string | null
           fecha_objetivo?: string | null
+          honorarios_recibidos?: string | null
           id?: string
           local_id?: string | null
           metadata?: Json | null
@@ -3383,6 +3401,7 @@ export type Database = {
         }
         Returns: number
       }
+      parse_es_numeric: { Args: { t: string }; Returns: number }
       propagar_dominio_chunks_lote: {
         Args: { p_limite?: number }
         Returns: number

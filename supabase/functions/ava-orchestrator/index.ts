@@ -517,7 +517,7 @@ const TABLE_COLUMNS: Record<string, string[]> = {
   proyecto_contactos: ["id","proyecto_id","contacto_id","rol","added_at"],
   proyecto_equipo: ["id","proyecto_id","usuario_id","rol_proyecto","created_at"],
   proyecto_operadores: ["id","proyecto_id","operador_id","rol","added_at"],
-  proyectos: ["id","nombre","descripcion","tipo","estado","local_id","created_by","responsable_id","fecha_inicio","fecha_objetivo","notas","created_at","updated_at","ubicacion","codigo_postal","presupuesto_estimado","cliente_contacto_id","metadata"],
+  proyectos: ["id","nombre","descripcion","tipo","estado","local_id","created_by","responsable_id","fecha_inicio","fecha_objetivo","notas","created_at","updated_at","ubicacion","codigo_postal","presupuesto_estimado","cliente_contacto_id","metadata","comision_total","comision_firma","comision_apertura","honorarios_recibidos","estatus_comercial","cliente_prop"],
   sinergias_operadores: ["id","operador_a_id","operador_b_id","coeficiente_sinergia","num_observaciones","fuente","notas","ultima_actualizacion"],
   validaciones_retorno: ["id","dossier_storage_path","tipo_activo","ubicacion","codigo_postal","metricas_declaradas","metricas_reales","semaforos","desviaciones","benchmarks_usados","confianza_global","estado","propietario_ref","usuario_id","creado_en","cerrado_en"],
 };
@@ -632,7 +632,7 @@ const TOOLS = [
     type: "function",
     function: {
       name: "db_query",
-      description: "Consulta datos de tablas de AVA. " + SCHEMA_HINT_TEXT + " Tablas permitidas: locales, operadores, contactos, documentos_proyecto, negociaciones, proyectos, matches, activos, perfiles_negociador, validaciones_retorno, configuraciones_tenant_mix, patrones_localizacion, auditoria_ia, ai_insights, ai_feedback, notificaciones, proyecto_operadores, proyecto_contactos, proyecto_equipo, sinergias_operadores.",
+      description: "Consulta datos de tablas de AVA. " + SCHEMA_HINT_TEXT + " Tablas permitidas: locales, operadores, contactos, documentos_proyecto, negociaciones, proyectos, matches, activos, perfiles_negociador, validaciones_retorno, configuraciones_tenant_mix, patrones_localizacion, auditoria_ia, ai_insights, ai_feedback, notificaciones, proyecto_operadores, proyecto_contactos, proyecto_equipo, sinergias_operadores. Para rentabilidad/beneficio de proyectos usa comision_total, comision_firma, comision_apertura, honorarios_recibidos y estatus_comercial. 'Firmado' = ingreso real/cerrado; 'Abierto' = pipeline potencial; 'Caído' = perdido (0). honorarios_recibidos es texto Si/No.",
       parameters: {
         type: "object",
         properties: {
@@ -1995,7 +1995,7 @@ serve(async (req) => {
     for (const ex of executed0) toolResults.push({ tool: ex.toolLabel, result: ex.result });
 
     // Regla de honestidad ante datos ausentes (inyectada como system extra).
-    const HONESTY_RULE = `\n\nREGLA DE HONESTIDAD ANTE DATOS AUSENTES: Si el usuario pide una métrica que NO existe en los datos consultados (p.ej. rentabilidad, margen, ingresos, ROI cuando las tablas no tienen esos campos), DILO CLARAMENTE en una frase y ofrece la alternativa más cercana disponible (p.ej. estado del pipeline, probabilidad_cierre, presupuesto_estimado si existe). NUNCA rellenes con un volcado de registros para disimular que el dato falta. NUNCA inventes columnas ni interpretes campos que no aparezcan en los resultados de tools.`;
+    const HONESTY_RULE = `\n\nREGLA DE HONESTIDAD ANTE DATOS AUSENTES: Si el usuario pide una métrica que NO existe en los datos consultados (p.ej. rentabilidad, margen, ingresos, ROI cuando las tablas no tienen esos campos), DILO CLARAMENTE en una frase y ofrece la alternativa más cercana disponible (p.ej. estado del pipeline, probabilidad_cierre, presupuesto_estimado si existe). NUNCA rellenes con un volcado de registros para disimular que el dato falta. NUNCA inventes columnas ni interpretes campos que no aparezcan en los resultados de tools.\n\nRENTABILIDAD DE PROYECTOS: no existe un único campo 'rentabilidad'. Para responder sobre el proyecto más rentable, analiza comision_total / comision_firma / comision_apertura / honorarios_recibidos y pondera por estatus_comercial (Firmado = ingreso confirmado; Abierto = potencial de pipeline; Caído = descartar; Stand By / Cerrado = tratar aparte). Distingue SIEMPRE entre comisión ya firmada/cobrada y comisión potencial de pipeline. Si el usuario pregunta por rentabilidad, ordena por la métrica adecuada y explica el criterio usado. Ojo: puede haber proyectos duplicados por nombre; agrégalos o avisa si los ves.`;
 
     // Base de mensajes para síntesis + bucle multi-ronda.
     const synthesisMessages: Array<any> = [
