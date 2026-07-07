@@ -165,54 +165,71 @@ const DEFAULT_MODEL = "google/gemini-3.5-flash";
 const PRO_MODEL_FALLBACK = "google/gemini-3.5-flash";
 const TOOL_ROUTER_MODEL = "google/gemini-3.5-flash";
 const SMALLTALK_MODEL = "google/gemini-2.5-flash-lite";
-const ESCALATION_MODEL = "google/gemini-3.1-pro-preview";
+// Escalación: benchmark real (27 runs) → claude-haiku-4.5 vía OpenRouter es el
+// mejor reparador de respuestas incompletas (3-15s, herramientas correctas).
+// Fallback si no hay OPENROUTER_API_KEY: gemini-3.5-flash del gateway.
+const ESCALATION_MODEL = Deno.env.get("OPENROUTER_API_KEY")
+  ? "openrouter/anthropic/claude-haiku-4.5"
+  : "google/gemini-3.5-flash";
 
-// Cadena Pro: claude-sonnet-4-5 → gpt-5 → gemini-3.5-flash.
-// Se elige el primero cuya API key esté configurada.
-function resolveProModel(): string {
-  if (Deno.env.get("ANTHROPIC_API_KEY")) return "anthropic/claude-sonnet-4-5";
-  if (Deno.env.get("LOVABLE_API_KEY")) return "openai/gpt-5";
-  return PRO_MODEL_FALLBACK;
-}
-const PRO_MODEL = resolveProModel();
-// Lista ordenada de candidatos Pro para fallback runtime si el primario falla.
+// Cadena Pro: sonnet-4.6 (OpenRouter) → sonnet-4-5 (Anthropic directo) → gpt-5 → gemini-3.5-flash.
+// Se incluyen solo los candidatos cuya API key esté configurada.
 const PRO_MODEL_CHAIN: string[] = (() => {
   const chain: string[] = [];
+  if (Deno.env.get("OPENROUTER_API_KEY")) chain.push("openrouter/anthropic/claude-sonnet-4.6");
   if (Deno.env.get("ANTHROPIC_API_KEY")) chain.push("anthropic/claude-sonnet-4-5");
   if (Deno.env.get("LOVABLE_API_KEY")) chain.push("openai/gpt-5");
   chain.push(PRO_MODEL_FALLBACK);
   return chain;
 })();
+const PRO_MODEL = PRO_MODEL_CHAIN[0];
+...
+  "openai/gpt-5":                 { in: 2.50 / 1_000_000 * 0.92, out: 10.00 / 1_000_000 * 0.92 },
+  "openrouter/anthropic/claude-haiku-4.5":  { in: 1.00 / 1_000_000 * 0.92, out: 5.00 / 1_000_000 * 0.92 },
+  "openrouter/anthropic/claude-sonnet-4.6": { in: 3.00 / 1_000_000 * 0.92, out: 15.00 / 1_000_000 * 0.92 },
+};
 
-// Keywords que disparan el modelo Pro automáticamente.
-const PRO_KEYWORDS = [
-  "análisis", "analisis",
-  "dossier",
-  "histórico", "historico",
-  "comparativa", "compárame", "comparame", "compara ",
-  "estrategia", "estratégico", "estrategico",
-  "informe",
-  "implicaciones",
-  "due diligence",
-  "profundo", "exhaustivo",
-];
-function isProQuery(text: string): boolean {
-  if (!text) return false;
-  const t = text.toLowerCase();
-  return PRO_KEYWORDS.some(k => t.includes(k));
+// ============================================================
+// Provider router: OpenRouter (openrouter/*) o Lovable AI Gateway.
+// Ambos son 100% OpenAI-compatible (incluido SSE streaming), así que
+// solo cambian URL + API key + nombre efectivo del modelo.
+// ============================================================
+const OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions";
+const LOVABLE_GATEWAY_URL = "https://ai.gateway.lovable.dev/v1/chat/completions";
+
+function endpointFor(model: string): { url: string; key: string | undefined; model: string; provider: "openrouter" | "gateway" } {
+  if (model.startsWith("openrouter/")) {
+    return {
+      url: OPENROUTER_URL,
+      key: Deno.env.get("OPENROUTER_API_KEY"),
+      model: model.slice("openrouter/".length),
+      provider: "openrouter",
+    };
+  }
+  return {
+    url: LOVABLE_GATEWAY_URL,
+    key: Deno.env.get("LOVABLE_API_KEY"),
+    model,
+    provider: "gateway",
+  };
 }
 
-// Pricing (EUR, ~0.92 USD→EUR)
-const MODEL_PRICING: Record<string, { in: number; out: number }> = {
-  "google/gemini-2.5-flash":      { in: 0.30 / 1_000_000 * 0.92, out: 2.50 / 1_000_000 * 0.92 },
-  "google/gemini-2.5-flash-lite": { in: 0.10 / 1_000_000 * 0.92, out: 0.40 / 1_000_000 * 0.92 },
-  "google/gemini-3-flash-preview":{ in: 0.30 / 1_000_000 * 0.92, out: 2.50 / 1_000_000 * 0.92 },
-  "google/gemini-3.1-pro-preview":{ in: 1.25 / 1_000_000 * 0.92, out: 10.00 / 1_000_000 * 0.92 },
-  "google/gemini-3.5-flash":      { in: 0.30 / 1_000_000 * 0.92, out: 2.50 / 1_000_000 * 0.92 },
-  "anthropic/claude-sonnet-4-5":  { in: 3.00 / 1_000_000 * 0.92, out: 15.00 / 1_000_000 * 0.92 },
-  "anthropic/claude-sonnet-4-5-20250929": { in: 3.00 / 1_000_000 * 0.92, out: 15.00 / 1_000_000 * 0.92 },
-  "openai/gpt-5":                 { in: 2.50 / 1_000_000 * 0.92, out: 10.00 / 1_000_000 * 0.92 },
-};
+// Devuelve headers + body listos para una llamada chat.completions al proveedor
+// del modelo dado. Si el proveedor requerido no está configurado (p.ej. no hay
+// OPENROUTER_API_KEY para un modelo openrouter/*), devuelve null y el caller
+// debe pasar al siguiente candidato de la cadena.
+function prepareCall(model: string, bodyReq: Record<string, unknown>): { url: string; headers: Record<string, string>; body: string } | null {
+  const ep = endpointFor(model);
+  if (!ep.key) {
+    console.warn(`[model-router] skipping ${model}: ${ep.provider === "openrouter" ? "OPENROUTER_API_KEY" : "LOVABLE_API_KEY"} not configured`);
+    return null;
+  }
+  return {
+    url: ep.url,
+    headers: { Authorization: `Bearer ${ep.key}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ ...bodyReq, model: ep.model }),
+  };
+}
 
 // ============================================================
 // Streaming helper: llama al gateway con stream:true y acumula la
