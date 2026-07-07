@@ -1487,6 +1487,27 @@ export type Database = {
           },
         ]
       }
+      email_classifier_settings: {
+        Row: {
+          activo: boolean
+          id: string
+          umbral_auto: number
+          updated_at: string
+        }
+        Insert: {
+          activo?: boolean
+          id?: string
+          umbral_auto?: number
+          updated_at?: string
+        }
+        Update: {
+          activo?: boolean
+          id?: string
+          umbral_auto?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       email_entities: {
         Row: {
           confidence: number
@@ -1536,6 +1557,69 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      email_ingest_queue: {
+        Row: {
+          applied_at: string | null
+          attachments: Json | null
+          body_text: string | null
+          cc_emails: string[] | null
+          classification: Json | null
+          conversation_id: string | null
+          created_at: string
+          error_msg: string | null
+          from_email: string | null
+          from_name: string | null
+          graph_message_id: string | null
+          has_attachments: boolean | null
+          id: string
+          internet_message_id: string | null
+          received_at: string | null
+          status: string
+          subject: string | null
+          to_emails: string[] | null
+        }
+        Insert: {
+          applied_at?: string | null
+          attachments?: Json | null
+          body_text?: string | null
+          cc_emails?: string[] | null
+          classification?: Json | null
+          conversation_id?: string | null
+          created_at?: string
+          error_msg?: string | null
+          from_email?: string | null
+          from_name?: string | null
+          graph_message_id?: string | null
+          has_attachments?: boolean | null
+          id?: string
+          internet_message_id?: string | null
+          received_at?: string | null
+          status?: string
+          subject?: string | null
+          to_emails?: string[] | null
+        }
+        Update: {
+          applied_at?: string | null
+          attachments?: Json | null
+          body_text?: string | null
+          cc_emails?: string[] | null
+          classification?: Json | null
+          conversation_id?: string | null
+          created_at?: string
+          error_msg?: string | null
+          from_email?: string | null
+          from_name?: string | null
+          graph_message_id?: string | null
+          has_attachments?: boolean | null
+          id?: string
+          internet_message_id?: string | null
+          received_at?: string | null
+          status?: string
+          subject?: string | null
+          to_emails?: string[] | null
+        }
+        Relationships: []
       }
       email_send_log: {
         Row: {

@@ -2,13 +2,15 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Settings, Shield, CheckCircle } from "lucide-react";
+import { Settings, Shield, CheckCircle, Mail, RefreshCw, Loader2 } from "lucide-react";
+import { toast } from "@/hooks/use-toast";
 
 export default function Admin() {
   const [logs, setLogs] = useState<any[]>([]);
@@ -16,8 +18,11 @@ export default function Admin() {
   const [filterFuncion, setFilterFuncion] = useState("all");
   const [filterDateFrom, setFilterDateFrom] = useState("");
   const [filterDateTo, setFilterDateTo] = useState("");
+  const [m365Stats, setM365Stats] = useState<{ pending: number; needs_review: number; applied: number; discarded: number; error: number; last_synced: string | null; umbral: number }>({ pending: 0, needs_review: 0, applied: 0, discarded: 0, error: 0, last_synced: null, umbral: 0.8 });
+  const [m365Loading, setM365Loading] = useState(false);
+  const [m365Syncing, setM365Syncing] = useState(false);
 
-  useEffect(() => { fetchLogs(); }, []);
+  useEffect(() => { fetchLogs(); fetchM365(); }, []);
 
   const fetchLogs = async () => {
     setLogsLoading(true);
@@ -25,6 +30,46 @@ export default function Admin() {
     setLogs(data || []);
     setLogsLoading(false);
   };
+
+  const fetchM365 = async () => {
+    setM365Loading(true);
+    const [{ data: rows }, { data: sync }, { data: settings }] = await Promise.all([
+      supabase.from("email_ingest_queue").select("status"),
+      supabase.from("sync_state").select("last_synced_at").eq("channel", "m365_journal").maybeSingle(),
+      supabase.from("email_classifier_settings").select("umbral_auto").limit(1).maybeSingle(),
+    ]);
+    const counts = { pending: 0, needs_review: 0, applied: 0, discarded: 0, error: 0 };
+    (rows || []).forEach((r: any) => { if (counts[r.status as keyof typeof counts] !== undefined) counts[r.status as keyof typeof counts]++; });
+    setM365Stats({ ...counts, last_synced: sync?.last_synced_at || null, umbral: Number(settings?.umbral_auto ?? 0.8) });
+    setM365Loading(false);
+  };
+
+  const syncNow = async () => {
+    setM365Syncing(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("m365-journal-sync", { body: {} });
+      if (error) throw error;
+      const d = data as any;
+      if (d?.error) throw new Error(d.error);
+      toast({ title: "Sincronizado", description: `${d?.inserted ?? 0} nuevos, ${d?.discarded ?? 0} descartados` });
+      fetchM365();
+    } catch (e: any) {
+      toast({ title: "Error de sync", description: e?.message || String(e), variant: "destructive" });
+    } finally {
+      setM365Syncing(false);
+    }
+  };
+
+  const updateUmbral = async (v: number) => {
+    if (isNaN(v) || v < 0 || v > 1) return;
+    const { data: row } = await supabase.from("email_classifier_settings").select("id").limit(1).maybeSingle();
+    if (row) {
+      await supabase.from("email_classifier_settings").update({ umbral_auto: v, updated_at: new Date().toISOString() }).eq("id", row.id);
+      setM365Stats((s) => ({ ...s, umbral: v }));
+      toast({ title: "Umbral actualizado", description: `${Math.round(v * 100)}%` });
+    }
+  };
+
 
   const filteredLogs = logs.filter(l => {
     if (filterFuncion !== "all" && l.funcion_ia !== filterFuncion) return false;
@@ -139,6 +184,43 @@ export default function Admin() {
                   </div>
                 ))}
               </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <CardTitle className="flex items-center gap-2"><Mail className="h-5 w-5" /> Correo M365</CardTitle>
+                <Button size="sm" onClick={syncNow} disabled={m365Syncing}>
+                  {m365Syncing ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> : <RefreshCw className="h-3.5 w-3.5 mr-1" />}
+                  Sincronizar ahora
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {m365Loading ? (
+                <Skeleton className="h-24 w-full" />
+              ) : (
+                <>
+                  <div className="grid gap-3 sm:grid-cols-5">
+                    <div className="rounded-lg border p-3"><p className="text-xs text-muted-foreground">Pendientes</p><p className="text-xl font-bold">{m365Stats.pending}</p></div>
+                    <div className="rounded-lg border p-3"><p className="text-xs text-muted-foreground">Revisión</p><p className="text-xl font-bold text-chart-4">{m365Stats.needs_review}</p></div>
+                    <div className="rounded-lg border p-3"><p className="text-xs text-muted-foreground">Aplicados</p><p className="text-xl font-bold text-chart-2">{m365Stats.applied}</p></div>
+                    <div className="rounded-lg border p-3"><p className="text-xs text-muted-foreground">Descartados</p><p className="text-xl font-bold">{m365Stats.discarded}</p></div>
+                    <div className="rounded-lg border p-3"><p className="text-xs text-muted-foreground">Errores</p><p className="text-xl font-bold text-destructive">{m365Stats.error}</p></div>
+                  </div>
+                  <div className="flex flex-wrap items-end gap-4">
+                    <div className="space-y-1">
+                      <Label className="text-xs">Último sync</Label>
+                      <p className="text-sm font-mono">{m365Stats.last_synced ? new Date(m365Stats.last_synced).toLocaleString("es-ES") : "—"}</p>
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs">Umbral auto (0–1)</Label>
+                      <Input type="number" min={0} max={1} step={0.05} defaultValue={m365Stats.umbral} onBlur={(e) => updateUmbral(Number(e.target.value))} className="w-32" />
+                    </div>
+                  </div>
+                </>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
