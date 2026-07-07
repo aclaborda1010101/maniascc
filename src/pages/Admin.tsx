@@ -211,8 +211,13 @@ export default function Admin() {
       <Tabs defaultValue="auditoria">
         <TabsList>
           <TabsTrigger value="auditoria" className="gap-1"><Shield className="h-3 w-3" /> Auditoría</TabsTrigger>
+          <TabsTrigger value="dedup" className="gap-1"><GitMerge className="h-3 w-3" /> Deduplicación</TabsTrigger>
           <TabsTrigger value="config" className="gap-1"><Settings className="h-3 w-3" /> Configuración</TabsTrigger>
         </TabsList>
+
+        <TabsContent value="dedup" className="space-y-4">
+          <DedupProyectosPanel />
+        </TabsContent>
 
         <TabsContent value="auditoria" className="space-y-4">
           <div className="grid gap-4 md:grid-cols-3">
