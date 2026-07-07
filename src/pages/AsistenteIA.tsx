@@ -149,7 +149,12 @@ function ConversationList({
               </div>
             ) : (
               <>
-                <span className="flex-1 text-xs truncate text-white/80">{conv.title}</span>
+                <div className="flex-1 min-w-0">
+                  <div className="text-xs truncate text-white/80">{conv.title}</div>
+                  <div className="text-[10px] text-muted-foreground mt-0.5" title={formatMessageTooltip(conv.updatedAt)}>
+                    {formatRelativeShort(conv.updatedAt)}
+                  </div>
+                </div>
                 <div className="hidden group-hover:flex items-center gap-0.5">
                   <Button variant="ghost" size="icon" className="h-5 w-5" onClick={(e: any) => { e.stopPropagation(); onStartRename(conv.id, conv.title); }}>
                     <Pencil className="h-3 w-3" />
