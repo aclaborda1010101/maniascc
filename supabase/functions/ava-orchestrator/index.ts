@@ -1574,6 +1574,21 @@ serve(async (req) => {
             if (memErr) {
               result = { error: memErr.message };
             } else {
+              // 9: tope de 200 hechos por usuario. Si superamos, borramos el más antiguo
+              // por last_used_at (fire-and-forget).
+              admin.from("ava_user_memory")
+                .select("id, last_used_at", { count: "exact" })
+                .eq("user_id", user.id)
+                .order("last_used_at", { ascending: true })
+                .then(({ data: rows, count }: any) => {
+                  const total = typeof count === "number" ? count : (rows?.length || 0);
+                  if (total > 200 && rows && rows.length > 0) {
+                    const overflow = total - 200;
+                    const toDelete = rows.slice(0, overflow).map((r: any) => r.id);
+                    admin.from("ava_user_memory").delete().in("id", toDelete)
+                      .then(() => {}, () => {});
+                  }
+                }, () => {});
               result = { saved: true, key: k, source: src };
             }
           }
