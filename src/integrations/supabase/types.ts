@@ -2874,6 +2874,7 @@ export type Database = {
       }
       proyectos: {
         Row: {
+          canonical_project_id: string | null
           cliente_contacto_id: string | null
           cliente_prop: string | null
           codigo_postal: string | null
@@ -2890,6 +2891,7 @@ export type Database = {
           honorarios_recibidos: string | null
           id: string
           local_id: string | null
+          merge_status: string
           metadata: Json | null
           nombre: string
           notas: string | null
@@ -2900,6 +2902,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          canonical_project_id?: string | null
           cliente_contacto_id?: string | null
           cliente_prop?: string | null
           codigo_postal?: string | null
@@ -2916,6 +2919,7 @@ export type Database = {
           honorarios_recibidos?: string | null
           id?: string
           local_id?: string | null
+          merge_status?: string
           metadata?: Json | null
           nombre: string
           notas?: string | null
@@ -2926,6 +2930,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          canonical_project_id?: string | null
           cliente_contacto_id?: string | null
           cliente_prop?: string | null
           codigo_postal?: string | null
@@ -2942,6 +2947,7 @@ export type Database = {
           honorarios_recibidos?: string | null
           id?: string
           local_id?: string | null
+          merge_status?: string
           metadata?: Json | null
           nombre?: string
           notas?: string | null
@@ -2952,6 +2958,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "proyectos_canonical_project_id_fkey"
+            columns: ["canonical_project_id"]
+            isOneToOne: false
+            referencedRelation: "proyectos"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "proyectos_cliente_contacto_id_fkey"
             columns: ["cliente_contacto_id"]
