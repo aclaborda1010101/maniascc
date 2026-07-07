@@ -165,24 +165,24 @@ const DEFAULT_MODEL = "google/gemini-3.5-flash";
 const PRO_MODEL_FALLBACK = "google/gemini-3.5-flash";
 const TOOL_ROUTER_MODEL = "google/gemini-3.5-flash";
 const SMALLTALK_MODEL = "google/gemini-2.5-flash-lite";
-const ESCALATION_MODEL = "google/gemini-3.1-pro-preview";
+// Escalación: benchmark real (27 runs) → claude-haiku-4.5 vía OpenRouter es el
+// mejor reparador de respuestas incompletas (3-15s, herramientas correctas).
+// Fallback si no hay OPENROUTER_API_KEY: gemini-3.5-flash del gateway.
+const ESCALATION_MODEL = Deno.env.get("OPENROUTER_API_KEY")
+  ? "openrouter/anthropic/claude-haiku-4.5"
+  : "google/gemini-3.5-flash";
 
-// Cadena Pro: claude-sonnet-4-5 → gpt-5 → gemini-3.5-flash.
-// Se elige el primero cuya API key esté configurada.
-function resolveProModel(): string {
-  if (Deno.env.get("ANTHROPIC_API_KEY")) return "anthropic/claude-sonnet-4-5";
-  if (Deno.env.get("LOVABLE_API_KEY")) return "openai/gpt-5";
-  return PRO_MODEL_FALLBACK;
-}
-const PRO_MODEL = resolveProModel();
-// Lista ordenada de candidatos Pro para fallback runtime si el primario falla.
+// Cadena Pro: sonnet-4.6 (OpenRouter) → sonnet-4-5 (Anthropic directo) → gpt-5 → gemini-3.5-flash.
+// Se incluyen solo los candidatos cuya API key esté configurada.
 const PRO_MODEL_CHAIN: string[] = (() => {
   const chain: string[] = [];
+  if (Deno.env.get("OPENROUTER_API_KEY")) chain.push("openrouter/anthropic/claude-sonnet-4.6");
   if (Deno.env.get("ANTHROPIC_API_KEY")) chain.push("anthropic/claude-sonnet-4-5");
   if (Deno.env.get("LOVABLE_API_KEY")) chain.push("openai/gpt-5");
   chain.push(PRO_MODEL_FALLBACK);
   return chain;
 })();
+const PRO_MODEL = PRO_MODEL_CHAIN[0];
 
 // Keywords que disparan el modelo Pro automáticamente.
 const PRO_KEYWORDS = [
@@ -212,7 +212,51 @@ const MODEL_PRICING: Record<string, { in: number; out: number }> = {
   "anthropic/claude-sonnet-4-5":  { in: 3.00 / 1_000_000 * 0.92, out: 15.00 / 1_000_000 * 0.92 },
   "anthropic/claude-sonnet-4-5-20250929": { in: 3.00 / 1_000_000 * 0.92, out: 15.00 / 1_000_000 * 0.92 },
   "openai/gpt-5":                 { in: 2.50 / 1_000_000 * 0.92, out: 10.00 / 1_000_000 * 0.92 },
+  "openrouter/anthropic/claude-haiku-4.5":  { in: 1.00 / 1_000_000 * 0.92, out: 5.00 / 1_000_000 * 0.92 },
+  "openrouter/anthropic/claude-sonnet-4.6": { in: 3.00 / 1_000_000 * 0.92, out: 15.00 / 1_000_000 * 0.92 },
 };
+
+// ============================================================
+// Provider router: OpenRouter (openrouter/*) o Lovable AI Gateway.
+// Ambos son 100% OpenAI-compatible (incluido SSE streaming), así que
+// solo cambian URL + API key + nombre efectivo del modelo.
+// ============================================================
+const OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions";
+const LOVABLE_GATEWAY_URL = "https://ai.gateway.lovable.dev/v1/chat/completions";
+
+function endpointFor(model: string): { url: string; key: string | undefined; model: string; provider: "openrouter" | "gateway" } {
+  if (model.startsWith("openrouter/")) {
+    return {
+      url: OPENROUTER_URL,
+      key: Deno.env.get("OPENROUTER_API_KEY"),
+      model: model.slice("openrouter/".length),
+      provider: "openrouter",
+    };
+  }
+  return {
+    url: LOVABLE_GATEWAY_URL,
+    key: Deno.env.get("LOVABLE_API_KEY"),
+    model,
+    provider: "gateway",
+  };
+}
+
+// Devuelve headers + body listos para una llamada chat.completions al proveedor
+// del modelo dado. Si el proveedor requerido no está configurado (p.ej. no hay
+// OPENROUTER_API_KEY para un modelo openrouter/*), devuelve null y el caller
+// debe pasar al siguiente candidato de la cadena.
+function prepareCall(model: string, bodyReq: Record<string, unknown>): { url: string; headers: Record<string, string>; body: string } | null {
+  const ep = endpointFor(model);
+  if (!ep.key) {
+    console.warn(`[model-router] skipping ${model}: ${ep.provider === "openrouter" ? "OPENROUTER_API_KEY" : "LOVABLE_API_KEY"} not configured`);
+    return null;
+  }
+  return {
+    url: ep.url,
+    headers: { Authorization: `Bearer ${ep.key}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ ...bodyReq, model: ep.model }),
+  };
+}
 
 // ============================================================
 // Streaming helper: llama al gateway con stream:true y acumula la
@@ -1314,13 +1358,11 @@ serve(async (req) => {
         for (const candidate of directCandidates) {
           try {
             if (isAnthropicModel(candidate)) {
+              const prep = prepareCall(candidate, { messages, max_tokens: 4000 });
+              if (!prep) continue;
               const aResp = await callChatCompletion(
-                "https://ai.gateway.lovable.dev/v1/chat/completions",
-                {
-                  method: "POST",
-                  headers: { Authorization: `Bearer ${lovableKey}`, "Content-Type": "application/json" },
-                  body: JSON.stringify({ model: candidate, messages, max_tokens: 4000 }),
-                },
+                prep.url,
+                { method: "POST", headers: prep.headers, body: prep.body },
                 { timeoutMs: 90000, retries: 1 },
               );
               if (aResp.ok) {
@@ -1339,10 +1381,10 @@ serve(async (req) => {
                 console.error(`[direct pro-fallback] ${candidate} failed:`, aResp.status);
               }
             } else {
-              const directStream = await streamChatCompletion("https://ai.gateway.lovable.dev/v1/chat/completions", {
-                method: "POST",
-                headers: { Authorization: `Bearer ${lovableKey}`, "Content-Type": "application/json" },
-                body: JSON.stringify({ model: candidate, messages, max_tokens: 4000 }),
+              const prep = prepareCall(candidate, { messages, max_tokens: 4000 });
+              if (!prep) continue;
+              const directStream = await streamChatCompletion(prep.url, {
+                method: "POST", headers: prep.headers, body: prep.body,
               }, { timeoutMs: 90000 });
               if (directStream.ok && directStream.content.trim()) {
                 directAnswer = directStream.content;
@@ -1931,7 +1973,6 @@ serve(async (req) => {
       for (const candidate of synthesisCandidates) {
         try {
           const bodyReq: any = {
-            model: candidate,
             messages: synthesisMessages,
             max_tokens: 4000,
           };
@@ -1939,13 +1980,11 @@ serve(async (req) => {
             bodyReq.tools = TOOLS;
             bodyReq.tool_choice = "auto";
           }
+          const prep = prepareCall(candidate, bodyReq);
+          if (!prep) continue;
           const resp = await callChatCompletion(
-            "https://ai.gateway.lovable.dev/v1/chat/completions",
-            {
-              method: "POST",
-              headers: { Authorization: `Bearer ${lovableKey}`, "Content-Type": "application/json" },
-              body: JSON.stringify(bodyReq),
-            },
+            prep.url,
+            { method: "POST", headers: prep.headers, body: prep.body },
             { timeoutMs: 110000, retries: 1 },
           );
           if (resp.ok) {
@@ -1989,13 +2028,11 @@ serve(async (req) => {
     // Si tras el bucle sigue sin respuesta, forzar una llamada final SIN tools.
     if (!finalAnswer.trim()) {
       try {
+        const prepF = prepareCall(SYNTHESIS_MODEL, { messages: synthesisMessages, max_tokens: 4000 });
+        if (!prepF) throw new Error("SYNTHESIS_MODEL provider not configured");
         const resp = await callChatCompletion(
-          "https://ai.gateway.lovable.dev/v1/chat/completions",
-          {
-            method: "POST",
-            headers: { Authorization: `Bearer ${lovableKey}`, "Content-Type": "application/json" },
-            body: JSON.stringify({ model: SYNTHESIS_MODEL, messages: synthesisMessages, max_tokens: 4000 }),
-          },
+          prepF.url,
+          { method: "POST", headers: prepF.headers, body: prepF.body },
           { timeoutMs: 90000, retries: 1 },
         );
         if (resp.ok) {
@@ -2060,20 +2097,11 @@ serve(async (req) => {
           : "low_confidence";
       console.log(`[escalation] → ${ESCALATION_MODEL} (reason=${escalationReason}, len=${finalAnswer.length}, tools=${toolsUsedCount})`);
       try {
+        const prepE = prepareCall(ESCALATION_MODEL, { messages: synthesisMessages, max_tokens: 4000 });
+        if (!prepE) throw new Error(`ESCALATION_MODEL ${ESCALATION_MODEL} provider not configured`);
         const escResp = await fetchAIWithTimeoutAndRetry(
-          "https://ai.gateway.lovable.dev/v1/chat/completions",
-          {
-            method: "POST",
-            headers: {
-              Authorization: `Bearer ${lovableKey}`,
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-              model: ESCALATION_MODEL,
-              messages: synthesisMessages,
-              max_tokens: 4000,
-            }),
-          },
+          prepE.url,
+          { method: "POST", headers: prepE.headers, body: prepE.body },
           60000,
           1,
         );
