@@ -1106,7 +1106,7 @@ serve(async (req) => {
             coste_estimado: stCost,
             exito: true,
             created_by: user.id,
-          }).then(() => {});
+          }).then(() => {}, (e: any) => console.warn("[audit] fast-path failed:", e));
           admin.from("usage_logs").insert({
             user_id: user.id,
             action_type: "chat",
@@ -1117,7 +1117,7 @@ serve(async (req) => {
             cost_eur: stCost,
             latency_ms: stLat,
             metadata: { fast_path: true, message: message?.slice(0, 200) },
-          }).then(() => {});
+          }).then(() => {}, (e: any) => console.warn("[usage] fast-path failed:", e));
           return new Response(JSON.stringify({
             answer: stAnswer,
             tools_used: [],
