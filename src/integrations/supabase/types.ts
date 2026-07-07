@@ -2883,6 +2883,7 @@ export type Database = {
           comision_total: number | null
           created_at: string
           created_by: string | null
+          dedup_status: string
           descripcion: string | null
           estado: Database["public"]["Enums"]["estado_proyecto"]
           estatus_comercial: string | null
@@ -2911,6 +2912,7 @@ export type Database = {
           comision_total?: number | null
           created_at?: string
           created_by?: string | null
+          dedup_status?: string
           descripcion?: string | null
           estado?: Database["public"]["Enums"]["estado_proyecto"]
           estatus_comercial?: string | null
@@ -2939,6 +2941,7 @@ export type Database = {
           comision_total?: number | null
           created_at?: string
           created_by?: string | null
+          dedup_status?: string
           descripcion?: string | null
           estado?: Database["public"]["Enums"]["estado_proyecto"]
           estatus_comercial?: string | null
@@ -3414,6 +3417,7 @@ export type Database = {
         }
         Returns: number
       }
+      normalize_project_key: { Args: { p_text: string }; Returns: string }
       parse_es_numeric: { Args: { t: string }; Returns: number }
       propagar_dominio_chunks_lote: {
         Args: { p_limite?: number }
