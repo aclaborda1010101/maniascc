@@ -2146,33 +2146,15 @@ serve(async (req) => {
     // answer despite having tool results to ground it.
     // ─────────────────────────────────────────────────────────────
     function needsEscalation(answer: string, toolsUsed: number, toolErrors: number): boolean {
-      if (!answer) return true;
-      const a = answer.trim().toLowerCase();
-      if (toolsUsed > 0 && answer.trim().length < 220) return true;
-      const hedgePatterns = [
-        "no tengo información", "no dispongo de", "no puedo determinar",
-        "no encuentro", "no he encontrado", "no se ha encontrado",
-        "no es posible", "no puedo responder", "no puedo formular",
-        "información insuficiente", "datos insuficientes",
-        "no estoy seguro", "no estoy segura",
-        "lo siento, no", "disculpa, no",
-        "i don't have", "i cannot", "insufficient",
-      ];
-      if (hedgePatterns.some(p => a.includes(p))) return true;
-      // Truncated / cut off mid-sentence. NO consideramos truncada si termina en:
-      //  - fila de tabla markdown (línea acabada en |)
-      //  - item de lista (línea empezando por - o *)
-      if (answer.length > 400) {
-        const trimmed = answer.trim();
-        const lastLine = trimmed.split("\n").slice(-1)[0] || "";
-        const endsInTableRow = /\|\s*$/.test(lastLine);
-        const endsInListItem = /^\s*[-*]\s+\S/.test(lastLine);
-        const endsInPunct = /[.!?…)\]}"`'`]\s*$/.test(trimmed);
-        if (!endsInPunct && !endsInTableRow && !endsInListItem) return true;
-      }
+      // Escalación conservadora: SOLO cuando la síntesis está vacía o hubo
+      // ≥2 errores de tools. Se elimina el disparo por longitud, hedging o
+      // "truncación" (falsos positivos que estaban escalando casi todo y
+      // metiendo 40-74s con el modelo Pro).
+      if (!answer || !answer.trim()) return true;
       if (toolErrors >= 2 && toolsUsed > 0) return true;
       return false;
     }
+
 
     const toolsUsedCount = Array.isArray(toolResults) ? toolResults.length : 0;
     const toolErrorsCount = Array.isArray(toolResults)
