@@ -1421,9 +1421,19 @@ serve(async (req) => {
             result = { error: "Tabla no permitida: " + args.table };
           } else {
             let query = authClient.from(args.table).select(args.select || "*");
+            const warnings: string[] = [];
             if (args.filters && Array.isArray(args.filters)) {
               for (const f of args.filters) {
-                query = (query as any)[f.operator](f.column, f.value);
+                // 6b: whitelist runtime del operator para evitar ejecución arbitraria de métodos.
+                if (!DB_QUERY_ALLOWED_OPERATORS.has(f.operator)) {
+                  warnings.push(`filtro ignorado: operator '${f.operator}' no permitido (col=${f.column})`);
+                  continue;
+                }
+                try {
+                  query = (query as any)[f.operator](f.column, f.value);
+                } catch (e) {
+                  warnings.push(`filtro '${f.operator}' falló: ${e instanceof Error ? e.message : String(e)}`);
+                }
               }
             }
             if (args.order_by) {
@@ -1431,7 +1441,13 @@ serve(async (req) => {
             }
             query = query.limit(args.limit || 20);
             const { data, error } = await query;
-            result = error ? { error: error.message } : data;
+            if (error) {
+              result = { error: error.message, ...(warnings.length ? { warnings } : {}) };
+            } else if (warnings.length) {
+              result = { data, warnings };
+            } else {
+              result = data;
+            }
           }
         } else if (fnName === "propose_action") {
           toolLabel = "propose_action:" + (args.table || "") + ":" + (args.action || "");
