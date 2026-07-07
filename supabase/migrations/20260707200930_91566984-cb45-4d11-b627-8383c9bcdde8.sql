@@ -1,0 +1,1 @@
+DROP FUNCTION IF EXISTS public.rag_hybrid_search(text, vector, text, uuid, integer, text[]);
