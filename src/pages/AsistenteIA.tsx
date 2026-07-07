@@ -24,6 +24,7 @@ import { AvaRealtimeOverlay, AvaCallButton } from "@/components/AvaRealtimeOverl
 import { AvaSourcesPanel } from "@/components/AvaSourcesPanel";
 import { AvaDomainFilter, loadDomainFilter, saveDomainFilter } from "@/components/AvaDomainFilter";
 import { useRef } from "react";
+import { formatMessageTime, formatMessageTooltip, formatDaySeparator, formatRelativeShort, isSameDay } from "@/lib/chatTime";
 
 const SUGGESTIONS = [
   "Resumen del día",
