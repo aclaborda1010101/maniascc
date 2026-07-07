@@ -89,28 +89,26 @@ interface UserMemoryFact {
 
 async function loadUserMemory(admin: any, userId: string): Promise<UserMemoryFact[]> {
   try {
+    // Cargar hasta 200 (tope duro por usuario) ordenados por last_used_at DESC como semilla.
+    // Después reordenamos en JS por GREATEST(last_used_at, created_at) para que los hechos
+    // nuevos entren al top-40. NO refrescamos last_used_at aquí (solo se refresca en remember_fact).
     const { data, error } = await admin
       .from("ava_user_memory")
-      .select("id, key, value, category, source")
+      .select("key, value, category, source, created_at, last_used_at")
       .eq("user_id", userId)
       .order("last_used_at", { ascending: false })
-      .limit(30);
+      .limit(200);
     if (error) {
       console.warn("[user_memory] load failed:", error.message);
       return [];
     }
-    const facts = (data || []) as Array<UserMemoryFact & { id: string }>;
-    if (facts.length > 0) {
-      const ids = facts.map(f => f.id);
-      // Fire-and-forget: refrescar last_used_at con cliente admin (no bloquea)
-      admin
-        .from("ava_user_memory")
-        .update({ last_used_at: new Date().toISOString() })
-        .in("id", ids)
-        .then(() => {})
-        .catch(() => {});
-    }
-    return facts.map(({ key, value, category, source }) => ({ key, value, category, source }));
+    const facts = (data || []) as Array<UserMemoryFact & { created_at: string; last_used_at: string }>;
+    facts.sort((a, b) => {
+      const aT = Math.max(new Date(a.last_used_at || 0).getTime(), new Date(a.created_at || 0).getTime());
+      const bT = Math.max(new Date(b.last_used_at || 0).getTime(), new Date(b.created_at || 0).getTime());
+      return bT - aT;
+    });
+    return facts.slice(0, 40).map(({ key, value, category, source }) => ({ key, value, category, source }));
   } catch (e) {
     console.warn("[user_memory] load exception:", e);
     return [];
