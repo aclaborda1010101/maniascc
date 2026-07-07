@@ -1207,36 +1207,38 @@ serve(async (req) => {
       { role: "system", content: SYSTEM_PROMPT + USER_MEMORY_RULES + userMemoryBlock + lessonsBlock + attachmentsBlock + domainFilterBlock },
     ];
 
-    // Build context with cumulative summary for long conversations
+    // 5c: resumen cacheado. Solo re-resumimos si hay ≥6 mensajes nuevos sin resumir.
     let cumulativeSummary = "";
-    if (history && Array.isArray(history)) {
-      if (history.length > 12) {
-        // Split: older messages get summarized, recent 6 stay raw
-        const olderMessages = history.slice(0, history.length - 6);
-        const recentMessages = history.slice(-6);
-        
-        cumulativeSummary = await summarizeOlderHistory(olderMessages, lovableKey);
-        
-        if (cumulativeSummary) {
-          messages.push({
-            role: "system",
-            content: `CONTEXTO ACUMULADO DE LA CONVERSACIÓN (hechos establecidos que NO debes contradecir bajo ninguna circunstancia):\n\n${cumulativeSummary}`
-          });
-        }
-        
-        for (const h of recentMessages) {
-          messages.push({ role: h.role, content: h.content });
-        }
+    if (history.length > 12) {
+      const olderMessages = history.slice(0, history.length - 6);
+      const recentMessages = history.slice(-6);
+
+      const cached = await loadCachedSummary(admin, conversation_id);
+      const needsRecompute = !cached || (olderMessages.length - cached.lastIndex) >= 6;
+      if (!needsRecompute) {
+        cumulativeSummary = cached!.text;
       } else {
-        // Short conversation: send all messages
-        for (const h of history) {
-          messages.push({ role: h.role, content: h.content });
+        cumulativeSummary = await summarizeOlderHistory(olderMessages, lovableKey);
+        if (cumulativeSummary && conversation_id) {
+          // fire-and-forget
+          saveCachedSummary(admin, conversation_id, cumulativeSummary, olderMessages.length)
+            .catch((e) => console.warn("[summary-cache] save error:", e));
         }
       }
+
+      if (cumulativeSummary) {
+        messages.push({
+          role: "system",
+          content: `CONTEXTO ACUMULADO DE LA CONVERSACIÓN (hechos establecidos que NO debes contradecir bajo ninguna circunstancia):\n\n${cumulativeSummary}`
+        });
+      }
+      for (const h of recentMessages) messages.push({ role: h.role, content: h.content });
+    } else {
+      for (const h of history) messages.push({ role: h.role, content: h.content });
     }
     messages.push({ role: "user", content: message });
 
-    // First AI call: determine intent and tools
+    // First AI call: determine intent and tools (max_tokens subido a 1600 — 5b)
     const aiResponse = await callChatCompletion("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -1248,7 +1250,7 @@ serve(async (req) => {
         messages,
         tools: TOOLS,
         tool_choice: "auto",
-        max_tokens: 900,
+        max_tokens: 1600,
       }),
     }, { timeoutMs: 18000, retries: 1 });
 
