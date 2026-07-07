@@ -203,66 +203,80 @@ Deno.serve(async (req) => {
     }
 
 
-    const { data: st } = await supabase.from("sync_state").select("cursor").eq("owner_id", ownerId).eq("channel", CHANNEL).maybeSingle();
-    const cursor = st?.cursor || new Date(Date.now() - 24 * 3600 * 1000).toISOString();
-    console.log(`[m365] sync desde ${cursor}`);
-
     const token = await graphToken(cfg);
     const select = "id,internetMessageId,conversationId,subject,bodyPreview,body,from,toRecipients,ccRecipients,receivedDateTime,hasAttachments";
-    let url: string | null =
-      `https://graph.microsoft.com/v1.0/users/${encodeURIComponent(cfg.mailbox)}/mailFolders/inbox/messages` +
-      `?$top=50&$orderby=receivedDateTime asc&$select=${select}` +
-      `&$filter=${encodeURIComponent(`receivedDateTime gt ${cursor}`)}`;
 
-    let pages = 0, inserted = 0, discarded = 0, skipped = 0;
-    let lastReceived = cursor;
+    let totalPages = 0, inserted = 0, discarded = 0, skipped = 0;
+    const perFolder: Record<string, { pages: number; inserted: number; discarded: number; skipped: number; cursor: string }> = {};
 
-    while (url && pages < 10) {
-      const r = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
-      if (!r.ok) {
-        const t = await r.text();
-        console.error(`[m365] Graph error [${r.status}]: ${t}`);
-        return new Response(JSON.stringify({ error: "graph_error", status: r.status, details: t }), { status: r.status, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    for (const folder of FOLDERS) {
+      const ch = channelFor(folder);
+      const { data: st } = await supabase.from("sync_state").select("cursor").eq("owner_id", ownerId).eq("channel", ch).maybeSingle();
+      const cursor = st?.cursor || new Date(Date.now() - 24 * 3600 * 1000).toISOString();
+      console.log(`[m365:${folder}] sync desde ${cursor}`);
+
+      let url: string | null =
+        `https://graph.microsoft.com/v1.0/users/${encodeURIComponent(cfg.mailbox)}/mailFolders/${folder}/messages` +
+        `?$top=50&$orderby=receivedDateTime asc&$select=${select}` +
+        `&$filter=${encodeURIComponent(`receivedDateTime gt ${cursor}`)}`;
+
+      let pages = 0, fIns = 0, fDisc = 0, fSkip = 0;
+      let lastReceived = cursor;
+
+      while (url && pages < MAX_PAGES_PER_FOLDER) {
+        const r = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
+        if (!r.ok) {
+          const t = await r.text();
+          console.error(`[m365:${folder}] Graph error [${r.status}]: ${t}`);
+          // No abortamos las demás carpetas; anotamos y salimos de esta
+          break;
+        }
+        const page = await r.json();
+        const items: any[] = page.value || [];
+        pages++;
+
+        for (const m of items) {
+          const imid = m.internetMessageId || m.id;
+          if (!imid) continue;
+          const { data: existing } = await supabase.from("email_ingest_queue").select("id").eq("internet_message_id", imid).maybeSingle();
+          if (existing) { fSkip++; continue; }
+
+          const fromEmail = m.from?.emailAddress?.address?.toLowerCase() || null;
+          const fromName = m.from?.emailAddress?.name || null;
+          const toEmails = (m.toRecipients || []).map((r: any) => r.emailAddress?.address?.toLowerCase()).filter(Boolean);
+          const ccEmails = (m.ccRecipients || []).map((r: any) => r.emailAddress?.address?.toLowerCase()).filter(Boolean);
+          const bodyRaw = m.body?.contentType === "html" ? htmlToText(m.body?.content || "") : (m.body?.content || m.bodyPreview || "");
+          const bodyText = bodyRaw.slice(0, 20000);
+
+          const isJunk = fromEmail && JUNK_RE.test(fromEmail);
+          const status = isJunk ? "discarded" : "pending";
+          const classification = isJunk
+            ? { motivo: "automatico", fuente_clasificacion: "filtro_basura", source_folder: folder }
+            : { source_folder: folder };
+
+          const { error: ie } = await supabase.from("email_ingest_queue").insert({
+            graph_message_id: m.id, internet_message_id: imid, conversation_id: m.conversationId || null,
+            received_at: m.receivedDateTime, from_email: fromEmail, from_name: fromName,
+            to_emails: toEmails, cc_emails: ccEmails, subject: m.subject || "(sin asunto)",
+            body_text: bodyText, has_attachments: !!m.hasAttachments, attachments: [],
+            status, classification,
+          });
+          if (ie) { console.error(`[m365:${folder}] insert err ${imid}: ${ie.message}`); continue; }
+          if (isJunk) fDisc++; else fIns++;
+          if (m.receivedDateTime && m.receivedDateTime > lastReceived) lastReceived = m.receivedDateTime;
+        }
+        url = page["@odata.nextLink"] || null;
       }
-      const page = await r.json();
-      const items: any[] = page.value || [];
-      pages++;
 
-      for (const m of items) {
-        const imid = m.internetMessageId || m.id;
-        if (!imid) continue;
-        const { data: existing } = await supabase.from("email_ingest_queue").select("id").eq("internet_message_id", imid).maybeSingle();
-        if (existing) { skipped++; continue; }
+      await supabase.from("sync_state").upsert(
+        { owner_id: ownerId, channel: ch, cursor: lastReceived, last_synced_at: new Date().toISOString(), metadata: { pages, inserted: fIns, discarded: fDisc, folder } },
+        { onConflict: "owner_id,channel" },
+      );
 
-        const fromEmail = m.from?.emailAddress?.address?.toLowerCase() || null;
-        const fromName = m.from?.emailAddress?.name || null;
-        const toEmails = (m.toRecipients || []).map((r: any) => r.emailAddress?.address?.toLowerCase()).filter(Boolean);
-        const ccEmails = (m.ccRecipients || []).map((r: any) => r.emailAddress?.address?.toLowerCase()).filter(Boolean);
-        const bodyRaw = m.body?.contentType === "html" ? htmlToText(m.body?.content || "") : (m.body?.content || m.bodyPreview || "");
-        const bodyText = bodyRaw.slice(0, 20000);
-
-        const isJunk = fromEmail && JUNK_RE.test(fromEmail);
-        const status = isJunk ? "discarded" : "pending";
-        const classification = isJunk ? { motivo: "automatico", fuente_clasificacion: "filtro_basura" } : {};
-
-        const { error: ie } = await supabase.from("email_ingest_queue").insert({
-          graph_message_id: m.id, internet_message_id: imid, conversation_id: m.conversationId || null,
-          received_at: m.receivedDateTime, from_email: fromEmail, from_name: fromName,
-          to_emails: toEmails, cc_emails: ccEmails, subject: m.subject || "(sin asunto)",
-          body_text: bodyText, has_attachments: !!m.hasAttachments, attachments: [],
-          status, classification,
-        });
-        if (ie) { console.error(`[m365] insert err ${imid}: ${ie.message}`); continue; }
-        if (isJunk) discarded++; else inserted++;
-        if (m.receivedDateTime && m.receivedDateTime > lastReceived) lastReceived = m.receivedDateTime;
-      }
-      url = page["@odata.nextLink"] || null;
+      perFolder[folder] = { pages, inserted: fIns, discarded: fDisc, skipped: fSkip, cursor: lastReceived };
+      totalPages += pages; inserted += fIns; discarded += fDisc; skipped += fSkip;
     }
 
-    await supabase.from("sync_state").upsert(
-      { owner_id: ownerId, channel: CHANNEL, cursor: lastReceived, last_synced_at: new Date().toISOString(), metadata: { pages, inserted, discarded } },
-      { onConflict: "owner_id,channel" },
-    );
 
     if (inserted > 0) {
       const base = Deno.env.get("SUPABASE_URL")!.replace(/\/$/, "");
