@@ -1848,12 +1848,12 @@ serve(async (req) => {
             if (docs.length === 0) {
               result = { found: false, message: "No se encontró ningún documento accesible con ese nombre." };
             } else {
-              // Parallel chunk fetching across docs
+              // 7: los permisos ya se validaron en documentos_proyecto (que sí tiene visibility/owner_id).
+              // Leemos los chunks por documento_id SIN filtro adicional (document_chunks puede no tener owner_id poblado).
               const enriched = await Promise.all(docs.map(async (d: any) => {
                 const { data: chunks } = await admin.from("document_chunks")
                   .select("contenido")
                   .eq("documento_id", d.id)
-                  .or(ownershipFilter)
                   .order("chunk_index", { ascending: true })
                   .limit(20);
                 const fullText = (chunks || []).map((c: any) => c.contenido).join("\n\n").slice(0, 12000);
