@@ -1887,6 +1887,7 @@ export type Database = {
           expected_answer_type: string | null
           expected_entities: string[] | null
           expected_source_refs: string | null
+          expected_sql: string | null
           forbidden_behaviors: Json | null
           golden_set_version: string
           id: string
@@ -1912,6 +1913,7 @@ export type Database = {
           expected_answer_type?: string | null
           expected_entities?: string[] | null
           expected_source_refs?: string | null
+          expected_sql?: string | null
           forbidden_behaviors?: Json | null
           golden_set_version?: string
           id?: string
@@ -1937,6 +1939,7 @@ export type Database = {
           expected_answer_type?: string | null
           expected_entities?: string[] | null
           expected_source_refs?: string | null
+          expected_sql?: string | null
           forbidden_behaviors?: Json | null
           golden_set_version?: string
           id?: string
@@ -3744,6 +3747,7 @@ export type Database = {
         Returns: number
       }
       get_cached_embedding: { Args: { p_query: string }; Returns: string }
+      golden_eval_sql: { Args: { p_sql: string }; Returns: string }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]

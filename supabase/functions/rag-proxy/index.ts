@@ -459,8 +459,10 @@ PREGUNTA: ${question}`;
       parsed = { answer: aiData.choices?.[0]?.message?.content || "", cited_sources: [], confidence: 0.4 };
     }
 
-    // Construir citas con documento_id
-    const citations = (parsed.cited_sources.length > 0 ? parsed.cited_sources : contextChunks.map((_, i) => i + 1))
+    // Construir citas con documento_id — SOLO las que el modelo cita explícitamente.
+    // Si no cita ninguna, devolvemos citations vacío para que el harness de grounding
+    // pueda distinguir respuestas fundamentadas de las que no lo están.
+    const citations = parsed.cited_sources
       .map((idx) => {
         const c = contextChunks[idx - 1];
         if (!c) return null;
@@ -473,6 +475,7 @@ PREGUNTA: ${question}`;
       .filter(Boolean)
       // dedup por documento_id
       .filter((v: any, i: number, a: any[]) => a.findIndex((x) => x.documento_id === v.documento_id) === i);
+
 
     await admin.from("auditoria_ia").insert({
       funcion_ia: `rag-proxy:${dominantDomain}`,
