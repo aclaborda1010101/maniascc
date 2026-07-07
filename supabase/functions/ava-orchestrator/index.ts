@@ -1569,7 +1569,22 @@ serve(async (req) => {
                 valid_columns: validCols,
               };
             } else {
-              let query = authClient.from(args.table).select(args.select || "*");
+              // ANTI-SUPERFICIALIDAD: para tablas de entidad de negocio, si el
+              // router pidió select mínimo (o none), forzamos '*' para que la
+              // síntesis vea descripcion/notas/metadata/comision — que es lo
+              // que realmente responde a "háblame de / cuál es / info sobre X".
+              const ENTITY_TABLES = new Set(["proyectos", "operadores", "contactos", "activos", "locales", "negociaciones"]);
+              let effectiveSelect: string = args.select || "*";
+              if (ENTITY_TABLES.has(args.table)) {
+                const sel = (args.select || "").trim();
+                const hasRich = /\*|descripcion|notas|metadata|comision|estatus|cliente_prop/i.test(sel);
+                if (!sel || !hasRich) {
+                  effectiveSelect = "*";
+                  if (sel) warnings_forced_select_full: { /* no-op label; log below */ }
+                  console.log(`[db_query:${args.table}] select promovido a '*' (original='${sel}') por regla anti-superficialidad`);
+                }
+              }
+              let query = authClient.from(args.table).select(effectiveSelect);
               const warnings: string[] = [];
               if (args.filters && Array.isArray(args.filters)) {
                 for (const f of args.filters) {
