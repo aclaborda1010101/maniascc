@@ -1,6 +1,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { MapPin, Calendar } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 
 const tipoLabels: Record<string, string> = {
   desarrollo_comercial: "Desarrollo Comercial", venta_activo: "Venta de Activo",
