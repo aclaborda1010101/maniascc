@@ -331,7 +331,7 @@ function openAIToAnthropicBody(body: any): any {
 
   const anthropicBody: any = {
     model,
-    max_tokens: Math.min(body.max_tokens || 2048, 2400),
+    max_tokens: Math.min(body.max_tokens || 4000, 8000),
     messages: out,
   };
   if (systemParts.length) anthropicBody.system = systemParts.join("\n\n");
