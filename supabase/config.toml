@@ -64,3 +64,7 @@ verify_jwt = false
 
 [functions.email-classify-journal]
 verify_jwt = false
+
+[functions.rotate-golden-runner]
+verify_jwt = false
+
