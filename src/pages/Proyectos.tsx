@@ -95,6 +95,7 @@ export default function Proyectos() {
     let query = supabase
       .from("proyectos")
       .select("id,nombre,descripcion,tipo,estado,ubicacion,fecha_objetivo,created_at")
+      .eq("merge_status", "activo")
       .order("created_at", { ascending: false })
       .limit(60);
     if (filtroEstado !== "todos") query = query.eq("estado", filtroEstado as any);

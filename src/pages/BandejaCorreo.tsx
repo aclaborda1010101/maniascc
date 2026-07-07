@@ -74,7 +74,7 @@ export default function BandejaCorreo() {
 
   const loadCatalog = async () => {
     const [{ data: p }, { data: o }, { data: pf }] = await Promise.all([
-      supabase.from("proyectos").select("id,nombre").order("nombre").limit(500),
+      supabase.from("proyectos").select("id,nombre").eq("merge_status", "activo").order("nombre").limit(500),
       supabase.from("operadores").select("id,nombre").order("nombre").limit(500),
       supabase.from("perfiles").select("user_id,nombre,email").order("nombre"),
     ]);

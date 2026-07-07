@@ -29,7 +29,7 @@ export default function GeneradorDocumentos() {
   const { data: proyectos } = useQuery({
     queryKey: ["proyectos-selector"],
     queryFn: async () => {
-      const { data } = await supabase.from("proyectos").select("id, nombre").order("nombre");
+      const { data } = await supabase.from("proyectos").select("id, nombre").eq("merge_status", "activo").order("nombre");
       return data || [];
     },
   });
