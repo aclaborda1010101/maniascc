@@ -257,7 +257,24 @@ serve(async (req) => {
       ? filters.dominios.filter((d: any) => typeof d === "string" && d.length > 0)
       : null;
     const userId = claims.user.id;
+
+    // Admin bypass: los admins ven TODO el conocimiento de la empresa (incluidos
+    // chunks private de otros usuarios). Se detecta con user_roles vía service role.
+    let isAdmin = false;
+    try {
+      const { data: roles } = await admin
+        .from("user_roles")
+        .select("role")
+        .eq("user_id", userId);
+      isAdmin = (roles || []).some((r: any) => r.role === "admin");
+    } catch (e) {
+      console.warn("rag:admin-check failed", e);
+    }
+    console.log(`rag:visibility user=${userId} isAdmin=${isAdmin}`);
+
+    // Para no-admins: filtro OR visibility. Para admins: sin filtro (ven todo).
     const visibilityOr = `visibility.in.(shared,global),owner_id.eq.${userId}`;
+    const effectiveUserId = isAdmin ? null : userId;
 
     let contextChunks: any[] = [];
     const queryEmbedding = GOOGLE_AI_API_KEY
