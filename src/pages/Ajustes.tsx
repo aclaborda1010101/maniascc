@@ -265,7 +265,7 @@ function TabConfiguracion() {
     if (!user) return;
     (async () => {
       const { data } = await supabase.from("user_roles").select("role").eq("user_id", user.id);
-      setIsAdmin((data || []).some((r: any) => r.role === "admin"));
+      setIsAdmin((data || []).some((r: any) => r.role === "admin" || r.role === "gestor"));
     })();
   }, [user]);
 
