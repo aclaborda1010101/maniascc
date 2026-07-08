@@ -2068,6 +2068,34 @@ serve(async (req) => {
     const round1Ms = Date.now() - toolsStart;
     for (const ex of executed0) toolResults.push({ tool: ex.toolLabel, result: ex.result });
 
+    // FORCE RAG para preguntas de entidad: si el usuario pregunta
+    // "qué sabes de / háblame de / info sobre …" y el router NO llamó a
+    // rag_search, lo forzamos aquí antes de sintetizar. Así garantizamos
+    // camino profundo consistente (db_query + rag_search) sin depender del
+    // criterio del router.
+    const hasRagSearch = executed0.some(ex => ex.toolLabel.startsWith("rag_search"));
+    if (isEntityQuestion(message) && !hasRagSearch) {
+      console.log(`[force-rag] entity question sin rag_search del router → inyectando rag_search`);
+      const forcedId = `forced_rag_${Date.now()}`;
+      const forcedCall = {
+        id: forcedId,
+        type: "function",
+        function: { name: "rag_search", arguments: JSON.stringify({ question: message }) },
+      };
+      try {
+        const executedForced = await executeToolCalls([forcedCall as any]);
+        for (const ex of executedForced) {
+          toolResults.push({ tool: ex.toolLabel, result: ex.result });
+          executed0.push(ex);
+        }
+        // Añadir a los tool_calls del assistant original para que la síntesis
+        // vea el par (tool_call → tool_result) bien formado.
+        choice.tool_calls.push(forcedCall);
+      } catch (e) {
+        console.error("[force-rag] error:", e);
+      }
+    }
+
     // Regla de honestidad ante datos ausentes (inyectada como system extra).
     const HONESTY_RULE = `\n\nREGLA DE HONESTIDAD ANTE DATOS AUSENTES: Si el usuario pide una métrica que NO existe en los datos consultados (p.ej. rentabilidad, margen, ingresos, ROI cuando las tablas no tienen esos campos), DILO CLARAMENTE en una frase y ofrece la alternativa más cercana disponible (p.ej. estado del pipeline, probabilidad_cierre, presupuesto_estimado si existe). NUNCA rellenes con un volcado de registros para disimular que el dato falta. NUNCA inventes columnas ni interpretes campos que no aparezcan en los resultados de tools.\n\nREGLA ANTI-RUIDO (RAG SIN RESULTADOS): Si rag_search NO devuelve fuentes relevantes que respondan a la pregunta (matches vacío, o los chunks devueltos hablan de otro tema), responde CORTO y CLARO: "No encuentro información sobre X en los documentos disponibles." NO listes documentos irrelevantes de relleno, NO enumeres títulos de docs que no responden. Prohibido citar un documento que no aporta la respuesta.\n\nRENTABILIDAD DE PROYECTOS: no existe un único campo 'rentabilidad'. Para responder sobre el proyecto más rentable, analiza comision_total / comision_firma / comision_apertura / honorarios_recibidos y pondera por estatus_comercial (Firmado = ingreso confirmado; Abierto = potencial de pipeline; Caído = descartar; Stand By / Cerrado = tratar aparte). Distingue SIEMPRE entre comisión ya firmada/cobrada y comisión potencial de pipeline. Si el usuario pregunta por rentabilidad, ordena por la métrica adecuada y explica el criterio usado. Ojo: puede haber proyectos duplicados por nombre; agrégalos o avisa si los ves.\n\nREGLA ANTI-SUPERFICIALIDAD (RESPONDE COMO ANALISTA, NO COMO VOLCADO DE COLUMNAS): NUNCA te limites a listar los campos básicos de la base de datos (nombre, tipo, fecha, estado). Explica QUÉ es la cosa y por qué importa para el negocio. Prioriza SIEMPRE los campos de texto libre y de negocio: descripcion, notas, metadata->>'Fase', metadata->>'Today & Next Step', cliente_prop, comision_total, estatus_comercial, próxima acción, ubicacion, responsable. La descripción de un proyecto/operador/contacto suele contener lo más importante — inclúyela y explícala con tus propias palabras. Redacta 2-5 frases con contenido real: qué es, en qué punto está, qué se sabe del negocio (cliente/comisión/próximo paso) y qué es relevante. Si un campo clave está vacío (no hay comisión ni cliente registrados), puedes mencionarlo brevemente como dato que falta, pero el foco es siempre lo que SÍ se sabe. Para preguntas del tipo "háblame de / qué sabes de / info sobre / cuál es nuestro último [proyecto|operador|contacto]", NO te conformes con una sola fila: reúne descripcion+notas+metadata+comision+estatus, y si procede, contactos vinculados (proyecto_contactos), actividad reciente (actividad_proyecto) y documentos vinculados. Sintetiza TODO en la respuesta, no solo la primera tool. IMPORTANTE al usar db_query sobre proyectos/operadores/contactos: usa select="*" o incluye explícitamente descripcion, notas, metadata, comision_total, estatus_comercial, cliente_prop — no solo id/nombre/tipo/estado.`;
 
