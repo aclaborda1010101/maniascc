@@ -211,8 +211,11 @@ serve(async (req) => {
     }
 
     const admin = createClient(SUPABASE_URL, SERVICE_KEY);
-    let proyectoId: string | null = filters?.proyecto_id || null;
+    // Filtro DURO: solo cuando el frontend lo pasa explícitamente (p.ej. desde ficha de proyecto).
+    const explicitProyectoId: string | null = filters?.proyecto_id || null;
+    // Pista textual: proyecto adivinado del texto de la pregunta. NO se usa como filtro.
     let resolvedProyecto: { id: string; nombre: string } | null = null;
+    let proyectoId: string | null = explicitProyectoId;
 
     // Auto-resolver proyecto_id por nombre cuando no viene en filtros.
     // Permite que preguntas tipo "info sobre La Milla Arganda" enfoquen la búsqueda.
