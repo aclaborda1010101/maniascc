@@ -288,18 +288,20 @@ serve(async (req) => {
         p_dominio: dominios ? null : dominio,
         p_proyecto_id: proyectoId || null,
         p_limit: 40,
-        p_user_id: userId,
+        p_user_id: effectiveUserId,
       };
       if (dominios) rpcArgs.p_dominios = dominios;
       console.time("rag:hybrid");
       const { data: hybrid, error: hybridErr } = await admin.rpc("rag_hybrid_search", rpcArgs as never);
       console.timeEnd("rag:hybrid");
       if (hybridErr) console.warn("rag:hybrid error", hybridErr.message);
-      // Visibility ya viene filtrada en SQL (p_user_id). Mantenemos safety net.
-      contextChunks = (hybrid || []).filter((c: any) =>
-        c.owner_id === userId || ["shared", "global"].includes(c.visibility)
-      );
-      console.log(`rag:hybrid: ${hybrid?.length ?? 0} candidates (visibility-filtered in SQL) → ${contextChunks.length} final`);
+      // Admins: sin safety-net (ven todo). No-admins: filtro por visibility.
+      contextChunks = isAdmin
+        ? (hybrid || [])
+        : (hybrid || []).filter((c: any) =>
+            c.owner_id === userId || ["shared", "global"].includes(c.visibility)
+          );
+      console.log(`rag:hybrid: ${hybrid?.length ?? 0} candidates → ${contextChunks.length} final (admin=${isAdmin})`);
     }
 
     if (contextChunks.length === 0) {
