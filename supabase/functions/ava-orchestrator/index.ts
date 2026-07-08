@@ -202,6 +202,15 @@ function isProQuery(text: string): boolean {
   return PRO_KEYWORDS.some(k => t.includes(k));
 }
 
+// Preguntas de entidad ("qué sabes de X", "háblame de Y", "info sobre Z"…).
+// Estas SIEMPRE deben pasar por rag_search (búsqueda documental) además del
+// db_query que decida el router, para no depender del criterio del router.
+const ENTITY_QUESTION_RE = /(?:^|\s)(?:qu[eé] sab(?:es|emos) de|h[aá]blame de|cu[eé]ntame(?: sobre| de)?|info(?:rmaci[oó]n)? (?:sobre|de)|dame (?:el )?(?:estado|resumen|info) de|res[uú]me(?:me)?|dime (?:algo )?(?:sobre|de)|estado de|ficha de|actual[ií]zame (?:sobre|de))\s+/i;
+function isEntityQuestion(text: string): boolean {
+  if (!text) return false;
+  return ENTITY_QUESTION_RE.test(text);
+}
+
 // Pricing (EUR, ~0.92 USD→EUR)
 const MODEL_PRICING: Record<string, { in: number; out: number }> = {
   "google/gemini-2.5-flash":      { in: 0.30 / 1_000_000 * 0.92, out: 2.50 / 1_000_000 * 0.92 },
