@@ -309,8 +309,8 @@ serve(async (req) => {
         .from("document_chunks")
         .select("id, contenido, chunk_index, metadata, documento_id, dominio")
         .textSearch("contenido", question, { type: "websearch", config: "spanish" })
-        .or(visibilityOr)
         .limit(15);
+      if (!isAdmin) q = q.or(visibilityOr);
       if (proyectoId) q = q.eq("proyecto_id", proyectoId);
       if (dominios) q = q.in("dominio", dominios);
       else if (dominio) q = q.eq("dominio", dominio);
@@ -325,8 +325,8 @@ serve(async (req) => {
           .from("document_chunks")
           .select("id, contenido, chunk_index, metadata, documento_id, dominio")
           .ilike("contenido", `%${words[0]}%`)
-          .or(visibilityOr)
           .limit(10);
+        if (!isAdmin) fb = fb.or(visibilityOr);
         if (proyectoId) fb = fb.eq("proyecto_id", proyectoId);
         if (dominios) fb = fb.in("dominio", dominios);
         else if (dominio) fb = fb.eq("dominio", dominio);
