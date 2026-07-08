@@ -67,8 +67,6 @@ export { toolLabel };
 export interface UseChatMessagesOptions {
   /** Lista de dominios RAG permitidos. Se reenvía en cada llamada al orquestador como `domain_filter`. */
   domainFilterRef?: React.MutableRefObject<string[] | null>;
-  /** Si está activo, fuerza el modelo Pro en el orquestador independientemente del routing automático. */
-  forceProRef?: React.MutableRefObject<boolean>;
 }
 
 export function useChatMessages(options: UseChatMessagesOptions = {}) {
@@ -82,7 +80,6 @@ export function useChatMessages(options: UseChatMessagesOptions = {}) {
   const [pendingAttachments, setPendingAttachments] = useState<AvaAttachment[]>([]);
   const scrollRef = useRef<HTMLDivElement>(null);
   const domainFilterRef = options.domainFilterRef;
-  const forceProRef = options.forceProRef;
 
   const loading = loadingConvs.has(activeConversationId);
 
@@ -368,8 +365,6 @@ export function useChatMessages(options: UseChatMessagesOptions = {}) {
           history: recentMessages.slice(0, -1),
           attachments_context: attachmentsContext || undefined,
           domain_filter: Array.isArray(domainFilter) && domainFilter.length > 0 ? domainFilter : undefined,
-          force_pro: forceProRef?.current === true ? true : undefined,
-          pro_mode: forceProRef?.current === true ? true : undefined,
           conversation_id: convId,
         },
       });

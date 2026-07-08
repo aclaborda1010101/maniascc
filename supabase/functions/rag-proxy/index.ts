@@ -364,8 +364,9 @@ serve(async (req) => {
       }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
-    // Rerank LLM sobre hasta 40 candidatos → top 8. Fallback: primeros 8 por hybrid_score.
-    const rerankPool = contextChunks.slice(0, 40);
+    // Rerank LLM sobre hasta 20 candidatos → top 8. Fallback: primeros 8 por hybrid_score.
+    // (Reducido de 40 a 20 para bajar latencia del rerank de ~6s a ~3s.)
+    const rerankPool = contextChunks.slice(0, 20);
     let rerankLatency = 0;
     let rerankUsed = false;
     const rr = await rerankCandidates(question, rerankPool, LOVABLE_API_KEY);
