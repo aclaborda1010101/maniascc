@@ -217,9 +217,11 @@ serve(async (req) => {
     let resolvedProyecto: { id: string; nombre: string } | null = null;
     let proyectoId: string | null = explicitProyectoId;
 
-    // Auto-resolver proyecto_id por nombre cuando no viene en filtros.
-    // Permite que preguntas tipo "info sobre La Milla Arganda" enfoquen la búsqueda.
-    if (!proyectoId) {
+    // Auto-resolver proyecto por nombre (SOLO pista textual, NO filtro).
+    // Antes: se usaba como p_proyecto_id y cegaba la búsqueda (ej. 875 chunks NULL
+    // sobre La Milla quedaban excluidos). Ahora se guarda en resolvedProyecto para
+    // metadata/UX pero NO se aplica como filtro duro.
+    if (!explicitProyectoId) {
       try {
         const { data: proyectos } = await admin
           .from("proyectos")
@@ -234,16 +236,14 @@ serve(async (req) => {
           for (const p of sorted) {
             const pn = norm(p.nombre || "");
             if (pn.length < 4) continue;
-            // Match exacto (substring)
             if (qn.includes(pn)) {
-              proyectoId = p.id; resolvedProyecto = { id: p.id, nombre: p.nombre };
-              console.log(`rag:proyecto-resolved exact: "${p.nombre}"`); break;
+              resolvedProyecto = { id: p.id, nombre: p.nombre };
+              console.log(`rag:proyecto-resolved exact (hint only): "${p.nombre}"`); break;
             }
-            // Match flexible: todas las palabras significativas (≥3 chars, no stopwords) presentes
             const tokens = pn.split(/\s+/).filter((t) => t.length >= 3 && !STOP.has(t));
             if (tokens.length >= 2 && tokens.every((t) => qn.includes(t))) {
-              proyectoId = p.id; resolvedProyecto = { id: p.id, nombre: p.nombre };
-              console.log(`rag:proyecto-resolved tokens: "${p.nombre}"`); break;
+              resolvedProyecto = { id: p.id, nombre: p.nombre };
+              console.log(`rag:proyecto-resolved tokens (hint only): "${p.nombre}"`); break;
             }
           }
         }
