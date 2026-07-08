@@ -17,6 +17,10 @@ import { ThemeToggle } from "@/components/ThemeToggle";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
+import DedupProyectosPanel from "@/components/admin/DedupProyectosPanel";
+import GoldenSetPanel from "@/components/admin/GoldenSetPanel";
+import M365Panel from "@/components/admin/M365Panel";
+import ReclasificacionPanel from "@/components/admin/ReclasificacionPanel";
 
 /* ═══════════════════════════════════════════════════
    TAB: Conexiones (WhatsApp + Email)
