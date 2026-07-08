@@ -502,7 +502,7 @@ export default function AsistenteIA() {
               );
             })}
 
-            {loading && <AvaThinkingIndicator pro={forcePro} />}
+            {loading && <AvaThinkingIndicator />}
           </div>
         </div>
 
