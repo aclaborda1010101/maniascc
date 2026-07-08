@@ -184,26 +184,13 @@ export default function AsistenteIA() {
     domainFilterRef.current = domainFilter;
   }, [domainFilter]);
 
-  // Pro toggle: fuerza el modelo Pro en el orquestador.
-  const [forcePro, setForcePro] = useState<boolean>(() => {
-    if (typeof window === "undefined") return false;
-    return localStorage.getItem("ava-force-pro") === "1";
-  });
-  const forceProRef = useRef<boolean>(forcePro);
-  useEffect(() => {
-    forceProRef.current = forcePro;
-    if (typeof window !== "undefined") {
-      localStorage.setItem("ava-force-pro", forcePro ? "1" : "0");
-    }
-  }, [forcePro]);
-
   const {
     conversations, activeConversationId, messages, input, setInput,
     loading, sendMessage, clearChat, scrollRef,
     createConversation, switchConversation, renameConversation, deleteConversation,
     pendingAttachments, addAttachments, removeAttachment, resolvePendingAction,
     appendInput, lastAssistantContent,
-  } = useChatMessages({ domainFilterRef, forceProRef });
+  } = useChatMessages({ domainFilterRef });
   const { user } = useAuth();
   const userName = (user?.user_metadata?.nombre as string) || user?.email?.split("@")[0] || "";
 
