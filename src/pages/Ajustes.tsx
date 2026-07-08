@@ -258,6 +258,17 @@ function TabAuditoria() {
    TAB: Configuración
    ═══════════════════════════════════════════════════ */
 function TabConfiguracion() {
+  const { user } = useAuth();
+  const [isAdmin, setIsAdmin] = useState(false);
+
+  useEffect(() => {
+    if (!user) return;
+    (async () => {
+      const { data } = await supabase.from("user_roles").select("role").eq("user_id", user.id);
+      setIsAdmin((data || []).some((r: any) => r.role === "admin"));
+    })();
+  }, [user]);
+
   return (
     <div className="space-y-4">
       <Card>
@@ -267,7 +278,14 @@ function TabConfiguracion() {
             <div><Label className="text-xs text-muted-foreground">Orquestador</Label><p className="text-sm font-mono mt-1">ava-orchestrator</p></div>
             <div><Label className="text-xs text-muted-foreground">RAG interno</Label><p className="text-sm font-mono mt-1">rag-proxy + document_chunks</p></div>
             <div><Label className="text-xs text-muted-foreground">Gateway IA</Label><p className="text-sm font-mono mt-1">Lovable AI Gateway</p></div>
-            <div><Label className="text-xs text-muted-foreground">Modelo principal</Label><p className="text-sm font-mono mt-1">google/gemini-2.5-flash</p></div>
+            <div className="sm:col-span-2">
+              <Label className="text-xs text-muted-foreground">Modelos en uso</Label>
+              <ul className="text-sm font-mono mt-1 space-y-0.5">
+                <li>· Síntesis / chat: <span className="text-foreground">google/gemini-3.5-flash</span></li>
+                <li>· RAG + reranking: <span className="text-foreground">google/gemini-2.5-flash</span></li>
+                <li>· Pro / informes + escalación: <span className="text-foreground">anthropic/claude-sonnet-4.6</span> <span className="text-muted-foreground">(vía OpenRouter)</span></li>
+              </ul>
+            </div>
           </div>
         </CardContent>
       </Card>
@@ -292,6 +310,19 @@ function TabConfiguracion() {
           </div>
         </CardContent>
       </Card>
+
+      {isAdmin && (
+        <div className="space-y-4 pt-2">
+          <div className="flex items-center gap-2 pt-2">
+            <Shield className="h-4 w-4 text-primary" />
+            <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Administración (solo admin)</h3>
+          </div>
+          <ReclasificacionPanel />
+          <DedupProyectosPanel />
+          <GoldenSetPanel />
+          <M365Panel />
+        </div>
+      )}
     </div>
   );
 }
