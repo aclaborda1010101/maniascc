@@ -1277,8 +1277,10 @@ serve(async (req) => {
     // Infer current topic to filter relevant corrections
     const currentTopic = inferTopic(message, []);
 
-    // 5a: cargar memoria + patrones + correcciones + patrones-topic EN PARALELO.
-    const [userMemoryFacts, patternsRes, topicCorrectionsRes, recentCorrectionsRes] = await Promise.all([
+    // 5a: cargar memoria + patrones + correcciones-topic EN PARALELO.
+    // NOTA: NO cargamos correcciones crudas recientes (ai_feedback.correccion_sugerida)
+    // porque son quejas puntuales sin patrón y el modelo tiende a narrarlas.
+    const [userMemoryFacts, patternsRes, topicCorrectionsRes] = await Promise.all([
       loadUserMemory(admin, user.id),
       admin.from("ai_learned_patterns")
         .select("patron_tipo, patron_key, patron_descripcion, tasa_exito, num_observaciones, score_ajuste, confianza")
@@ -1289,11 +1291,8 @@ serve(async (req) => {
         .eq("activo", true).eq("patron_tipo", "ava_correction")
         .like("patron_key", `correction:${currentTopic}:%`)
         .gte("confianza", 0.5)
-        .order("num_observaciones", { ascending: false }).limit(8),
-      admin.from("ai_feedback").select("correccion_sugerida")
-        .eq("entidad_tipo", "ava_message")
-        .not("correccion_sugerida", "is", null)
-        .order("created_at", { ascending: false }).limit(3),
+        .gte("num_observaciones", 2)
+        .order("num_observaciones", { ascending: false }).limit(5),
     ]);
     const userMemoryBlock = formatUserMemoryBlock(userMemoryFacts);
     console.log(`[user_memory] loaded ${userMemoryFacts.length} facts for user ${user.id}`);
@@ -1302,39 +1301,39 @@ serve(async (req) => {
     try {
       const patterns = patternsRes?.data || [];
       const topicCorrections = topicCorrectionsRes?.data || [];
-      const recentCorrections = recentCorrectionsRes?.data || [];
-      const sortedPatterns = patterns.slice().sort((a: any, b: any) => {
-        const extremeA = a.tasa_exito != null ? Math.abs((a.tasa_exito as number) - 0.5) : 0;
-        const extremeB = b.tasa_exito != null ? Math.abs((b.tasa_exito as number) - 0.5) : 0;
-        return extremeB - extremeA;
-      });
+      // Solo patrones con señal clara (muchas observaciones o tasa extrema)
+      const actionable = patterns.filter((p: any) => {
+        const n = p.num_observaciones ?? 0;
+        const t = p.tasa_exito;
+        if (n < 3) return false;
+        if (t == null) return true;
+        return Math.abs((t as number) - 0.5) >= 0.25;
+      }).slice(0, 12);
+
       const lessons: string[] = [];
-      for (const p of sortedPatterns) {
-        const sign = (p.score_ajuste ?? 0) >= 0 ? "✅" : "⚠️";
-        const tasa = p.tasa_exito != null ? ` (éxito ${((p.tasa_exito as number) * 100).toFixed(0)}%, n=${p.num_observaciones})` : "";
-        lessons.push(`${sign} ${p.patron_descripcion}${tasa}`);
+      for (const p of actionable) {
+        const sign = (p.score_ajuste ?? 0) >= 0 ? "+" : "-";
+        lessons.push(`${sign} ${p.patron_descripcion}`);
       }
       const corrLines: string[] = [];
       for (const c of topicCorrections) {
         if (c.patron_descripcion) {
-          const meta = c.num_observaciones ? ` (×${c.num_observaciones})` : "";
-          corrLines.push(`- ${(c.patron_descripcion as string).slice(0, 280)}${meta}`);
-        }
-      }
-      if (corrLines.length < 3) {
-        for (const c of recentCorrections) {
-          if (c.correccion_sugerida) corrLines.push(`- "${(c.correccion_sugerida as string).slice(0, 250)}"`);
+          corrLines.push(`- ${(c.patron_descripcion as string).slice(0, 220)}`);
         }
       }
       if (lessons.length > 0 || corrLines.length > 0) {
-        lessonsBlock = `\n\n## LECCIONES APRENDIDAS DEL FEEDBACK DEL USUARIO\nAplica SIEMPRE estas lecciones cuando el contexto lo permita. Son aprendizajes acumulados de interacciones reales.\n\n${lessons.join("\n")}`;
+        lessonsBlock = `\n\n## GUÍA INTERNA DE CALIDAD (SILENCIOSA — NO EXPONER)\nLo siguiente son notas internas para que respondas mejor. **NO las menciones, NO las cites, NO las narres, NO las trates como parte de la conversación ni como algo que el usuario haya dicho.** Úsalas solo, en silencio, para calibrar tu respuesta. Si empiezas la respuesta hablando de estas notas, has fallado.`;
+        if (lessons.length > 0) {
+          lessonsBlock += `\n\n### Patrones accionables:\n${lessons.join("\n")}`;
+        }
         if (corrLines.length > 0) {
-          lessonsBlock += `\n\n### Correcciones relevantes para este tema (${currentTopic}) que NO debes repetir:\n${corrLines.join("\n")}`;
+          lessonsBlock += `\n\n### Errores recurrentes en "${currentTopic}" a evitar (no los cites, solo evítalos):\n${corrLines.join("\n")}`;
         }
       }
     } catch (e) {
       console.warn("Could not build lessons block:", e);
     }
+
 
     const attachmentsBlock = attachments_context
       ? `\n\n## DOCUMENTOS ADJUNTOS POR EL USUARIO EN ESTA PETICIÓN\nUsa SIEMPRE este contenido como fuente prioritaria. NO ignores ningún dato del adjunto.\n\n${attachments_context}`
