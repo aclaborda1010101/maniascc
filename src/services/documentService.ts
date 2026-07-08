@@ -32,6 +32,26 @@ export interface DocumentoExt {
   resumen_ia: string | null;
   procesado_ia: boolean | null;
   created_at: string | null;
+  metadata_extraida?: Record<string, any> | null;
+}
+
+/**
+ * Devuelve una URL para abrir el documento:
+ * - Si es de OneDrive → web_url del propio OneDrive
+ * - Si está en Storage → signed URL (1h) probando los buckets candidatos
+ */
+export async function getDocumentOpenUrl(doc: Pick<DocumentoExt, "storage_path" | "metadata_extraida">): Promise<string | null> {
+  const path = doc.storage_path || "";
+  if (path.startsWith("onedrive://")) {
+    const web = (doc.metadata_extraida as any)?.web_url;
+    return typeof web === "string" && web ? web : null;
+  }
+  const buckets = ["documentos_contratos", "documentos_generados", "ava_attachments", "multimedia_locales", "documentos"];
+  for (const bucket of buckets) {
+    const { data } = await supabase.storage.from(bucket).createSignedUrl(path, 3600);
+    if (data?.signedUrl) return data.signedUrl;
+  }
+  return null;
 }
 
 export async function fetchTaxonomias(): Promise<Taxonomia[]> {

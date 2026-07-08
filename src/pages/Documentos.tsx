@@ -12,13 +12,14 @@ import { Skeleton } from "@/components/ui/skeleton";
 import {
   FileText, Image as ImageIcon, FolderOpen, Cloud, Search, Tags, Sparkles,
   RefreshCw, Lock, Globe2, Users as UsersIcon, AlertCircle, CheckCircle2, Loader2, Upload, Database, Wand2,
-  ChevronLeft, ChevronRight,
+  ChevronLeft, ChevronRight, ExternalLink,
 } from "lucide-react";
 import { toast } from "sonner";
 import { UploadZone } from "@/components/UploadZone";
 import {
   fetchDocumentos, fetchTaxonomias, classifyDocument,
   fetchOneDriveState, startOneDriveSync, fetchIngestionJobs,
+  getDocumentOpenUrl,
   type DocumentoExt, type Taxonomia,
 } from "@/services/documentService";
 import { ingestDocument } from "@/services/ragService";
@@ -469,6 +470,26 @@ function Stat({ label, value, small }: { label: string; value: string | number; 
 function DocumentoRow({ doc, onClassify }: { doc: DocumentoExt; onClassify: () => void }) {
   const fase = FASE_LABEL[doc.fase_rag] || FASE_LABEL.pending;
   const sensCls = SENSIBILIDAD_STYLES[doc.nivel_sensibilidad] || SENSIBILIDAD_STYLES.interno;
+  const [opening, setOpening] = useState(false);
+
+  const handleOpen = async () => {
+    setOpening(true);
+    try {
+      const url = await getDocumentOpenUrl(doc);
+      if (!url) {
+        toast.error("No se pudo localizar el archivo. Puede que se haya eliminado del origen.");
+        return;
+      }
+      window.open(url, "_blank", "noopener,noreferrer");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Error al abrir el archivo");
+    } finally {
+      setOpening(false);
+    }
+  };
+
+  const isOneDrive = (doc.storage_path || "").startsWith("onedrive://");
+
   return (
     <div className="flex items-center gap-3 px-4 py-3 hover:bg-muted/30 transition-colors">
       <FileText className="h-5 w-5 text-muted-foreground/60 shrink-0" />
@@ -495,6 +516,17 @@ function DocumentoRow({ doc, onClassify }: { doc: DocumentoExt; onClassify: () =
           <Sparkles className="h-3 w-3 mr-1" /> Clasificar
         </Button>
       )}
+      <Button
+        size="sm"
+        variant="outline"
+        onClick={handleOpen}
+        disabled={opening}
+        className="h-7 text-xs gap-1 bg-accent/5 border-accent/20 hover:bg-accent/15 backdrop-blur-md"
+        title={isOneDrive ? "Abrir en OneDrive" : "Abrir archivo"}
+      >
+        {opening ? <Loader2 className="h-3 w-3 animate-spin" /> : <ExternalLink className="h-3 w-3" />}
+        {isOneDrive ? "OneDrive" : "Abrir"}
+      </Button>
     </div>
   );
 }
