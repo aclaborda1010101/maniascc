@@ -19,6 +19,7 @@ import { UploadZone } from "@/components/UploadZone";
 import {
   fetchDocumentos, fetchTaxonomias, classifyDocument,
   fetchOneDriveState, startOneDriveSync, fetchIngestionJobs,
+  getDocumentOpenUrl,
   type DocumentoExt, type Taxonomia,
 } from "@/services/documentService";
 import { ingestDocument } from "@/services/ragService";
