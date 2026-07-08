@@ -12,7 +12,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import {
   FileText, Image as ImageIcon, FolderOpen, Cloud, Search, Tags, Sparkles,
   RefreshCw, Lock, Globe2, Users as UsersIcon, AlertCircle, CheckCircle2, Loader2, Upload, Database, Wand2,
-  ChevronLeft, ChevronRight,
+  ChevronLeft, ChevronRight, ExternalLink,
 } from "lucide-react";
 import { toast } from "sonner";
 import { UploadZone } from "@/components/UploadZone";
