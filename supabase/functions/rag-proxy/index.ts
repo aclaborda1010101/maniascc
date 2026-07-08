@@ -257,7 +257,24 @@ serve(async (req) => {
       ? filters.dominios.filter((d: any) => typeof d === "string" && d.length > 0)
       : null;
     const userId = claims.user.id;
+
+    // Admin bypass: los admins ven TODO el conocimiento de la empresa (incluidos
+    // chunks private de otros usuarios). Se detecta con user_roles vía service role.
+    let isAdmin = false;
+    try {
+      const { data: roles } = await admin
+        .from("user_roles")
+        .select("role")
+        .eq("user_id", userId);
+      isAdmin = (roles || []).some((r: any) => r.role === "admin");
+    } catch (e) {
+      console.warn("rag:admin-check failed", e);
+    }
+    console.log(`rag:visibility user=${userId} isAdmin=${isAdmin}`);
+
+    // Para no-admins: filtro OR visibility. Para admins: sin filtro (ven todo).
     const visibilityOr = `visibility.in.(shared,global),owner_id.eq.${userId}`;
+    const effectiveUserId = isAdmin ? null : userId;
 
     let contextChunks: any[] = [];
     const queryEmbedding = GOOGLE_AI_API_KEY
@@ -271,18 +288,20 @@ serve(async (req) => {
         p_dominio: dominios ? null : dominio,
         p_proyecto_id: proyectoId || null,
         p_limit: 40,
-        p_user_id: userId,
+        p_user_id: effectiveUserId,
       };
       if (dominios) rpcArgs.p_dominios = dominios;
       console.time("rag:hybrid");
       const { data: hybrid, error: hybridErr } = await admin.rpc("rag_hybrid_search", rpcArgs as never);
       console.timeEnd("rag:hybrid");
       if (hybridErr) console.warn("rag:hybrid error", hybridErr.message);
-      // Visibility ya viene filtrada en SQL (p_user_id). Mantenemos safety net.
-      contextChunks = (hybrid || []).filter((c: any) =>
-        c.owner_id === userId || ["shared", "global"].includes(c.visibility)
-      );
-      console.log(`rag:hybrid: ${hybrid?.length ?? 0} candidates (visibility-filtered in SQL) → ${contextChunks.length} final`);
+      // Admins: sin safety-net (ven todo). No-admins: filtro por visibility.
+      contextChunks = isAdmin
+        ? (hybrid || [])
+        : (hybrid || []).filter((c: any) =>
+            c.owner_id === userId || ["shared", "global"].includes(c.visibility)
+          );
+      console.log(`rag:hybrid: ${hybrid?.length ?? 0} candidates → ${contextChunks.length} final (admin=${isAdmin})`);
     }
 
     if (contextChunks.length === 0) {
@@ -290,8 +309,8 @@ serve(async (req) => {
         .from("document_chunks")
         .select("id, contenido, chunk_index, metadata, documento_id, dominio")
         .textSearch("contenido", question, { type: "websearch", config: "spanish" })
-        .or(visibilityOr)
         .limit(15);
+      if (!isAdmin) q = q.or(visibilityOr);
       if (proyectoId) q = q.eq("proyecto_id", proyectoId);
       if (dominios) q = q.in("dominio", dominios);
       else if (dominio) q = q.eq("dominio", dominio);
@@ -306,8 +325,8 @@ serve(async (req) => {
           .from("document_chunks")
           .select("id, contenido, chunk_index, metadata, documento_id, dominio")
           .ilike("contenido", `%${words[0]}%`)
-          .or(visibilityOr)
           .limit(10);
+        if (!isAdmin) fb = fb.or(visibilityOr);
         if (proyectoId) fb = fb.eq("proyecto_id", proyectoId);
         if (dominios) fb = fb.in("dominio", dominios);
         else if (dominio) fb = fb.eq("dominio", dominio);
@@ -324,9 +343,9 @@ serve(async (req) => {
         .from("document_chunks")
         .select("id, contenido, chunk_index, metadata, documento_id, dominio")
         .eq("proyecto_id", proyectoId)
-        .or(visibilityOr)
         .order("created_at", { ascending: false })
         .limit(20);
+      if (!isAdmin) fbp = fbp.or(visibilityOr);
       if (dominios) fbp = fbp.in("dominio", dominios);
       else if (dominio) fbp = fbp.eq("dominio", dominio);
       const { data } = await fbp;
