@@ -343,9 +343,9 @@ serve(async (req) => {
         .from("document_chunks")
         .select("id, contenido, chunk_index, metadata, documento_id, dominio")
         .eq("proyecto_id", proyectoId)
-        .or(visibilityOr)
         .order("created_at", { ascending: false })
         .limit(20);
+      if (!isAdmin) fbp = fbp.or(visibilityOr);
       if (dominios) fbp = fbp.in("dominio", dominios);
       else if (dominio) fbp = fbp.eq("dominio", dominio);
       const { data } = await fbp;
