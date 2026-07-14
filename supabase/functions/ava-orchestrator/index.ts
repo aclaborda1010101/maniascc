@@ -161,10 +161,15 @@ Tienes una memoria global del usuario que persiste entre conversaciones.
 // - PRO_MODEL: análisis profundo, dossier, comparativas, estrategia, etc.
 //   Se activa por keywords (isProQuery) o por toggle "Pro" del usuario (force_pro).
 // ============================================================
-const DEFAULT_MODEL = "google/gemini-3.5-flash";
+// A/B override temporal: si AB_SYNTHESIS_MODEL está set, sustituye síntesis/router/smalltalk
+// por ese modelo. Se usa para simulaciones (p.ej. openai-direct/gpt-5.5). Vacío = comportamiento normal.
+const AB_MODEL = (Deno.env.get("AB_SYNTHESIS_MODEL") || "").trim();
+const DEFAULT_MODEL = AB_MODEL || "google/gemini-3.5-flash";
 const PRO_MODEL_FALLBACK = "google/gemini-3.5-flash";
-const TOOL_ROUTER_MODEL = "google/gemini-3.5-flash";
-const SMALLTALK_MODEL = "google/gemini-2.5-flash-lite";
+const TOOL_ROUTER_MODEL = AB_MODEL || "google/gemini-3.5-flash";
+const SMALLTALK_MODEL = AB_MODEL || "google/gemini-2.5-flash-lite";
+if (AB_MODEL) console.log(`[model-router] AB_SYNTHESIS_MODEL override activo: ${AB_MODEL}`);
+
 // Escalación: sonnet-4.6 vía OpenRouter (coincide con la cadena Pro para
 // máxima calidad al reparar respuestas incompletas).
 // Fallback si no hay OPENROUTER_API_KEY: gemini-3.5-flash del gateway.
