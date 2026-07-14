@@ -160,11 +160,17 @@ Tienes una memoria global del usuario que persiste entre conversaciones.
 // - DEFAULT_MODEL: síntesis estándar → gemini-3-flash-preview.
 // - PRO_MODEL: análisis profundo, dossier, comparativas, estrategia, etc.
 //   Se activa por keywords (isProQuery) o por toggle "Pro" del usuario (force_pro).
-// ============================================================
-const DEFAULT_MODEL = "google/gemini-3.5-flash";
+// - AB_SYNTHESIS_MODEL: override temporal (test A/B). Redeploy tag: ab-v2
+
+// A/B override temporal: si AB_SYNTHESIS_MODEL está set, sustituye síntesis/router/smalltalk
+// por ese modelo. Se usa para simulaciones (p.ej. openai-direct/gpt-5.5). Vacío = comportamiento normal.
+const AB_MODEL = (Deno.env.get("AB_SYNTHESIS_MODEL") || "").trim();
+const DEFAULT_MODEL = AB_MODEL || "google/gemini-3.5-flash";
 const PRO_MODEL_FALLBACK = "google/gemini-3.5-flash";
-const TOOL_ROUTER_MODEL = "google/gemini-3.5-flash";
-const SMALLTALK_MODEL = "google/gemini-2.5-flash-lite";
+const TOOL_ROUTER_MODEL = AB_MODEL || "google/gemini-3.5-flash";
+const SMALLTALK_MODEL = AB_MODEL || "google/gemini-2.5-flash-lite";
+console.log(`[boot] AB_MODEL="${AB_MODEL}" (raw="${Deno.env.get("AB_SYNTHESIS_MODEL") || ""}") DEFAULT_MODEL=${DEFAULT_MODEL}`);
+
 // Escalación: sonnet-4.6 vía OpenRouter (coincide con la cadena Pro para
 // máxima calidad al reparar respuestas incompletas).
 // Fallback si no hay OPENROUTER_API_KEY: gemini-3.5-flash del gateway.
@@ -223,6 +229,10 @@ const MODEL_PRICING: Record<string, { in: number; out: number }> = {
   "openai/gpt-5":                 { in: 2.50 / 1_000_000 * 0.92, out: 10.00 / 1_000_000 * 0.92 },
   "openrouter/anthropic/claude-haiku-4.5":  { in: 1.00 / 1_000_000 * 0.92, out: 5.00 / 1_000_000 * 0.92 },
   "openrouter/anthropic/claude-sonnet-4.6": { in: 3.00 / 1_000_000 * 0.92, out: 15.00 / 1_000_000 * 0.92 },
+  // A/B test: OpenAI directo (GPT-5 family). Precios estimados (USD/1M → EUR).
+  "openai-direct/gpt-5.5":                  { in: 5.00 / 1_000_000 * 0.92, out: 20.00 / 1_000_000 * 0.92 },
+  "openai-direct/gpt-5.4":                  { in: 3.00 / 1_000_000 * 0.92, out: 12.00 / 1_000_000 * 0.92 },
+  "openai-direct/gpt-5":                    { in: 2.50 / 1_000_000 * 0.92, out: 10.00 / 1_000_000 * 0.92 },
 };
 
 // ============================================================
@@ -232,14 +242,23 @@ const MODEL_PRICING: Record<string, { in: number; out: number }> = {
 // ============================================================
 const OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions";
 const LOVABLE_GATEWAY_URL = "https://ai.gateway.lovable.dev/v1/chat/completions";
+const OPENAI_DIRECT_URL = "https://api.openai.com/v1/chat/completions";
 
-function endpointFor(model: string): { url: string; key: string | undefined; model: string; provider: "openrouter" | "gateway" } {
+function endpointFor(model: string): { url: string; key: string | undefined; model: string; provider: "openrouter" | "gateway" | "openai-direct" } {
   if (model.startsWith("openrouter/")) {
     return {
       url: OPENROUTER_URL,
       key: Deno.env.get("OPENROUTER_API_KEY"),
       model: model.slice("openrouter/".length),
       provider: "openrouter",
+    };
+  }
+  if (model.startsWith("openai-direct/")) {
+    return {
+      url: OPENAI_DIRECT_URL,
+      key: Deno.env.get("OPENAI_API_KEY"),
+      model: model.slice("openai-direct/".length),
+      provider: "openai-direct",
     };
   }
   return {
@@ -257,15 +276,30 @@ function endpointFor(model: string): { url: string; key: string | undefined; mod
 function prepareCall(model: string, bodyReq: Record<string, unknown>): { url: string; headers: Record<string, string>; body: string } | null {
   const ep = endpointFor(model);
   if (!ep.key) {
-    console.warn(`[model-router] skipping ${model}: ${ep.provider === "openrouter" ? "OPENROUTER_API_KEY" : "LOVABLE_API_KEY"} not configured`);
+    const keyName = ep.provider === "openrouter" ? "OPENROUTER_API_KEY"
+      : ep.provider === "openai-direct" ? "OPENAI_API_KEY"
+      : "LOVABLE_API_KEY";
+    console.warn(`[model-router] skipping ${model}: ${keyName} not configured`);
     return null;
+  }
+  const body: Record<string, unknown> = { ...bodyReq, model: ep.model };
+  // GPT-5.x reasoning models (openai-direct) rechazan temperature/top_p distintos del default.
+  if (ep.provider === "openai-direct" && /^gpt-5/i.test(ep.model)) {
+    delete body.temperature;
+    delete body.top_p;
+    // max_tokens -> max_completion_tokens en modelos reasoning
+    if (body.max_tokens != null && body.max_completion_tokens == null) {
+      body.max_completion_tokens = body.max_tokens;
+      delete body.max_tokens;
+    }
   }
   return {
     url: ep.url,
     headers: { Authorization: `Bearer ${ep.key}`, "Content-Type": "application/json" },
-    body: JSON.stringify({ ...bodyReq, model: ep.model }),
+    body: JSON.stringify(body),
   };
 }
+
 
 // ============================================================
 // Streaming helper: llama al gateway con stream:true y acumula la
@@ -1175,6 +1209,9 @@ serve(async (req) => {
     const history = sanitizeHistory(rawHistory);
     // Acepta force_pro (legacy) o pro_mode (nuevo) desde la UI.
     const force_pro: boolean = !!(body.force_pro || body.pro_mode);
+    // A/B override: si el caller pasa override_model, sustituye síntesis/router/smalltalk (test A/B).
+    const overrideModel: string | null = typeof body.override_model === "string" && body.override_model.trim()
+      ? body.override_model.trim() : null;
     // Lista de dominios RAG permitidos por el usuario (multi-select). Si no llega, no se filtra (compat).
     const allowedDomains: string[] | null =
       Array.isArray(domain_filter) && domain_filter.every((d: any) => typeof d === "string") && domain_filter.length > 0
@@ -1188,8 +1225,11 @@ serve(async (req) => {
 
     // Router de modelos: Pro si el toggle está activo o si el query lo justifica.
     const useProModel = force_pro || isProQuery(message);
-    const SYNTHESIS_MODEL = useProModel ? PRO_MODEL : DEFAULT_MODEL;
-    console.log(`[model-router] synthesis=${SYNTHESIS_MODEL} (force_pro=${force_pro}, pro_query=${isProQuery(message)}, chain=${PRO_MODEL_CHAIN.join(",")})`);
+    const SYNTHESIS_MODEL = overrideModel || (useProModel ? PRO_MODEL : DEFAULT_MODEL);
+    const EFFECTIVE_TOOL_ROUTER = overrideModel || TOOL_ROUTER_MODEL;
+    const EFFECTIVE_SMALLTALK = overrideModel || SMALLTALK_MODEL;
+    console.log(`[model-router-v3] synthesis=${SYNTHESIS_MODEL} override=${overrideModel || "none"} force_pro=${force_pro} pro_query=${isProQuery(message)}`);
+
 
     const startTime = Date.now();
 

@@ -1,87 +1,57 @@
+# Simulación A/B: AVA con GPT vs Gemini (temporal, con rollback)
 
-# Clasificador de correo M365 — Plan de implementación
+## Aclaración sobre el modelo pedido
+No existe ningún modelo llamado **"GPT-5.6 Luna"** ni en el catálogo de Lovable AI ni en la API pública de OpenAI. Los modelos reales de la familia GPT-5 más recientes son: `gpt-5`, `gpt-5.2`, `gpt-5.4`, `gpt-5.5` (y variantes mini/nano).
 
-Sistema end-to-end: Exchange journaling → buzón captura → Graph → clasificación IA → nutrición app + archivo OneDrive/RAG → bandeja humana.
+Como pediste "y si no está en Lovable AI, usa directamente API key de OpenAI" — buena noticia: **`OPENAI_API_KEY` ya está configurada** como secret del proyecto. Propongo usar `gpt-5.5` (el más capaz de la familia, equivalente en gama alta a lo que sugiere "Luna") vía OpenAI directo. Si prefieres otro (gpt-5.4, gpt-5, mini), lo cambio en un parámetro.
 
-## 1. Migración BD
+## Alcance
+Golden-run parcial A/B **+** 3 preguntas manuales de muestra, **temporal**, con **rollback automático a Gemini** al terminar.
 
-**`email_ingest_queue`** — cola cruda de mensajes journaled:
-- Campos: `graph_message_id`, `internet_message_id` UNIQUE, `conversation_id`, `received_at`, `from_email`, `from_name`, `to_emails[]`, `cc_emails[]`, `subject`, `body_text` (≤20k), `has_attachments`, `attachments` jsonb, `status` (`pending|needs_review|applied|discarded|error`), `classification` jsonb (proyecto_id, operador_id, contacto_ids, categoria, confianza, resumen, motivo, fuente_clasificacion), `applied_at`, `error_msg`.
-- Índices: `status`, `conversation_id`, `received_at`.
-- RLS: SELECT/UPDATE solo admin+gestor (patrón `auditoria_ia`). GRANT authenticated+service_role.
+## Qué voy a hacer
 
-**`email_classifier_settings`** — singleton config:
-- `umbral_auto numeric default 0.80`, `activo boolean default true`, `updated_at`.
-- RLS: solo admin lee/edita; service_role total.
-- Semilla: 1 fila.
+### 1. Añadir provider OpenAI directo al orquestador
+En `supabase/functions/ava-orchestrator/index.ts`, extender `endpointFor(model)` para reconocer prefijo `openai-direct/*` → `https://api.openai.com/v1/chat/completions` con `Authorization: Bearer ${OPENAI_API_KEY}`. No toca la ruta actual del Lovable AI Gateway.
 
-## 2. Edge function `m365-journal-sync`
+### 2. Flag de A/B por variable de entorno
+Nueva env var opcional `AB_SYNTHESIS_MODEL`. Si está puesta, `DEFAULT_MODEL`, `TOOL_ROUTER_MODEL` y `SMALLTALK_MODEL` se sobrescriben con ese valor. Si está vacía → comportamiento actual (Gemini). Actualizar `MODEL_PRICING` con la tarifa de gpt-5.5 para que el coste se calcule bien.
 
-- `verify_jwt=false` + validación interna: acepta service-role key o JWT con rol admin/gestor.
-- Guard "M365 no configurado" si faltan los 4 secrets (`M365_TENANT_ID`, `M365_CLIENT_ID`, `M365_CLIENT_SECRET`, `M365_JOURNAL_MAILBOX`).
-- Token app-only via `login.microsoftonline.com/.../oauth2/v2.0/token` (client_credentials, scope `.default`).
-- Cursor persistido en `sync_state` (`channel='m365_journal'`, owner=primer admin).
-- GET Graph `/users/{mailbox}/mailFolders/inbox/messages` con `$filter=receivedDateTime gt {cursor}`, `$top=50`, `$orderby asc`, `$select` mínimo. Paginación `@odata.nextLink` hasta 10 páginas.
-- Dedup por `internet_message_id`.
-- Filtro basura regex remitentes `noreply|no-reply|notifications|newsletter|mailer-daemon|donotreply` → insert `discarded` con motivo `automatico`.
-- `htmlToText` copiado desde `email-sync-outlook`.
-- Truncar body a 20k. Actualizar cursor con último `receivedDateTime`.
-- Fire-and-forget invocar `email-classify-journal` al terminar.
+### 3. Ejecutar la simulación
+1. Baseline Gemini: correr `golden-run` con `run_name='ab_gemini_baseline'` (sin flag).
+2. Set flag `AB_SYNTHESIS_MODEL=openai-direct/gpt-5.5` (via `set_secret`).
+3. Correr `golden-run` con `run_name='ab_gpt55_luna'`.
+4. Lanzar 3 preguntas manuales contra el orquestador con GPT activo:
+   - "¿cuál es nuestro último proyecto?"
+   - "¿qué sabes de La Milla?"
+   - "¿cuántos operadores tenemos en Madrid?"
+5. **Rollback**: borrar `AB_SYNTHESIS_MODEL` → vuelve a Gemini automáticamente.
 
-## 3. Edge function `email-classify-journal`
+### 4. Reportar comparativa
+Tabla lado a lado:
 
-Misma auth. Toma hasta 20 `pending`. Pipeline por item (parar en primer paso de alta confianza, registrar `fuente_clasificacion`):
+| Métrica | Gemini (baseline) | GPT-5.5 |
+|---|---|---|
+| Accuracy global | % | % |
+| Hallucination rate | % | % |
+| Latency p50 / p95 | ms | ms |
+| Coste medio / pregunta | € | € |
+| Preguntas ganadas por cada modelo | n | n |
 
-- (a) **Owner**: `perfiles.email` ∈ from/to/cc → owner; fallback primer admin.
-- (b) **Contactos**: emails externos ∈ `contactos.email` → `contacto_ids`.
-- (c) **Herencia de hilo**: último `applied` con mismo `conversation_id` → hereda proyecto/operador (conf 0.95, fuente `hilo`).
-- (d) **Patrones aprendidos**: `ai_learned_patterns` con `pattern_type='email_classification'` por email o dominio del remitente.
-- (e) **Match determinista de proyecto**: normaliza sin acentos, minúsculas, tokens ≥3 chars sin stopwords, contra `proyectos.nombre` en subject+body. Score por overlap.
-- (f) **Vínculos**: contacto→proyecto via `proyecto_contactos`; contacto→operador via campo operador en `contactos`.
-- (g) **LLM fallback**: `google/gemini-3.5-flash` via Lovable AI Gateway con tool call estructurado. Input: subject, body[0:3000], remitentes/destinatarios, hasta 150 proyectos y 150 operadores candidatos (id+nombre). Output: `{es_relevante, proyecto_id|null, operador_id|null, categoria, confianza, resumen}`. Registro en `auditoria_ia` (`funcion_ia='email-classify'`, tokens+latencia).
-- (h) **Decisión**: `!es_relevante` → `discarded`; `confianza ≥ umbral_auto` → aplicar + `applied`; si no → `needs_review`.
+Más las 3 respuestas manuales literales de cada modelo para juicio cualitativo.
 
-## 4. Aplicar clasificación (helper compartido)
+## Qué NO voy a tocar
+- RAG, harness, seguridad, UI.
+- Cadena Pro ni escalación (siguen igual, se miden solo el camino estándar).
+- Ningún default se queda cambiado tras el test.
 
-Reutilizado por auto-aplicación y por confirmar/corregir en la bandeja.
+## Detalles técnicos
+- Cambio mínimo: ~30 líneas en `ava-orchestrator/index.ts` (nuevo branch en `endpointFor` + lectura de `AB_SYNTHESIS_MODEL` en la sección MODEL ROUTER).
+- Nuevo secret temporal: `AB_SYNTHESIS_MODEL` (se borra al final).
+- Cada corrida del golden-run tarda ~5 min; total ~15 min incluyendo las 3 preguntas manuales.
 
-- Insert `contact_messages` (`channel='email_journal'`, `external_id=internet_message_id`, direction según from ∈ perfiles). Idempotente `onConflict owner_id,channel,external_id ignoreDuplicates`.
-- Upsert `email_threads` por `thread_external_id=conversation_id` (participants, message_count, last_date, summary).
-- Insert `email_entities` para proyecto/operador con `confidence`.
-- Update `contactos.last_contact`.
-- **Adjuntos** (solo si hay `proyecto_id`):
-  - GET `/messages/{id}/attachments`; ignorar `isInline=true` o imágenes <20KB.
-  - Sube a bucket documentos: `proyectos/{proyecto_id}/email/{filename}`.
-  - Sube a OneDrive del buzón: `PUT /users/{mailbox}/drive/root:/AVA/Proyectos/{nombre_saneado}/{filename}:/content`.
-  - Insert `documentos_proyecto` (`origen='email_journal'`, `origen_external_id`, dominio según categoría, `fase_rag='pendiente'`), dispara `rag-ingest`.
-  - Dedup por `origen_external_id`.
-- Marcar item `applied` + `applied_at`.
-- Errores por item aislados: `status='error'` + `error_msg`. Prefijo logs `[m365]`.
+## Riesgos honestos
+- GPT-5.5 vía OpenAI directo probablemente será **2–4× más lento** que gemini-3.5-flash (los modelos "razonadores" GPT-5.x tardan más). Es lo que queremos medir.
+- El coste por respuesta subirá notablemente (gpt-5.5 ≈ 10–20× vs flash). No hay riesgo de gasto masivo: son ~15 preguntas × 2 modelos.
+- Si OpenAI devuelve algún parámetro incompatible (los GPT-5.x tienen restricciones sobre `temperature`, `max_tokens`), lo capturo y ajusto el body (por eso conviene un branch dedicado y no reutilizar el body de Gemini tal cual).
 
-## 5. UI
-
-- **Página `/bandeja-correo`**: lista `needs_review`, card con asunto/remitente/fecha/snippet, chips propuesta (proyecto, operador, categoría, %confianza) + resumen. Acciones: **Confirmar**, **Corregir** (selects con buscador), **Descartar**. Al corregir → guarda `ai_learned_patterns` con remitente/dominio → proyecto/operador. Ruta en `App.tsx` + sidebar.
-- **Badge pendientes** en sidebar + widget dashboard.
-- **Admin → sección "Correo M365"**: último sync, contadores por status, botón "Sincronizar ahora", `umbral_auto` editable.
-
-## 6. Cron
-
-`pg_cron` + `pg_net` cada 5min invoca `m365-journal-sync` con service-role key. Insertado vía `supabase--insert` (no migración, contiene URL+key específicas del proyecto).
-
-## Restricciones respetadas
-
-- No se tocan: `wa-evolution-webhook`, `ava-orchestrator`, `rag-proxy`, `generate-match*`, `generate-pdf*`, `email-sync-outlook`.
-- UI en español, estilo actual.
-- Guard defensivo cuando faltan secrets M365.
-
-## Orden de ejecución
-
-1. Migración (tablas + RLS + GRANTs + semilla settings).
-2. `supabase/config.toml` — añadir bloques `verify_jwt=false` para las 2 nuevas funciones.
-3. `m365-journal-sync/index.ts`.
-4. `email-classify-journal/index.ts` (incluye helper apply compartido inline).
-5. Página `BandejaCorreo.tsx` + ruta + sidebar entry + badge.
-6. Ampliar `Admin.tsx` con sección "Correo M365".
-7. Cron via `supabase--insert`.
-
-¿Procedo con esta implementación?
+¿Apruebas o cambio el modelo GPT objetivo?
