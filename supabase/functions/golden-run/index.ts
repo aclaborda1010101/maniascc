@@ -304,7 +304,9 @@ serve(async (req) => {
                   message: qn.question,
                   conversation_id: null,
                   history: [],
+                  ...(body?.override_model ? { override_model: body.override_model } : {}),
                 }),
+
                 signal: ctrl.signal,
               });
             } finally { clearTimeout(to); }
