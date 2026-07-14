@@ -1228,7 +1228,7 @@ serve(async (req) => {
     const SYNTHESIS_MODEL = overrideModel || (useProModel ? PRO_MODEL : DEFAULT_MODEL);
     const EFFECTIVE_TOOL_ROUTER = overrideModel || TOOL_ROUTER_MODEL;
     const EFFECTIVE_SMALLTALK = overrideModel || SMALLTALK_MODEL;
-    console.log(`[model-router] synthesis=${SYNTHESIS_MODEL} (force_pro=${force_pro}, pro_query=${isProQuery(message)}, override=${overrideModel || "none"}, chain=${PRO_MODEL_CHAIN.join(",")})`);
+    console.log(`[model-router-v3] synthesis=${SYNTHESIS_MODEL} override=${overrideModel || "none"} force_pro=${force_pro} pro_query=${isProQuery(message)}`);
 
 
     const startTime = Date.now();
