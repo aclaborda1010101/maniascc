@@ -160,7 +160,8 @@ Tienes una memoria global del usuario que persiste entre conversaciones.
 // - DEFAULT_MODEL: síntesis estándar → gemini-3-flash-preview.
 // - PRO_MODEL: análisis profundo, dossier, comparativas, estrategia, etc.
 //   Se activa por keywords (isProQuery) o por toggle "Pro" del usuario (force_pro).
-// ============================================================
+// - AB_SYNTHESIS_MODEL: override temporal (test A/B). Redeploy tag: ab-v2
+
 // A/B override temporal: si AB_SYNTHESIS_MODEL está set, sustituye síntesis/router/smalltalk
 // por ese modelo. Se usa para simulaciones (p.ej. openai-direct/gpt-5.5). Vacío = comportamiento normal.
 const AB_MODEL = (Deno.env.get("AB_SYNTHESIS_MODEL") || "").trim();
