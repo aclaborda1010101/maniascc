@@ -167,8 +167,10 @@ Tienes una memoria global del usuario que persiste entre conversaciones.
 const AB_MODEL = (Deno.env.get("AB_SYNTHESIS_MODEL") || "").trim();
 const DEFAULT_MODEL = AB_MODEL || "google/gemini-3.5-flash";
 const PRO_MODEL_FALLBACK = "google/gemini-3.5-flash";
-const TOOL_ROUTER_MODEL = AB_MODEL || "google/gemini-3.5-flash";
-const SMALLTALK_MODEL = AB_MODEL || "google/gemini-2.5-flash-lite";
+// Tool router & smalltalk NO se ven afectados por AB (deben ser rápidos y baratos siempre).
+const TOOL_ROUTER_MODEL = "google/gemini-3.5-flash";
+const SMALLTALK_MODEL = "google/gemini-2.5-flash-lite";
+
 console.log(`[boot] AB_MODEL="${AB_MODEL}" (raw="${Deno.env.get("AB_SYNTHESIS_MODEL") || ""}") DEFAULT_MODEL=${DEFAULT_MODEL}`);
 
 // Escalación: sonnet-4.6 vía OpenRouter (coincide con la cadena Pro para
