@@ -237,14 +237,23 @@ const MODEL_PRICING: Record<string, { in: number; out: number }> = {
 // ============================================================
 const OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions";
 const LOVABLE_GATEWAY_URL = "https://ai.gateway.lovable.dev/v1/chat/completions";
+const OPENAI_DIRECT_URL = "https://api.openai.com/v1/chat/completions";
 
-function endpointFor(model: string): { url: string; key: string | undefined; model: string; provider: "openrouter" | "gateway" } {
+function endpointFor(model: string): { url: string; key: string | undefined; model: string; provider: "openrouter" | "gateway" | "openai-direct" } {
   if (model.startsWith("openrouter/")) {
     return {
       url: OPENROUTER_URL,
       key: Deno.env.get("OPENROUTER_API_KEY"),
       model: model.slice("openrouter/".length),
       provider: "openrouter",
+    };
+  }
+  if (model.startsWith("openai-direct/")) {
+    return {
+      url: OPENAI_DIRECT_URL,
+      key: Deno.env.get("OPENAI_API_KEY"),
+      model: model.slice("openai-direct/".length),
+      provider: "openai-direct",
     };
   }
   return {
@@ -262,15 +271,30 @@ function endpointFor(model: string): { url: string; key: string | undefined; mod
 function prepareCall(model: string, bodyReq: Record<string, unknown>): { url: string; headers: Record<string, string>; body: string } | null {
   const ep = endpointFor(model);
   if (!ep.key) {
-    console.warn(`[model-router] skipping ${model}: ${ep.provider === "openrouter" ? "OPENROUTER_API_KEY" : "LOVABLE_API_KEY"} not configured`);
+    const keyName = ep.provider === "openrouter" ? "OPENROUTER_API_KEY"
+      : ep.provider === "openai-direct" ? "OPENAI_API_KEY"
+      : "LOVABLE_API_KEY";
+    console.warn(`[model-router] skipping ${model}: ${keyName} not configured`);
     return null;
+  }
+  const body: Record<string, unknown> = { ...bodyReq, model: ep.model };
+  // GPT-5.x reasoning models (openai-direct) rechazan temperature/top_p distintos del default.
+  if (ep.provider === "openai-direct" && /^gpt-5/i.test(ep.model)) {
+    delete body.temperature;
+    delete body.top_p;
+    // max_tokens -> max_completion_tokens en modelos reasoning
+    if (body.max_tokens != null && body.max_completion_tokens == null) {
+      body.max_completion_tokens = body.max_tokens;
+      delete body.max_tokens;
+    }
   }
   return {
     url: ep.url,
     headers: { Authorization: `Bearer ${ep.key}`, "Content-Type": "application/json" },
-    body: JSON.stringify({ ...bodyReq, model: ep.model }),
+    body: JSON.stringify(body),
   };
 }
+
 
 // ============================================================
 // Streaming helper: llama al gateway con stream:true y acumula la
