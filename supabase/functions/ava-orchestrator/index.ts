@@ -228,6 +228,10 @@ const MODEL_PRICING: Record<string, { in: number; out: number }> = {
   "openai/gpt-5":                 { in: 2.50 / 1_000_000 * 0.92, out: 10.00 / 1_000_000 * 0.92 },
   "openrouter/anthropic/claude-haiku-4.5":  { in: 1.00 / 1_000_000 * 0.92, out: 5.00 / 1_000_000 * 0.92 },
   "openrouter/anthropic/claude-sonnet-4.6": { in: 3.00 / 1_000_000 * 0.92, out: 15.00 / 1_000_000 * 0.92 },
+  // A/B test: OpenAI directo (GPT-5 family). Precios estimados (USD/1M → EUR).
+  "openai-direct/gpt-5.5":                  { in: 5.00 / 1_000_000 * 0.92, out: 20.00 / 1_000_000 * 0.92 },
+  "openai-direct/gpt-5.4":                  { in: 3.00 / 1_000_000 * 0.92, out: 12.00 / 1_000_000 * 0.92 },
+  "openai-direct/gpt-5":                    { in: 2.50 / 1_000_000 * 0.92, out: 10.00 / 1_000_000 * 0.92 },
 };
 
 // ============================================================
