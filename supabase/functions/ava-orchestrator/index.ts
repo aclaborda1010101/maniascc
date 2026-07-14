@@ -169,7 +169,7 @@ const DEFAULT_MODEL = AB_MODEL || "google/gemini-3.5-flash";
 const PRO_MODEL_FALLBACK = "google/gemini-3.5-flash";
 const TOOL_ROUTER_MODEL = AB_MODEL || "google/gemini-3.5-flash";
 const SMALLTALK_MODEL = AB_MODEL || "google/gemini-2.5-flash-lite";
-if (AB_MODEL) console.log(`[model-router] AB_SYNTHESIS_MODEL override activo: ${AB_MODEL}`);
+console.log(`[boot] AB_MODEL="${AB_MODEL}" (raw="${Deno.env.get("AB_SYNTHESIS_MODEL") || ""}") DEFAULT_MODEL=${DEFAULT_MODEL}`);
 
 // Escalación: sonnet-4.6 vía OpenRouter (coincide con la cadena Pro para
 // máxima calidad al reparar respuestas incompletas).
