@@ -1209,6 +1209,9 @@ serve(async (req) => {
     const history = sanitizeHistory(rawHistory);
     // Acepta force_pro (legacy) o pro_mode (nuevo) desde la UI.
     const force_pro: boolean = !!(body.force_pro || body.pro_mode);
+    // A/B override: si el caller pasa override_model, sustituye síntesis/router/smalltalk (test A/B).
+    const overrideModel: string | null = typeof body.override_model === "string" && body.override_model.trim()
+      ? body.override_model.trim() : null;
     // Lista de dominios RAG permitidos por el usuario (multi-select). Si no llega, no se filtra (compat).
     const allowedDomains: string[] | null =
       Array.isArray(domain_filter) && domain_filter.every((d: any) => typeof d === "string") && domain_filter.length > 0
@@ -1222,8 +1225,11 @@ serve(async (req) => {
 
     // Router de modelos: Pro si el toggle está activo o si el query lo justifica.
     const useProModel = force_pro || isProQuery(message);
-    const SYNTHESIS_MODEL = useProModel ? PRO_MODEL : DEFAULT_MODEL;
-    console.log(`[model-router] synthesis=${SYNTHESIS_MODEL} (force_pro=${force_pro}, pro_query=${isProQuery(message)}, chain=${PRO_MODEL_CHAIN.join(",")})`);
+    const SYNTHESIS_MODEL = overrideModel || (useProModel ? PRO_MODEL : DEFAULT_MODEL);
+    const EFFECTIVE_TOOL_ROUTER = overrideModel || TOOL_ROUTER_MODEL;
+    const EFFECTIVE_SMALLTALK = overrideModel || SMALLTALK_MODEL;
+    console.log(`[model-router] synthesis=${SYNTHESIS_MODEL} (force_pro=${force_pro}, pro_query=${isProQuery(message)}, override=${overrideModel || "none"}, chain=${PRO_MODEL_CHAIN.join(",")})`);
+
 
     const startTime = Date.now();
 
